@@ -32,18 +32,6 @@
         .row-stopped  { background: #fce4ec !important; }
         .row-locked   { color: #bbb !important; }
 
-        /* !* ════════ 반응형 ════════ *!
-         @media (max-width: 1024px) {
-             .prod-flex { flex-direction: column !important; }
-             .prod-flex > .section,
-             .prod-flex > .tab-wrap { flex: none !important; width: 100%; }
-             #proc-main-grid { height: 320px !important; }
-         }
-         @media (max-width: 600px) {
-             .work-table th, .work-table td { display: block; width: 100% !important; }
-             .work-action-buttons .btn { flex: 1; padding: 12px; font-size: 1rem; }
-         }*/
-
         /* ════════ 반응형: touch-mode(1600 밑) 기반 ════════ */
         /* 평소(PC): '목록' 탭 숨김 */
         .tab-links li:has(a[name="tabList"]) { display: none; }
@@ -76,13 +64,13 @@
         <!-- 페이지 타이틀 -->
         <div class="page-title-wrap">
             <div class="left">
-                <h2 id="pageTitle">공정 실적</h2>
+                <h2 id="pageTitle">측정/검사 실적</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>공정 실적 관리</li>
-                <li id="navProcessName">공정 실적</li>
+                <li id="navProcessName">측정/검사</li>
             </ul>
         </div>
 
@@ -187,7 +175,7 @@
                                     <input type="hidden" id="need_pro_mat_qty" name="need_pro_mat_qty"/>
                                     <input type="hidden" id="consumed_mode" name="consumed_mode" value="ACTUAL"/>
                                     <input type="hidden" id="state" name="state"/>
-                                    <input type="hidden" id="process_code" name="process_code"/>
+                                    <input type="hidden" id="process_code" name="process_code" value="p05"/>
 
                                     <table class="work-table">
                                         <caption>작업 지시 테이블</caption>
@@ -215,7 +203,7 @@
                                             <td><input type="text" id="job_state" name="job_state" readonly/></td>
                                             <th><label for="process_name">공정</label></th>
                                             <td><input type="text" id="process_name" name="process_name" readonly
-                                                       style="font-weight:bold;"/></td>
+                                                       value="측정/검사" style="font-weight:bold;"/></td>
                                         </tr>
                                         <tr>
                                             <th><label for="workcenter_name">워크센터</label></th>
@@ -271,7 +259,9 @@
                                 </form>
                             </div>
                             <!-- 공정별 확장 영역 -->
-                            <div id="processExtension"></div>
+                            <div id="processExtension">
+                                <!-- p05 측정/검사 확장 영역: 3차원 측정기 연동, 검사 성적서/불량률 자동 산출 (추후 추가) -->
+                            </div>
                         </div>
                     </section>
 
@@ -363,34 +353,24 @@
 
     <script th:inline="javascript">
         const factory_id = [[${session.factory_id}]];
-        const userid = [[${session.userid}]];
-        const GUI_CODE = [[${gui_code}]] || '';          // 예: 'prod_process_laser'
+        const userid     = [[${session.userid}]];
+        const GUI_CODE   = 'prod_process_measure';   // 고정값 (공정별 분리)
     </script>
 
     <th:block th:replace="fragments/prod_process_common :: processCommonJS"></th:block>
 
     <script type="text/javascript">
-        // 공정별 설정 (이름/색상). 뱃지는 제거, 헤더 텍스트만 사용
+        // 공정별 설정 — 이 파일은 측정/검사(p05) 전용
         const PROCESS_CONFIG = {
-            'p01': { name: '레이저 절단' },
-            'p02': { name: '머시닝센터' },
-            'p03': { name: '와이어컷 M/C' },
-            'p04': { name: '선반/밀링' },
             'p05': { name: '측정/검사' },
-            'p06': { name: '조립' },
         };
 
         const MENUCODE_TO_PROCESS = {
-            'prod_process_laser':     'p01',
-            'prod_process_machining': 'p02',
-            'prod_process_wirecut':   'p03',
-            'prod_process_lathe':     'p04',
-            'prod_process_measure':   'p05',
-            'prod_process_assembly':  'p06',
+            'prod_process_measure': 'p05',
         };
-        const PROCESS_CODE = MENUCODE_TO_PROCESS[GUI_CODE] || 'p01';
+        const PROCESS_CODE = 'p05';
 
-        class ProcDefaultPage extends ProcPageBase {
+        class ProcMeasurePage extends ProcPageBase {
             constructor(processCode) {
                 super(processCode);
                 this.config = PROCESS_CONFIG[processCode] || { name: processCode };
@@ -422,30 +402,36 @@
 
             initDefectGrid() {
                 this.defectGrid = new wijmo.grid.FlexGrid('#defect-grid', {
-                    autoGenerateColumns: false, selectionMode: wijmo.grid.SelectionMode.Row, isReadOnly: false,
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: false,
                     columns: [
                         { binding: 'defect_type', header: '부적합유형', width: '*', align: 'left', isReadOnly: true },
-                        { binding: 'defect_qty', header: '부적합량', width: 100, format: 'n0', align: 'right' },
+                        { binding: 'defect_qty',  header: '부적합량',   width: 100, format: 'n0', align: 'right' },
                     ]
                 });
             }
+
             initConsumedGrid() {
                 this.consumedGrid = new wijmo.grid.FlexGrid('#consumed-grid', {
-                    autoGenerateColumns: false, selectionMode: wijmo.grid.SelectionMode.Row, isReadOnly: true,
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
                     headersVisibility: wijmo.grid.HeadersVisibility.Column,
                     allowSorting: true,
                     formatItem: (s, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) e.cell.style.textAlign = 'center';
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader)
+                            e.cell.style.textAlign = 'center';
                     },
                     columns: [
-                        { binding: 'mat_code', header: '품목코드', width: 100, align: 'left' },
-                        { binding: 'mat_name', header: '품목', width: '*', align: 'left', minWidth: 120 },
-                        { binding: 'request_qty_sum', header: '로트투입량', width: 100, format: 'n2', align: 'right' },
-                        { binding: 'bom_consumed', header: '소요량(BOM)', width: 110, format: 'n2', align: 'right' },
-                        { binding: 'remain_input_qty', header: '잔여량', width: 90, format: 'n2', align: 'right' },
-                        { binding: 'mc_qty', header: '실생산소모량', width: 110, format: 'n2', align: 'right' },
-                        { binding: 'currentStock', header: '현재재고', width: 90, format: 'n2', align: 'right' },
-                        { binding: 'unit', header: '단위', width: 60, align: 'center' },
+                        { binding: 'mat_code',        header: '품목코드',    width: 100, align: 'left' },
+                        { binding: 'mat_name',        header: '품목',        width: '*',  align: 'left', minWidth: 120 },
+                        { binding: 'request_qty_sum', header: '로트투입량',  width: 100, format: 'n2', align: 'right' },
+                        { binding: 'bom_consumed',    header: '소요량(BOM)', width: 110, format: 'n2', align: 'right' },
+                        { binding: 'remain_input_qty',header: '잔여량',      width: 90,  format: 'n2', align: 'right' },
+                        { binding: 'mc_qty',          header: '실생산소모량', width: 110, format: 'n2', align: 'right' },
+                        { binding: 'currentStock',    header: '현재재고',    width: 90,  format: 'n2', align: 'right' },
+                        { binding: 'unit',            header: '단위',        width: 60,  align: 'center' },
                     ],
                     itemFormatter: (panel, row, col, cell) => {
                         if (panel.cellType === wijmo.grid.CellType.Cell) {
@@ -455,22 +441,25 @@
                     }
                 });
             }
+
             initInputLotGrid() {
                 this.inputLotGrid = new wijmo.grid.FlexGrid('#input-lot-grid', {
-                    autoGenerateColumns: false, selectionMode: wijmo.grid.SelectionMode.Row, isReadOnly: false,
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: false,
                     columns: [
-                        { binding: 'lot_number', header: '로트번호', width: 140, align: 'center'},
-                        {binding: 'mat_code', header: '품목코드', width: 120, align: 'center'},
-                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
-                        {binding: 'input_qty', header: '투입량', width: 90, format: 'n2', align: 'right'},
+                        { binding: 'lot_number', header: '로트번호', width: 140, align: 'center' },
+                        { binding: 'mat_code',   header: '품목코드', width: 120, align: 'center' },
+                        { binding: 'mat_name',   header: '품목명',   width: '*',  align: 'left' },
+                        { binding: 'input_qty',  header: '투입량',   width: 90,  format: 'n2', align: 'right' },
                     ]
                 });
             }
 
-        }
+        }  // end class ProcMeasurePage
 
         $(document).ready(function () {
-            window.page = new ProcDefaultPage(PROCESS_CODE);
+            window.page = new ProcMeasurePage(PROCESS_CODE);
         });
     </script>
 

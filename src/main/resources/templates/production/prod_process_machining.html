@@ -2,54 +2,48 @@
 
 <head>
     <style>
-        .background-blue { background-color: #dcf0f8 !important; font-weight: bold !important; text-align: right !important; }
-        .background-order { background-color: #e8f5e9 !important; font-weight: bold !important; text-align: right !important; }
-        .background-defect { background-color: #fce4ec !important; font-weight: bold !important; text-align: right !important; }
+        /* 기존 prod_result 수량 강조 클래스와 동일 */
+        .background-blue {
+            background-color: #dcf0f8 !important;
+            font-weight: bold !important;
+            text-align: right !important;
+        }
+        .background-order {
+            background-color: #e8f5e9 !important;
+            font-weight: bold !important;
+            text-align: right !important;
+        }
+        .background-defect {
+            background-color: #fce4ec !important;
+            font-weight: bold !important;
+            text-align: right !important;
+        }
 
+        /* ── 공정 화면 보강: 작업 버튼 크게 (키오스크/태블릿) ── */
         .work-action-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
+        .work-action-buttons .btn { min-width: 70px; }
         #btnWorkStart  { background: #4caf50 !important; color: #fff !important; }
         #btnWorkFinish { background: #1976d2 !important; color: #fff !important; }
         #btnWorkStop   { background: #ff9800 !important; color: #fff !important; }
 
+        /* ── 그리드 행 상태별 색 ── */
         .row-working  { background: #e8f5e9 !important; }
         .row-finished { background: #e3f2fd !important; }
         .row-stopped  { background: #fce4ec !important; }
         .row-locked   { color: #bbb !important; }
 
-        /* ── PLC 모니터링 패널 ── */
-        .plc-panel { padding: 14px 16px; background: linear-gradient(135deg, #1a237e, #283593); border-radius: 8px; color: #fff; }
-        .plc-panel h4 { margin: 0 0 12px; font-size: 0.85rem; letter-spacing: 1px; opacity: 0.85; }
-        .plc-gauges { display: flex; gap: 14px; flex-wrap: wrap; }
-        .plc-gauge { flex: 1; min-width: 110px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 6px; text-align: center; }
-        .plc-gauge .label { font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; }
-        .plc-gauge .value { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .plc-gauge .unit { font-size: 0.7rem; opacity: 0.6; }
-        .plc-status-bar { display: flex; gap: 8px; align-items: center; font-size: 0.8rem; margin-bottom: 10px; }
-        .plc-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-        .plc-dot.online { background: #76ff03; box-shadow: 0 0 6px #76ff03; }
-        .plc-dot.offline { background: #ff1744; }
-        .plc-progress { height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; margin-top: 6px; overflow: hidden; }
-        .plc-progress-bar { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #76ff03, #00e676); transition: width 0.5s; }
-
-        /*@media (max-width: 1024px) {
-            .prod-flex { flex-direction: column !important; }
-            .prod-flex > .section, .prod-flex > .tab-wrap { flex: none !important; width: 100%; }
-            #proc-main-grid { height: 320px !important; }
-        }
-        @media (max-width: 600px) {
-            .work-table th, .work-table td { display: block; width: 100% !important; }
-            .work-action-buttons .btn { flex: 1; padding: 12px; font-size: 1rem; }
-            .plc-gauges { flex-direction: column; }
-        }*/
         /* ════════ 반응형: touch-mode(1600 밑) 기반 ════════ */
+        /* 평소(PC): '목록' 탭 숨김 */
         .tab-links li:has(a[name="tabList"]) { display: none; }
 
+        /* touch-mode: 좌우 2단 → 단일 컬럼, 목록을 탭으로 */
         body.touch-mode .prod-flex { flex-direction: column !important; }
         body.touch-mode .prod-flex > .section { display: none; }
         body.touch-mode .prod-flex > .tab-wrap { width: 100% !important; flex: none !important; }
         body.touch-mode .tab-links li:has(a[name="tabList"]) { display: list-item; }
-        body.touch-mode #tabList #proc-main-grid { height: calc(100vh - 280px) !important; }
+        body.touch-mode #tabList #proc-main-grid { height: calc(100vh - 240px) !important; }
 
+        /* touch-mode: 글자·버튼 확대 */
         body.touch-mode .tab-links a { font-size: 1.15rem !important; padding: 14px 20px !important; }
         body.touch-mode .wj-flexgrid .wj-header { font-size: 1.05rem !important; }
         body.touch-mode .wj-flexgrid .wj-cell { font-size: 1.05rem !important; padding: 10px !important; }
@@ -59,9 +53,6 @@
         body.touch-mode .work-table select,
         body.touch-mode .work-table textarea { font-size: 1.05rem !important; min-height: 42px !important; }
         body.touch-mode .work-action-buttons .btn { font-size: 1.1rem !important; min-height: 48px !important; min-width: 90px !important; }
-
-        /* PLC 게이지: touch-mode에서 2열로 (좁은 화면 대응) */
-        body.touch-mode .plc-gauge { min-width: calc(50% - 7px); }
         /* PC: 목록 탭 콘텐츠 자체를 강제 숨김 (빈 박스 방지) */
         body:not(.touch-mode) #tabList { display: none !important; }
     </style>
@@ -70,22 +61,22 @@
 <th:block layout:fragment="content">
     <div class="layout-contents">
 
+        <!-- 페이지 타이틀 -->
         <div class="page-title-wrap">
             <div class="left">
-                <h2>머시닝센터 실적</h2>
+                <h2 id="pageTitle">머시닝센터 실적</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
-                <select style="width: 100px;" id="Factory_id" name="Factory_id"></select>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>공정 실적 관리</li>
-                <li>머시닝센터</li>
+                <li id="navProcessName">머시닝센터</li>
             </ul>
         </div>
 
         <div style="display: flex; gap: 5px;" class="prod-flex">
 
-            <!-- 좌측: 작업 목록 -->
+            <!-- ═══ 좌측: 작업 목록 ═══ -->
             <section class="section" style="flex: 1;">
                 <div class="section-top" style="justify-content: left; gap: 15px;">
                     <div class="search-wrap">
@@ -93,44 +84,71 @@
                             <dt>생산일<span class="eq">*</span></dt>
                             <dd>
                                 <ul class="date-box">
-                                    <li><input type="date" id="date_from" name="date_from"><label for="date_from" class="hide">시작일</label></li>
-                                    <li><input type="date" id="date_to" name="date_to"><label for="date_to" class="hide">종료일</label></li>
+                                    <li>
+                                        <input type="date" id="date_from" name="date_from">
+                                        <label for="date_from" class="hide">시작일</label>
+                                    </li>
+                                    <li>
+                                        <input type="date" id="date_to" name="date_to">
+                                        <label for="date_to" class="hide">종료일</label>
+                                    </li>
                                 </ul>
                             </dd>
                         </dl>
                         <dl id="searchComArea">
                             <dt>판매처</dt>
-                            <dd><input type="text" style="width: 160px;" id="CompanySearch" name="CompanySearch" placeholder="판매처"></dd>
+                            <dd>
+                                <input type="text" style="width: 160px;"
+                                       id="CompanySearch" name="CompanySearch" placeholder="판매처">
+                            </dd>
                         </dl>
                     </div>
                     <div class="search-wrap">
-                        <dl><dd><div class="srch-box"><input type="checkbox" id="chxCompYn" name="chxCompYn" checked/> 완료 포함</div></dd></dl>
-                        <dl><dd><li><a class="btn btn-search" title="검색" id="btnMainSearch"><img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색</a></li></dd></dl>
+                        <dl>
+                            <dd>
+                                <div class="srch-box">
+                                    <input type="checkbox" id="chxCompYn" name="chxCompYn" checked/>
+                                    완료 포함
+                                </div>
+                            </dd>
+                        </dl>
+                        <dl>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-search" title="검색" id="btnMainSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                        검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
                     </div>
                 </div>
+
                 <div class="container-fluid">
                     <div id="proc-main-grid"></div>
                 </div>
             </section>
 
-            <!-- 우측: 상세 -->
+            <!-- ═══ 우측: 상세 ═══ -->
             <div class="tab-wrap" style="flex: 1; min-width: 0;">
+
                 <ul class="tab-links">
                     <li><a href="#tabList" name="tabList">목록</a></li>
                     <li><a href="#tabBasic" name="tabBasic">기본 정보</a></li>
                     <li><a href="#tabConsumed" name="tabConsumed">투입 내역</a></li>
                     <li><a href="#tabChasu" name="tabChasu">차수별 생산</a></li>
                     <li><a href="#tabDefect" name="tabDefect">부적합 정보</a></li>
-                    <li><a href="#tabPLC" name="tabPLC">PLC 모니터링</a></li>
                 </ul>
 
                 <div>
+
                     <!-- ──── 목록 (태블릿/키오스크 전용) ──── -->
                     <section class="tab-item" id="tabList" style="border-top-left-radius: 0;">
-                        <!-- 검색영역+그리드가 이 안으로 이동됨 -->
+                        <!-- 좌측 목록(.section)이 이 안으로 이동됨 -->
                     </section>
 
-                    <!-- 기본정보 -->
+                    <!-- ──── 기본정보 ──── -->
                     <section class="tab-item" id="tabBasic" style="border-top-left-radius: 0;">
                         <div class="section-top">
                             <div class="button-wrap work-action-buttons">
@@ -162,8 +180,10 @@
                                     <table class="work-table">
                                         <caption>작업 지시 테이블</caption>
                                         <colgroup>
-                                            <col style="width: 20%;"><col style="width: 30%;">
-                                            <col style="width: 20%;"><col style="width: 30%;">
+                                            <col style="width: 20%;">
+                                            <col style="width: 30%;">
+                                            <col style="width: 20%;">
+                                            <col style="width: 30%;">
                                         </colgroup>
                                         <tbody>
                                         <tr>
@@ -182,7 +202,8 @@
                                             <th><label for="job_state">상태</label></th>
                                             <td><input type="text" id="job_state" name="job_state" readonly/></td>
                                             <th><label for="process_name">공정</label></th>
-                                            <td><input type="text" id="process_name" name="process_name" value="머시닝센터" readonly style="font-weight:bold;"/></td>
+                                            <td><input type="text" id="process_name" name="process_name" readonly
+                                                       value="머시닝센터" style="font-weight:bold;"/></td>
                                         </tr>
                                         <tr>
                                             <th><label for="workcenter_name">워크센터</label></th>
@@ -191,20 +212,15 @@
                                             <td><select id="equipment_id" name="equipment_id" disabled></select></td>
                                         </tr>
                                         <tr>
-                                            <th><label for="worker_id">작업자</label></th>
+                                            <th><label for="worker_id">관리자</label></th>
                                             <td colspan="3"><select id="worker_id" name="worker_id" disabled></select></td>
-                                        </tr>
-                                        <tr>
-                                            <th><label for="equ_temp">온도</label></th>
-                                            <td><input type="text" id="equ_temp" name="equ_temp" readonly style="text-align:right; font-weight:bold;"/></td>
-                                            <th><label for="equ_rpm">RPM</label></th>
-                                            <td><input type="text" id="equ_rpm" name="equ_rpm" readonly style="text-align:right; font-weight:bold;"/></td>
                                         </tr>
                                         <tr>
                                             <th><label for="prod_date">생산 시작시간</label></th>
                                             <td colspan="3">
-                                                <div class="input-group">
-                                                    <input type="date" id="prod_date" name="prod_date" style="background-color: #EDEFF5;margin-right: 5px;" readonly/>
+                                                <div class="input-group" id="prod_datepicker">
+                                                    <input type="date" id="prod_date" name="prod_date"
+                                                           style="background-color: #EDEFF5;margin-right: 5px;" readonly/>
                                                     <input type="time" id="start_time" name="start_time" readonly/>
                                                 </div>
                                             </td>
@@ -212,41 +228,55 @@
                                         <tr>
                                             <th><label for="end_date">생산 종료시간</label></th>
                                             <td colspan="3">
-                                                <div class="input-group">
-                                                    <input type="date" id="end_date" name="end_date" style="background-color: #EDEFF5; margin-right: 5px;" readonly/>
+                                                <div class="input-group" id="prod_datepicker1">
+                                                    <input type="date" id="end_date" name="end_date"
+                                                           style="background-color: #EDEFF5; margin-right: 5px;" readonly/>
                                                     <input type="time" id="end_time" name="end_time" readonly/>
                                                 </div>
                                             </td>
                                         </tr>
                                         <tr>
                                             <th><label for="order_qty">지시량</label></th>
-                                            <td colspan="3"><input type="number" id="order_qty" name="order_qty" class="background-order" readonly/></td>
+                                            <td colspan="3"><input type="number" id="order_qty" name="order_qty"
+                                                                   class="background-order" readonly/></td>
                                         </tr>
                                         <tr>
                                             <th><label for="good_qty">양품량</label></th>
-                                            <td><input type="number" id="good_qty" name="good_qty" class="background-blue" readonly disabled/></td>
+                                            <td><input type="number" id="good_qty" name="good_qty"
+                                                       class="background-blue" readonly disabled/></td>
                                             <th><label for="defect_qty">부적합량</label></th>
-                                            <td><input type="number" id="defect_qty" name="defect_qty" class="background-defect" value="0" readonly/></td>
+                                            <td><input type="number" id="defect_qty" name="defect_qty"
+                                                       class="background-defect" value="0" readonly/></td>
                                         </tr>
                                         <tr>
                                             <th><label for="description">비고</label></th>
-                                            <td colspan="3"><textarea id="description" name="description" style="height:60px;" disabled></textarea></td>
+                                            <td colspan="3">
+                                                <textarea id="description" name="description" style="height:60px;" disabled></textarea>
+                                            </td>
                                         </tr>
                                         </tbody>
                                     </table>
                                 </form>
                             </div>
+                            <!-- 공정별 확장 영역 -->
+                            <div id="processExtension">
+                                <!-- p02 머시닝센터 확장 영역: PLC 연동 (추후 추가) -->
+                            </div>
                         </div>
                     </section>
 
-                    <!-- 투입 내역 -->
+                    <!-- ──── 투입 내역 ──── -->
                     <section class="tab-item" id="tabConsumed" style="border-top-left-radius: 0;">
                         <div class="grid_box">
                             <div class="title_box">투입 계획</div>
-                            <div class="container-fluid"><div id="consumed-grid" style="height: 20vh;"></div></div>
+                            <div class="container-fluid">
+                                <div id="consumed-grid" style="height: 20vh;"></div>
+                            </div>
                         </div>
                         <div>
-                            <label class="switch"><input type="checkbox" id="btnToggle"><span class="slider round"></span></label> 투입로트 보기/감추기
+                            <label class="switch">
+                                <input type="checkbox" id="btnToggle"><span class="slider round"></span>
+                            </label> 투입로트 보기/감추기
                         </div>
                         <div>&nbsp;</div>
                         <div class="grid_box" id="input_lot_div">
@@ -260,13 +290,16 @@
                                     <li>품목코드 필터 : <input type="text" id="txtInputCode" placeholder="계획 선택" autocomplete="off" style="width:100px; height: 36px;"/></li>
                                 </ul>
                             </div>
-                            <div class="container-fluid"><div id="input-lot-grid" style="height: 20vh;"></div></div>
+                            <div class="container-fluid">
+                                <div id="input-lot-grid" style="height: 20vh;"></div>
+                            </div>
                         </div>
                     </section>
 
-                    <!-- 차수별 생산 -->
+                    <!-- ──── 차수별 생산 ──── -->
                     <section class="tab-item" id="tabChasu" style="border-top-left-radius: 0;">
                         <div class="grid_box">
+                            <!-- 배정 입력 영역 -->
                             <div class="button-wrap" style="padding:8px; background:#fafafa; border-radius:6px;">
                                 <ul style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; list-style:none; padding:0; margin:0;">
                                     <li>지시량 <strong id="ordqty">0</strong></li>
@@ -275,7 +308,7 @@
                                     <li style="color:#999;">|</li>
                                     <li>
                                         작업자
-                                        <select id="chasuWorker" style="width:120px; padding:5px;">
+                                        <select id="chasuWorker" style="width:120px;">
                                             <option value="">미지정(즉시생산)</option>
                                         </select>
                                     </li>
@@ -288,39 +321,23 @@
                                 </ul>
                             </div>
                             <div class="content-wrap" style="margin-top:8px;">
-                                <div><div id="chasu-grid" style="height: 200px;"></div></div>
+                                <div>
+                                    <div id="chasu-grid" style="height: 200px;"></div>
+                                </div>
                             </div>
                         </div>
                     </section>
 
-                    <!-- 부적합 정보 -->
+                    <!-- ──── 부적합 정보 ──── -->
                     <section class="tab-item" id="tabDefect" style="border-top-left-radius: 0;">
                         <div class="grid_box">
-                            <div class="button-wrap"><ul><li><button type="button" class="btn" id="btnDefectSave" title="부적합내역 저장" disabled><i class="fas fa-save"></i></button></li></ul></div>
-                            <div class="container-fluid"><div id="defect-grid" style="height: 220px;"></div></div>
-                        </div>
-                    </section>
-
-                    <!-- ★ PLC 모니터링 (머시닝 전용) -->
-                    <section class="tab-item" id="tabPLC" style="border-top-left-radius: 0;">
-                        <div class="grid_box">
-                            <div class="plc-panel">
-                                <h4><i class="fas fa-broadcast-tower"></i> PLC 실시간 모니터링</h4>
-                                <div class="plc-status-bar">
-                                    <span class="plc-dot offline" id="plcDot"></span>
-                                    <span id="plcStatusText">연결 대기중...</span>
-                                    <span style="margin-left:auto;" id="plcEquName">--</span>
-                                </div>
-                                <div class="plc-gauges">
-                                    <div class="plc-gauge"><div class="label">스핀들 RPM</div><div class="value" id="plcRpm">--</div><div class="unit">rpm</div></div>
-                                    <div class="plc-gauge"><div class="label">주축 온도</div><div class="value" id="plcTemp">--</div><div class="unit">°C</div></div>
-                                    <div class="plc-gauge"><div class="label">주축 부하</div><div class="value" id="plcLoad">--</div><div class="unit">%</div></div>
-                                    <div class="plc-gauge"><div class="label">가동률</div><div class="value" id="plcOpr">--</div><div class="unit">%</div><div class="plc-progress"><div class="plc-progress-bar" id="plcOprBar" style="width:0%"></div></div></div>
-                                </div>
+                            <div class="button-wrap">
+                                <ul>
+                                    <li><button type="button" class="btn" id="btnDefectSave" title="부적합내역 저장" disabled><i class="fas fa-save"></i></button></li>
+                                </ul>
                             </div>
-                            <div style="margin-top:12px; padding:10px; background:#f5f5f5; border-radius:6px;">
-                                <strong style="font-size:0.85rem;">최근 알람</strong>
-                                <div id="plcAlarms" style="margin-top:6px; font-size:0.8rem; color:#666;">알람 없음</div>
+                            <div class="container-fluid">
+                                <div id="defect-grid" style="height: 220px;"></div>
                             </div>
                         </div>
                     </section>
@@ -329,24 +346,44 @@
         </div>
     </div>
 
+    <!-- 팝업 -->
     <th:block th:replace="/common/popup_consu_material :: materialSearchTemplate"></th:block>
     <th:block th:replace="/common/popup_consu_mat_lot :: matLotSearchTemplate"></th:block>
     <th:block th:replace="/common/popup_lot_input :: LotInputTemplate"></th:block>
 
     <script th:inline="javascript">
         const factory_id = [[${session.factory_id}]];
-        const userid = [[${session.userid}]];
-        const PROCESS_CODE = 'p02';
+        const userid     = [[${session.userid}]];
+        const GUI_CODE   = 'prod_process_machining';   // 고정값 (공정별 분리)
     </script>
 
     <th:block th:replace="fragments/prod_process_common :: processCommonJS"></th:block>
 
     <script type="text/javascript">
+        // 공정별 설정 — 이 파일은 머시닝센터(p02) 전용
+        const PROCESS_CONFIG = {
+            'p02': { name: '머시닝센터' },
+        };
+
+        const MENUCODE_TO_PROCESS = {
+            'prod_process_machining': 'p02',
+        };
+        const PROCESS_CODE = 'p02';
+
         class ProcMachiningPage extends ProcPageBase {
-            constructor() {
-                super('p02');
-                this.plcTimer = null;
+            constructor(processCode) {
+                super(processCode);
+                this.config = PROCESS_CONFIG[processCode] || { name: processCode };
+                this.applyTheme();
                 this.init();
+            }
+
+            applyTheme() {
+                const nm = this.config.name;
+                $('#pageTitle').text(nm + ' 실적');
+                $('#navProcessName').text(nm);
+                $('#process_name').val(nm);
+                $('#process_code').val(this.processCode);
             }
 
             init() {
@@ -365,93 +402,64 @@
 
             initDefectGrid() {
                 this.defectGrid = new wijmo.grid.FlexGrid('#defect-grid', {
-                    autoGenerateColumns: false, selectionMode: wijmo.grid.SelectionMode.Row, isReadOnly: false,
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: false,
                     columns: [
-                        {binding: 'defect_name', header: '부적합유형', width: '*', align: 'left', isReadOnly: true},
-                        {binding: 'defect_qty', header: '부적합량', width: 100, format: 'n0', align: 'right'},
+                        { binding: 'defect_type', header: '부적합유형', width: '*', align: 'left', isReadOnly: true },
+                        { binding: 'defect_qty',  header: '부적합량',   width: 100, format: 'n0', align: 'right' },
                     ]
                 });
             }
 
             initConsumedGrid() {
                 this.consumedGrid = new wijmo.grid.FlexGrid('#consumed-grid', {
-                    autoGenerateColumns: false, selectionMode: wijmo.grid.SelectionMode.Row, isReadOnly: true,
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: true,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    allowSorting: true,
+                    formatItem: (s, e) => {
+                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader)
+                            e.cell.style.textAlign = 'center';
+                    },
                     columns: [
-                        {binding: 'mat_code', header: '품목코드', width: 120, align: 'center'},
-                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
-                        {binding: 'req_qty', header: '소요량', width: 90, format: 'n2', align: 'right'},
-                        {binding: 'consumed_qty', header: '투입량', width: 90, format: 'n2', align: 'right'},
-                    ]
+                        { binding: 'mat_code',        header: '품목코드',    width: 100, align: 'left' },
+                        { binding: 'mat_name',        header: '품목',        width: '*',  align: 'left', minWidth: 120 },
+                        { binding: 'request_qty_sum', header: '로트투입량',  width: 100, format: 'n2', align: 'right' },
+                        { binding: 'bom_consumed',    header: '소요량(BOM)', width: 110, format: 'n2', align: 'right' },
+                        { binding: 'remain_input_qty',header: '잔여량',      width: 90,  format: 'n2', align: 'right' },
+                        { binding: 'mc_qty',          header: '실생산소모량', width: 110, format: 'n2', align: 'right' },
+                        { binding: 'currentStock',    header: '현재재고',    width: 90,  format: 'n2', align: 'right' },
+                        { binding: 'unit',            header: '단위',        width: 60,  align: 'center' },
+                    ],
+                    itemFormatter: (panel, row, col, cell) => {
+                        if (panel.cellType === wijmo.grid.CellType.Cell) {
+                            const item = panel.rows[row].dataItem;
+                            if (item && item.useyn === 'Y') cell.style.backgroundColor = '#f8d2cb';
+                        }
+                    }
                 });
             }
 
             initInputLotGrid() {
                 this.inputLotGrid = new wijmo.grid.FlexGrid('#input-lot-grid', {
-                    autoGenerateColumns: false, selectionMode: wijmo.grid.SelectionMode.Row, isReadOnly: false,
+                    autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    isReadOnly: false,
                     columns: [
-                        {binding: 'lot_number', header: '로트번호', width: 140, align: 'center'},
-                        {binding: 'mat_code', header: '품목코드', width: 120, align: 'center'},
-                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
-                        {binding: 'input_qty', header: '투입량', width: 90, format: 'n2', align: 'right'},
+                        { binding: 'lot_number', header: '로트번호', width: 140, align: 'center' },
+                        { binding: 'mat_code',   header: '품목코드', width: 120, align: 'center' },
+                        { binding: 'mat_name',   header: '품목명',   width: '*',  align: 'left' },
+                        { binding: 'input_qty',  header: '투입량',   width: 90,  format: 'n2', align: 'right' },
                     ]
                 });
             }
 
-            /* PLC 폴링 */
-            startPLCPolling(equId) {
-                this.stopPLCPolling();
-                if (!equId) return;
-                // this.pollPLC(equId);
-                // this.plcTimer = setInterval(() => this.pollPLC(equId), 5000);
-            }
-
-            stopPLCPolling() {
-                if (this.plcTimer) {
-                    clearInterval(this.plcTimer);
-                    this.plcTimer = null;
-                }
-            }
-
-            pollPLC(equId) {
-                try {
-                    const res = AjaxUtil.getSyncData('/api/equipment/plc/realtime', {equ_id: equId});
-                    if (res && res.data) {
-                        const d = res.data;
-                        $('#plcRpm').text(d.spindle_rpm ?? '--');
-                        $('#plcTemp').text(d.temperature ?? '--');
-                        $('#plcLoad').text(d.spindle_load ?? '--');
-                        $('#plcOpr').text(d.operation_rate ?? '--');
-                        $('#plcOprBar').css('width', (d.operation_rate || 0) + '%');
-                        $('#plcDot').removeClass('offline').addClass('online');
-                        $('#plcStatusText').text('연결됨');
-                        $('#equ_temp').val(d.temperature ? d.temperature + '°C' : '');
-                        $('#equ_rpm').val(d.spindle_rpm ? d.spindle_rpm + ' rpm' : '');
-                    }
-                } catch (e) {
-                    $('#plcDot').removeClass('online').addClass('offline');
-                    $('#plcStatusText').text('연결 실패');
-                }
-            }
-
-            /* 공통 showBasicInfo 끝에 호출되는 훅 - 머시닝 전용 PLC 처리 */
-            afterShowBasicInfo(d) {
-                const equId = $('#equipment_id').val();
-                $('#plcEquName').text($('#equipment_id option:selected').text() || '--');
-                if (equId) this.startPLCPolling(equId);
-            }
-
-            bindEvents() {
-                super.bindEvents();
-                $('#equipment_id').on('change', () => {
-                    const equId = $('#equipment_id').val();
-                    $('#plcEquName').text($('#equipment_id option:selected').text() || '--');
-                    if (equId) this.startPLCPolling(equId); else this.stopPLCPolling();
-                });
-            }
-        }
+        }  // end class ProcMachiningPage
 
         $(document).ready(function () {
-            window.page = new ProcMachiningPage();
+            window.page = new ProcMachiningPage(PROCESS_CODE);
         });
     </script>
 

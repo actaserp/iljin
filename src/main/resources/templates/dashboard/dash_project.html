@@ -183,7 +183,7 @@
     <div id="dashWrap">
         <div class="dash-head">
             <div style="display:flex; align-items:baseline;">
-                <h1>생산 진척 대시보드</h1>
+                <h1>프로젝트 대시보드</h1>
                 <span class="dash-updated" id="lastUpdated"></span>
             </div>
             <div class="dash-clock" id="dashClock"></div>
@@ -419,7 +419,7 @@
                 Object.values(parts).forEach(part => {
                     html += `<div class="part-block">
                         <div class="part-title">${part.name || '-'}
-                            <span class="pt-qty">수주 ${this.fmt(part.qty)}</span>
+<!--                            <span class="pt-qty">수주 ${this.fmt(part.qty)}</span>-->
                         </div>`;
                     if (part.standard) html += `<div class="part-sub">${part.standard}</div>`;
 

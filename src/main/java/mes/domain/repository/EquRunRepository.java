@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 import mes.domain.entity.EquRun;
 
 import javax.transaction.Transactional;
+import java.util.List;
 import java.util.Optional;
 
 
@@ -33,4 +34,6 @@ public interface EquRunRepository extends JpaRepository<EquRun, Integer>{
 
 	@Query("SELECT e FROM EquRun e WHERE e.jobResponseId = :jrPk AND e.runState = 'run' ORDER BY e.startDate DESC")
 	Optional<EquRun> findLatestRunningByJobResponseId(@Param("jrPk") Integer jrPk);
+
+	List<EquRun> findByEquipmentIdAndWorkOrderNumberAndRunState(Integer equipmentId, String workOrderNumber, String runState);
 }

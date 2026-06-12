@@ -123,9 +123,9 @@
                     _this.selectedIndex = ht.row;
                     _this.jobres = item;
 
+                    // ★ 전 공정 미완료: 경고만 표시, 선택은 허용 (작업시작 시 서버에서 검증)
                     if (item._locked) {
-                        Notify.warning('전 공정이 완료되지 않았습니다.');
-                        return;
+                        Notify.warning('전 공정이 완료되지 않았습니다. 확인 후 진행하세요.');
                     }
                     _this.showBasicInfo(item.id);
                 });
@@ -315,7 +315,24 @@
                         $('#state').val('working');
                         _this.searchMainData();
                         _this.showBasicInfo(childId);
+
+                        // ★ jobres 복구 (searchMainData에서 유실될 수 있음)
+                        if (!_this.jobres) {
+                            const dataSource = _this.grid.itemsSource;
+                            const items = dataSource instanceof wijmo.collections.CollectionView
+                                ? dataSource.sourceCollection : dataSource;
+                            if (Array.isArray(items)) {
+                                const found = items.find(d => String(d.id) === String(childId));
+                                if (found) _this.jobres = found;
+                            }
+                        }
+
                         setTimeout(() => _this.grid.select(prevIdx, 0), 100);
+
+                        // ★ 시작 후 차수별 생산 탭으로 자동 이동
+                        setTimeout(() => {
+                            $('.tab-links a[name="tabChasu"]').click();
+                        }, 200);
                     } else {
                         Alert.alert('시작 실패', res?.message || '');
                     }
@@ -386,6 +403,8 @@
                         $('#chasuQty').val(0);
                         _this.showChasuList(jr_pk);
                         _this.refreshAfterChasu(jr_pk);
+                        _this.showBasicInfo(jr_pk);
+                        _this.searchMainData();
                     } else {
                         Alert.alert('차수 추가 실패', res?.message || '');
                     }
@@ -401,13 +420,6 @@
                     if (res?.success) {
                         Notify.success('작업을 시작했습니다.');
                         _this.showChasuList(jr_pk);
-                        // ★ 시작한 차수의 양품량을 배정량으로 화면에 채움
-                        const items = _this.chasuGrid?.collectionView?.items || [];
-                        const row = items.find(it => String(it.id) === String(mpId));
-                        if (row && (!row.good_qty || row.good_qty === 0)) {
-                            row.good_qty = row.input_qty;
-                            _this.chasuGrid.collectionView.refresh();
-                        }
                     } else {
                         Alert.alert('시작 실패', res?.message || '');
                     }
@@ -444,10 +456,10 @@
                                 Notify.success('작업을 종료했습니다.');
                                 _this.showChasuList(jr_pk);
                                 _this.refreshAfterChasu(jr_pk);
+                                _this.searchMainData();
+                                _this.showBasicInfo(jr_pk);
                                 if (res.data && res.data.job_finished) {
                                     Notify.success('모든 차수 완료 → 공정이 자동 완료되었습니다.');
-                                    _this.searchMainData();
-                                    _this.showBasicInfo(jr_pk);
                                 }
                             } else {
                                 Alert.alert('종료 실패', res?.message || '');
@@ -457,19 +469,50 @@
                 );
             }
 
-            /* ── 마지막 차수 삭제 ── */
+            /* ── 차수 완료취소 ── */
+            cancelFinishChasu(mpId) {
+                const _this = this;
+                const jr_pk = $('#jr_id').val();
+
+                Alert.confirm('차수 완료취소', '해당 차수의 완료를 취소하시겠습니까?\n(입고된 수량이 차감됩니다)', () => {
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/chasu_finish_cancel', {
+                        mp_id: mpId, jr_pk,
+                        spjangcd: _this.spjangcd || ''
+                    }, (res) => {
+                        if (res?.success) {
+                            Notify.success('차수 완료가 취소되었습니다.');
+                            _this.showChasuList(jr_pk);
+                            _this.refreshAfterChasu(jr_pk);
+                            _this.showBasicInfo(jr_pk);   // ← 추가
+                            _this.searchMainData();
+                        } else {
+                            Alert.alert('취소 실패', res?.message || '');
+                        }
+                    });
+                });
+            }
+
+            /* ── 차수 삭제 (선택한 차수) ── */
             deleteChasu() {
                 const _this = this;
                 const jr_pk = $('#jr_id').val();
-                const items = this.chasuGrid?.collectionView?.items || [];
-                if (items.length === 0) { Alert.alert('', '삭제할 차수가 없습니다.'); return; }
+                if (!this.chasuGrid) return;
 
-                Alert.confirm('', '마지막 차수를 삭제하시겠습니까?', () => {
-                    AjaxUtil.postAsyncData(_this.baseUrl + '/chasu_del', { jr_pk }, (res) => {
+                const selItems = this.chasuGrid.selectedItems;
+                if (!selItems || selItems.length === 0) { Alert.alert('', '삭제할 차수를 선택해주세요.'); return; }
+
+                const item = selItems[0];
+
+                Alert.confirm('차수 삭제', `${item.chasu}차수 (${item.worker_name || '미지정'})를 삭제하시겠습니까?`, () => {
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/chasu_del', {
+                        jr_pk, mp_id: item.id
+                    }, (res) => {
                         if (res?.success) {
                             Notify.success('차수가 삭제되었습니다.');
                             _this.showChasuList(jr_pk);
                             _this.refreshAfterChasu(jr_pk);
+                            _this.showBasicInfo(jr_pk);   // ← 추가
+                            _this.searchMainData();
                         } else {
                             Alert.alert('삭제 실패', res?.message || '');
                         }
@@ -495,8 +538,13 @@
             /* ── 작업 일시중지/재가동 ── */
             workStop() {
                 const state = $('#state').val();
+                // ★ jobres가 null이면 현재 폼 데이터에서 복원
+                if (!this.jobres) {
+                    const jrId = $('#jr_id').val();
+                    if (!jrId) { Alert.alert('', '작업을 선택해주세요.'); return; }
+                    this.jobres = { id: jrId, order_num: $('#order_num').val() };
+                }
                 const item = this.jobres;
-                if (!item) { Alert.alert('', '작업을 선택해주세요.'); return; }
 
                 if (state === 'stopped') {
                     // 재가동
@@ -636,15 +684,21 @@
             workFinishCancel() {
                 const _this = this;
                 const childId = $('#jr_id').val();
-                AjaxUtil.postAsyncData(this.baseUrl + '/finish_cancel', {
-                    jr_pk: childId,
-                    spjangcd: this.spjangcd || ''
-                }, (res) => {
-                    if (res?.success) {
-                        Notify.success('취소되었습니다.');
-                        _this.searchMainData();
-                        _this.showBasicInfo(childId);
-                    }
+                if (!childId) { Alert.alert('', '취소할 작업을 선택해주세요.'); return; }
+
+                Alert.confirm('완료 취소', '작업 완료를 취소하시겠습니까?', () => {
+                    AjaxUtil.postAsyncData(_this.baseUrl + '/finish_cancel', {
+                        jr_pk: childId,
+                        spjangcd: _this.spjangcd || ''
+                    }, (res) => {
+                        if (res?.success) {
+                            Notify.success('취소되었습니다.');
+                            _this.searchMainData();
+                            _this.showBasicInfo(childId);
+                        } else {
+                            Alert.alert('취소 실패', res?.message || '');
+                        }
+                    });
                 });
             }
 
@@ -683,9 +737,11 @@
                                 if (st === 'ready' || st === 'assigned') {
                                     cell.innerHTML = `<button class="btn btn-chasu-start" data-id="${item.id}" style="padding:2px 10px; height:20px; background:#4caf50; color:#fff; border:none; border-radius:4px;">시작</button>`;
                                 } else if (st === 'working') {
-                                    cell.innerHTML = `<button class="btn btn-chasu-finish" data-id="${item.id}" style="padding:2px 10px; height:20px; background:#1976d2; color:#fff; border:none; border-radius:4px;">종료</button>`;
+                                    cell.innerHTML = `<button class="btn btn-chasu-finish" data-id="${item.id}" style="padding:2px 10px; height:20px; background:#1976d2; color:#fff; border:none; border-radius:4px;">완료</button>`;
+                                } else if (st === 'finished') {
+                                    cell.innerHTML = `<button class="btn btn-chasu-cancel" data-id="${item.id}" style="padding:2px 10px; height:20px; background:#ff5722; color:#fff; border:none; border-radius:4px;">완료취소</button>`;
                                 } else {
-                                    cell.innerHTML = `<span style="color:#999;">완료</span>`;
+                                    cell.innerHTML = `<span style="color:#999;">-</span>`;
                                 }
                             }
                         }
@@ -695,12 +751,16 @@
                 this.chasuGrid.hostElement.addEventListener('click', (e) => {
                     const startBtn = e.target.closest('.btn-chasu-start');
                     const finishBtn = e.target.closest('.btn-chasu-finish');
+                    const cancelBtn = e.target.closest('.btn-chasu-cancel');
                     if (startBtn) {
                         e.stopPropagation();
                         _this.startChasu(parseInt(startBtn.dataset.id));
                     } else if (finishBtn) {
                         e.stopPropagation();
                         _this.finishChasu(parseInt(finishBtn.dataset.id));
+                    } else if (cancelBtn) {
+                        e.stopPropagation();
+                        _this.cancelFinishChasu(parseInt(cancelBtn.dataset.id));
                     }
                 });
             }
@@ -848,6 +908,21 @@
                     if (e.key === 'Enter') { e.preventDefault(); _this.searchMainData(); }
                 });
 
+                $('#input_lot_div').hide();
+                // ★ 투입로트 보기/감추기
+                $('#btnToggle').on('change', function() {
+                    $('#input_lot_div').toggle(300);
+                });
+
+                // ★ 품목코드 필터 (디바운스)
+                (function() {
+                    let timer = null;
+                    $('#txtInputCode').on('input', function() {
+                        clearTimeout(timer);
+                        timer = setTimeout(() => _this.showInputLotList(), 200);
+                    });
+                })();
+
                 // 날짜 기본값
                 const now = new Date();
                 const oneYearAgo = new Date(now);
@@ -865,6 +940,8 @@
                 const data = FormUtil.extractForm(this.$form);
                 data.workcenter_id = $('#workcenter_id').val();
                 data.id = $('#jr_id').val();
+                data.equipment_id = $('#equipment_id').val();
+                data.worker_id = $('#worker_id').val();
 
                 AjaxUtil.postAsyncData(this.baseUrl + '/save', data, (res) => {
                     if (res?.success) {
@@ -955,39 +1032,29 @@
                 const jr_pk = $('#jr_id').val();
                 if (!jr_pk) { Alert.alert('', '작업을 선택해주세요.'); return; }
 
-                // 로트 검색 팝업 (기존 popup_consu_mat_lot 사용)
-                if (typeof MatLotSearchPopup !== 'undefined') {
-                    MatLotSearchPopup.open(function(selectedLots) {
-                        if (!selectedLots || selectedLots.length === 0) return;
-                        if (selectedLots.length === 1) {
-                            const lot = selectedLots[0];
-                            AjaxUtil.postAsyncData(_this.baseUrl + '/add_lot_input', {
-                                jr_pk, lot_id: lot.id, input_qty: lot.cur_stock || lot.current_stock
-                            }, (res) => {
-                                if (res?.success) {
-                                    Notify.success('로트가 추가되었습니다.');
-                                    _this.showInputLotList(jr_pk);
-                                    _this.showConsumedList(jr_pk);
-                                } else {
-                                    Alert.alert('', res?.message || '로트 추가 실패');
-                                }
-                            });
-                        } else {
-                            AjaxUtil.postAsyncData(_this.baseUrl + '/multi_add_lot_input', {
-                                jr_pk, Q: JSON.stringify(selectedLots)
-                            }, (res) => {
-                                if (res?.success) {
-                                    _this.showInputLotList(jr_pk);
-                                    _this.showConsumedList(jr_pk);
-                                } else {
-                                    Alert.alert('', res?.message || '로트 추가 실패');
-                                }
-                            });
-                        }
-                    });
-                } else {
-                    Alert.alert('', '로트 검색 팝업을 사용할 수 없습니다.');
-                }
+                const poppage = new PopupConsumMatLotPage();
+                poppage.show(jr_pk, function(lot) {
+                    if (!lot || lot.length === 0) return;
+                    if (lot.length === 1) {
+                        // 단일 로트 투입
+                        $('#txtInputLot').val(lot[0].lot_number);
+                        _this.showLotInput(lot[0].lot_number, jr_pk);
+                    } else {
+                        // 다중 로트 투입
+                        AjaxUtil.postAsyncData(_this.baseUrl + '/multi_add_lot_input', {
+                            jr_pk, mp_pk: $('#mp_id').val(), Q: JSON.stringify(lot)
+                        }, (res) => {
+                            if (res?.success) {
+                                Notify.success('저장되었습니다');
+                                _this.showInputLotList(jr_pk);
+                                _this.showConsumedList(jr_pk);
+                                $('#txtInputLot').val('');
+                            } else {
+                                Alert.alert('', res?.message || '로트 추가 실패');
+                            }
+                        });
+                    }
+                });
             }
 
             /* ── 투입 로트 삭제 ── */
@@ -1011,14 +1078,64 @@
             async showLotInput(lot_number, jr_pk) {
                 if (!lot_number) return;
                 const _this = this;
-                // popup_lot_input 팝업 사용
-                if (typeof LotInputPopup !== 'undefined') {
-                    LotInputPopup.open(lot_number, jr_pk, function() {
+                const state = $('#state').val();
+                if (state === 'ordered') { Alert.alert('LOT 투입오류', '작업이 시작되지 않았습니다.'); return; }
+
+                // 중복 저장 방지
+                if (this._savingLot) return;
+                this._savingLot = true;
+
+                try {
+                    // LOT 정보 조회
+                    const res = await new Promise((resolve, reject) => {
+                        AjaxUtil.postAsyncData('/api/popup/pop_prod_input/lot_info', {
+                            action: 'lot_info', lot_number, jr_pk
+                        }, (r) => r?.success ? resolve(r) : reject(new Error(r?.message || 'LOT 조회 실패')));
+                    });
+
+                    const lot = res.data || {};
+                    if (res.message) Alert.alert('', res.message);
+                    if (!lot.id) throw new Error('LOT 검색에 실패했습니다.');
+
+                    const remain = parseFloat(lot.remain_input_qty ?? 0) || 0;
+                    const autoQty = parseFloat(lot.cur_stock) || 0;
+                    if (remain <= 0) { Alert.alert('', '잔여 투입수량이 없습니다.'); return; }
+
+                    // 자동투입 조건 충족 시 바로 저장
+                    if (autoQty > 0 && autoQty <= remain) {
+                        this._saveLotInput(lot.id, autoQty, lot.mpi_id);
+                        return;
+                    }
+
+                    // 조건 불충족 시 팝업
+                    const poppage = new PopupLotInputPage();
+                    poppage.show(lot_number, (sel) => {
+                        if (!sel.lot_id) { Alert.alert('', 'LOT 검색에 실패했습니다.'); return; }
+                        _this._saveLotInput(sel.lot_id, sel.input_qty, sel.mpi_id);
+                    }, jr_pk);
+                } catch (err) {
+                    Alert.alert('', err.message || 'LOT 정보를 불러오지 못했습니다.');
+                } finally {
+                    this._savingLot = false;
+                }
+            }
+
+            _saveLotInput(lot_id, input_qty, mpi_id) {
+                const _this = this;
+                const jr_pk = $('#jr_id').val();
+                const mp_pk = $('#mp_id').val();
+                AjaxUtil.postAsyncData(this.baseUrl + '/add_lot_input', {
+                    jr_pk, mp_pk, lot_id, input_qty, mpi_id
+                }, (res) => {
+                    if (res?.success) {
+                        Notify.success('저장되었습니다');
                         _this.showInputLotList(jr_pk);
                         _this.showConsumedList(jr_pk);
                         $('#txtInputLot').val('');
-                    });
-                }
+                    } else {
+                        Alert.alert('', res?.message || '');
+                    }
+                });
             }
 
             /* ── 부적합 저장 ── */
@@ -1053,7 +1170,6 @@
 
             /* ── 생산화면 전용: 화면 크기 반응형 헤더·메뉴 접기 ── */
             initLayoutCollapse() {
-                $('#layoutToggleBtn').remove();
                 const hasParent = window.parent && window.parent !== window;
                 const pwin = hasParent ? window.parent : null;
                 const $p = pwin ? pwin.$ : null;
@@ -1081,13 +1197,13 @@
 
                 // 떠다니는 대신 페이지 타이틀의 '내 메뉴' 옆에 삽입
                 const $btn = $('<button id="floatNavToggle" title="메뉴 펼치기/접기">&#9776;</button>')
-                .css({
-                    width: '34px', height: '34px', fontSize: '16px',
-                    marginLeft: '8px', verticalAlign: 'middle',
-                    background: '#1976d2', color: '#fff', border: 'none',
-                    borderRadius: '6px', cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(0,0,0,.15)'
-                });
+                    .css({
+                        width: '34px', height: '34px', fontSize: '16px',
+                        marginLeft: '8px', verticalAlign: 'middle',
+                        background: '#1976d2', color: '#fff', border: 'none',
+                        borderRadius: '6px', cursor: 'pointer',
+                        boxShadow: '0 1px 3px rgba(0,0,0,.15)'
+                    });
 
                 // '내 메뉴'(.bookmark.toggle) 바로 뒤에 붙이기, 없으면 body로 폴백
                 const $anchor = $('.page-title-wrap .left .bookmark.toggle');
@@ -1210,12 +1326,12 @@
             /* ── 그리드 행 높이 확대/복원 ── */
             applyTouchGridSize(big) {
                 [this.grid, this.chasuGrid, this.defectGrid, this.consumedGrid, this.inputLotGrid]
-                .forEach(g => {
-                    if (!g) return;
-                    g.rows.defaultSize = big ? 40 : 28;
-                    g.columnHeaders.rows.defaultSize = big ? 40 : 30;
-                    g.invalidate();
-                });
+                    .forEach(g => {
+                        if (!g) return;
+                        g.rows.defaultSize = big ? 40 : 28;
+                        g.columnHeaders.rows.defaultSize = big ? 40 : 30;
+                        g.invalidate();
+                    });
             }
 
         }

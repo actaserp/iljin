@@ -1380,6 +1380,7 @@ public class ProductionResultService {
 				   jr."EndDate"           AS end_date,
 				   jr."Parent_id",
 				   jr."Routing_id",
+				   jr."Material_id",
 				   jr."WorkCenter_id",
 				   jr."Equipment_id",
 				   jr."Manager_id"        AS manager_id,
@@ -1420,12 +1421,13 @@ public class ProductionResultService {
 				JOIN routing_proc srp ON srp."Routing_id" = sibling."Routing_id"
 					AND srp."Process_id" = swc."Process_id"
 				WHERE sibling."Parent_id" = j."Parent_id"
-				  AND sibling.id != j.id
-				  AND srp."ProcessOrder" < j."ProcessOrder"
-				  AND sibling."State" != 'finished'
+					  AND sibling.id != j.id
+					  AND sibling."Material_id" = j."Material_id"
+					  AND srp."ProcessOrder" < j."ProcessOrder"
+					  AND sibling."State" != 'finished'
 			) THEN true ELSE false END AS _locked
 		FROM jr_with_order j
-		ORDER BY order_num, "ProcessOrder"
+		ORDER BY order_num DESC, mat_code
     """;
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
