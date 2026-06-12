@@ -53,6 +53,7 @@
 <!-- ▸ 공통 JS 유틸 -->
 <th:block th:fragment="processCommonJS">
     <script type="text/javascript">
+        window.DISABLE_GLOBAL_LAYOUT_TOGGLE = true;
         /**
          * ProcPageBase - 공정별 페이지 공통 로직
          * 각 공정 페이지에서 extends 하거나 직접 사용
@@ -1052,6 +1053,7 @@
 
             /* ── 생산화면 전용: 화면 크기 반응형 헤더·메뉴 접기 ── */
             initLayoutCollapse() {
+                $('#layoutToggleBtn').remove();
                 const hasParent = window.parent && window.parent !== window;
                 const pwin = hasParent ? window.parent : null;
                 const $p = pwin ? pwin.$ : null;

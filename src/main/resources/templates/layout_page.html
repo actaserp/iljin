@@ -197,7 +197,6 @@
 <th:block layout:fragment="content"></th:block>
 <script type="text/javascript">
 
-
     $(document).ready(function () {
         yullinAuth.removeWriteButton();
 
@@ -258,6 +257,46 @@
             }
         }
     });
+
+    // layout_page.html — 부모 문서에 1회 정의
+    window.LayoutToggle = (function () {
+        let collapsed = false;
+        const p = () => (window.parent && window.parent !== window) ? window.parent.$ : $;
+
+        return {
+            set(v) {
+                collapsed = !!v;
+                const $p = p();
+                if (!$p) return;
+
+                $p('.menu_area').toggleClass('hidden', collapsed);   // 사이드바
+                $p('.dashboard-layout-header').toggle(!collapsed);   // 헤더
+                $p('.con_area, .tab-content').css(                   // 본문
+                    collapsed
+                        ? { width: '100%', left: '0' }
+                        : { width: 'calc(100% - 250px)', left: '250px' }   // ← 250px
+                );
+                $('body').toggleClass('layout-collapsed', collapsed);
+            },
+            toggle() { this.set(!collapsed); },
+            get() { return collapsed; }
+        };
+    })();
+
+    $(document).ready(function () {
+        if (window.DISABLE_GLOBAL_LAYOUT_TOGGLE) return;
+        if ($('#layoutToggleBtn').length) return;
+            const $btn = $('<button id="layoutToggleBtn" title="메뉴 접기/펼치기">&#9776;</button>')
+            .css({
+                width: '34px', height: '34px', fontSize: '16px',
+                marginLeft: '8px', verticalAlign: 'middle',
+                background: '#1976d2', color: '#fff', border: 'none',
+                borderRadius: '6px', cursor: 'pointer'
+            });
+            $('.page-title-wrap .left .bookmark.toggle').after($btn);
+            $btn.on('click', () => window.LayoutToggle.toggle());
+    });
+
 </script>
 <th:block layout:fragment="scripts"></th:block>
 </body>
