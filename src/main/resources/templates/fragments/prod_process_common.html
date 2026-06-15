@@ -1170,122 +1170,78 @@
 
             /* ── 생산화면 전용: 화면 크기 반응형 헤더·메뉴 접기 ── */
             initLayoutCollapse() {
+                $('#layoutToggleBtn').remove();
                 const hasParent = window.parent && window.parent !== window;
                 const pwin = hasParent ? window.parent : null;
-                const $p = pwin ? pwin.$ : null;
-                if (!$p) return;
+                if (!pwin || !pwin.LayoutState) return;   // ★ 부모 LayoutState 필수
 
-                try { pwin.userToggled = true; } catch (e) {}  // 부모 자동로직 정지
+                // ★ 부모 레이아웃 조작은 LayoutState에 위임 (직접 collapse/expand 안 함)
+                const setParentLayout = (v) => { pwin.LayoutState.set(v); };
 
-                const prev = {
-                    menuHidden: $p('.menu_area').hasClass('hidden'),
-                    headerDisplay: $p('.dashboard-layout-header').css('display'),
-                    conWidth: $p('.con_area').css('width'),
-                    conLeft: $p('.con_area').css('left'),
-                };
-
-                const collapse = () => {
-                    $p('.menu_area').addClass('hidden');
-                    $p('.dashboard-layout-header').hide();
-                    $p('.con_area, .tab-content').css({ width: '100%', left: '0' });
-                };
-                const expand = () => {
-                    $p('.menu_area').removeClass('hidden');
-                    $p('.dashboard-layout-header').show();
-                    $p('.con_area, .tab-content').css({ width: 'calc(100% - 250px)', left: '250px' });
-                };
-
-                // 떠다니는 대신 페이지 타이틀의 '내 메뉴' 옆에 삽입
+                // 버튼 생성 (기존과 동일)
                 const $btn = $('<button id="floatNavToggle" title="메뉴 펼치기/접기">&#9776;</button>')
-                    .css({
-                        width: '34px', height: '34px', fontSize: '16px',
-                        marginLeft: '8px', verticalAlign: 'middle',
-                        background: '#1976d2', color: '#fff', border: 'none',
-                        borderRadius: '6px', cursor: 'pointer',
-                        boxShadow: '0 1px 3px rgba(0,0,0,.15)'
-                    });
-
-                // '내 메뉴'(.bookmark.toggle) 바로 뒤에 붙이기, 없으면 body로 폴백
+                .css({
+                    width: '34px', height: '34px', fontSize: '16px',
+                    marginLeft: '8px', verticalAlign: 'middle',
+                    background: '#1976d2', color: '#fff', border: 'none',
+                    borderRadius: '6px', cursor: 'pointer',
+                    boxShadow: '0 1px 3px rgba(0,0,0,.15)'
+                });
                 const $anchor = $('.page-title-wrap .left .bookmark.toggle');
-                if ($anchor.length) {
-                    $anchor.after($btn);
-                } else {
-                    // 폴백: 기존 떠다니는 방식
-                    $btn.css({ position: 'fixed', top: '6px', left: '6px', zIndex: 99999 });
-                    $btn.appendTo('body');
-                }
+                if ($anchor.length) $anchor.after($btn);
+                else { $btn.css({ position:'fixed', top:'6px', left:'6px', zIndex:99999 }); $btn.appendTo('body'); }
 
-                let collapsed = false;
-                let userToggledHere = false;   // 이 화면에서 사용자가 직접 눌렀는지
+                let userToggledHere = false;
 
-                // ★ 핵심: 접힘 상태에 모든 전환(메뉴/탭/글자/그리드)을 묶음
+                // ★ 부모 상태를 기준으로 sync (자체 collapsed 변수 제거)
                 const sync = () => {
-                    collapsed ? collapse() : expand();
-                    $('body').toggleClass('touch-mode', collapsed);   // CSS 트리거
-                    this.moveListToTab(collapsed);                   // 목록 ↔ 탭 이동
-                    this.applyTouchGridSize(collapsed);              // 그리드 행 확대/복원
+                    const collapsed = pwin.LayoutState.get();   // ← 부모가 진실의 원천
+                    setParentLayout(collapsed);                 // 레이아웃 적용(부모)
+                    $('body').toggleClass('touch-mode', collapsed);
+                    this.moveListToTab(collapsed);
+                    this.applyTouchGridSize(collapsed);
 
+                    $('.tab-wrap .tab-item').hide();
                     if (collapsed) {
-                        // 접힘: '목록' 탭 활성화
-                        $('.tab-wrap .tab-item').hide();
                         $('#tabList').show();
                         $('.tab-links li').removeClass('active');
                         $('.tab-links a[name="tabList"]').parent('li').addClass('active');
                     } else {
-                        // 펼침: '기본 정보' 탭 활성화 (목록은 좌측으로 복귀했으므로)
-                        $('.tab-wrap .tab-item').hide();
                         $('#tabBasic').show();
                         $('.tab-links li').removeClass('active');
                         $('.tab-links a[name="tabBasic"]').parent('li').addClass('active');
                     }
                 };
 
-                // 버튼 클릭: 수동 토글 (이후 자동 반응 끔)
+                // 버튼 클릭: 부모 상태를 토글한 뒤 sync
                 $btn.on('click', () => {
                     userToggledHere = true;
-                    collapsed = !collapsed;
+                    pwin.LayoutState.set(!pwin.LayoutState.get());   // ★ 부모 토글
                     sync();
                 });
 
-                // ★ 부모 창의 폭으로 판정 (iframe 폭은 메뉴 접힘 때문에 변하므로 쓰면 안 됨)
-                const getWidth = () => {
-                    try { return pwin.innerWidth || window.innerWidth; }
-                    catch (e) { return window.innerWidth; }
-                };
+                // 자동 접기 (폭 기준) — 부모 상태로 판정
+                const getWidth = () => { try { return pwin.innerWidth || window.innerWidth; } catch(e){ return window.innerWidth; } };
                 const isTouch = window.matchMedia('(pointer: coarse)').matches;
-
-                // ★ 히스테리시스: 접는 기준과 펴는 기준을 벌려 진동 제거
-                const COLLAPSE_AT = 1600;  // 이보다 좁으면 접기
-                const EXPAND_AT   = 1750;  // 이보다 넓으면 펴기 (사이 구간은 현상 유지)
+                const COLLAPSE_AT = 1600, EXPAND_AT = 1750;
 
                 const apply = () => {
                     if (userToggledHere) return;
                     const w = getWidth();
-                    if (isTouch || w <= COLLAPSE_AT) {
-                        if (!collapsed) { collapsed = true; sync(); }
-                    } else if (w >= EXPAND_AT) {
-                        if (collapsed) { collapsed = false; sync(); }
-                    }
-                    // 사이 구간은 아무것도 안 함 → 깜박임 없음
+                    const cur = pwin.LayoutState.get();
+                    if (isTouch || w <= COLLAPSE_AT) { if (!cur) { pwin.LayoutState.set(true); sync(); } }
+                    else if (w >= EXPAND_AT)         { if (cur)  { pwin.LayoutState.set(false); sync(); } }
                 };
 
-                // 디바운스로 연속 resize 완화
                 let rzTimer = null;
-                const onResize = () => {
-                    clearTimeout(rzTimer);
-                    rzTimer = setTimeout(apply, 150);
-                };
-
-                apply();  // 최초 1회
+                const onResize = () => { clearTimeout(rzTimer); rzTimer = setTimeout(apply, 150); };
+                apply();
                 window.addEventListener('resize', onResize);
                 try { pwin.addEventListener('resize', onResize); } catch (e) {}
 
-
-                // 떠날 때 부모 상태 원복
+                // 떠날 때: 부모를 펼침으로 복원 + 버튼 제거
                 this._restoreLayout = () => {
-                    $p('.dashboard-layout-header').css('display', prev.headerDisplay);
-                    prev.menuHidden ? $p('.menu_area').addClass('hidden') : $p('.menu_area').removeClass('hidden');
-                    $p('.con_area, .tab-content').css({ width: prev.conWidth, left: prev.conLeft });
+                    try { pwin.LayoutState.set(false); } catch(e){}
                     $btn.remove();
                 };
                 window.addEventListener('unload', this._restoreLayout);

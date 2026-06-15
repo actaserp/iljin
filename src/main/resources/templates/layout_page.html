@@ -168,19 +168,14 @@
         margin: 0;
     }
 
-    /* ── 레이아웃 토글 버튼 ── */
-    #layoutToggleBtn {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 34px; height: 34px;
-        margin-left: 8px; vertical-align: middle;
-        background: #fff; border: 1px solid #DEDEDE;
-        border-radius: 6px; cursor: pointer;
-        transition: background-color .2s, border-color .2s;
+    /* ── 접힘 상태에서 제목 클릭으로 복원 ── */
+    .layout-restore {
+        cursor: pointer;
     }
-    #layoutToggleBtn:hover  { background-color: #F5F6FA; border-color: #B3B3B3; }
-    #layoutToggleBtn:active { transform: scale(0.95); }
-    #layoutToggleBtn img    { width: 15px; height: 15px; margin-left: 4px}
-
+    .layout-restore:hover {
+        color: #3069B3;
+        transition: color .2s;
+    }
 </style>
 <body class="animated fadeIn">
 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
@@ -271,7 +266,7 @@
         }
     });
 
-    // layout_page.html — 부모 문서에 1회 정의
+    /*// layout_page.html — 부모 문서에 1회 정의
     window.LayoutToggle = (function () {
         let collapsed = false;
         const p = () => (window.parent && window.parent !== window) ? window.parent.$ : $;
@@ -294,26 +289,32 @@
             toggle() { this.set(!collapsed); },
             get() { return collapsed; }
         };
-    })();
+    })();*/
 
     $(document).ready(function () {
         if (window.DISABLE_GLOBAL_LAYOUT_TOGGLE) return;
-        if ($('#layoutToggleBtn').length) return;
 
-        // 컨텍스트 경로 (meta ctx 활용)
-        const ctx = $('meta[name="ctx"]').attr('content') || '/';
-        const ICON_EXPAND   = ctx + 'img/icon/arrows-angle-expand.svg';
-        const ICON_CONTRACT = ctx + 'img/icon/arrows-angle-contract.svg';
+        const pwin = (window.parent && window.parent !== window) ? window.parent : window;
+        if (!pwin.LayoutState) return;
 
-        const $btn = $('<button id="layoutToggleBtn" title="전체화면 전환"><img src="' + ICON_EXPAND + '" alt="전체화면"></button>');
+        // 제목 요소: 기본 h2, 없으면 페이지가 지정한 요소(대시보드 h1 등)
+        let $title = $('.page-title-wrap .left h2').first();
+        if (!$title.length) $title = $('[data-layout-toggle-anchor]').first();
+        if (!$title.length) return;
 
-        $('.page-title-wrap .left .bookmark.toggle').after($btn);
+        const sync = () => {
+            const collapsed = pwin.LayoutState.get();
+            $title.toggleClass('layout-restore', collapsed);
+            $title.attr('title', collapsed ? '클릭하면 메뉴/헤더가 펼쳐집니다' : '');
+        };
+        sync();
+        $(window).on('focus', sync);
 
-        $btn.on('click', () => {
-            window.LayoutToggle.toggle();
-            const collapsed = window.LayoutToggle.get();
-            $btn.find('img').attr('src', collapsed ? ICON_CONTRACT : ICON_EXPAND);
-            $btn.attr('title', collapsed ? '원래대로' : '전체화면 전환');
+        $title.on('click', () => {
+            if (pwin.LayoutState.get()) {   // 접혀있을 때만 동작
+                pwin.LayoutState.set(false);
+                sync();
+            }
         });
     });
 

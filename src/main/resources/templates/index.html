@@ -738,53 +738,75 @@
 
 
         $(function () {
-            let userToggled = false;  // 사용자가 직접 토글했는지 여부
-            let autoHiddenOnce = false; // 1366 이상일 때 자동 숨김을 한 번만 실행하도록
+            let userToggled = false;
+            let autoHiddenOnce = false;
+
+            // ★ 전역 레이아웃 상태 (iframe 자식들도 window.parent.LayoutState로 호출)
+            window.LayoutState = (function () {
+                let collapsed = false;
+                function apply() {
+                    $('#navbarBarMenu2 .open_menu').toggleClass('menu_open', collapsed);
+                    $('.menu_area').toggleClass('hidden', collapsed);
+                    $('.dashboard-layout-header').toggle(!collapsed);
+
+                    const footerH = $('.footer').outerHeight() || 0;
+                    const tabsH   = $('.nth-tabs .page-tabs').outerHeight() || 0;
+
+                    if (collapsed) {
+                        $('.con_area').css({
+                            width: '100%', left: '0',
+                            height: 'calc(100vh - ' + footerH + 'px)'
+                        });
+                        $('.tab-content').css({
+                            width: '100%', left: '0',
+                            position: 'relative',                          // ★ fixed → relative
+                            height: 'calc(100% - ' + tabsH + 'px)'         // ★ con_area 기준 100%에서 탭바만 뺌
+                        });
+                        $('.tab-content .tab-pane').css('height', '100%');
+                        $('.nth-tabs-frame').css('height', '100%');
+                    } else {
+                        $('.con_area, .tab-content').css({
+                            width: 'calc(100% - 250px)', left: '250px',
+                            height: '', position: ''                        // ★ position도 원복
+                        });
+                        $('.tab-content .tab-pane, .nth-tabs-frame').css('height', '');
+                        $(window).trigger('resize');
+                    }
+
+                    $('.con_area iframe').each(function () {
+                        try { $(this.contentWindow).trigger('focus'); } catch (e) {}
+                    });
+                }
+                return {
+                    set(v) { collapsed = !!v; apply(); },
+                    toggle() { this.set(!collapsed); },
+                    get() { return collapsed; }
+                };
+            })();
 
             function adjustMenu() {
                 const winWidth = $(window).width();
-
                 if (!userToggled) {
                     if (winWidth <= 1366) {
-                        // 작은 화면: 항상 메뉴 숨김
                         $('.menu_area').addClass('hidden');
-                        $('.con_area, .tab-content').css({
-                            'width': '100%',
-                            'left': '0'
-                        });
-                    } else {
-                        // 큰 화면(1366 초과): 한 번만 자동 숨김
-                        if (!autoHiddenOnce) {
-                            $('.menu_area').addClass('hidden');
-                            $('.con_area, .tab-content').css({
-                                'width': '100%',
-                                'left': '0'
-                            });
-                            autoHiddenOnce = true; // 한 번만 실행되도록 플래그 설정
-                        }
+                        $('.con_area, .tab-content').css({ width: '100%', left: '0' });
+                    } else if (!autoHiddenOnce) {
+                        $('.menu_area').addClass('hidden');
+                        $('.con_area, .tab-content').css({ width: '100%', left: '0' });
+                        autoHiddenOnce = true;
                     }
                 }
             }
-
-            // 페이지 로드 및 리사이즈 시 적용
             $(window).on('load resize', adjustMenu);
 
-            // 메뉴 토글 버튼 클릭 시
+            // 햄버거: 메뉴+헤더 함께 토글
             $('#navbarBarMenu2 .open_menu').click(function () {
-                userToggled = true; // 사용자가 직접 조작했으므로 자동모드 해제
-
-                $(this).toggleClass('menu_open');
-                $('.menu_area').toggleClass('hidden');
-
-                const isMenuHidden = $('.menu_area').hasClass('hidden');
-                $('.con_area, .tab-content').css({
-                    'width': isMenuHidden ? '100%' : 'calc(100% - 250px)',
-                    'left': isMenuHidden ? '0' : '250px'
-                });
+                userToggled = true;
+                // 현재 메뉴 상태 기준으로 동기화 (자동 숨김 상태에서 눌러도 일관되게)
+                const willCollapse = !$('.menu_area').hasClass('hidden');
+                window.LayoutState.set(willCollapse);
             });
         });
-
-
 
         // 북마크 및 default_menu를 한 번에 처리
         $.getJSON(withCtx('/api/system/bookmark'), function (result) {
