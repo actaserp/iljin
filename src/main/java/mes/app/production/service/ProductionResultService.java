@@ -1356,84 +1356,97 @@ public class ProductionResultService {
 	}
 
 	public AjaxResult getJobResByProcess(String dateFrom, String dateTo,
-										 String factory, String company, boolean includeComp, String processCode) {
+										 String factory, String item, boolean includeComp, String processCode) {
 
 		AjaxResult result = new AjaxResult();
 
 		String sql = """
-        WITH proc_wc AS (
-			SELECT wc.id AS wc_id, p."Code" AS proc_code, p.id AS proc_id
-			FROM work_center wc
-			JOIN process p ON p.id = wc."Process_id"
-			WHERE p."Code" = :processCode
-		),
-		jr_with_order AS (
-			SELECT jr.id,
-				   jr."WorkOrderNumber"   AS order_num,
-				   jr."State"             AS state,
-				   jr."OrderQty"          AS order_qty,
-				   jr."GoodQty"           AS good_qty,
-				   jr."DefectQty"         AS defect_qty,
-				   jr."ProductionDate"    AS prod_date,
-				   to_char(jr."StartTime", 'HH24:MI') AS start_time,
-				   to_char(jr."EndTime",   'HH24:MI') AS end_time,
-				   jr."EndDate"           AS end_date,
-				   jr."Parent_id",
-				   jr."Routing_id",
-				   jr."Material_id",
-				   jr."WorkCenter_id",
-				   jr."Equipment_id",
-				   jr."Manager_id"        AS manager_id,
-				   jr."Description"       AS description,
-				   rp."ProcessOrder",
-				   m."Code"      AS mat_code,
-				   m."Name"      AS mat_name,
-				   m."Standard1" AS standard,
-				   u."Name"      AS unit,
-				   pw.proc_code,
-				   wc."Name"  AS workcenter_name,
-				   per."Name" AS worker_name,
-				   e."Name"   AS equ_name,
-				   CASE jr."State"
-					   WHEN 'working'  THEN '생산중'
-					   WHEN 'finished' THEN '생산완료'
-					   WHEN 'stopped'  THEN '일시중지'
-					   WHEN 'wait'     THEN '대기'
-					   ELSE '작업지시'
-				   END AS job_state
-			FROM job_res jr
-			JOIN proc_wc pw ON pw.wc_id = jr."WorkCenter_id"
-			LEFT JOIN material m ON m.id = jr."Material_id"
-			LEFT JOIN unit u ON u.id = m."Unit_id"
-			LEFT JOIN work_center wc ON wc.id = jr."WorkCenter_id"
-			LEFT JOIN person per ON per.id = jr."Manager_id"
-			LEFT JOIN equ e ON e.id = jr."Equipment_id"
-			LEFT JOIN routing_proc rp ON rp."Routing_id" = jr."Routing_id"
-				AND rp."Process_id" = pw.proc_id
-			WHERE jr."Parent_id" IS NOT NULL
-			  AND (jr."ProductionDate" BETWEEN CAST(:dateFrom AS date) AND CAST(:dateTo AS date)
-				   OR jr."ProductionDate" IS NULL)
-		)
-		SELECT j.*,
-			CASE WHEN EXISTS (
-				SELECT 1 FROM job_res sibling
-				JOIN work_center swc ON swc.id = sibling."WorkCenter_id"
-				JOIN routing_proc srp ON srp."Routing_id" = sibling."Routing_id"
-					AND srp."Process_id" = swc."Process_id"
-				WHERE sibling."Parent_id" = j."Parent_id"
-					  AND sibling.id != j.id
-					  AND sibling."Material_id" = j."Material_id"
-					  AND srp."ProcessOrder" < j."ProcessOrder"
-					  AND sibling."State" != 'finished'
-			) THEN true ELSE false END AS _locked
-		FROM jr_with_order j
-		ORDER BY order_num DESC, mat_code
-    """;
+       WITH proc_wc AS (
+       SELECT wc.id AS wc_id, p."Code" AS proc_code, p.id AS proc_id
+       FROM work_center wc
+       JOIN process p ON p.id = wc."Process_id"
+       WHERE p."Code" = :processCode
+    ),
+    jr_with_order AS (
+       SELECT jr.id,
+             jr."WorkOrderNumber"   AS order_num,
+             jr."State"             AS state,
+             jr."OrderQty"          AS order_qty,
+             jr."GoodQty"           AS good_qty,
+             jr."DefectQty"         AS defect_qty,
+             jr."ProductionDate"    AS prod_date,
+             to_char(jr."StartTime", 'HH24:MI') AS start_time,
+             to_char(jr."EndTime",   'HH24:MI') AS end_time,
+             jr."EndDate"           AS end_date,
+             jr."Parent_id",
+             jr."Routing_id",
+             jr."Material_id",
+             jr."WorkCenter_id",
+             jr."Equipment_id",
+             jr."Manager_id"        AS manager_id,
+             jr."Description"       AS description,
+             rp."ProcessOrder",
+             m."Code"      AS mat_code,
+             m."Name"      AS mat_name,
+             m."Standard1" AS standard,
+             u."Name"      AS unit,
+             pw.proc_code,
+             wc."Name"  AS workcenter_name,
+             per."Name" AS worker_name,
+             e."Name"   AS equ_name,
+             CASE jr."State"
+                WHEN 'working'  THEN '생산중'
+                WHEN 'finished' THEN '생산완료'
+                WHEN 'stopped'  THEN '일시중지'
+                WHEN 'wait'     THEN '대기'
+                ELSE '작업지시'
+             END AS job_state
+       FROM job_res jr
+       JOIN proc_wc pw ON pw.wc_id = jr."WorkCenter_id"
+       LEFT JOIN material m ON m.id = jr."Material_id"
+       LEFT JOIN unit u ON u.id = m."Unit_id"
+       LEFT JOIN work_center wc ON wc.id = jr."WorkCenter_id"
+       LEFT JOIN person per ON per.id = jr."Manager_id"
+       LEFT JOIN equ e ON e.id = jr."Equipment_id"
+       LEFT JOIN routing_proc rp ON rp."Routing_id" = jr."Routing_id"
+          AND rp."Process_id" = pw.proc_id
+       WHERE jr."Parent_id" IS NOT NULL
+         AND (jr."ProductionDate" BETWEEN CAST(:dateFrom AS date) AND CAST(:dateTo AS date)
+             OR jr."ProductionDate" IS NULL)
+         -- ★ 품목 검색 (코드 또는 명, 부분일치)
+         AND (:item = '' OR m."Code" ILIKE '%' || :item || '%' OR m."Name" ILIKE '%' || :item || '%')
+         -- ★ '완료 포함' 해제 시 생산완료 제외
+         AND (:includeComp OR jr."State" <> 'finished')
+    )
+    SELECT j.*,
+       CASE WHEN EXISTS (
+          SELECT 1 FROM job_res sibling
+          JOIN work_center swc ON swc.id = sibling."WorkCenter_id"
+          JOIN routing_proc srp ON srp."Routing_id" = sibling."Routing_id"
+             AND srp."Process_id" = swc."Process_id"
+          WHERE sibling."Parent_id" = j."Parent_id"
+               AND sibling.id != j.id
+               AND sibling."Material_id" = j."Material_id"
+               AND srp."ProcessOrder" < j."ProcessOrder"
+               AND sibling."State" != 'finished'
+       ) THEN true ELSE false END AS _locked
+    FROM jr_with_order j
+    ORDER BY
+       CASE j.state
+          WHEN 'working'  THEN 1   -- 작업중
+          WHEN 'stopped'  THEN 2   -- 일시중지
+          WHEN 'finished' THEN 4   -- 생산완료
+          ELSE 3                   -- 작업지시(ordered) · 대기 등
+       END,
+       order_num DESC, mat_code
+   """;
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("processCode", processCode);
 		param.addValue("dateFrom", dateFrom);
 		param.addValue("dateTo", dateTo);
+		param.addValue("item", item == null ? "" : item.trim());   // ★
+		param.addValue("includeComp", includeComp);                // ★
 
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
 

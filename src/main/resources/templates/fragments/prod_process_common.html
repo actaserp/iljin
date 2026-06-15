@@ -4,56 +4,404 @@
      - ProcPageBase (그리드/시작·종료/탭/버튼상태)
      - 기존 prod_result_lot의 CSS 클래스(tab-links, tab-item, work-table 등)를 사용
      ============================================================ -->
-<style>
-    /* ════════ 태블릿/키오스크: 글자·그리드 확대 ════════ */
-    @media (pointer: coarse), (max-width: 1280px) {
-
-        /* 탭 글자 키우기 */
-        .tab-links a {
-            font-size: 1.15rem !important;
-            padding: 14px 20px !important;
-        }
-
-        /* 검색영역 입력/버튼 키우기 */
-        .search-wrap input,
-        .search-wrap select,
-        .btn-search {
-            font-size: 1.05rem !important;
-            min-height: 44px !important;
-        }
-
-        /* 그리드 헤더 글자 */
-        .wj-flexgrid .wj-header {
-            font-size: 1.05rem !important;
-        }
-
-        /* 화면 폭에 비례해 글자가 연속적으로 변함 */
-        .wj-flexgrid .wj-cell {
-            font-size: clamp(0.9rem, 1.2vw, 1.2rem) !important;
-        }
-
-        /* 기본정보 입력칸/라벨 키우기 */
-        .work-table th,
-        .work-table td { font-size: 1.05rem !important; }
-        .work-table input,
-        .work-table select,
-        .work-table textarea {
-            font-size: 1.05rem !important;
-            min-height: 42px !important;
-        }
-
-        /* 작업 버튼(시작/완료 등) 키우기 */
-        .work-action-buttons .btn {
-            font-size: 1.1rem !important;
-            min-height: 48px !important;
-            min-width: 90px !important;
-        }
-    }
-</style>
 <!-- ▸ 공통 JS 유틸 -->
+<th:block th:fragment="processCommonCss">
+    <style>
+        /* ════════════════════════════════════════════════════
+           반응형 디자인 토큰 (PC / 태블릿·키오스크 / 모바일)
+           - 기존 톤앤매너(파란 #1976d2, 상태색)를 변수로 승격
+           ════════════════════════════════════════════════════ */
+        :root {
+            --prod-accent:        #1976d2;
+            --prod-accent-dark:   #115293;
+            --prod-c-working:     #e8f5e9;
+            --prod-c-finished:    #e3f2fd;
+            --prod-c-stopped:     #fce4ec;
+            --prod-c-locked:      #bbbbbb;
+            --prod-card-radius:   12px;
+            --prod-card-shadow:   0 2px 6px rgba(0,0,0,.12);
+            /* 터치 타깃 (태블릿 기준, 모바일에서 더 키움) */
+            --prod-touch-min:     48px;
+            --prod-font-base:     1.05rem;
+        }
+
+        /* ════════ ① 태블릿·키오스크 (601~1280px 또는 터치) ════════ */
+        @media (pointer: coarse), (max-width: 1280px) {
+
+            .tab-links a {
+                font-size: 1.25rem !important;
+                padding: 18px 28px !important;
+                line-height: 1.2 !important;
+            }
+            .search-wrap input,
+            .search-wrap select,
+            .btn-search {
+                font-size: var(--prod-font-base) !important;
+                min-height: 44px !important;
+            }
+            .wj-flexgrid .wj-header { font-size: var(--prod-font-base) !important; }
+            .wj-flexgrid .wj-cell   { font-size: clamp(0.9rem, 1.2vw, 1.2rem) !important; }
+
+            .work-table th,
+            .work-table td { font-size: var(--prod-font-base) !important; }
+            .work-table input,
+            .work-table select,
+            .work-table textarea {
+                font-size: var(--prod-font-base) !important;
+                min-height: 42px !important;
+            }
+            .work-action-buttons .btn {
+                font-size: 1.1rem !important;
+                min-height: var(--prod-touch-min) !important;
+                min-width: 90px !important;
+            }
+        }
+
+        /* ════════ ② 모바일 (≤600px, 세로) ════════ */
+        /* 카드뷰 컨테이너 — 평소엔 숨김, body.mobile-mode에서만 노출 */
+        #proc-card-list { display: none; }
+
+        body.mobile-mode #proc-main-grid { display: none !important; }
+        body.mobile-mode #proc-card-list { display: block; }
+
+        /* 모바일에서 좌우 2단 → 세로 1열 */
+        body.mobile-mode .prod-flex { flex-direction: column !important; gap: 0 !important; }
+        body.mobile-mode .prod-flex > .section,
+        body.mobile-mode .prod-flex > .tab-wrap {
+            width: 100% !important; flex: none !important; min-width: 0 !important;
+        }
+
+        /* 작업 카드 */
+        .proc-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-left: 5px solid var(--prod-accent);
+            border-radius: var(--prod-card-radius);
+            box-shadow: var(--prod-card-shadow);
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform .05s ease;
+        }
+        .proc-card:active { transform: scale(0.985); }
+        .proc-card.is-selected {
+            border-color: var(--prod-accent);
+            box-shadow: 0 0 0 2px var(--prod-accent);
+        }
+        /* 상태별 좌측 컬러바 */
+        .proc-card.st-working  { border-left-color: #4caf50; background: var(--prod-c-working); }
+        .proc-card.st-finished { border-left-color: #1976d2; background: var(--prod-c-finished); }
+        .proc-card.st-stopped  { border-left-color: #e91e63; background: var(--prod-c-stopped); }
+        .proc-card.st-locked   { border-left-color: var(--prod-c-locked); opacity: .7; }
+
+        .proc-card .pc-top {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px; gap: 8px;
+        }
+        .proc-card .pc-name {
+            font-size: 1.15rem; font-weight: 700; color: #222;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .proc-card .pc-badge {
+            flex: none; font-size: .85rem; font-weight: 700;
+            padding: 4px 10px; border-radius: 20px;
+            background: var(--prod-accent); color: #fff;
+        }
+        .proc-card .pc-badge.st-working  { background: #4caf50; }
+        .proc-card .pc-badge.st-finished { background: #1976d2; }
+        .proc-card .pc-badge.st-stopped  { background: #e91e63; }
+        .proc-card .pc-badge.st-locked   { background: #9e9e9e; }
+        .proc-card .pc-badge.st-ordered  { background: #757575; }
+
+        .proc-card .pc-meta {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px;
+            font-size: .95rem; color: #555;
+        }
+        .proc-card .pc-meta b { color: #222; font-weight: 600; }
+        .proc-card .pc-lock-msg {
+            margin-top: 8px; font-size: .85rem; color: #c62828; font-weight: 600;
+        }
+
+        @media (max-width: 600px) {
+            body.mobile-mode .tab-links a { font-size: 1.05rem !important; padding: 12px 14px !important; }
+            /* 기본정보 폼 1열 풀폭 */
+            body.mobile-mode .work-table colgroup,
+            body.mobile-mode .work-table col { width: auto !important; }
+            body.mobile-mode .work-table th,
+            body.mobile-mode .work-table td {
+                display: block !important; width: 100% !important;
+                box-sizing: border-box;
+            }
+            body.mobile-mode .work-table th {
+                background: #f7f7f7; padding: 8px 10px !important;
+                border-bottom: none !important;
+            }
+            body.mobile-mode .work-table input,
+            body.mobile-mode .work-table select,
+            body.mobile-mode .work-table textarea {
+                width: 100% !important; min-height: 46px !important;
+                font-size: 1.05rem !important; box-sizing: border-box;
+            }
+        }
+
+        /* ════════════════════════════════════════════════════
+           태블릿/키오스크/모바일: 하단 고정 액션바 + 폼 정갈화
+           (touch-mode = 태블릿·키오스크, mobile-mode = 모바일)
+           ════════════════════════════════════════════════════ */
+
+        /* ── (1) 시작/완료만 하단 sticky 바, 나머지 4개(일시중지/완료취소/저장/삭제)는 원위치 유지 ── */
+        /* 시작/완료를 하단에 고정한 바 컨테이너는 JS로 #stickyActionBar에 옮겨 담음 */
+        #stickyActionBar { display: none; }
+        body.touch-mode #stickyActionBar,
+        body.mobile-mode #stickyActionBar {
+            display: flex;
+            position: fixed;
+            left: 0; right: 0; bottom: 0;
+            z-index: 1200;
+            gap: 10px;
+            background: #fff;
+            border-top: 1px solid #e0e0e0;
+            box-shadow: 0 -2px 8px rgba(0,0,0,.08);
+            padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) 12px;
+        }
+        body.touch-mode #stickyActionBar > button,
+        body.mobile-mode #stickyActionBar > button {
+            flex: 1 1 0;
+            min-height: 56px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            border-radius: 10px;
+            color: #fff;
+            border: none;
+        }
+        #stickyActionBar #btnWorkStart  { background: #4caf50; }
+        #stickyActionBar #btnWorkFinish { background: #1976d2; }
+        /* 현재 상태에서 못 쓰는 버튼(예: 생산중의 '시작')은 숨겨 남은 버튼이 폭을 다 차지 */
+        #stickyActionBar > button[disabled] { display: none !important; }
+        /* 활성 버튼이 하나도 없으면(완료/중지 등) 바 자체를 숨김 */
+        #stickyActionBar.is-empty { display: none !important; }
+        /* 작지 시작/마감이 필요 없는 탭(차수·투입·부적합)에선 하단 스티키 숨김 — 작업은 그리드 버튼으로 */
+        body.touch-mode[data-active-tab="tabChasu"] #stickyActionBar,
+        body.touch-mode[data-active-tab="tabConsumed"] #stickyActionBar,
+        body.touch-mode[data-active-tab="tabDefect"] #stickyActionBar,
+        body.mobile-mode[data-active-tab="tabChasu"] #stickyActionBar { display: none !important; }
+        body.touch-mode[data-active-tab="tabChasu"] #tabChasu,
+        body.touch-mode[data-active-tab="tabConsumed"] #tabConsumed,
+        body.touch-mode[data-active-tab="tabDefect"] #tabDefect { padding-bottom: 24px !important; }
+        /* 차수탭은 스티키가 없으니 그리드를 바닥 가까이까지 채움 */
+        body.touch-mode[data-active-tab="tabChasu"] #chasu-grid {
+            height: calc(100vh - 250px) !important;
+            min-height: 340px !important;
+        }
+        /* PC 모드: 마크업 인라인 height:200px 때문에 안 차던 것 → 화면 높이에 맞춰 채움 */
+        body:not(.touch-mode):not(.mobile-mode) #chasu-grid {
+            height: calc(100vh - 320px) !important;
+            min-height: 320px !important;
+        }
+
+        /* 모바일(세로): 시작/완료 세로로 쌓기 */
+        body.mobile-mode #stickyActionBar { flex-direction: column; }
+
+        /* 스티키 바(시작/완료)가 콘텐츠를 가리지 않도록 모든 탭에 하단 여백 ──
+           스티키 높이(버튼56 + 상하패딩20 ≈ 80) + 그리드 스크롤 여유 */
+        body.touch-mode #tabBasic,
+        body.touch-mode #tabList,
+        body.touch-mode #tabConsumed,
+        body.touch-mode #tabChasu,
+        body.touch-mode #tabDefect {
+            padding-bottom: 100px !important;
+        }
+        /* ── 태블릿 그리드 높이 통일 (기준: 차수 그리드) ──
+           목록/부적합/투입 그리드는 하단 스티키 높이만큼 위에서 끝나도록 보정해
+           차수 탭과 시각적으로 동일하게 화면을 채움. */
+        /* 목록(검색바 + 스티키 있음): 한 단계 낮은 높이 */
+        body.touch-mode #tabList #proc-main-grid {
+            height: calc(100vh - 340px) !important;
+            min-height: 300px !important;
+        }
+        /* 투입·부적합(스티키 없앰): 차수와 동일하게 바닥까지 채움 */
+        body.touch-mode #consumed-grid,
+        body.touch-mode #defect-grid {
+            height: calc(100vh - 250px) !important;
+            min-height: 340px !important;
+        }
+        /* 투입 로트(토글로 열리는 보조 그리드)는 보조 높이 */
+        body.touch-mode #input-lot-grid {
+            height: calc(40vh - 60px) !important;
+            min-height: 200px !important;
+        }
+
+        /* 하단 바에 가려지지 않도록 폼 영역에 아래 여백 확보 */
+        body.mobile-mode #tabBasic { padding-bottom: 150px; }
+
+        /* 남은 상단 버튼줄(일시중지/완료취소/저장/삭제): 태블릿/모바일에서 적당히 키움 */
+        body.touch-mode .work-action-buttons .btn,
+        body.mobile-mode .work-action-buttons .btn {
+            min-height: 44px !important;
+            font-size: 1rem !important;
+        }
+        /* 일시중지: 연한 주황 (눈에 띄게) */
+        body.touch-mode #btnWorkStop:not([disabled]),
+        body.mobile-mode #btnWorkStop:not([disabled]) {
+            background: #fff3e0 !important;
+            color: #e65100 !important;
+            border: 1px solid #ffb74d !important;
+        }
+
+        /* ── (2) 기본정보 input 폭 통일 + th 정리 (PC 포함 전체 적용) ── */
+        .work-table { table-layout: fixed; width: 100%; }
+        /* th 폭 고정 (라벨이 길어도 일정) */
+        .work-table th {
+            width: 120px;
+            text-align: right;
+            padding-right: 14px;
+            white-space: nowrap;
+            color: #444;
+            font-weight: 600;
+        }
+        /* input/select/textarea 폭 100% 통일 (인라인 style 덮어쓰기) */
+        .work-table td input:not([type=checkbox]):not([type=radio]),
+        .work-table td select,
+        .work-table td textarea {
+            width: 100% !important;
+            box-sizing: border-box;
+            max-width: 100%;
+        }
+        /* 날짜+시간 같은 input-group은 가로 유지 */
+        .work-table td .input-group {
+            display: flex; gap: 6px; width: 100%;
+        }
+        .work-table td .input-group input { flex: 1 1 0; min-width: 0; }
+
+        /* ── 모바일(세로) 그리드 높이 — 모바일은 보류, 기존값 유지 ── */
+        body.mobile-mode #consumed-grid  { height: calc(50vh - 120px) !important; min-height: 220px !important; }
+        body.mobile-mode #input-lot-grid { height: calc(45vh - 120px) !important; min-height: 200px !important; }
+        body.mobile-mode #chasu-grid     { height: calc(100vh - 360px) !important; min-height: 240px !important; }
+        body.mobile-mode #defect-grid    { height: calc(100vh - 320px) !important; min-height: 240px !important; }
+
+        /* ════ 태블릿 글자/입력 정리 (태블릿 모드 토글 시 적용) ════ */
+        /* (1) 검색 영역 글자 키움 */
+        body.touch-mode .search-wrap dt,
+        body.touch-mode .search-wrap label,
+        body.touch-mode .search-wrap .srch-box { font-size: 1.1rem !important; }
+        body.touch-mode .search-wrap input,
+        body.touch-mode .search-wrap select,
+        body.touch-mode .btn-search {
+            font-size: 1.12rem !important;
+            min-height: 48px !important;
+            padding: 6px 12px !important;
+            box-sizing: border-box;
+        }
+        /* (3) 그리드 본문 글자 — 행이 커진 만큼 함께 키움 */
+        body.touch-mode .wj-flexgrid .wj-header { font-size: 1.1rem !important; }
+        body.touch-mode .wj-flexgrid .wj-cell   { font-size: 1.12rem !important; }
+        /* (4) 폼 입력 — 글자 키우고 좌우 여백 + 좌측정렬로 가장자리 쏠림 해소 */
+        body.touch-mode .work-table input:not([type=checkbox]):not([type=radio]),
+        body.touch-mode .work-table select,
+        body.touch-mode .work-table textarea {
+            font-size: 1.12rem !important;
+            min-height: 48px !important;
+            padding: 8px 12px !important;
+            line-height: 1.3 !important;
+            box-sizing: border-box;
+        }
+        body.touch-mode .work-table input[type=text],
+        body.touch-mode .work-table input[type=date],
+        body.touch-mode .work-table input[type=time],
+        body.touch-mode .work-table input:not([type]),
+        body.touch-mode .search-wrap input { text-align: left !important; }
+        /* ── 작업 버튼 비활성: 색 빼고 회색 (활성/비활성 구분) ── */
+        button#btnWorkStart[disabled],
+        button#btnWorkStop[disabled],
+        button#btnWorkFinish[disabled],
+        #stickyActionBar #btnWorkStart[disabled],
+        #stickyActionBar #btnWorkFinish[disabled] {
+            background: #e9ecef !important;
+            color: #adb5bd !important;
+            border: 1px solid #dee2e6 !important;
+            box-shadow: none !important;
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+        }
+        /* 활성 시 또렷한 색 (페이지의 !important 색을 확실히 이김) */
+        button#btnWorkStart:not([disabled]),
+        #stickyActionBar #btnWorkStart:not([disabled]) {
+            background: #4caf50 !important; color: #fff !important;
+        }
+        button#btnWorkFinish:not([disabled]),
+        #stickyActionBar #btnWorkFinish:not([disabled]) {
+            background: #1976d2 !important; color: #fff !important;
+        }
+        button#btnWorkStop:not([disabled]) {
+            background: #ff9800 !important; color: #fff !important;
+        }
+
+        /* ── (4) 차수 탭: 작업 셀 풀버튼 ── */
+        body.touch-mode #chasu-grid .wj-cell.chasu-action { padding: 5px 6px !important; }
+
+        /* ── 차수 배정 툴바 (#tabChasu .button-wrap) 태블릿 디자인 ──
+           ul > li 구조: 1=지시량 2=| 3=잔여 4=| 5=작업자 6=수량 7=추가 8=삭제 */
+        body.touch-mode #tabChasu .button-wrap {
+            padding: 14px 16px !important;
+            background: #f7f9fb !important;
+            border: 1px solid #e6e9ee !important;
+            border-radius: 12px !important;
+        }
+        body.touch-mode #tabChasu .button-wrap > ul {
+            gap: 14px !important;
+            align-items: center !important;
+        }
+        body.touch-mode #tabChasu .button-wrap li {
+            font-size: 1.1rem !important;
+            display: flex; align-items: center; gap: 8px;
+        }
+        /* 지시량 / 잔여 → 정보 칩 */
+        body.touch-mode #tabChasu .button-wrap li:nth-child(1),
+        body.touch-mode #tabChasu .button-wrap li:nth-child(3) {
+            background: #fff; border: 1px solid #e6e9ee;
+            border-radius: 8px; padding: 8px 14px;
+            color: #667085; font-size: 1rem !important;
+        }
+        body.touch-mode #tabChasu .button-wrap li:nth-child(1) strong,
+        body.touch-mode #tabChasu .button-wrap li:nth-child(3) strong {
+            font-size: 1.35rem; color: #1976d2;
+        }
+        /* 구분선(|) li 숨김 — 칩으로 구분됨 */
+        body.touch-mode #tabChasu .button-wrap li:nth-child(2),
+        body.touch-mode #tabChasu .button-wrap li:nth-child(4) { display: none !important; }
+        /* 입력 그룹(작업자~)을 오른쪽으로 밀기 */
+        body.touch-mode #tabChasu .button-wrap li:nth-child(5) { margin-left: auto; }
+        /* 컨트롤 사이즈 (인라인 width 덮어씀) */
+        body.touch-mode #chasuWorker {
+            min-width: 200px !important; height: 48px !important;
+            font-size: 1.1rem !important; box-sizing: border-box;
+        }
+        body.touch-mode #chasuQty {
+            width: 100px !important; height: 48px !important;
+            font-size: 1.1rem !important; text-align: right; box-sizing: border-box;
+        }
+        body.touch-mode #btnAddChasu {
+            height: 48px !important; padding: 0 22px !important;
+            font-size: 1.1rem !important; font-weight: 600 !important;
+            background: #1976d2 !important; color: #fff !important;
+            border: none !important; border-radius: 8px !important;
+        }
+        body.touch-mode #btnAddChasu[disabled] {
+            background: #e9ecef !important; color: #adb5bd !important;
+        }
+        body.touch-mode #btnDeleteChasu {
+            height: 48px !important; width: 48px !important; padding: 0 !important;
+            font-size: 1.2rem !important; border-radius: 8px !important;
+        }
+    </style>
+</th:block>
+
 <th:block th:fragment="processCommonJS">
     <script type="text/javascript">
-        window.DISABLE_GLOBAL_LAYOUT_TOGGLE = true;
+        // (구) window.DISABLE_GLOBAL_LAYOUT_TOGGLE = true;  ← 제거:
+        //   layout_page.html의 "제목 클릭 → 메뉴/헤더 펼치기" 핸들러를 살리기 위함.
+        //   우리 initLayoutCollapse는 뷰모드 버튼으로 별도 제어하므로 둘이 공존 가능.
         /**
          * ProcPageBase - 공정별 페이지 공통 로직
          * 각 공정 페이지에서 extends 하거나 직접 사용
@@ -82,14 +430,15 @@
                     headersVisibility: wijmo.grid.HeadersVisibility.Column,
                     isReadOnly: true,
                     showMarquee: true,
+                    allowResizing: wijmo.grid.AllowResizing.Columns,  // 컬럼 크기 조절 허용(터치 포함)
                     columns: [
-                        { binding: 'order_num',    header: '작지번호',  width: 130, align: 'center' },
+                        { binding: 'order_num',    header: '작지번호',  width: 160, align: 'center' },
                         { binding: 'mat_name',     header: '품목',     width: '*',  align: 'left', minWidth: 120 },
                         { binding: 'mat_code',     header: '품목코드',  width: 110, align: 'center' },
-                        { binding: 'job_state',    header: '상태',     width: 80,  align: 'center' },
+                        { binding: 'job_state',    header: '상태',     width: 100,  align: 'center' },
                         { binding: 'order_qty',    header: '지시량',   width: 80,  format: 'n0', align: 'right' },
                         { binding: 'good_qty',     header: '양품량',   width: 80,  format: 'n0', align: 'right' },
-                        { binding: 'worker_name',  header: '작업자',   width: 90,  align: 'center' },
+                        { binding: 'worker_name',  header: '관리자',   width: 90,  align: 'center' },
                         { binding: 'equ_name',     header: '설비',     width: 100, align: 'center' },
                         { binding: 'prod_date',    header: '생산일',   width: 100, align: 'center' },
                         { binding: 'company_name', header: '판매처',   width: 100, align: 'left' },
@@ -139,13 +488,17 @@
                 const param = {
                     date_from: $('#date_from').val(),
                     date_to: $('#date_to').val(),
-                    company: $('#CompanySearch').val(),
+                    item: $('#ItemSearch').val(),            // ★ 품목(코드/명) 검색
                     is_include_comp: $('#chxCompYn').is(':checked'),
                     process_code: this.processCode  // ★ 공정코드 필터
                 };
 
                 const result = AjaxUtil.getSyncData(this.baseUrl + '/read_by_process', param);
-                if (!result.data) return;
+                if (!result.data) {
+                    _this._lastData = [];
+                    _this.renderMobileCards([]);
+                    return;
+                }
 
                 // step 게이팅: _locked 플래그 추가 (서버에서 내려줘도 되고 프론트에서도 가능)
                 const data = result.data;
@@ -168,6 +521,100 @@
                         _this.resetForm();
                     }
                 }
+
+                // ★ 모바일 카드뷰 동기화 (데이터 소스 1벌 유지)
+                _this._lastData = data;
+                _this.renderMobileCards(data);
+            }
+
+            /* ── 모바일: 그리드 데이터를 카드형으로 렌더링 ──
+               데이터는 searchMainData가 채운 동일 소스(_lastData)를 사용.
+               카드 클릭 = 그리드 행 클릭과 동일하게 showBasicInfo 호출. */
+            renderMobileCards(data) {
+                const _this = this;
+                let $box = $('#proc-card-list');
+                // 컨테이너가 없으면 메인 그리드 바로 뒤에 생성
+                if (!$box.length) {
+                    $('#proc-main-grid').after('<div id="proc-card-list"></div>');
+                    $box = $('#proc-card-list');
+                }
+                // 모바일 모드가 아니면 렌더 비용 절약 (display:none이지만 DOM은 비워둠)
+                if (!$('body').hasClass('mobile-mode')) { $box.empty(); return; }
+
+                const list = data || _this._lastData || [];
+                if (!list.length) {
+                    $box.html('<div style="padding:24px; text-align:center; color:#888;">조회된 작업이 없습니다.</div>');
+                    return;
+                }
+
+                const stateClass = (st) => {
+                    switch (st) {
+                        case 'working':  return 'st-working';
+                        case 'finished': return 'st-finished';
+                        case 'stopped':  return 'st-stopped';
+                        default:         return 'st-ordered';
+                    }
+                };
+                const esc = (v) => (v == null ? '' : String(v)
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+
+                let html = '';
+                list.forEach((item, idx) => {
+                    const locked = !!item._locked;
+                    const sc = locked ? 'st-locked' : stateClass(item.state);
+                    const badgeTxt = esc(item.job_state || '작업지시');
+                    html += `
+                        <div class="proc-card ${sc}" data-idx="${idx}" data-id="${esc(item.id)}">
+                            <div class="pc-top">
+                                <span class="pc-name">${esc(item.mat_name) || '-'}</span>
+                                <span class="pc-badge ${locked ? 'st-locked' : stateClass(item.state)}">${badgeTxt}</span>
+                            </div>
+                            <div class="pc-meta">
+                                <span>작지 <b>${esc(item.order_num) || '-'}</b></span>
+                                <span>코드 <b>${esc(item.mat_code) || '-'}</b></span>
+                                <span>지시 <b>${esc(item.order_qty ?? 0)}</b></span>
+                                <span>양품 <b>${esc(item.good_qty ?? 0)}</b></span>
+                                <span>작업자 <b>${esc(item.worker_name) || '-'}</b></span>
+                                <span>설비 <b>${esc(item.equ_name) || '-'}</b></span>
+                            </div>
+                            ${locked ? '<div class="pc-lock-msg">⚠ 전 공정 미완료 — 확인 후 진행</div>' : ''}
+                        </div>`;
+                });
+                $box.html(html);
+
+                // 선택 복구 표시
+                if (_this.jobres) {
+                    $box.find(`.proc-card[data-id="${_this.jobres.id}"]`).addClass('is-selected');
+                }
+
+                // 카드 클릭 → 그리드 행 클릭과 동일 동작
+                $box.off('click', '.proc-card').on('click', '.proc-card', function () {
+                    const i = parseInt($(this).attr('data-idx'), 10);
+                    const item = list[i];
+                    if (!item) return;
+
+                    _this.selectedIndex = i;
+                    _this.jobres = item;
+
+                    // 그리드 선택도 동기화 (탭/버튼 상태 로직이 grid 선택에 의존할 수 있음)
+                    try { _this.grid.select(i, 0); } catch (e) {}
+
+                    $box.find('.proc-card').removeClass('is-selected');
+                    $(this).addClass('is-selected');
+
+                    if (item._locked) {
+                        Notify.warning('전 공정이 완료되지 않았습니다. 확인 후 진행하세요.');
+                    }
+                    _this.showBasicInfo(item.id);
+
+                    // 모바일: 카드 선택 시 '기본 정보' 탭으로 자동 전환
+                    if ($('body').hasClass('mobile-mode')) {
+                        $('.tab-wrap .tab-item').hide();
+                        $('#tabBasic').show();
+                        $('.tab-links li').removeClass('active');
+                        $('.tab-links a[name="tabBasic"]').parent('li').addClass('active');
+                    }
+                });
             }
 
             /* ── 기본정보 표시 ── */
@@ -211,7 +658,7 @@
                 $('#prod_mat_nm').val(d.prod_mat_nm || '');
                 $('#need_pro_mat_qty').val(d.need_pro_mat_qty || '');
 
-                AjaxUtil.fillSelectedOptions($('#worker_id'), 'person', 'choose', d.manager_id || '', '');
+                AjaxUtil.fillSelectedOptions($('#manager_id'), 'person', 'choose', d.manager_id || '', '');
                 AjaxUtil.fillSelectedOptions($('#equipment_id'), 'equipment_code', 'choose', d.equipment_id || '', d.workcenter_id);
 
                 this.showChasuList(jr_pk);
@@ -226,7 +673,11 @@
 
                 this.setButtonState();
                 if ($('body').hasClass('touch-mode')) {
-                    $('.tab-links a[name="tabBasic"]').click();
+                    // ★ state별 탭 자동 이동
+                    //   생산중(working) → 차수별생산 탭 / 그 외(지시·완료·일시중지) → 기본정보 탭
+                    const _st = $('#state').val();
+                    const _tab = (_st === 'working') ? 'tabChasu' : 'tabBasic';
+                    $('.tab-links a[name="' + _tab + '"]').click();
                 }
             }
 
@@ -276,11 +727,17 @@
                         $save.prop('disabled', false);
                         this.toggleFormEditable(true);
                 }
+
+                // ★ 스티키: 활성 버튼 없으면 바 숨김 (빈 줄/그림자 잔상 방지)
+                const $sb = $('#stickyActionBar');
+                if ($sb.length) {
+                    $sb.toggleClass('is-empty', $sb.find('button:not([disabled])').length === 0);
+                }
             }
 
             toggleFormEditable(editable) {
                 // 시작 전: 작업자/설비 선택 가능
-                $('#worker_id, #equipment_id').prop('disabled', !editable);
+                $('#manager_id, #equipment_id').prop('disabled', !editable);
             }
 
             /* ── 작업 시작 ── */
@@ -290,7 +747,7 @@
                 const prevIdx = this.selectedIndex;
 
                 // 필수 체크
-                if (!data.worker_id)    { Alert.alert('', '작업자를 선택해주세요.'); return; }
+                if (!data.manager_id)    { Alert.alert('', '작업자를 선택해주세요.'); return; }
                 if (!data.equipment_id) { Alert.alert('', '설비를 선택해주세요.'); return; }
 
                 // 시작시간 기본값
@@ -734,12 +1191,18 @@
                             if (!item) return;
                             if (column.header === '작업') {
                                 const st = item.state;
+                                // ★ 키오스크/태블릿: 버튼이 셀을 꽉 채우는 풀셀 버튼
+                                const touch = document.body.classList.contains('touch-mode')
+                                    || document.body.classList.contains('mobile-mode');
+                                const bs = touch
+                                    ? 'display:block; width:100%; min-height:42px; padding:6px 8px; font-size:1.02rem; font-weight:600;'
+                                    : 'padding:2px 10px; height:20px;';
                                 if (st === 'ready' || st === 'assigned') {
-                                    cell.innerHTML = `<button class="btn btn-chasu-start" data-id="${item.id}" style="padding:2px 10px; height:20px; background:#4caf50; color:#fff; border:none; border-radius:4px;">시작</button>`;
+                                    cell.innerHTML = `<button class="btn btn-chasu-start" data-id="${item.id}" style="${bs} background:#4caf50; color:#fff; border:none; border-radius:6px;">시작</button>`;
                                 } else if (st === 'working') {
-                                    cell.innerHTML = `<button class="btn btn-chasu-finish" data-id="${item.id}" style="padding:2px 10px; height:20px; background:#1976d2; color:#fff; border:none; border-radius:4px;">완료</button>`;
+                                    cell.innerHTML = `<button class="btn btn-chasu-finish" data-id="${item.id}" style="${bs} background:#1976d2; color:#fff; border:none; border-radius:6px;">완료</button>`;
                                 } else if (st === 'finished') {
-                                    cell.innerHTML = `<button class="btn btn-chasu-cancel" data-id="${item.id}" style="padding:2px 10px; height:20px; background:#ff5722; color:#fff; border:none; border-radius:4px;">완료취소</button>`;
+                                    cell.innerHTML = `<button class="btn btn-chasu-cancel" data-id="${item.id}" style="${bs} background:#ff5722; color:#fff; border:none; border-radius:6px;">완료취소</button>`;
                                 } else {
                                     cell.innerHTML = `<span style="color:#999;">-</span>`;
                                 }
@@ -785,6 +1248,8 @@
                 if (result.data) {
                     this.chasuGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
                     this.refreshAfterChasu(jr_pk);
+                    // ★ 터치: 행 수에 맞춰 그리드 높이 조정
+                    if ($('body').hasClass('touch-mode')) this.fitChasuGridHeight();
                 }
             }
 
@@ -841,6 +1306,7 @@
 
             /* ── 탭 전환 ── */
             initTabs() {
+                const _this = this;
                 // 기존 prod_result_lot과 동일: tab-links / tab-item 구조
                 const $links = $('.tab-wrap .tab-links a');
                 const $items = $('.tab-wrap .tab-item');
@@ -848,6 +1314,8 @@
                 $links.on('click', function (e) {
                     e.preventDefault();
                     const targetId = $(this).attr('href'); // '#tabBasic'
+                    // ★ 활성 탭을 body 속성에 기록 (차수 탭 스티키 숨김 등 CSS 훅)
+                    document.body.setAttribute('data-active-tab', ($(this).attr('name') || targetId.replace('#', '')));
 
                     // 링크 활성 표시
                     $links.parent('li').removeClass('active');
@@ -856,6 +1324,12 @@
                     // 탭 콘텐츠 토글
                     $items.hide();
                     $(targetId).show();
+
+                    // 탭 안 그리드 높이 재계산 (숨김→표시 시 wijmo가 0높이로 잡히는 문제 방지)
+                    setTimeout(() => {
+                        [_this.consumedGrid, _this.inputLotGrid, _this.chasuGrid, _this.defectGrid, _this.grid]
+                            .forEach(g => { if (g) { try { g.invalidate(true); } catch (e) {} } });
+                    }, 0);
                 });
 
                 // 첫번째 탭 활성 — touch-mode면 목록, 아니면 기본정보
@@ -868,6 +1342,7 @@
                 $links.parent('li').removeClass('active');
                 $firstLink.parent('li').addClass('active');
                 $($firstLink.attr('href')).show();
+                document.body.setAttribute('data-active-tab', ($firstLink.attr('name') || 'tabBasic'));
             }
 
             /* ── 이벤트 바인딩 ── */
@@ -904,7 +1379,7 @@
                     _this.showLotInput(lot_number, jr_pk);
                 });
                 // 검색 엔터
-                $('#CompanySearch').on('keydown', function(e) {
+                $('#ItemSearch').on('keydown', function(e) {
                     if (e.key === 'Enter') { e.preventDefault(); _this.searchMainData(); }
                 });
 
@@ -941,7 +1416,7 @@
                 data.workcenter_id = $('#workcenter_id').val();
                 data.id = $('#jr_id').val();
                 data.equipment_id = $('#equipment_id').val();
-                data.worker_id = $('#worker_id').val();
+                data.manager_id = $('#manager_id').val();
 
                 AjaxUtil.postAsyncData(this.baseUrl + '/save', data, (res) => {
                     if (res?.success) {
@@ -1173,78 +1648,194 @@
                 $('#layoutToggleBtn').remove();
                 const hasParent = window.parent && window.parent !== window;
                 const pwin = hasParent ? window.parent : null;
-                if (!pwin || !pwin.LayoutState) return;   // ★ 부모 LayoutState 필수
+                // 부모 LayoutState는 있으면 사용(태블릿 접기), 없어도 자기화면 반응형은 동작
+                let hasLS = false;
+                try { hasLS = !!(pwin && pwin.LayoutState); } catch (e) { hasLS = false; }
 
-                // ★ 부모 레이아웃 조작은 LayoutState에 위임 (직접 collapse/expand 안 함)
-                const setParentLayout = (v) => { pwin.LayoutState.set(v); };
+                // 부모 메뉴 접기는 LayoutState에 위임 (없으면 no-op)
+                const setParentLayout = (v) => { try { if (hasLS) pwin.LayoutState.set(v); } catch (e) {} };
+                const getParentLayout = () => { try { return hasLS ? pwin.LayoutState.get() : false; } catch (e) { return false; } };
 
-                // 버튼 생성 (기존과 동일)
-                const $btn = $('<button id="floatNavToggle" title="메뉴 펼치기/접기">&#9776;</button>')
-                .css({
-                    width: '34px', height: '34px', fontSize: '16px',
-                    marginLeft: '8px', verticalAlign: 'middle',
-                    background: '#1976d2', color: '#fff', border: 'none',
-                    borderRadius: '6px', cursor: 'pointer',
-                    boxShadow: '0 1px 3px rgba(0,0,0,.15)'
-                });
-                const $anchor = $('.page-title-wrap .left .bookmark.toggle');
-                if ($anchor.length) $anchor.after($btn);
-                else { $btn.css({ position:'fixed', top:'6px', left:'6px', zIndex:99999 }); $btn.appendTo('body'); }
+                // ── 뷰 모드 선택 버튼 (PC / 태블릿 / 모바일) — ☰(메뉴접기)와 별도 ──
+                let $viewBar = $();
+                let $btn = $();
+                {
+                    $viewBar = $(
+                        '<span id="viewModeBar" style="display:inline-flex; gap:4px; margin-left:8px; vertical-align:middle;">' +
+                        '<button type="button" data-view="pc"     title="PC 보기">PC</button>' +
+                        '<button type="button" data-view="tablet" title="태블릿 보기">태블릿</button>' +
+                        // '<button type="button" data-view="mobile" title="모바일 보기">모바일</button>' +
+                        '</span>'
+                    );
+                    $viewBar.find('button').css({
+                        height: '32px', minWidth: '52px', padding: '0 10px',
+                        fontSize: '13px', border: '1px solid #cfd8dc',
+                        background: '#fff', color: '#555', cursor: 'pointer',
+                        borderRadius: '6px'
+                    });
+                    const $anchor = $('.page-title-wrap .left .bookmark.toggle');
+                    if ($anchor.length) $anchor.after($viewBar);
+                    else { $viewBar.css({ position:'fixed', top:'6px', left:'6px', zIndex:99999 }); $viewBar.appendTo('body'); }
+                    $btn = $viewBar;
+                }
 
+                let collapsed = false;
+                let mobile = false;
                 let userToggledHere = false;
 
-                // ★ 부모 상태를 기준으로 sync (자체 collapsed 변수 제거)
-                const sync = () => {
-                    const collapsed = pwin.LayoutState.get();   // ← 부모가 진실의 원천
-                    setParentLayout(collapsed);                 // 레이아웃 적용(부모)
-                    $('body').toggleClass('touch-mode', collapsed);
-                    this.moveListToTab(collapsed);
-                    this.applyTouchGridSize(collapsed);
-
+                const activateTab = (name) => {
                     $('.tab-wrap .tab-item').hide();
-                    if (collapsed) {
-                        $('#tabList').show();
-                        $('.tab-links li').removeClass('active');
-                        $('.tab-links a[name="tabList"]').parent('li').addClass('active');
-                    } else {
-                        $('#tabBasic').show();
-                        $('.tab-links li').removeClass('active');
-                        $('.tab-links a[name="tabBasic"]').parent('li').addClass('active');
-                    }
+                    $('#' + (name === 'tabList' ? 'tabList' : 'tabBasic')).show();
+                    $('.tab-links li').removeClass('active');
+                    $('.tab-links a[name="' + name + '"]').parent('li').addClass('active');
+                    document.body.setAttribute('data-active-tab', name);
                 };
 
-                // 버튼 클릭: 부모 상태를 토글한 뒤 sync
-                $btn.on('click', () => {
+                // ★ 자기화면 + 부모(LayoutState) 동기화
+                const sync = () => {
+                    // (1) 부모 메뉴 접기: 태블릿/모바일이면 접기
+                    setParentLayout(collapsed || mobile);
+
+                    // (2) 자기화면 클래스
+                    $('body').toggleClass('touch-mode', collapsed && !mobile);
+                    $('body').toggleClass('mobile-mode', mobile);
+
+                    // (3) 그리드/목록 전환
+                    this.moveListToTab(collapsed && !mobile);
+                    this.applyTouchGridSize(collapsed || mobile);
+                    this.applyTouchGridColumns(collapsed && !mobile);
+                    this.applyChasuGridColumns(collapsed && !mobile);   // ★ 차수 그리드 태블릿 컬럼
+                    // ★ 투입·부적합·투입로트 그리드 태블릿 컬럼
+                    const _tc = collapsed && !mobile;
+                    this.applyTouchColumns(this.consumedGrid, {
+                        star: 'mat_name',
+                        widths: { mat_code:110, request_qty_sum:120, bom_consumed:130,
+                            remain_input_qty:96, mc_qty:134, currentStock:100, unit:72 }
+                    }, _tc);
+                    this.applyTouchColumns(this.defectGrid, {
+                        star: 'defect_type',
+                        widths: { defect_qty:110 }
+                    }, _tc);
+                    this.applyTouchColumns(this.inputLotGrid, {
+                        star: 'mat_name',
+                        widths: { lot_number:150, mat_code:120, input_qty:100 }
+                    }, _tc);
+
+                    // (4) 시작/완료 → 하단 sticky 이동/복귀
+                    this.moveStartFinishToSticky(collapsed || mobile);
+
+                    if (mobile) {
+                        this.renderMobileCards(this._lastData || []);
+                        activateTab('tabBasic');
+                    } else if (collapsed) {
+                        activateTab('tabList');
+                    } else {
+                        activateTab('tabBasic');
+                    }
+
+                    if (typeof markActiveView === 'function') markActiveView();
+                };
+
+                function markActiveView() {
+                    const cur = mobile ? 'mobile' : (collapsed ? 'tablet' : 'pc');
+                    $viewBar.find('button').each(function () {
+                        const on = $(this).attr('data-view') === cur;
+                        $(this).css({
+                            background: on ? '#1976d2' : '#fff',
+                            color: on ? '#fff' : '#555',
+                            borderColor: on ? '#1976d2' : '#cfd8dc',
+                            fontWeight: on ? '600' : '400'
+                        });
+                    });
+                }
+
+                // 뷰 버튼 클릭 → 모드 강제 (이후 자동감지 정지)
+                $viewBar.find('button').on('click', function () {
                     userToggledHere = true;
-                    pwin.LayoutState.set(!pwin.LayoutState.get());   // ★ 부모 토글
+                    const v = $(this).attr('data-view');
+                    if (v === 'pc')          { collapsed = false; mobile = false; }
+                    else if (v === 'tablet') { collapsed = true;  mobile = false; }
+                    else if (v === 'mobile') { collapsed = true;  mobile = true;  }
                     sync();
+                    markActiveView();
                 });
 
-                // 자동 접기 (폭 기준) — 부모 상태로 판정
-                const getWidth = () => { try { return pwin.innerWidth || window.innerWidth; } catch(e){ return window.innerWidth; } };
+                // 폭 판정
+                const getWidth = () => { try { return (pwin && pwin.innerWidth) || window.innerWidth; } catch (e) { return window.innerWidth; } };
                 const isTouch = window.matchMedia('(pointer: coarse)').matches;
                 const COLLAPSE_AT = 1600, EXPAND_AT = 1750;
+                const MOBILE_ON = 600, MOBILE_OFF = 760;
 
                 const apply = () => {
                     if (userToggledHere) return;
                     const w = getWidth();
-                    const cur = pwin.LayoutState.get();
-                    if (isTouch || w <= COLLAPSE_AT) { if (!cur) { pwin.LayoutState.set(true); sync(); } }
-                    else if (w >= EXPAND_AT)         { if (cur)  { pwin.LayoutState.set(false); sync(); } }
+                    const selfW = window.innerWidth;
+                    let changed = false;
+
+                    const wasMobile = mobile;
+                    if (selfW <= MOBILE_ON)       mobile = true;
+                    else if (selfW >= MOBILE_OFF) mobile = false;
+                    if (wasMobile !== mobile) changed = true;
+
+                    if (isTouch || w <= COLLAPSE_AT) { if (!collapsed) { collapsed = true; changed = true; } }
+                    else if (w >= EXPAND_AT)         { if (collapsed)  { collapsed = false; changed = true; } }
+
+                    if (changed) sync();
                 };
 
                 let rzTimer = null;
                 const onResize = () => { clearTimeout(rzTimer); rzTimer = setTimeout(apply, 150); };
-                apply();
-                window.addEventListener('resize', onResize);
-                try { pwin.addEventListener('resize', onResize); } catch (e) {}
 
-                // 떠날 때: 부모를 펼침으로 복원 + 버튼 제거
+                apply();
+                setTimeout(apply, 0);
+                setTimeout(apply, 300);
+                $(window).on('load', apply);
+                window.addEventListener('resize', onResize);
+                try { if (pwin) pwin.addEventListener('resize', onResize); } catch (e) {}
+
+                // 떠날 때: 부모 펼침 복원 + 버튼/스티키 제거
                 this._restoreLayout = () => {
-                    try { pwin.LayoutState.set(false); } catch(e){}
-                    $btn.remove();
+                    try { setParentLayout(false); } catch (e) {}
+                    if ($btn && $btn.length) $btn.remove();
+                    try { this.moveStartFinishToSticky(false); } catch (e) {}
+                    $('#stickyActionBar').remove();
                 };
                 window.addEventListener('unload', this._restoreLayout);
+            }
+
+            /* ── 시작/완료 버튼을 하단 sticky 바로 이동 ↔ 원위치 복귀 ──
+               원본 버튼을 그대로 이동(복제X)하므로 ID 기반 클릭 이벤트 유지됨 */
+            moveStartFinishToSticky(toSticky) {
+                let $bar = $('#stickyActionBar');
+                if (!$bar.length) {
+                    // 폼 영역(.layout-contents) 끝에 sticky 바 생성
+                    $('body').append('<div id="stickyActionBar"></div>');
+                    $bar = $('#stickyActionBar');
+                }
+                const $start  = $('#btnWorkStart');
+                const $finish = $('#btnWorkFinish');
+
+                if (toSticky) {
+                    // 원위치 기억(처음 한 번)
+                    if (!this._startHome && $start.length) {
+                        this._startHome  = $start.parent();   // 원래 들어있던 <li>
+                        this._finishHome = $finish.parent();
+                    }
+                    // ★ 완료 라벨 → '작지 마감' (차수 단위 시작/완료와 구분, 작지 전체 마감 의미 명확화)
+                    if ($finish.length && this._finishLabel == null) {
+                        this._finishLabel = $finish.text();
+                    }
+                    if ($finish.length) $finish.text('작지 마감');
+                    // sticky 바로 이동 (시작 → 완료 순)
+                    if ($start.length)  $bar.append($start);
+                    if ($finish.length) $bar.append($finish);
+                } else {
+                    // ★ 라벨 원복
+                    if ($finish.length && this._finishLabel != null) $finish.text(this._finishLabel);
+                    // 원위치 복귀
+                    if (this._startHome && this._startHome.length)  this._startHome.append($start);
+                    if (this._finishHome && this._finishHome.length) this._finishHome.append($finish);
+                }
             }
 
             /* ── 목록(검색영역+그리드)을 탭 안↔원위치로 이동 ── */
@@ -1288,6 +1879,100 @@
                         g.columnHeaders.rows.defaultSize = big ? 40 : 30;
                         g.invalidate();
                     });
+            }
+
+            /* ── 태블릿/모바일: 메인 그리드 컬럼 간소화 ──
+               재선언 없이 기존 grid.columns의 visible 토글로 제어.
+               좁은 화면에선 핵심 컬럼만, 넓으면 전체 복원. */
+            applyTouchGridColumns(simplify) {
+                if (!this.grid || !this.grid.columns) return;
+                // 좁은 화면에서 남길 핵심 컬럼
+                const keep = ['order_num', 'mat_name', 'job_state', 'order_qty', 'good_qty'];
+                this.grid.columns.forEach(col => {
+                    if (!col.binding) return;   // 액션 컬럼 등은 건드리지 않음
+                    col.visible = simplify ? keep.includes(col.binding) : true;
+                });
+                this.grid.invalidate();
+            }
+
+            /* ── 태블릿/키오스크: 차수 그리드 컬럼 조정 ──
+               좁은 화면에선 시작/종료 시각 숨김 + 작업자 가변폭(*) + 작업컬럼 확대(버튼 터치영역).
+               PC면 원래 폭/표시로 복원. (CSS로는 wijmo 컬럼폭을 못 바꿔 JS로 처리) */
+            applyChasuGridColumns(touch) {
+                const g = this.chasuGrid;
+                if (!g || !g.columns) return;
+                const by = b => g.columns.find(c => c.binding === b);
+                const ch  = by('chasu');
+                const wn  = by('worker_name');
+                const stn = by('state_name');
+                const iq  = by('input_qty');
+                const gq  = by('good_qty');
+                const dq  = by('defect_qty');
+                const stt = by('start_time');
+                const ett = by('end_time');
+                const act = g.columns.find(c => c.header === '작업');
+
+                if (touch) {
+                    // 헤더/셀 글자 안 잘리게 핵심 컬럼 폭 확대
+                    if (ch)  ch.width  = 66;          // '차수'
+                    if (stn) stn.width = 80;          // '진행중' 등
+                    if (iq)  iq.width  = 78;          // '배정량'
+                    if (gq)  gq.width  = 78;          // '양품량'
+                    if (dq)  dq.width  = 78;          // '부적합'
+                    if (stt) stt.visible = false;     // 시작 시각 숨김
+                    if (ett) ett.visible = false;     // 종료 시각 숨김
+                    if (wn)  wn.width  = '*';          // 남는 폭을 작업자가 채움
+                    if (act) act.width = 132;          // 작업(시작/완료) 셀버튼
+                    // 손가락 친화 행/헤더 높이
+                    g.rows.defaultSize = 52;
+                    g.columnHeaders.rows.defaultSize = 44;
+                } else {
+                    if (ch)  ch.width  = 50;
+                    if (stn) stn.width = 60;
+                    if (iq)  iq.width  = 60;
+                    if (gq)  gq.width  = 70;
+                    if (dq)  dq.width  = 70;
+                    if (stt) { stt.visible = true; stt.width = 110; }
+                    if (ett) { ett.visible = true; ett.width = 110; }
+                    if (wn)  wn.width  = 90;
+                    if (act) act.width = 120;
+                    g.rows.defaultSize = 28;
+                    g.columnHeaders.rows.defaultSize = 30;
+                }
+                g.invalidate();
+                this.fitChasuGridHeight();
+            }
+
+            /* ── 범용: 태블릿에서 그리드 컬럼 폭/표시 조정 (투입·부적합·투입로트용) ──
+               cfg = { star:'binding', hide:['binding',...], widths:{binding:px,...} }
+               원본 폭/표시는 최초 1회 스냅샷 → PC 복귀 시 그대로 복원. */
+            applyTouchColumns(grid, cfg, touch) {
+                if (!grid || !grid.columns) return;
+                cfg = cfg || {};
+                grid.columns.forEach(col => {
+                    if (!col.binding) return;                 // 액션 등 binding 없는 컬럼 제외
+                    if (col.__ow === undefined) { col.__ow = col.width; col.__ov = col.visible; }
+                    if (touch) {
+                        if (cfg.hide && cfg.hide.includes(col.binding)) { col.visible = false; return; }
+                        col.visible = true;
+                        if (cfg.star === col.binding)                       col.width = '*';
+                        else if (cfg.widths && cfg.widths[col.binding] != null) col.width = cfg.widths[col.binding];
+                    } else {
+                        col.visible = (col.__ov !== undefined ? col.__ov : true);
+                        col.width   = (col.__ow !== undefined ? col.__ow : col.width);
+                    }
+                });
+                grid.rows.defaultSize = touch ? 52 : 28;
+                grid.columnHeaders.rows.defaultSize = touch ? 44 : 30;
+                grid.invalidate();
+            }
+
+            /* ── 차수 그리드 높이: inline 강제값 해제 → CSS calc(뷰포트 채움)가 관장 ── */
+            fitChasuGridHeight() {
+                const g = this.chasuGrid;
+                if (!g || !g.hostElement) return;
+                g.hostElement.style.removeProperty('height');
+                g.invalidate();
             }
 
         }

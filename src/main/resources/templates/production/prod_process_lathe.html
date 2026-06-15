@@ -56,6 +56,7 @@
         /* PC: 목록 탭 콘텐츠 자체를 강제 숨김 (빈 박스 방지) */
         body:not(.touch-mode) #tabList { display: none !important; }
     </style>
+    <th:block th:replace="fragments/prod_process_common :: processCommonCss"></th:block>
 </head>
 
 <th:block layout:fragment="content">
@@ -64,7 +65,7 @@
         <!-- 페이지 타이틀 -->
         <div class="page-title-wrap">
             <div class="left">
-                <h2 id="pageTitle">선반/밀링 실적</h2>
+                <h2 data-layout-toggle-anchor id="pageTitle">선반/밀링 실적</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
@@ -95,11 +96,11 @@
                                 </ul>
                             </dd>
                         </dl>
-                        <dl id="searchComArea">
-                            <dt>판매처</dt>
+                        <dl id="searchItemArea">
+                            <dt>품목</dt>
                             <dd>
                                 <input type="text" style="width: 160px;"
-                                       id="CompanySearch" name="CompanySearch" placeholder="판매처">
+                                       id="ItemSearch" name="ItemSearch" placeholder="품목코드 / 품목명">
                             </dd>
                         </dl>
                     </div>
@@ -127,6 +128,7 @@
 
                 <div class="container-fluid">
                     <div id="proc-main-grid"></div>
+                    <div id="proc-card-list"></div>
                 </div>
             </section>
 

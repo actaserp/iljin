@@ -194,11 +194,11 @@
                                                 }
 
                                                 // 2️⃣ header-menu 버튼 추가
-                                                if ($('.header-menu .menu-btn[data-objid="' + menuCode + '"]').length === 0) {
-                                                    $('.header-menu').append(
-                                                        '<button class="menu-btn" data-objid="' + menuCode + '" menuurl="' + menuUrl + '">' + currentTabTitle + '</button>'
-                                                    );
-                                                }
+                                                // if ($('.header-menu .menu-btn[data-objid="' + menuCode + '"]').length === 0) {
+                                                //     $('.header-menu').append(
+                                                //         '<button class="menu-btn" data-objid="' + menuCode + '" menuurl="' + menuUrl + '">' + currentTabTitle + '</button>'
+                                                //     );
+                                                // }
 
                                             } else { // ✅ 북마크 제거 시
                                                 $('a[href="#' + objid + '"]').closest('li').attr('data-isbookmark', 'false');

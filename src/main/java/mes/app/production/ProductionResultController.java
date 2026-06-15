@@ -290,6 +290,7 @@ public class ProductionResultController {
             @RequestParam(value = "end_time", required = false) String endTime,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "mat_pk", required = false) Integer matPk,
+            @RequestParam(value = "manager_id", required = false) Integer manager_id,
             HttpServletRequest request,
             Authentication auth) {
 
@@ -301,16 +302,14 @@ public class ProductionResultController {
         Timestamp end_time = null;
         Timestamp prod_date = CommonUtil.tryTimestamp(prodDate);
 
-        if (!startTime.equals("")) {
-            start_time = Timestamp.valueOf(prodDate + ' ' + startTime + ":00");
-        } else {
-            start_time = null;
+        if (startTime != null && !startTime.isEmpty()
+                && prodDate != null && !prodDate.isEmpty()) {
+            start_time = Timestamp.valueOf(prodDate + " " + startTime + ":00");
         }
 
-        if (!endTime.equals("")) {
-            end_time = Timestamp.valueOf(prodDate + ' ' + endTime + ":00");
-        } else {
-            end_time = null;
+        if (endTime != null && !endTime.isEmpty()
+                && prodDate != null && !prodDate.isEmpty()) {
+            end_time = Timestamp.valueOf(prodDate + " " + endTime + ":00");
         }
 
         JobRes jr = this.jobResRepository.getJobResById(jrPk);
@@ -329,8 +328,9 @@ public class ProductionResultController {
         if (jr.getMaterialId() == null) jr.setMaterialId(matPk);
         // -------------
         jr.setEndTime(end_time);
-        jr.setEndDate(Date.valueOf(endDate));
+        jr.setEndDate((endDate == null || endDate.isEmpty()) ? null : Date.valueOf(endDate));
         jr.setShiftCode(shiftCode);
+        jr.setManager_id(manager_id);
         jr.setWorkCenter_id(workcenterId);
         jr.setEquipment_id(equipmentId);
         jr.setDescription(description);
@@ -2136,11 +2136,12 @@ public class ProductionResultController {
             @RequestParam String date_from,
             @RequestParam String date_to,
             @RequestParam(required = false) String factory,
-            @RequestParam(required = false) String company,
+            @RequestParam(required = false) String item,        // ★ 판매처 → 품목(코드/명)
             @RequestParam(defaultValue = "true") boolean is_include_comp,
-            @RequestParam String process_code   // ★ 공정코드 (p01, p02, ...)
+            @RequestParam String process_code
     ) {
-        return productionResultService.getJobResByProcess(date_from, date_to, factory, company, is_include_comp, process_code);
+        return productionResultService.getJobResByProcess(
+                date_from, date_to, factory, item, is_include_comp, process_code);
     }
 
     @GetMapping("/detail_process")

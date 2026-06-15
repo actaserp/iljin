@@ -111,10 +111,12 @@ public class HomeController {
 		mv.addObject("mqtt_web_port", mqtt_web_port);
 		mv.addObject("hmi_topic", hmi_topic);
 
-		mv.setViewName(isMobile ? "mobile/mobile_main" : "index");
+//		mv.setViewName(isMobile ? "mobile/mobile_main" : "index");
+		mv.setViewName("index");
 		
 		return mv;
 	}
+
 	@RequestMapping(value= "/mobile_pro/MobileFirstPage", method=RequestMethod.GET)
 	public ModelAndView pageMobileFirstPage(HttpServletRequest request, HttpSession session) {
 
