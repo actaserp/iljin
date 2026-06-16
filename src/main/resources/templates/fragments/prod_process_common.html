@@ -168,7 +168,7 @@
         body.touch-mode #stickyActionBar > button,
         body.mobile-mode #stickyActionBar > button {
             flex: 1 1 0;
-            min-height: 56px;
+            min-height: 76px;
             font-size: 1.2rem;
             font-weight: 600;
             border-radius: 10px;
@@ -394,6 +394,92 @@
             height: 48px !important; width: 48px !important; padding: 0 !important;
             font-size: 1.2rem !important; border-radius: 8px !important;
         }
+
+        /* ════════════════════════════════════════════════════
+           터치 입력 도구 (태블릿/키오스크 전용)
+           - 온스크린 키패드(문자/숫자) + 작업자 선택 모달
+           ════════════════════════════════════════════════════ */
+        /* 공통 오버레이 */
+        .tk-overlay {
+            position: fixed; inset: 0; z-index: 20000;
+            background: rgba(0,0,0,.35);
+            display: flex; align-items: flex-end; justify-content: center;
+        }
+        .tk-overlay.tk-center { align-items: center; }
+        .tk-panel {
+            background: #fff; width: 100%; max-width: 760px;
+            border-radius: 16px 16px 0 0;
+            box-shadow: 0 -6px 24px rgba(0,0,0,.18);
+            padding: 14px 16px calc(16px + env(safe-area-inset-bottom)) 16px;
+            box-sizing: border-box;
+        }
+        .tk-center .tk-panel { border-radius: 16px; max-width: 420px; }
+
+        /* 미리보기 입력줄 */
+        .tk-preview-wrap {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+        }
+        .tk-preview-label { font-size: 1.05rem; color: #555; flex: none; }
+        .tk-preview {
+            flex: 1 1 auto; min-height: 52px; line-height: 52px;
+            border: 2px solid var(--prod-accent); border-radius: 10px;
+            padding: 0 14px; font-size: 1.5rem; font-weight: 700;
+            background: #f8fbff; color: #222;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            text-align: left;
+        }
+        .tk-preview.tk-num { text-align: right; }
+        .tk-preview .tk-caret {
+            display: inline-block; width: 2px; height: 1.4rem;
+            background: var(--prod-accent); vertical-align: middle;
+            margin-left: 1px; animation: tk-blink 1s step-end infinite;
+        }
+        @keyframes tk-blink { 50% { opacity: 0; } }
+
+        /* 키 버튼 공통 */
+        .tk-keys { display: grid; gap: 8px; }
+        .tk-key {
+            min-height: 58px; border: 1px solid #d6dde3; border-radius: 10px;
+            background: #fff; color: #222; font-size: 1.3rem; font-weight: 600;
+            cursor: pointer; user-select: none;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .05s;
+        }
+        .tk-key:active { background: #e3f2fd; }
+        .tk-key.tk-wide { font-size: 1.05rem; }
+        .tk-key.tk-accent { background: var(--prod-accent); color: #fff; border-color: var(--prod-accent); }
+        .tk-key.tk-accent:active { background: var(--prod-accent-dark); }
+        .tk-key.tk-danger { background: #fff0f0; color: #d32f2f; border-color: #f3c6c6; }
+        .tk-key.tk-muted  { background: #f3f5f7; color: #555; }
+
+        /* 숫자패드: 3열 */
+        .tk-keys.tk-num-grid { grid-template-columns: repeat(3, 1fr); }
+        .tk-keys.tk-num-grid .tk-key { min-height: 64px; font-size: 1.5rem; }
+
+        /* 문자패드(QWERTY) 행 */
+        .tk-row { display: flex; gap: 6px; margin-bottom: 6px; }
+        .tk-row .tk-key { flex: 1 1 0; min-height: 54px; font-size: 1.15rem; }
+        .tk-row .tk-key.tk-fixed { flex: 0 0 auto; min-width: 64px; }
+
+        .tk-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .tk-actions .tk-key { flex: 1 1 0; min-height: 56px; }
+
+        /* 작업자 선택 모달 리스트 */
+        .tk-worker-title { font-size: 1.2rem; font-weight: 700; margin: 2px 2px 12px; }
+        .tk-worker-list {
+            max-height: 320px; overflow-y: auto;
+            border: 1px solid #e3e8ec; border-radius: 12px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .tk-worker-item {
+            min-height: 64px; display: flex; align-items: center;
+            padding: 0 18px; font-size: 1.25rem; cursor: pointer;
+            border-bottom: 1px solid #eef1f3;
+        }
+        .tk-worker-item:last-child { border-bottom: none; }
+        .tk-worker-item:active { background: #e3f2fd; }
+        .tk-worker-item.tk-selected { background: #e8f5e9; font-weight: 700; }
+        .tk-worker-item .tk-chk { margin-left: auto; color: #2e7d32; font-weight: 700; }
     </style>
 </th:block>
 
@@ -402,6 +488,363 @@
         // (구) window.DISABLE_GLOBAL_LAYOUT_TOGGLE = true;  ← 제거:
         //   layout_page.html의 "제목 클릭 → 메뉴/헤더 펼치기" 핸들러를 살리기 위함.
         //   우리 initLayoutCollapse는 뷰모드 버튼으로 별도 제어하므로 둘이 공존 가능.
+        /* ════════════════════════════════════════════════════════════
+           TouchKeypad — 태블릿/키오스크 전용 온스크린 입력 도구
+           - TouchKeypad.isTouch()                 : 태블릿/모바일 모드 여부
+           - TouchKeypad.openText({label,value,onConfirm})   : 문자 키패드
+           - TouchKeypad.openNumber({label,value,onConfirm}) : 숫자 키패드
+           - TouchKeypad.openWorker({title,workers,value,onConfirm}) : 작업자 모달
+           PC 모드에서는 절대 뜨지 않음(기존 키보드/드롭다운 그대로 사용).
+           ════════════════════════════════════════════════════════════ */
+
+        /* ── 한글 자모 조합기 (오토마타) ──
+           낱자(ㄱ,ㅏ ...)를 받아 완성형 글자로 합성. 백스페이스는 한 자모씩 분해. */
+        const Hangul = (function () {
+            const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+            const JUNG = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
+            const JONG = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+            // 복합 중성 조합표
+            const JUNG_COMB = {
+                'ㅗㅏ':'ㅘ','ㅗㅐ':'ㅙ','ㅗㅣ':'ㅚ',
+                'ㅜㅓ':'ㅝ','ㅜㅔ':'ㅞ','ㅜㅣ':'ㅟ',
+                'ㅡㅣ':'ㅢ'
+            };
+            // 복합 종성 조합표
+            const JONG_COMB = {
+                'ㄱㅅ':'ㄳ','ㄴㅈ':'ㄵ','ㄴㅎ':'ㄶ','ㄹㄱ':'ㄺ','ㄹㅁ':'ㄻ',
+                'ㄹㅂ':'ㄼ','ㄹㅅ':'ㄽ','ㄹㅌ':'ㄾ','ㄹㅍ':'ㄿ','ㄹㅎ':'ㅀ','ㅂㅅ':'ㅄ'
+            };
+            // 복합 종성 → 분해 (종성이 다음 글자 초성으로 넘어갈 때)
+            const JONG_SPLIT = {
+                'ㄳ':['ㄱ','ㅅ'],'ㄵ':['ㄴ','ㅈ'],'ㄶ':['ㄴ','ㅎ'],'ㄺ':['ㄹ','ㄱ'],'ㄻ':['ㄹ','ㅁ'],
+                'ㄼ':['ㄹ','ㅂ'],'ㄽ':['ㄹ','ㅅ'],'ㄾ':['ㄹ','ㅌ'],'ㄿ':['ㄹ','ㅍ'],'ㅀ':['ㄹ','ㅎ'],'ㅄ':['ㅂ','ㅅ']
+            };
+            const isCho  = j => CHO.indexOf(j) >= 0;
+            const isJung = j => JUNG.indexOf(j) >= 0;
+            const isJamo = ch => /[ㄱ-ㅎㅏ-ㅣ]/.test(ch);
+
+            function compose(cho, jung, jong) {
+                const ci = CHO.indexOf(cho), ji = JUNG.indexOf(jung), ki = JONG.indexOf(jong || '');
+                if (ci < 0 || ji < 0 || ki < 0) return null;
+                return String.fromCharCode(0xAC00 + (ci * 21 + ji) * 28 + ki);
+            }
+            // 완성형 글자 → {cho,jung,jong}
+            function decompose(ch) {
+                const code = ch.charCodeAt(0) - 0xAC00;
+                if (code < 0 || code > 11171) return null;
+                const ki = code % 28;
+                const ji = ((code - ki) / 28) % 21;
+                const ci = (((code - ki) / 28) - ji) / 21;
+                return { cho: CHO[ci], jung: JUNG[ji], jong: JONG[ki] };
+            }
+
+            /* 현재 문자열에 자모 한 개를 입력하여 조합한 새 문자열 반환 */
+            function input(str, j) {
+                if (!str) return j;
+                const last = str.slice(-1);
+                const head = str.slice(0, -1);
+                const d = decompose(last);
+
+                if (!d) {
+                    // 직전이 완성 글자가 아님 → 낱자 결합 시도
+                    if (isCho(last) && isJung(j)) {
+                        const made = compose(last, j, '');
+                        if (made) return head + made;
+                    }
+                    // 중성+중성 복합 (ㅗ+ㅏ 등) — 단독 모음 상태
+                    if (JUNG_COMB[last + j]) return head + JUNG_COMB[last + j];
+                    return str + j;   // 그 외는 새 낱자로 추가
+                }
+
+                // 직전이 완성 글자
+                if (isJung(j)) {
+                    if (!d.jong) {
+                        // 받침 없음 + 모음 → 복합중성 시도, 아니면 새 글자
+                        if (JUNG_COMB[d.jung + j]) {
+                            return head + compose(d.cho, JUNG_COMB[d.jung + j], '');
+                        }
+                        return str + j;   // 새 모음 낱자
+                    } else {
+                        // 받침 있음 + 모음 → 받침이 다음 글자 초성으로 이동
+                        const split = JONG_SPLIT[d.jong];
+                        if (split) {
+                            const base = compose(d.cho, d.jung, split[0]);
+                            const next = compose(split[1], j, '');
+                            return head + base + next;
+                        } else {
+                            const base = compose(d.cho, d.jung, '');
+                            const next = compose(d.jong, j, '');
+                            return head + base + next;
+                        }
+                    }
+                } else {
+                    // 자음 입력
+                    if (!d.jong) {
+                        // 받침으로 채움
+                        if (JONG.indexOf(j) >= 0) return head + compose(d.cho, d.jung, j);
+                        return str + j;
+                    } else {
+                        // 복합 받침 시도
+                        if (JONG_COMB[d.jong + j]) {
+                            return head + compose(d.cho, d.jung, JONG_COMB[d.jong + j]);
+                        }
+                        return str + j;   // 새 자음 낱자
+                    }
+                }
+            }
+
+            /* 한 글자(또는 자모) 단위 백스페이스 — 조합 중이면 자모 하나만 제거 */
+            function backspace(str) {
+                if (!str) return '';
+                const last = str.slice(-1);
+                const head = str.slice(0, -1);
+                const d = decompose(last);
+                if (!d) return head;   // 완성 글자 아님 → 그냥 한 글자 삭제
+                if (d.jong) {
+                    const split = JONG_SPLIT[d.jong];
+                    if (split) return head + compose(d.cho, d.jung, split[0]);
+                    return head + compose(d.cho, d.jung, '');
+                }
+                // 받침 없음 → 중성 제거하고 초성 낱자만 남김
+                return head + d.cho;
+            }
+
+            return { input, backspace, isJamo, CHO, JUNG };
+        })();
+
+        const TouchKeypad = (function () {
+
+            function isTouch() {
+                return document.body.classList.contains('touch-mode')
+                    || document.body.classList.contains('mobile-mode');
+            }
+
+            function closeAll() {
+                document.querySelectorAll('.tk-overlay').forEach(el => el.remove());
+            }
+
+            function buildOverlay(centered) {
+                closeAll();
+                const ov = document.createElement('div');
+                ov.className = 'tk-overlay' + (centered ? ' tk-center' : '');
+                ov.addEventListener('mousedown', (e) => { if (e.target === ov) closeAll(); });
+                document.body.appendChild(ov);
+                return ov;
+            }
+
+            function previewRow(label, value, isNum) {
+                const wrap = document.createElement('div');
+                wrap.className = 'tk-preview-wrap';
+                wrap.innerHTML =
+                    (label ? `<span class="tk-preview-label">${label}</span>` : '') +
+                    `<div class="tk-preview ${isNum ? 'tk-num' : ''}"><span class="tk-text"></span><span class="tk-caret"></span></div>`;
+                const pv = wrap.querySelector('.tk-text');
+                pv.textContent = value;
+                return { wrap, pv };
+            }
+
+            /* ── 문자(품목명) 키패드 ── */
+            function openText(opts) {
+                opts = opts || {};
+                let val = (opts.value != null ? String(opts.value) : '');
+                let mode = 'ko';        // 'ko' | 'en' | 'num'
+                let shift = false;      // 영문 대문자 토글
+                const ov = buildOverlay(false);
+
+                const panel = document.createElement('div');
+                panel.className = 'tk-panel';
+                const { wrap, pv } = previewRow(opts.label || '품목', val, false);
+                panel.appendChild(wrap);
+
+                const render = () => { pv.textContent = val; };
+                const keysBox = document.createElement('div');
+                panel.appendChild(keysBox);
+
+                // 입력: 한글 모드면 자모 조합, 그 외엔 단순 append
+                const typeChar = (ch) => {
+                    if (mode === 'ko' && Hangul.isJamo(ch)) val = Hangul.input(val, ch);
+                    else val += ch;
+                    render();
+                };
+                const backspace = () => {
+                    const last = val.slice(-1);
+                    if (mode === 'ko' && /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(last)) val = Hangul.backspace(val);
+                    else val = val.slice(0, -1);
+                    render();
+                };
+
+                // 자판 레이아웃
+                const KO_ROWS = ['ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ', 'ㅁㄴㅇㄹㅎㅗㅓㅏㅣ', 'ㅋㅌㅊㅍㅠㅜㅡ'];
+                const KO_SHIFT = { 'ㅂ':'ㅃ','ㅈ':'ㅉ','ㄷ':'ㄸ','ㄱ':'ㄲ','ㅅ':'ㅆ','ㅐ':'ㅒ','ㅔ':'ㅖ' };
+                const EN_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+                const NUM_ROWS = ['123', '456', '789', '*0#'];
+
+                const mkKey = (label, onClick, cls) => {
+                    const k = document.createElement('div');
+                    k.className = 'tk-key' + (cls ? ' ' + cls : '');
+                    k.textContent = label;
+                    k.addEventListener('click', onClick);
+                    return k;
+                };
+
+                function buildKeys() {
+                    keysBox.innerHTML = '';
+                    keysBox.className = '';
+
+                    if (mode === 'num') {
+                        const grid = document.createElement('div');
+                        grid.className = 'tk-keys tk-num-grid';
+                        '1234567890'.split('').forEach(ch => grid.appendChild(mkKey(ch, () => typeChar(ch))));
+                        grid.appendChild(mkKey('-', () => typeChar('-')));
+                        grid.appendChild(mkKey('⌫', backspace, 'tk-danger'));
+                        keysBox.appendChild(grid);
+                    } else {
+                        const rows = mode === 'ko' ? KO_ROWS : EN_ROWS;
+                        rows.forEach((r, idx) => {
+                            const rowEl = document.createElement('div');
+                            rowEl.className = 'tk-row';
+                            r.split('').forEach(ch => {
+                                let label = ch;
+                                if (mode === 'ko' && shift && KO_SHIFT[ch]) label = KO_SHIFT[ch];
+                                else if (mode === 'en' && shift) label = ch.toUpperCase();
+                                rowEl.appendChild(mkKey(label, () => typeChar(label)));
+                            });
+                            // 마지막 행에 Shift / Backspace
+                            if (idx === rows.length - 1) {
+                                const sh = mkKey('⇧', () => { shift = !shift; buildKeys(); }, 'tk-fixed' + (shift ? ' tk-accent' : ' tk-muted'));
+                                const bk = mkKey('⌫', backspace, 'tk-fixed tk-danger');
+                                rowEl.insertBefore(sh, rowEl.firstChild);
+                                rowEl.appendChild(bk);
+                            }
+                            keysBox.appendChild(rowEl);
+                        });
+                    }
+
+                    // 모드 전환 + 스페이스 행 (항상)
+                    const ctrl = document.createElement('div');
+                    ctrl.className = 'tk-row';
+                    const koBtn  = mkKey('한글', () => { mode='ko';  shift=false; buildKeys(); }, 'tk-fixed' + (mode==='ko'  ? ' tk-accent' : ' tk-muted'));
+                    const enBtn  = mkKey('영문', () => { mode='en';  shift=false; buildKeys(); }, 'tk-fixed' + (mode==='en'  ? ' tk-accent' : ' tk-muted'));
+                    const numBtn = mkKey('123', () => { mode='num'; shift=false; buildKeys(); }, 'tk-fixed' + (mode==='num' ? ' tk-accent' : ' tk-muted'));
+                    const space  = mkKey('스페이스', () => typeChar(' '));
+                    const clr    = mkKey('C', () => { val=''; render(); }, 'tk-fixed tk-muted');
+                    ctrl.appendChild(koBtn); ctrl.appendChild(enBtn); ctrl.appendChild(numBtn);
+                    ctrl.appendChild(space); ctrl.appendChild(clr);
+                    keysBox.appendChild(ctrl);
+                }
+                buildKeys();
+
+                const actions = document.createElement('div');
+                actions.className = 'tk-actions';
+                const cancel = document.createElement('div');
+                cancel.className = 'tk-key tk-muted'; cancel.textContent = '취소';
+                cancel.addEventListener('click', closeAll);
+                const ok = document.createElement('div');
+                ok.className = 'tk-key tk-accent'; ok.textContent = '확인';
+                ok.addEventListener('click', () => { closeAll(); opts.onConfirm && opts.onConfirm(val.trim()); });
+                actions.appendChild(cancel); actions.appendChild(ok);
+                panel.appendChild(actions);
+
+                ov.appendChild(panel);
+            }
+
+            /* ── 숫자 키패드 ── */
+            function openNumber(opts) {
+                opts = opts || {};
+                let val = (opts.value != null && opts.value !== '') ? String(opts.value) : '';
+                const allowDecimal = opts.allowDecimal !== false;   // 기본 허용
+                const ov = buildOverlay(true);
+
+                const panel = document.createElement('div');
+                panel.className = 'tk-panel';
+                const { wrap, pv } = previewRow(opts.label || '수량', val || '0', true);
+                panel.appendChild(wrap);
+
+                const render = () => { pv.textContent = (val === '' ? '0' : val); };
+                const push = ch => {
+                    if (ch === '.') { if (!allowDecimal || val.includes('.')) return; if (val === '') val = '0'; }
+                    if (val === '0' && ch !== '.') val = '';      // 선행 0 제거
+                    val += ch; render();
+                };
+                const back = () => { val = val.slice(0, -1); render(); };
+                const clear = () => { val = ''; render(); };
+
+                const grid = document.createElement('div');
+                grid.className = 'tk-keys tk-num-grid';
+                const layout = ['1','2','3','4','5','6','7','8','9', allowDecimal ? '.' : 'C', '0', '⌫'];
+                layout.forEach(ch => {
+                    const k = document.createElement('div');
+                    k.className = 'tk-key';
+                    if (ch === '⌫') { k.classList.add('tk-danger'); k.innerHTML = '⌫'; k.addEventListener('click', back); }
+                    else if (ch === 'C') { k.classList.add('tk-muted'); k.textContent = 'C'; k.addEventListener('click', clear); }
+                    else { k.textContent = ch; k.addEventListener('click', () => push(ch)); }
+                    grid.appendChild(k);
+                });
+                panel.appendChild(grid);
+
+                const actions = document.createElement('div');
+                actions.className = 'tk-actions';
+                const clrAll = document.createElement('div');
+                clrAll.className = 'tk-key tk-muted'; clrAll.textContent = '전체삭제';
+                clrAll.addEventListener('click', clear);
+                const cancel = document.createElement('div');
+                cancel.className = 'tk-key tk-muted'; cancel.textContent = '취소';
+                cancel.addEventListener('click', closeAll);
+                const ok = document.createElement('div');
+                ok.className = 'tk-key tk-accent'; ok.textContent = '확인';
+                ok.addEventListener('click', () => {
+                    closeAll();
+                    const num = (val === '' ? 0 : parseFloat(val));
+                    opts.onConfirm && opts.onConfirm(isNaN(num) ? 0 : num);
+                });
+                actions.appendChild(clrAll); actions.appendChild(cancel); actions.appendChild(ok);
+                panel.appendChild(actions);
+
+                ov.appendChild(panel);
+            }
+
+            /* ── 작업자 선택 모달 ──
+               workers: [{value, text}]  value '' = 미지정(즉시생산) */
+            function openWorker(opts) {
+                opts = opts || {};
+                const workers = opts.workers || [];
+                const cur = opts.value != null ? String(opts.value) : '';
+                const ov = buildOverlay(true);
+
+                const panel = document.createElement('div');
+                panel.className = 'tk-panel';
+                panel.innerHTML = `<div class="tk-worker-title">${opts.title || '작업자 선택'}</div>`;
+
+                const list = document.createElement('div');
+                list.className = 'tk-worker-list';
+                workers.forEach(w => {
+                    const item = document.createElement('div');
+                    item.className = 'tk-worker-item' + (String(w.value) === cur ? ' tk-selected' : '');
+                    item.innerHTML = `<span>${w.text}</span>` +
+                        (String(w.value) === cur ? '<span class="tk-chk">✓</span>' : '');
+                    item.addEventListener('click', () => {
+                        closeAll();
+                        opts.onConfirm && opts.onConfirm({ value: w.value, text: w.text });
+                    });
+                    list.appendChild(item);
+                });
+                panel.appendChild(list);
+
+                const actions = document.createElement('div');
+                actions.className = 'tk-actions';
+                const cancel = document.createElement('div');
+                cancel.className = 'tk-key tk-muted'; cancel.textContent = '닫기';
+                cancel.addEventListener('click', closeAll);
+                actions.appendChild(cancel);
+                panel.appendChild(actions);
+
+                ov.appendChild(panel);
+            }
+
+            return { isTouch, openText, openNumber, openWorker, closeAll };
+        })();
+        window.TouchKeypad = TouchKeypad;
+
         /**
          * ProcPageBase - 공정별 페이지 공통 로직
          * 각 공정 페이지에서 extends 하거나 직접 사용
@@ -1256,6 +1699,8 @@
             /* ── 부적합 목록 ── */
             showDefectList(jr_pk) {
                 if (!this.defectGrid) return;
+                // 태블릿/키오스크: 부적합량 셀 탭 → 숫자 키패드 (1회 바인딩)
+                this.enableGridNumpad(this.defectGrid, 'defect_qty', '부적합량');
                 const workcenter_id = $('#workcenter_id').val();
                 const result = AjaxUtil.getSyncData(this.baseUrl + '/defect_list', {
                     jr_pk, workcenter_id, type: 'total'
@@ -1263,6 +1708,45 @@
                 if (result.data) {
                     this.defectGrid.itemsSource = result.data;
                 }
+            }
+
+            /* ── 그리드 특정 컬럼 셀 탭 → 숫자 키패드 입력 (태블릿/키오스크 전용) ──
+               PC 모드에서는 동작하지 않고 wijmo 기본 인라인 편집 그대로 사용. */
+            enableGridNumpad(grid, binding, label) {
+                if (!grid || !grid.hostElement) return;
+                if (grid.__numpadBound) return;     // 중복 바인딩 방지
+                grid.__numpadBound = true;
+                const _this = this;
+
+                // 인라인 편집이 시작되면 태블릿에서는 막고 키패드로 유도
+                grid.beginningEdit.addHandler((s, e) => {
+                    if (!TouchKeypad.isTouch()) return;
+                    const col = s.columns[e.col];
+                    if (!col || col.binding !== binding) return;
+                    e.cancel = true;   // 기본 편집 취소
+                });
+
+                grid.hostElement.addEventListener('click', (ev) => {
+                    if (!TouchKeypad.isTouch()) return;
+                    const ht = grid.hitTest(ev);
+                    if (ht.cellType !== wijmo.grid.CellType.Cell) return;
+                    const col = grid.columns[ht.col];
+                    if (!col || col.binding !== binding) return;
+                    const item = grid.rows[ht.row] && grid.rows[ht.row].dataItem;
+                    if (!item) return;
+                    // 완료된 차수 등 편집 불가 행은 제외
+                    if (item.state === 'finished') return;
+                    TouchKeypad.openNumber({
+                        label: label || '수량',
+                        value: item[binding] != null ? item[binding] : '',
+                        allowDecimal: false,
+                        onConfirm: (n) => {
+                            item[binding] = n;
+                            if (grid.collectionView) grid.collectionView.refresh();
+                            grid.invalidate();
+                        }
+                    });
+                });
             }
 
             /* ── 투입 목록 ── */
@@ -1381,6 +1865,55 @@
                 // 검색 엔터
                 $('#ItemSearch').on('keydown', function(e) {
                     if (e.key === 'Enter') { e.preventDefault(); _this.searchMainData(); }
+                });
+
+                /* ════════ 태블릿/키오스크: 온스크린 입력 ════════ */
+                // (1) 품목 검색 → 문자 키패드
+                $('#ItemSearch').on('focus', function() {
+                    if (TouchKeypad.isTouch()) this.blur();   // 시스템 키보드 방지
+                }).on('click', function(e) {
+                    if (!TouchKeypad.isTouch()) return;   // PC는 그대로 키보드 입력
+                    e.preventDefault();
+                    TouchKeypad.openText({
+                        label: '품목',
+                        value: $('#ItemSearch').val(),
+                        onConfirm: (v) => {
+                            $('#ItemSearch').val(v);
+                            _this.searchMainData();
+                        }
+                    });
+                });
+
+                // (2) 차수 작업자 선택 → 모달 (드롭다운 대체)
+                $('#chasuWorker').on('mousedown', function(e) {
+                    if (!TouchKeypad.isTouch()) return;   // PC는 select 그대로
+                    e.preventDefault();
+                    this.blur();
+                    const workers = $('#chasuWorker option').map(function () {
+                        return { value: this.value, text: this.text };
+                    }).get();
+                    TouchKeypad.openWorker({
+                        title: '작업자 선택',
+                        workers,
+                        value: $('#chasuWorker').val(),
+                        onConfirm: (w) => { $('#chasuWorker').val(w.value).trigger('change'); }
+                    });
+                }).on('keydown', function(e) {
+                    if (TouchKeypad.isTouch()) e.preventDefault();   // 키보드 펼침 방지
+                });
+
+                // (3) 차수 수량 → 숫자 키패드
+                $('#chasuQty').on('focus', function() {
+                    if (TouchKeypad.isTouch()) this.blur();
+                }).on('click', function(e) {
+                    if (!TouchKeypad.isTouch()) return;
+                    e.preventDefault();
+                    TouchKeypad.openNumber({
+                        label: '수량',
+                        value: $('#chasuQty').val(),
+                        allowDecimal: false,
+                        onConfirm: (n) => { $('#chasuQty').val(n); }
+                    });
                 });
 
                 $('#input_lot_div').hide();
