@@ -1,0 +1,77 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        #dashWrap{background:#0d1117;color:#e6edf3;min-height:100vh;padding:24px 28px;font-family:'Pretendard','Malgun Gothic',sans-serif;}
+        #dashWrap .dash-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+        #dashWrap .dash-head h1{font-size:30px;font-weight:800;color:#fff;margin:0;}
+        #dashWrap .dash-clock{font-size:22px;font-weight:600;color:#58a6ff;font-variant-numeric:tabular-nums;}
+        .kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:22px;}
+        .kpi{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:14px 18px;min-width:140px;}
+        .kpi .l{font-size:13px;color:#8b949e;} .kpi .v{font-size:26px;font-weight:800;color:#fff;margin-top:3px;} .kpi .v small{font-size:13px;color:#8b949e;font-weight:600;}
+        .kpi.warn .v{color:#f0b72f;} .kpi.short .v{color:#f85149;}
+        .kind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;}
+        .kind-card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:18px 20px;}
+        .kc-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px;}
+        .kc-name{font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px;}
+        .kc-rate{font-size:15px;font-weight:700;} .kc-rate.ok{color:#3fb950;} .kc-rate.short{color:#f85149;}
+        .kc-make{font-size:13px;color:#8b949e;margin-bottom:10px;}
+        .gauge-track{height:14px;background:#21262d;border-radius:8px;overflow:hidden;position:relative;}
+        .gauge-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,#238636,#3fb950);transition:width .5s;}
+        .gauge-fill.over{background:linear-gradient(90deg,#1f6feb,#58a6ff);}
+        .kc-stats{display:flex;gap:16px;margin-top:14px;font-size:13px;color:#c9d1d9;flex-wrap:wrap;}
+        .kc-stats .st b{color:#fff;font-size:17px;display:block;} .kc-stats .st .lab{font-size:12px;color:#8b949e;}
+        .kc-stats .st.scrap b{color:#c28fbb;} .kc-stats .st.short b{color:#f85149;}
+        .sec-label{font-size:14px;color:#8b949e;font-weight:700;margin:0 0 10px;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div id="dashWrap">
+        <div class="dash-head"><h1 data-layout-toggle-anchor>생산 현황판 · 유형별 (수요 대비 생산)</h1><span class="dash-clock" id="clock"></span></div>
+        <div class="kpi-row" id="kpiRow"></div>
+        <p class="sec-label">유형별 — 얼마나 만들어야 하고(수요) 얼마나 만들었나(생산)</p>
+        <div class="kind-grid" id="kindGrid"></div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" th:inline="none">
+        const $=s=>document.querySelector(s);
+        // demand=전 프로젝트 BOM 제작품 수요 합계, made=양품 누계, scrap=파기
+        let KIND=[
+            {k:'plate', demand:380, made:300, scrap:12},
+            {k:'block', demand:150, made:120, scrap:5},
+            {k:'brkt',  demand:55,  made:40,  scrap:0},
+            {k:'shim',  demand:40,  made:60,  scrap:0},
+            {k:'pin',   demand:20,  made:0,   scrap:0},
+            {k:'arm',   demand:18,  made:0,   scrap:0},
+        ];
+        function clock(){$('#clock').textContent=new Date().toLocaleTimeString('ko-KR');}setInterval(clock,1000);clock();
+        function renderKpi(){
+            const D=KIND.reduce((s,x)=>s+x.demand,0),M=KIND.reduce((s,x)=>s+x.made,0),S=KIND.reduce((s,x)=>s+x.scrap,0);
+            const shortKinds=KIND.filter(x=>x.made<x.demand).length;
+            $('#kpiRow').innerHTML=`
+    <div class="kpi"><div class="l">총 수요</div><div class="v">${D}<small> 개</small></div></div>
+    <div class="kpi"><div class="l">총 생산(양품)</div><div class="v">${M}<small> 개</small></div></div>
+    <div class="kpi"><div class="l">전체 충족률</div><div class="v">${Math.round(M/D*100)}<small>%</small></div></div>
+    <div class="kpi short"><div class="l">부족 유형</div><div class="v">${shortKinds}<small> / ${KIND.length}</small></div></div>
+    <div class="kpi warn"><div class="l">누적 파기</div><div class="v">${S}<small> 개</small></div></div>`;
+        }
+        function renderKinds(){
+            $('#kindGrid').innerHTML=KIND.slice().sort((a,b)=>(a.made/a.demand)-(b.made/b.demand)).map(x=>{
+                const pct=Math.round(x.made/x.demand*100), over=x.made>=x.demand, rem=Math.max(0,x.demand-x.made);
+                return `<div class="kind-card">
+      <div class="kc-top"><span class="kc-name">${x.k}</span><span class="kc-rate ${over?'ok':'short'}">${pct}%</span></div>
+      <div class="kc-make">생산 ${x.made} / 수요 ${x.demand}</div>
+      <div class="gauge-track"><div class="gauge-fill ${over?'over':''}" style="width:${Math.min(100,pct)}%"></div></div>
+      <div class="kc-stats">
+        <div class="st"><span class="lab">수요</span><b>${x.demand}</b></div>
+        <div class="st"><span class="lab">생산</span><b>${x.made}</b></div>
+        <div class="st short"><span class="lab">남은수량</span><b>${rem}</b></div>
+        <div class="st scrap"><span class="lab">파기</span><b>${x.scrap}</b></div>
+      </div></div>`;
+            }).join('');
+        }
+        renderKpi();renderKinds();
+    </script>
+</th:block>
+</html>

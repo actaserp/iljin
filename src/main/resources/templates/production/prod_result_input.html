@@ -1,0 +1,153 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* ===== 미리보기용 공통 (layout_page에 있으면 이 블록 삭제) ===== */
+        body{margin:0;font-family:'Malgun Gothic','Pretendard',sans-serif;background:#eef1f6;color:#222;font-size:13px;}
+        .layout-contents{padding:14px 18px;}
+        .page-title-wrap{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+        .page-title-wrap .left{display:flex;align-items:center;gap:10px;}
+        .page-title-wrap h2{font-size:19px;font-weight:700;margin:0;}
+        .bookmark{font-size:12px;color:#5b6b86;border:1px solid #cfd6e2;background:#fff;border-radius:16px;padding:4px 11px;cursor:pointer;}
+        .page-navi{list-style:none;display:flex;gap:8px;margin:0;padding:0;color:#8b95a7;font-size:12px;}
+        .page-navi li::after{content:'›';margin-left:8px;color:#c2c9d4;}.page-navi li:last-child::after{content:'';}
+        .section{background:#fff;border:1px solid #d7dde7;border-radius:6px;}
+        .section-top{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #e9edf3;background:#f7f9fc;gap:12px;flex-wrap:wrap;}
+        .search-wrap{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
+        .search-wrap dl{margin:0;}.search-wrap dt{font-size:12px;color:#445;font-weight:600;margin-bottom:5px;}.search-wrap dd{margin:0;}
+        .search-wrap .eq{color:#e0533d;margin-left:2px;}
+        .search-wrap input,.search-wrap select{border:1px solid #cfd6e2;border-radius:5px;padding:6px 9px;font-size:13px;}
+        .date-box{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
+        .button-wrap ul{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
+        .btn{border:1px solid #cfd6e2;background:#fff;border-radius:5px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;color:#333;}
+        .btn:disabled{background:#eef0f4;color:#aab;cursor:not-allowed;}
+        .container-fluid{padding:12px 13px;}
+        table.work-table{width:100%;border-collapse:collapse;}
+        table.work-table th,table.work-table td{border:1px solid #d7dde7;padding:7px;font-size:12.5px;text-align:center;}
+        table.work-table th{background:#eef2f8;color:#445;font-weight:700;}
+        .tab-wrap .tab-links{list-style:none;display:flex;gap:3px;margin:0;padding:0;}
+        .tab-wrap .tab-links a{display:block;padding:9px 16px;font-size:13px;font-weight:600;color:#667;background:#e9edf3;border:1px solid #d7dde7;border-bottom:0;border-radius:6px 6px 0 0;text-decoration:none;cursor:pointer;}
+        .tab-wrap .tab-links li.on a{background:#fff;color:#1d3b8b;}
+        .tab-item{background:#fff;border:1px solid #d7dde7;border-radius:0 6px 6px 6px;display:none;} .tab-item.on{display:block;}
+        .table-wrap{padding:12px 13px;}
+        /* ===== 이 페이지 전용 ===== */
+        .background-blue{background:#dcf0f8 !important;font-weight:bold;text-align:right;}
+        .background-scrap{background:#c28fbb !important;font-weight:bold;text-align:right;color:#fff;}
+        tr.kind-row{cursor:pointer;} tr.kind-row:hover{background:#f4f8ff;} tr.kind-row.on td:nth-child(2){box-shadow:inset 3px 0 0 #0026ff;} tr.kind-row.working{background:#fffbe8;}
+        .kname{text-align:left;font-weight:700;padding-left:6px;}
+        .work-table td.wsel select{width:100%;border:1px solid #cfd6e2;border-radius:4px;padding:4px;font-size:12px;}
+        .reg-input{width:100%;border:1px solid #cfd6e2;border-radius:5px;padding:9px;font-size:17px;font-weight:700;text-align:right;}
+        .reg-input.good{background:#dcf0f8;} .reg-input.scrap{background:#efdcea;}
+        .empty{color:#99a;text-align:center;padding:18px 0;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left"><h2>생산 실적 입력</h2><a class="bookmark toggle">내 메뉴</a></div>
+            <ul class="page-navi"><li>생산 관리</li><li>생산 실적 입력</li></ul>
+        </div>
+
+        <div style="display:flex; gap:5px; align-items:flex-start;">
+            <!-- 좌: 유형별 재고/작업 -->
+            <section class="section" style="flex:1;">
+                <div class="section-top" style="justify-content:left; gap:15px;">
+                    <div class="search-wrap">
+                        <dl><dt>생산일<span class="eq">*</span></dt>
+                            <dd><ul class="date-box"><li><input type="date" id="pdate"></li></ul></dd></dl>
+                    </div>
+                    <div class="search-wrap"><dl><dd><li><a class="btn btn-search" id="btnMainSearch">검색</a></li></dd></dl></div>
+                </div>
+                <div class="container-fluid">
+                    <table class="work-table">
+                        <thead><tr><th style="width:56px">작업중</th><th>유형</th><th style="width:110px">작업자</th><th style="width:120px">프로젝트 총합</th><th>생산(양품)</th><th>파기</th><th>가용</th></tr></thead>
+                        <tbody id="stockBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 우: 탭(실적 등록 / 오늘 등록) -->
+            <div class="tab-wrap" style="flex:1; min-width:0;">
+                <ul class="tab-links">
+                    <li class="on"><a href="#tabReg" name="tabReg">실적 등록</a></li>
+                    <li><a href="#tabLog" name="tabLog">오늘 등록</a></li>
+                </ul>
+                <div>
+                    <section class="tab-item on" id="tabReg">
+                        <div class="section-top">
+                            <span id="selKindLab" style="font-weight:700;">유형을 선택하세요</span>
+                            <div class="button-wrap"><ul><li><button class="btn btn-search" id="btnReg" disabled>등록</button></li></ul></div>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="work-table">
+                                <colgroup><col style="width:35%"><col></colgroup>
+                                <tbody>
+                                <tr><th>선택 유형</th><td id="selKindCell" style="text-align:left;font-weight:700">-</td></tr>
+                                <tr><th>양품 수량</th><td><input type="number" id="good" min="0" value="0" class="reg-input good"></td></tr>
+                                <tr><th>파기 수량</th><td><input type="number" id="scrap" min="0" value="0" class="reg-input scrap"></td></tr>
+                                </tbody>
+                            </table>
+                            <p style="font-size:11.5px;color:#667;margin-top:10px;line-height:1.6">제작품만 입력. 양품은 공통재고로 쌓이고 파기는 별도 집계. 좌측에서 <b>작업중</b> 체크하고 작업자 지정(없으면 미지정)하면 대시보드에 표시돼요.</p>
+                        </div>
+                    </section>
+                    <section class="tab-item" id="tabLog">
+                        <div class="table-wrap">
+                            <table class="work-table">
+                                <thead><tr><th>유형</th><th>작업자</th><th>양품</th><th>파기</th><th>취소</th></tr></thead>
+                                <tbody id="logBody"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        const $=s=>document.querySelector(s);
+        const KINDS=['plate','block','shim','brkt','pin','arm'];
+        const WORKERS=['미지정','홍길동','김철수','이영희','박민수'];
+        let stock={
+            plate:{t:500,g:300,s:12,w:false,wk:'미지정'},
+            block:{t:200,g:120,s:5,w:false,wk:'미지정'},
+            shim:{t:100,g:60,s:0,w:false,wk:'미지정'},
+            brkt:{t:60,g:40,s:0,w:false,wk:'미지정'},
+            pin:{t:50,g:0,s:0,w:false,wk:'미지정'},
+            arm:{t:30,g:0,s:0,w:false,wk:'미지정'}
+        };
+        let sel=null, log=[];
+        $('#pdate').value=new Date().toISOString().slice(0,10);
+        const avail=k=>stock[k].g-stock[k].s;
+        // 탭
+        document.querySelectorAll('.tab-links a').forEach(a=>a.onclick=e=>{e.preventDefault();const id=a.getAttribute('href').slice(1);
+            document.querySelectorAll('.tab-links li').forEach(li=>li.classList.remove('on'));a.parentElement.classList.add('on');
+            document.querySelectorAll('.tab-item').forEach(t=>t.classList.toggle('on',t.id===id));});
+        function renderStock(){
+            $('#stockBody').innerHTML=KINDS.map(k=>{const r=stock[k];return `
+    <tr class="kind-row ${sel===k?'on':''} ${r.w?'working':''}" data-k="${k}">
+      <td><input type="checkbox" ${r.w?'checked':''} onclick="event.stopPropagation()" onchange="toggleWork('${k}',this.checked)"></td>
+      <td class="kname">${k}</td>
+      <td class="wsel"><select onclick="event.stopPropagation()" onchange="setWorker('${k}',this.value)">${WORKERS.map(w=>`<option ${r.wk===w?'selected':''}>${w}</option>`).join('')}</select></td>
+<td style="text-align:center;font-weight:700">${r.t}</td>
+<td class="background-blue">${r.g}</td><td class="background-scrap">${r.s}</td>
+      <td style="text-align:right;font-weight:700">${avail(k)}</td></tr>`;}).join('');
+            $('#stockBody').querySelectorAll('.kind-row').forEach(r=>r.onclick=()=>{sel=r.dataset.k;renderStock();renderSel();sync();});
+        }
+        function toggleWork(k,on){stock[k].w=on;renderStock();}
+        function setWorker(k,v){stock[k].wk=v;renderStock();}
+        function renderSel(){$('#selKindLab').textContent=sel?`선택: ${sel}`:'유형을 선택하세요';$('#selKindCell').textContent=sel?`${sel} (가용 ${avail(sel)})`:'-';}
+        function renderLog(){
+            if(!log.length){$('#logBody').innerHTML='<tr><td colspan="5" class="empty">오늘 등록 내역 없음</td></tr>';return;}
+            $('#logBody').innerHTML=log.map((l,i)=>`<tr><td style="font-weight:700">${l.kind}</td><td>${l.worker}</td>
+    <td class="background-blue">${l.good||0}</td><td class="background-scrap">${l.scrap||0}</td>
+    <td><a class="btn" style="padding:3px 8px" data-i="${i}">취소</a></td></tr>`).join('');
+            $('#logBody').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const l=log[+b.dataset.i];stock[l.kind].g-=l.good;stock[l.kind].s-=l.scrap;log.splice(+b.dataset.i,1);renderStock();renderLog();});
+        }
+        function sync(){const g=+$('#good').value||0,s=+$('#scrap').value||0;$('#btnReg').disabled=!(sel&&(g>0||s>0));}
+        $('#good').oninput=sync;$('#scrap').oninput=sync;
+        $('#btnReg').onclick=()=>{const g=+$('#good').value||0,s=+$('#scrap').value||0;stock[sel].g+=g;stock[sel].s+=s;log.unshift({kind:sel,good:g,scrap:s,worker:stock[sel].wk});$('#good').value=0;$('#scrap').value=0;sync();renderStock();renderLog();};
+        renderStock();renderSel();renderLog();
+    </script>
+</th:block>
+</html>

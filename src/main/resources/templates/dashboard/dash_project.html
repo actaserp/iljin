@@ -1,476 +1,123 @@
 <html layout:decorate="~{layout_page}">
-
 <head>
     <style>
-        /* ── 다크 대시보드 (현장 59인치 모니터용) ── */
-        #dashWrap {
-            background: #0d1117;
-            color: #e6edf3;
-            min-height: 100vh;
-            padding: 24px 28px;
-            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
-        }
-
-        #dashWrap .dash-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-        }
-        #dashWrap .dash-head h1 {
-            font-size: 30px;
-            font-weight: 800;
-            color: #fff;
-            margin: 0;
-            letter-spacing: -0.5px;
-        }
-        #dashWrap .dash-clock {
-            font-size: 22px;
-            font-weight: 600;
-            color: #58a6ff;
-            font-variant-numeric: tabular-nums;
-        }
-        #dashWrap .dash-updated {
-            font-size: 14px;
-            color: #8b949e;
-            margin-left: 14px;
-        }
-
-        /* ── 프로젝트 카드 그리드 ── */
-        .proj-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-            gap: 18px;
-            margin-bottom: 28px;
-        }
-        .proj-card {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 14px;
-            padding: 20px 22px;
-            cursor: pointer;
-            transition: border-color .15s, transform .15s;
-        }
-        .proj-card:hover { border-color: #58a6ff; transform: translateY(-2px); }
-        .proj-card.active { border-color: #58a6ff; box-shadow: 0 0 0 2px rgba(88,166,255,.3); }
-
-        .proj-card .pc-top {
-            display: flex; justify-content: space-between; align-items: flex-start;
-            margin-bottom: 16px;
-        }
-        .proj-card .pc-name {
-            font-size: 21px; font-weight: 700; color: #fff; line-height: 1.3;
-        }
-        .proj-card .pc-company { font-size: 14px; color: #8b949e; margin-top: 4px; }
-        .proj-card .pc-no {
-            font-size: 13px; color: #58a6ff; font-weight: 600;
-            background: rgba(88,166,255,.12); padding: 3px 10px; border-radius: 20px;
-            white-space: nowrap;
-        }
-
-        /* 진척 게이지 2종 */
-        .gauge-row { margin-top: 14px; }
-        .gauge-label {
-            display: flex; justify-content: space-between;
-            font-size: 14px; margin-bottom: 5px;
-        }
-        .gauge-label .gl-name { color: #8b949e; }
-        .gauge-label .gl-val { font-weight: 700; font-variant-numeric: tabular-nums; }
-        .gauge-track {
-            height: 12px; background: #21262d; border-radius: 8px; overflow: hidden;
-        }
-        .gauge-fill { height: 100%; border-radius: 8px; transition: width .5s ease; }
-        .gauge-fill.qty  { background: linear-gradient(90deg,#1f6feb,#58a6ff); }
-        .gauge-fill.proc { background: linear-gradient(90deg,#238636,#3fb950); }
-
-        .pc-stats {
-            display: flex; gap: 18px; margin-top: 16px;
-            font-size: 14px; color: #c9d1d9;
-        }
-        .pc-stats b { color: #fff; font-size: 16px; }
-        .pc-working {
-            margin-left: auto; color: #f0b72f; font-weight: 700;
-        }
-
-        /* ── 상세 패널 ── */
-        #detailPanel { display: none; }
-        .detail-head {
-            display: flex; align-items: center; gap: 14px; margin: 6px 0 18px;
-        }
-        .detail-head h2 { font-size: 24px; font-weight: 700; color: #fff; margin: 0; }
-        .detail-head .dh-close {
-            margin-left: auto; cursor: pointer; color: #8b949e;
-            font-size: 15px; padding: 6px 14px; border: 1px solid #30363d; border-radius: 8px;
-        }
-        .detail-head .dh-close:hover { color: #fff; border-color: #8b949e; }
-
-        /* 현재 작업중 배너 */
-        .working-banner {
-            background: #161b22; border: 1px solid #30363d; border-radius: 12px;
-            padding: 16px 20px; margin-bottom: 20px;
-        }
-        .working-banner .wb-title {
-            font-size: 15px; color: #f0b72f; font-weight: 700; margin-bottom: 12px;
-            display: flex; align-items: center; gap: 8px;
-        }
-        .wb-dot {
-            width: 9px; height: 9px; border-radius: 50%; background: #f0b72f;
-            animation: blink 1.1s infinite;
-        }
-        @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.25;} }
-        .wb-list { display: flex; flex-wrap: wrap; gap: 12px; }
-        .wb-item {
-            background: #21262d; border-radius: 10px; padding: 12px 16px;
-            min-width: 240px; border-left: 3px solid #f0b72f;
-        }
-        .wb-item .wbi-part { font-size: 16px; font-weight: 700; color: #fff; }
-        .wb-item .wbi-proc { font-size: 13px; color: #58a6ff; margin: 3px 0; }
-        .wb-item .wbi-worker { font-size: 14px; color: #e6edf3; }
-        .wb-item .wbi-equ { font-size: 13px; color: #8b949e; }
-        .wb-empty { color: #8b949e; font-size: 14px; }
-
-        /* 부품별 공정 간트 */
-        .part-block {
-            background: #161b22; border: 1px solid #30363d; border-radius: 12px;
-            padding: 18px 20px; margin-bottom: 16px;
-        }
-        .part-title {
-            font-size: 19px; font-weight: 700; color: #fff; margin-bottom: 4px;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .part-title .pt-qty {
-            font-size: 13px; font-weight: 600; color: #8b949e;
-            background: #21262d; padding: 2px 10px; border-radius: 14px;
-        }
-        .part-sub { font-size: 13px; color: #8b949e; margin-bottom: 14px; }
-
-        /* 반제품 행 */
-        .semi-row {
-            display: flex; align-items: center; gap: 14px;
-            padding: 9px 0; border-top: 1px solid #21262d;
-        }
-        .semi-name {
-            width: 180px; flex-shrink: 0; font-size: 15px; font-weight: 600;
-            color: #e6edf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .semi-bar { display: flex; align-items: center; gap: 6px; flex: 1; }
-        .proc-cell {
-            display: flex; flex-direction: column; align-items: center;
-            padding: 6px 12px; border-radius: 8px; font-size: 13px;
-            min-width: 92px; position: relative;
-        }
-        .proc-cell .pc-code { font-weight: 700; font-size: 12px; }
-        .proc-cell .pc-nm { font-size: 11px; opacity: .85; margin-top: 1px;
-            white-space: nowrap; max-width: 84px; overflow: hidden; text-overflow: ellipsis; }
-        .proc-arrow { color: #484f58; font-size: 14px; }
-
-        .proc-cell.s-finished { background: rgba(63,185,80,.18); color: #3fb950; border: 1px solid rgba(63,185,80,.4); }
-        .proc-cell.s-working  { background: rgba(240,183,47,.18); color: #f0b72f; border: 1px solid rgba(240,183,47,.5);
-            animation: blink 1.3s infinite; }
-        .proc-cell.s-ordered  { background: #21262d; color: #8b949e; border: 1px solid #30363d; }
-        .proc-cell.s-stopped  { background: rgba(248,81,73,.18); color: #f85149; border: 1px solid rgba(248,81,73,.4); }
-
-        .semi-pct {
-            width: 52px; flex-shrink: 0; text-align: right;
-            font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums;
-        }
-
-        .loading-txt { color: #8b949e; text-align: center; padding: 40px; font-size: 16px; }
+        #dashWrap{background:#0d1117;color:#e6edf3;min-height:100vh;padding:24px 28px;font-family:'Pretendard','Malgun Gothic',sans-serif;}
+        #dashWrap .dash-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+        #dashWrap .dash-head h1{font-size:30px;font-weight:800;color:#fff;margin:0;}
+        #dashWrap .dash-clock{font-size:22px;font-weight:600;color:#58a6ff;font-variant-numeric:tabular-nums;}
+        .working-banner{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:12px 18px;margin-bottom:18px;}
+        .wb-title{font-size:14px;color:#f0b72f;font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:8px;}
+        .wb-dot{width:9px;height:9px;border-radius:50%;background:#f0b72f;animation:blink 1.1s infinite;}@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+        .wb-list{display:flex;flex-wrap:wrap;gap:10px;} .wb-item{background:#21262d;border-radius:9px;padding:8px 14px;border-left:3px solid #f0b72f;}
+        .wb-item .k{font-size:15px;font-weight:800;color:#fff;} .wb-item .w{font-size:13px;color:#c9d1d9;} .wb-empty{color:#8b949e;font-size:14px;}
+        .sec-label{font-size:14px;color:#8b949e;font-weight:700;margin:0 0 10px;}
+        /* 프로젝트 요약 카드 */
+        .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-bottom:22px;}
+        .proj-card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:16px 18px;cursor:pointer;transition:.15s;}
+        .proj-card:hover{border-color:#58a6ff;transform:translateY(-2px);} .proj-card.active{border-color:#58a6ff;box-shadow:0 0 0 2px rgba(88,166,255,.3);}
+        .pc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
+        .pc-name{font-size:20px;font-weight:700;color:#fff;} .pc-jigs{font-size:12px;color:#58a6ff;font-weight:600;background:rgba(88,166,255,.12);padding:3px 10px;border-radius:20px;white-space:nowrap;}
+        .jg{margin-top:10px;} .jg .gl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:#8b949e;} .jg .gl b{font-weight:700;}
+        .gtrack{height:9px;background:#21262d;border-radius:6px;overflow:hidden;} .gfill{height:100%;border-radius:6px;}
+        .gfill.out{background:linear-gradient(90deg,#1f6feb,#58a6ff);} .gfill.fin{background:linear-gradient(90deg,#238636,#3fb950);}
+        .pc-stats{display:flex;gap:16px;margin-top:13px;font-size:13px;color:#c9d1d9;} .pc-stats b{color:#fff;font-size:15px;}
+        .pc-working{margin-left:auto;color:#f0b72f;font-weight:700;font-size:12px;}
+        /* 지그 아코디언 */
+        .jig-wrap{margin-bottom:18px;}
+        .jig-block{background:#161b22;border:1px solid #30363d;border-radius:14px;margin-bottom:12px;overflow:hidden;}
+        .jig-head{display:flex;align-items:center;gap:18px;padding:15px 20px;cursor:pointer;} .jig-head:hover{background:#1b212a;} .jig-block.open .jig-head{border-bottom:1px solid #30363d;}
+        .jig-name{font-size:19px;font-weight:700;color:#fff;min-width:220px;} .jig-name .jn-no{font-size:12px;color:#58a6ff;font-weight:600;background:rgba(88,166,255,.12);padding:2px 9px;border-radius:14px;margin-left:8px;}
+        .jig-gauges{flex:1;display:flex;gap:22px;max-width:500px;} .jig-stat{font-size:13px;color:#c9d1d9;white-space:nowrap;} .jig-stat b{color:#fff;}
+        .jig-toggle{color:#8b949e;font-size:18px;transition:.2s;} .jig-block.open .jig-toggle{transform:rotate(180deg);}
+        .jig-detail{display:none;padding:14px 20px 18px;background:#0f141b;} .jig-block.open .jig-detail{display:block;}
+        .unit-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #21262d;flex-wrap:wrap;} .unit-row:first-child{border-top:0;}
+        .ur-name{font-size:16px;font-weight:700;color:#fff;min-width:80px;}
+        .bdg{font-size:11px;font-weight:700;padding:3px 10px;border-radius:13px;}
+        .bdg.out{background:rgba(88,166,255,.16);color:#58a6ff;}.bdg.no{background:rgba(240,183,47,.16);color:#f0b72f;}
+        .bdg.fin{background:rgba(63,185,80,.18);color:#3fb950;}.bdg.ing{background:#21262d;color:#8b949e;}
+        .item-chips{display:flex;flex-wrap:wrap;gap:7px;margin-left:auto;} .ic{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:5px 10px;font-size:12.5px;color:#c9d1d9;}
+        .ic.done{border-color:rgba(63,185,80,.4);color:#3fb950;} .ic .k{font-size:11px;color:#58a6ff;margin-left:4px;}
+        .foot-strip{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:12px 18px;}
+        .foot-strip .fl{font-size:13px;color:#8b949e;font-weight:700;margin-right:6px;} .foot-strip .c{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:7px 12px;font-size:13px;color:#c9d1d9;} .foot-strip .c b{color:#58a6ff;font-size:16px;} .foot-strip .c.scrap b{color:#f0b72f;}
     </style>
 </head>
-
 <th:block layout:fragment="content">
     <div id="dashWrap">
-        <div class="dash-head">
-            <div style="display:flex; align-items:baseline;">
-                <h1 data-layout-toggle-anchor>생산 진척 대시보드</h1>
-                <span class="dash-updated" id="lastUpdated"></span>
-            </div>
-            <div class="dash-clock" id="dashClock"></div>
-        </div>
+        <div class="dash-head"><h2 data-layout-toggle-anchor>생산 현황판 · 프로젝트</h2><span class="dash-clock" id="clock"></span></div>
+        <div class="working-banner"><div class="wb-title"><span class="wb-dot"></span>현재 작업중</div><div class="wb-list" id="working"></div></div>
 
-        <!-- 프로젝트 카드 목록 -->
-        <div id="projGrid" class="proj-grid">
-            <div class="loading-txt">불러오는 중...</div>
-        </div>
+        <p class="sec-label">프로젝트</p>
+        <div class="proj-grid" id="projGrid"></div>
 
-        <!-- 상세 패널 -->
-        <div id="detailPanel">
-            <div class="detail-head">
-                <h2 id="detailTitle"></h2>
-                <span class="dh-close" id="btnCloseDetail">✕ 목록으로</span>
-            </div>
-            <div id="workingBanner"></div>
-            <div id="partList"></div>
-        </div>
+        <p class="sec-label" id="jigLabel"></p>
+        <div class="jig-wrap" id="jigList"></div>
+
+        <div class="foot-strip" id="foot"></div>
     </div>
 </th:block>
 
 <th:block layout:fragment="scripts">
-    <script type="text/javascript">
-        class Dashboard {
-            constructor() {
-                this.baseUrl = '/api/dashboard';
-                this.selectedProjno = null;
-                this.pollMs = 15000;       // 15초 폴링
-                this.pollTimer = null;
-            }
-
-            init() {
-                this.startClock();
-                this.loadProjects();
-                // 자동 폴링
-                this.pollTimer = setInterval(() => this.refresh(), this.pollMs);
-            }
-
-            startClock() {
-                const tick = () => {
-                    const d = new Date();
-                    const pad = n => String(n).padStart(2, '0');
-                    $('#dashClock').text(
-                        `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} `
-                        + `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-                    );
-                };
-                tick();
-                setInterval(tick, 1000);
-            }
-
-            markUpdated() {
-                const d = new Date();
-                const pad = n => String(n).padStart(2, '0');
-                $('#lastUpdated').text(`갱신 ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`);
-            }
-
-            refresh() {
-                this.loadProjects();
-                if (this.selectedProjno) {
-                    this.loadDetail(this.selectedProjno);
-                }
-            }
-
-            /* ── 프로젝트 목록 ── */
-            loadProjects() {
-                AjaxUtil.getAsyncData(this.baseUrl + '/projects', {}, (res) => {
-                    if (!res || !res.data) return;
-                    this.renderProjects(res.data);
-                    this.markUpdated();
-                });
-            }
-
-            renderProjects(list) {
-                const $grid = $('#projGrid');
-                $grid.empty();
-
-                if (!list.length) {
-                    $grid.html('<div class="loading-txt">프로젝트가 없습니다.</div>');
-                    return;
-                }
-
-                list.forEach(p => {
-                    const qtyPct  = parseFloat(p.qty_progress) || 0;
-                    const procPct = parseFloat(p.proc_progress) || 0;
-                    const working = parseInt(p.working_proc) || 0;
-                    const isActive = (p.projno === this.selectedProjno) ? 'active' : '';
-
-                    const workingHtml = working > 0
-                        ? `<span class="pc-working">● 작업중 ${working}</span>` : '';
-
-                    const card = `
-                        <div class="proj-card ${isActive}" data-projno="${p.projno}">
-                            <div class="pc-top">
-                                <div>
-                                    <div class="pc-name">${p.projnm || '-'}</div>
-                                    <div class="pc-company">${p.company || ''}</div>
-                                </div>
-                                <div class="pc-no">${p.projno}</div>
-                            </div>
-                            <div class="gauge-row">
-                                <div class="gauge-label">
-                                    <span class="gl-name">생산량 (양품/수주)</span>
-                                    <span class="gl-val" style="color:#58a6ff;">${qtyPct}%</span>
-                                </div>
-                                <div class="gauge-track"><div class="gauge-fill qty" style="width:${qtyPct}%;"></div></div>
-                            </div>
-                            <div class="gauge-row">
-                                <div class="gauge-label">
-                                    <span class="gl-name">공정 진척 (완료/전체)</span>
-                                    <span class="gl-val" style="color:#3fb950;">${procPct}%</span>
-                                </div>
-                                <div class="gauge-track"><div class="gauge-fill proc" style="width:${procPct}%;"></div></div>
-                            </div>
-                            <div class="pc-stats">
-                                <span>부품 <b>${p.part_cnt}</b></span>
-                                <span>수주 <b>${this.fmt(p.suju_qty)}</b></span>
-                                <span>공정 <b>${p.done_proc}/${p.total_proc}</b></span>
-                                ${workingHtml}
-                            </div>
-                        </div>`;
-                    $grid.append(card);
-                });
-
-                const _this = this;
-                $grid.find('.proj-card').off('click').on('click', function () {
-                    const projno = $(this).data('projno');
-                    _this.selectProject(projno, $(this).find('.pc-name').text());
-                });
-            }
-
-            /* ── 프로젝트 선택 ── */
-            selectProject(projno, projnm) {
-                this.selectedProjno = projno;
-                $('.proj-card').removeClass('active');
-                $(`.proj-card[data-projno="${projno}"]`).addClass('active');
-
-                $('#detailTitle').text(projnm);
-                $('#detailPanel').show();
-                $('#partList').html('<div class="loading-txt">상세 불러오는 중...</div>');
-                $('#workingBanner').empty();
-
-                this.loadDetail(projno);
-
-                // 상세로 스크롤
-                document.getElementById('detailPanel').scrollIntoView({ behavior: 'smooth' });
-            }
-
-            loadDetail(projno) {
-                // 부품/공정
-                AjaxUtil.getAsyncData(this.baseUrl + '/project_detail', { projno }, (res) => {
-                    if (res && res.data) this.renderDetail(res.data);
-                });
-                // 현재 작업중
-                AjaxUtil.getAsyncData(this.baseUrl + '/working_now', { projno }, (res) => {
-                    if (res && res.data) this.renderWorking(res.data);
-                });
-            }
-
-            /* ── 현재 작업중 배너 ── */
-            renderWorking(rows) {
-                const $b = $('#workingBanner');
-                // jr_id 기준으로 작업자 묶기 (한 작지에 여러 작업자)
-                const byJr = {};
-                rows.forEach(r => {
-                    if (!byJr[r.jr_id]) {
-                        byJr[r.jr_id] = {
-                            part: r.part_name, proc: r.process_name,
-                            equ: r.equipment_name, workers: []
-                        };
-                    }
-                    if (r.worker_name) byJr[r.jr_id].workers.push(r.worker_name);
-                });
-
-                const items = Object.values(byJr);
-                if (!items.length) {
-                    $b.html(`<div class="working-banner">
-                        <div class="wb-title"><span class="wb-dot"></span>현재 작업중</div>
-                        <div class="wb-empty">현재 작업중인 공정이 없습니다.</div>
-                    </div>`);
-                    return;
-                }
-
-                let html = `<div class="working-banner">
-                    <div class="wb-title"><span class="wb-dot"></span>현재 작업중 (${items.length})</div>
-                    <div class="wb-list">`;
-                items.forEach(it => {
-                    const workers = it.workers.length ? it.workers.join(', ') : '미지정';
-                    html += `<div class="wb-item">
-                        <div class="wbi-part">${it.part || '-'}</div>
-                        <div class="wbi-proc">${it.proc || ''}</div>
-                        <div class="wbi-worker">👷 ${workers}</div>
-                        <div class="wbi-equ">🛠 ${it.equ || '-'}</div>
-                    </div>`;
-                });
-                html += `</div></div>`;
-                $b.html(html);
-            }
-
-            /* ── 부품별 공정 간트 ── */
-            renderDetail(rows) {
-                const $list = $('#partList');
-                if (!rows.length) {
-                    $list.html('<div class="loading-txt">상세 데이터가 없습니다.</div>');
-                    return;
-                }
-
-                // suju(부품) → 반제품(proc_mat_id) → 공정들
-                const parts = {};
-                rows.forEach(r => {
-                    if (!parts[r.suju_id]) {
-                        parts[r.suju_id] = {
-                            name: r.part_name, standard: r.standard,
-                            qty: r.suju_qty, semis: {}
-                        };
-                    }
-                    const part = parts[r.suju_id];
-                    const semiKey = r.proc_mat_id || 'none';
-                    if (!part.semis[semiKey]) {
-                        part.semis[semiKey] = { name: r.proc_mat_name || '-', procs: [] };
-                    }
-                    if (r.proc_jr_id) {
-                        part.semis[semiKey].procs.push({
-                            order: r.proc_order || 0,
-                            code: r.process_code, name: r.process_name,
-                            state: r.proc_state
-                        });
-                    }
-                });
-
-                let html = '';
-                Object.values(parts).forEach(part => {
-                    html += `<div class="part-block">
-                        <div class="part-title">${part.name || '-'}
-<!--                            <span class="pt-qty">수주 ${this.fmt(part.qty)}</span>-->
-                        </div>`;
-                    if (part.standard) html += `<div class="part-sub">${part.standard}</div>`;
-
-                    Object.values(part.semis).forEach(semi => {
-                        // 공정 순서 정렬
-                        semi.procs.sort((a, b) => a.order - b.order);
-                        const total = semi.procs.length;
-                        const done = semi.procs.filter(p => p.state === 'finished').length;
-                        const pct = total > 0 ? Math.round(done / total * 100) : 0;
-                        const pctColor = pct === 100 ? '#3fb950' : (pct > 0 ? '#f0b72f' : '#8b949e');
-
-                        let bar = '';
-                        semi.procs.forEach((p, i) => {
-                            if (i > 0) bar += `<span class="proc-arrow">→</span>`;
-                            bar += `<div class="proc-cell s-${p.state}">
-                                <span class="pc-code">${p.code || ''}</span>
-                                <span class="pc-nm">${p.name || ''}</span>
-                            </div>`;
-                        });
-
-                        html += `<div class="semi-row">
-                            <div class="semi-name">${semi.name}</div>
-                            <div class="semi-bar">${bar || '<span style="color:#484f58;">공정 없음</span>'}</div>
-                            <div class="semi-pct" style="color:${pctColor};">${pct}%</div>
-                        </div>`;
-                    });
-
-                    html += `</div>`;
-                });
-
-                $list.html(html);
-            }
-
-            fmt(n) {
-                const v = parseFloat(n);
-                if (isNaN(v)) return '0';
-                return v.toLocaleString();
-            }
+    <script type="text/javascript" th:inline="none">
+        const $=s=>document.querySelector(s);
+        let stock={plate:{g:300,s:12},block:{g:120,s:5},shim:{g:60,s:0},brkt:{g:40,s:0}};
+        let working=[{kind:'plate',worker:'홍길동'},{kind:'block',worker:'김철수'}];
+        let PROJECTS=[
+            {nm:'LW 호원', jigs:[
+                    {no:'A9-760-FD10',nm:'FR DR 패널 지그',units:[
+                            {nm:'U201',out:true,fin:true,items:[ ['JOINT PLATE','plate'],['LOC BLOCK','block'],['SHIM 3T','shim']]},
+                            {nm:'U227',out:true,fin:false,items:[ ['UNIT PLATE','plate'],['PIN BRKT','brkt'],['PIN BLOCK','block']]},
+                            {nm:'P228',out:false,fin:false,items:[ ['(미정) plate','plate'],['(미정) block','block']]},
+                        ]},
+                    {no:'A9-820',nm:'RR DR 패널 지그',units:[
+                            {nm:'U301',out:false,fin:false,items:[ ['(미정) plate','plate']]},
+                            {nm:'U302',out:true,fin:true,items:[ ['BASE PLATE','plate'],['GUIDE','block']]},
+                        ]},
+                ]},
+            {nm:'대우 2차', jigs:[
+                    {no:'B1-100',nm:'사이드 멤버 지그',units:[{nm:'U410',out:true,fin:false,items:[ ['SIDE PLATE','plate'],['ARM','arm']]}]},
+                    {no:'B1-200',nm:'리어 멤버 지그',units:[{nm:'U420',out:false,fin:false,items:[ ['REAR PLATE','plate']]}]},
+                ]},
+        ];
+        let selP=0, openJig=null;
+        function clock(){$('#clock').textContent=new Date().toLocaleTimeString('ko-KR');}setInterval(clock,1000);clock();
+        function renderWorking(){$('#working').innerHTML=working.length?working.map(w=>`<div class="wb-item"><span class="k">${w.kind}</span> <span class="w">👤 ${w.worker}</span></div>`).join(''):'<div class="wb-empty">작업중 없음</div>';}
+        function jigStat(j){const n=j.units.length,fin=j.units.filter(u=>u.fin).length,out=j.units.filter(u=>u.out).length;return{n,fin,out,finPct:Math.round(fin/n*100),outPct:Math.round(out/n*100)};}
+        function projStat(p){let n=0,fin=0,out=0;p.jigs.forEach(j=>j.units.forEach(u=>{n++;if(u.fin)fin++;if(u.out)out++;}));return{jigs:p.jigs.length,n,fin,out,finPct:n?Math.round(fin/n*100):0,outPct:n?Math.round(out/n*100):0};}
+        function renderProjCards(){
+            $('#projGrid').innerHTML=PROJECTS.map((p,i)=>{const s=projStat(p);
+                return `<div class="proj-card ${selP===i?'active':''}" data-i="${i}">
+      <div class="pc-top"><div class="pc-name">${p.nm}</div><div class="pc-jigs">지그 ${s.jigs}</div></div>
+      <div class="jg"><div class="gl"><span>2D 출도율</span><b style="color:#58a6ff">${s.outPct}%</b></div><div class="gtrack"><div class="gfill out" style="width:${s.outPct}%"></div></div></div>
+      <div class="jg"><div class="gl"><span>유니트 완료율</span><b style="color:#3fb950">${s.finPct}%</b></div><div class="gtrack"><div class="gfill fin" style="width:${s.finPct}%"></div></div></div>
+      <div class="pc-stats"><span>완료 <b>${s.fin}</b>/${s.n}</span><span>출도 <b>${s.out}</b>/${s.n}</span></div></div>`;
+            }).join('');
+            $('#projGrid').querySelectorAll('.proj-card').forEach(c=>c.onclick=()=>{selP=+c.dataset.i;openJig=null;renderProjCards();renderJigs();});
         }
-
-        let dashboard = null;
-        $(document).ready(function () {
-            dashboard = new Dashboard();
-            dashboard.init();
-
-            $('#btnCloseDetail').on('click', function () {
-                dashboard.selectedProjno = null;
-                $('#detailPanel').hide();
-                $('.proj-card').removeClass('active');
-            });
-        });
+        function renderJigs(){
+            const p=PROJECTS[selP];
+            $('#jigLabel').textContent=`${p.nm} · 지그`;
+            $('#jigList').innerHTML=p.jigs.map((j,i)=>{const s=jigStat(j);const open=openJig===i;
+                return `<div class="jig-block ${open?'open':''}">
+      <div class="jig-head" data-i="${i}">
+        <div class="jig-name">${j.nm}<span class="jn-no">${j.no}</span></div>
+        <div class="jig-gauges">
+          <div class="jg" style="margin:0"><div class="gl"><span>출도율</span><b style="color:#58a6ff">${s.outPct}%</b></div><div class="gtrack"><div class="gfill out" style="width:${s.outPct}%"></div></div></div>
+          <div class="jg" style="margin:0"><div class="gl"><span>완료율</span><b style="color:#3fb950">${s.finPct}%</b></div><div class="gtrack"><div class="gfill fin" style="width:${s.finPct}%"></div></div></div>
+        </div>
+        <div class="jig-stat">완료 <b>${s.fin}</b>/${s.n}</div><div class="jig-toggle">▾</div>
+      </div>
+      <div class="jig-detail">${j.units.map(u=>`<div class="unit-row">
+        <span class="ur-name">${u.nm}</span>
+        <span class="bdg ${u.out?'out':'no'}">${u.out?'2D 출도':'미출도'}</span>
+        <span class="bdg ${u.fin?'fin':'ing'}">${u.fin?'공정완료':'진행'}</span>
+        <span class="item-chips">${u.items.map(it=>`<span class="ic ${u.fin?'done':''}">${u.fin?'✓ ':''}${it[0]}<span class="k">${it[1]}</span></span>`).join('')}</span>
+      </div>`).join('')}</div></div>`;
+            }).join('');
+            $('#jigList').querySelectorAll('.jig-head').forEach(h=>h.onclick=()=>{const i=+h.dataset.i;openJig=(openJig===i?null:i);renderJigs();});
+        }
+        function renderFoot(){const totS=Object.values(stock).reduce((s,x)=>s+x.s,0);
+            $('#foot').innerHTML='<span class="fl">공통재고(가용)</span>'+Object.entries(stock).map(([k,v])=>`<span class="c">${k} <b>${v.g-v.s}</b></span>`).join('')+`<span class="c scrap" style="margin-left:auto">누적 파기 <b>${totS}</b></span>`;}
+        renderWorking();renderProjCards();renderJigs();renderFoot();
     </script>
 </th:block>
 </html>

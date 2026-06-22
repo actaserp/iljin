@@ -1,0 +1,836 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* =========================================================
+           [미리보기용] layout_page 가 제공하는 공통 스타일 (실서버 적용 시 이 블록 삭제)
+           ========================================================= */
+        body {
+            margin: 0;
+            font-family: 'Malgun Gothic', 'Pretendard', sans-serif;
+            background: #eef1f6;
+            color: #222;
+            font-size: 13px;
+        }
+
+        section{
+            padding : 7px;
+        }
+
+        .layout-contents {
+            padding: 14px 18px;
+        }
+
+        .page-title-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .page-title-wrap .left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .page-title-wrap h2 {
+            font-size: 19px;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .bookmark {
+            font-size: 12px;
+            color: #5b6b86;
+            border: 1px solid #cfd6e2;
+            background: #fff;
+            border-radius: 16px;
+            padding: 4px 11px;
+            cursor: pointer;
+        }
+
+        .page-navi {
+            list-style: none;
+            display: flex;
+            gap: 8px;
+            margin: 0;
+            padding: 0;
+            color: #8b95a7;
+            font-size: 12px;
+            align-items: center;
+        }
+
+        .page-navi li::after {
+            content: '›';
+            margin-left: 8px;
+            color: #c2c9d4;
+        }
+
+        .page-navi li:last-child::after {
+            content: '';
+        }
+
+        .page-navi li img {
+            width: 14px;
+            height: 14px;
+            vertical-align: middle;
+        }
+
+        .section {
+            background: #fff;
+            border: 1px solid #d7dde7;
+            border-radius: 6px;
+        }
+
+        .section-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 13px;
+            border-bottom: 1px solid #e9edf3;
+            background: #f7f9fc;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .section-top h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .button-wrap ul {
+            list-style: none;
+            display: flex;
+            gap: 6px;
+            margin: 0;
+            padding: 0;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border: 1px solid #cfd6e2;
+            background: #fff;
+            border-radius: 5px;
+            padding: 6px 11px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            color: #333;
+            text-decoration: none;
+        }
+
+        .btn img {
+            width: 13px;
+            height: 13px;
+        }
+
+        .btn-delete {
+            background: #3d5a99;
+            color: #fff;
+            border-color: #3d5a99;
+        }
+
+        .container-fluid {
+            padding: 12px 13px;
+        }
+
+        table.work-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table.work-table th, table.work-table td {
+            border: 1px solid #d7dde7;
+            padding: 6px 7px;
+            font-size: 12.5px;
+            text-align: center;
+        }
+
+        table.work-table th {
+            background: #eef2f8;
+            color: #445;
+            font-weight: 700;
+        }
+
+        table.work-table input, table.work-table select {
+            border: 1px solid #cfd6e2;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* =========================================================
+           [이 페이지 전용]
+           ========================================================= */
+        html, body {
+            height: 100%;
+        }
+
+        .layout-contents {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .row3 {
+            display: flex;
+            gap: 5px;
+            align-items: stretch;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .row3 > .section {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .row3 > .section > .container-fluid {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto;
+        }
+
+        .section-top {
+            flex: 0 0 auto;
+        }
+
+        table.work-table td.l {
+            text-align: left;
+        }
+
+        table.work-table td.num input {
+            text-align: right;
+        }
+
+        /* BOM 표: 고정 레이아웃 + 말줄임으로 가로 스크롤 제거 */
+        table.bom-table {
+            table-layout: fixed;
+        }
+
+        table.bom-table td, table.bom-table th {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .row-sel {
+            cursor: pointer;
+        }
+
+        .row-sel:hover {
+            background: #f4f8ff;
+        }
+
+        .fin-row {
+            background: #eef3ff;
+        }
+
+        .row-sel.on {
+            background: #e6efff;
+        }
+
+        .badge {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 11px;
+        }
+
+        .badge.out {
+            background: #dcf0f8;
+            color: #0b69a3;
+        }
+
+        .badge.no {
+            background: #f3e6c0;
+            color: #8a6d1b;
+        }
+
+        .badge.fin {
+            background: #0026ff;
+            color: #fff;
+        }
+
+        .badge.ing {
+            background: #eef0f3;
+            color: #555;
+        }
+
+        /* 완료 / 완료취소 토글 버튼 */
+
+        .btn.done.cancel {
+            background: #fff;
+            color: #0026ff;
+            border-color: #0026ff;
+        }
+
+        .btn.done.sm {
+            padding: 3px 9px;
+            font-size: 11.5px;
+        }
+
+        /* 상태 텍스트 색만 유지(수량 입력칸 색상 박스는 제거) */
+        .stat.est {
+            color: #8a6d1b;
+        }
+
+        .stat.fix {
+            color: #0b69a3;
+        }
+
+        .x {
+            color: #d23b53;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .hint {
+            font-size: 11.5px;
+            color: #667;
+            margin: 0 0 8px;
+        }
+
+        .out-label {
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>BOM 구성 (설계)</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>BOM 구성</li>
+            </ul>
+        </div>
+
+        <div class="row3">
+            <section class="section" style="flex:0 0 300px;">
+                <div class="section-top"><h3>품목</h3></div>
+                <div class="container-fluid" style="padding:0;">
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:46%">
+                            <col style="width:34%">
+                            <col style="width:20%">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>지그</th>
+                            <th>설비타입</th>
+                            <th>유니트</th>
+                        </tr>
+                        </thead>
+                        <tbody id="prodBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="section" style="flex:0 0 350px;">
+                <div class="section-top">
+                    <div class="search-wrap" style="margin-bottom: 0">
+                        <h3>유니트</h3>
+                    </div>
+                    <div class="button-wrap" style="margin-bottom: 0">
+                        <ul>
+                            <li>
+                                <a class="btn btn-excell" title="등록" onclick="bomPage.addUnit()">
+                                    <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                    유니트
+                                </a>
+                            </li>
+                        </ul>
+
+
+                    </div>
+                </div>
+                <div class="container-fluid" style="padding:0;">
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:28%">
+                            <col style="width:18%">
+                            <col style="width:14%">
+                            <col style="width:28%">
+                            <col style="width:12%">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>유니트</th>
+                            <th>2D출도</th>
+                            <th>품목</th>
+                            <th>완료</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody id="unitBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="section" style="flex:1 1 auto; min-width:0;">
+                <div class="section-top">
+                    <div class="search-wrap" style="margin-bottom: 0">
+                        <h3 id="bomTitle">유니트 선택</h3>
+                    </div>
+                    <div class="button-wrap" style="margin-bottom: 0">
+                        <ul>
+                            <li><label class="out-label"><input type="checkbox" id="chkOut"
+                                                                onchange="bomPage.toggleOut()"> 2D 출도</label></li>
+                            <li><a class="btn" title="유형(분류) 관리" onclick="bomPage.openKindManager()">유형 관리</a></li>
+                            <li><a class="btn" title="첨부" onclick="alert('첨부(mock)')">첨부</a></li>
+                            <li>
+                                <a class="btn btn-excell" title="등록" onclick="bomPage.addItem()">
+                                    <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                    품목
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div class="hint" id="bomHint"></div>
+                    <table class="work-table bom-table">
+                        <colgroup>
+                            <col style="width:6%">
+                            <col style="width:22%">
+                            <col style="width:20%">
+                            <col style="width:13%">
+                            <col style="width:16%">
+                            <col style="width:9%">
+                            <col style="width:12%">
+                            <col style="width:7%">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>NO</th>
+                            <th>품목명</th>
+                            <th>도번</th>
+                            <th>구분</th>
+                            <th>유형(분류)</th>
+                            <th>수량</th>
+                            <th>상태</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody id="bomBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- ===== 유형(분류) 관리 모달 (인라인 스타일 / 기존 클래스 재사용) ===== -->
+        <div id="kindModal"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:8px;width:560px;max-width:92vw;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+                <div class="section-top" style="border-radius:8px 8px 0 0;">
+                    <h3>유형(분류) 관리</h3>
+                    <div class="button-wrap">
+                        <ul>
+                            <li><a class="btn" onclick="bomPage.draftAdd()">+ 유형 추가</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div style="padding:12px 14px;overflow:auto;">
+                    <p class="hint">정규유형 1개에 여러 별칭(영문/한글)을 쉼표로 구분해 입력합니다. 품목명에 별칭이 포함되면 해당 정규유형으로 자동 분류됩니다. (예: plate ← PLATE, BRACKET, 브라켓)</p>
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:26%">
+                            <col style="width:62%">
+                            <col style="width:12%">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>정규유형</th>
+                            <th>별칭 (쉼표 구분)</th>
+                            <th>삭제</th>
+                        </tr>
+                        </thead>
+                        <tbody id="kindModalBody"></tbody>
+                    </table>
+                </div>
+                <div style="padding:10px 14px;border-top:1px solid #e9edf3;display:flex;justify-content:flex-end;gap:6px;">
+                    <a class="btn" onclick="bomPage.closeKindManager()">닫기</a>
+                    <a class="btn btn-delete" onclick="bomPage.saveKindAliases()">저장</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+
+        class BomDesignPage {
+            constructor() {
+                this.GUBUN = ['제작품', 'STD', '구매품'];
+
+                // 유형(분류) 동의어 표: [정규유형, [별칭들...]]
+                // - 같은 부품을 도면마다 다르게 부르는 경우를 하나로 모은다.
+                // - 예) plate 와 브라켓(bracket/brkt)은 동일 유형으로 취급 → 모두 'plate'
+                // - 품목명 스캔(guessKind) 시 위에서부터 먼저 매칭되므로 "더 구체적인 것"을 앞에 둔다.
+                //   (PIN BRKT → plate, PIN BLOCK → block, CLAMP ARM → arm 처럼 충돌 해결)
+                this.KIND_ALIASES = [
+                    ['locator', ['LOCATOR', '로케이터']],
+                    ['plate', ['PLATE', 'BRACKET', 'BRKT', '브라켓', '브래킷', '플레이트']], // plate = bracket
+                    ['shim', ['SHIM', '심']],
+                    ['arm', ['ARM', '암']],
+                    ['block', ['BLOCK', '블록', '블럭']],
+                    ['pin', ['PIN', '핀']],
+                    ['link', ['LINK', '링크']],
+                    ['clamp', ['CLAMP', '클램프']],
+                    ['assy', ['ASSEMBLY', 'ASSY', '어셈블리']]
+                ];
+                // 정규 유형 목록 (datalist 추천값)
+                this.KINDS = this.KIND_ALIASES.map(a => a[0]);
+
+                this.selP = 0;
+                this.selU = 0;
+
+                this.PRODUCTS = [
+                    {
+                        nm: 'PNL ASSY-FR DR,L/R', equ: '고정지그', units: [
+                            {
+                                nm: 'U201', out: true, fin: false, items: [
+                                    {
+                                        no: 1,
+                                        nm: 'JOINT PLATE',
+                                        dwg: 'A9-760-FD10-01-09',
+                                        g: '제작품',
+                                        k: 'plate',
+                                        qty: 2,
+                                        st: '확정'
+                                    },
+                                    {no: 2, nm: 'LOC BLOCK', dwg: '-01-12', g: '제작품', k: 'block', qty: 4, st: '확정'},
+                                    {no: 3, nm: 'SHIM 3T', dwg: 'SH-02-16', g: 'STD', k: 'shim', qty: 6, st: '확정'}
+                                ]
+                            },
+                            {
+                                nm: 'U227', out: true, fin: false, items: [
+                                    {no: 9, nm: 'UNIT PLATE', dwg: '-02-09', g: '제작품', k: 'plate', qty: 1, st: '확정'},
+                                    // 브라켓도 plate 로 동일 취급
+                                    {no: 11, nm: 'PIN BRKT', dwg: '-02-11', g: '제작품', k: 'plate', qty: 1, st: '확정'},
+                                    {no: 12, nm: 'PIN BLOCK', dwg: '-02-12', g: '제작품', k: 'block', qty: 1, st: '확정'},
+                                    {no: 101, nm: 'CLAMP CYL', dwg: 'CKG1A50(SMC)', g: '구매품', k: '', qty: 2, st: '확정'}
+                                ]
+                            },
+                            {
+                                nm: 'P228', out: false, fin: false, items: [
+                                    {no: 1, nm: '(미정) plate', dwg: '', g: '제작품', k: 'plate', qty: 8, st: '추정'},
+                                    {no: 2, nm: '(미정) block', dwg: '', g: '제작품', k: 'block', qty: 6, st: '추정'}
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        nm: 'A9-820', equ: '턴테이블', units: [
+                            {
+                                nm: 'U301', out: false, fin: false, items: [
+                                    {no: 1, nm: '(미정) plate', dwg: '', g: '제작품', k: 'plate', qty: 12, st: '추정'}
+                                ]
+                            }
+                        ]
+                    }
+                ];
+
+                this.buildKindsDatalist();
+                this.renderProd();
+                this.renderUnit();
+                this.renderBom();
+            }
+
+            el(id) {
+                return document.getElementById(id);
+            }
+
+            // ===== 유형(분류) 자동 분류 =====
+
+            // 품목명 안의 키워드로 유형 추정 (OCR 미사용, 입력 텍스트만 사용)
+            guessKind(name) {
+                if (!name) return '';
+                let s = name.toUpperCase();
+                for (let [canon, aliases] of this.KIND_ALIASES) {
+                    for (let kw of aliases) {
+                        if (s.includes(kw.toUpperCase())) return canon;
+                    }
+                }
+                return '';
+            }
+
+            // 유형칸에 직접 입력한 값(별칭 포함)을 정규유형으로 변환 (예: bracket/브라켓 → plate)
+            normKind(token) {
+                if (!token) return '';
+                let t = token.trim();
+                if (!t) return '';
+                let up = t.toUpperCase();
+                for (let [canon, aliases] of this.KIND_ALIASES) {
+                    if (up === canon.toUpperCase()) return canon;
+                    for (let kw of aliases) {
+                        if (up === kw.toUpperCase()) return canon;
+                    }
+                }
+                return t.toLowerCase(); // 표에 없는 값은 그대로 (소문자)
+            }
+
+            buildKindsDatalist() {
+                let dl = document.getElementById('kindsDL');
+                if (!dl) {
+                    dl = document.createElement('datalist');
+                    dl.id = 'kindsDL';
+                    document.body.appendChild(dl);
+                }
+                dl.innerHTML = '';
+                this.KINDS.forEach(k => {
+                    let o = document.createElement('option');
+                    o.value = k;
+                    dl.appendChild(o);
+                });
+            }
+
+            renderProd() {
+                let body = this.el('prodBody');
+                body.innerHTML = this.PRODUCTS.map((p, i) =>
+                    `<tr class="row-sel ${this.selP === i ? 'on' : ''}" data-i="${i}">
+                        <td class="l" style="font-weight:700;padding-left:9px">${p.nm}</td>
+                        <td>${p.equ}</td>
+                        <td>${p.units.length}</td></tr>`).join('');
+                body.querySelectorAll('.row-sel').forEach(r => r.onclick = () => {
+                    this.selP = +r.dataset.i;
+                    this.selU = 0;
+                    this.renderUnit();
+                    this.renderBom();
+                });
+            }
+
+            renderUnit() {
+                let us = this.PRODUCTS[this.selP].units;
+                let body = this.el('unitBody');
+                body.innerHTML = us.map((u, i) =>
+                    `<tr class="row-sel ${this.selU === i ? 'on' : ''} ${u.fin ? 'fin-row' : ''}" data-i="${i}">
+                        <td><input value="${u.nm}" style="font-weight:700;"
+     onclick="event.stopPropagation()"
+     onchange="bomPage.renameUnit(${i}, this.value)"></td>
+                        <td><span class="badge ${u.out ? 'out' : 'no'}">${u.out ? '출도' : '미출도'}</span></td>
+                        <td>${u.items.length}</td>
+                        <td>${u.fin
+                        ? `<a class="btn done cancel sm" onclick="event.stopPropagation();bomPage.toggleDone(${i})">완료취소</a>`
+                        : `<a class="btn done sm" onclick="event.stopPropagation();bomPage.toggleDone(${i})">완료</a>`}</td>
+                        <td><span class="x" title="유니트 삭제" onclick="event.stopPropagation();bomPage.deleteUnit(${i})">✕</span></td></tr>`).join('');
+                body.querySelectorAll('.row-sel').forEach(r => r.onclick = () => {
+                    this.selU = +r.dataset.i;
+                    this.renderUnit();
+                    this.renderBom();
+                });
+            }
+
+            renderBom() {
+                let u = this.PRODUCTS[this.selP].units[this.selU];
+                if (!u) {
+                    this.el('bomTitle').textContent = '유니트 선택';
+                    this.el('bomHint').innerHTML = '';
+                    this.el('bomBody').innerHTML = '';
+                    return;
+                }
+                this.el('bomTitle').textContent = `${u.nm} 소속 품목`;
+                this.el('chkOut').checked = u.out;
+                this.el('bomHint').innerHTML = u.fin
+                    ? '<b style="color:#0026ff">공정 완료된 유니트</b>'
+                    : (u.out ? '출도 완료 — 실제 품목/도번' : '<b style="color:#8a6d1b">미출도 — 유형+임시(추정) 수량</b>');
+                this.el('bomBody').innerHTML = u.items.map((it, i) => {
+                    let est = it.st === '추정';
+                    return `<tr class="${est ? 'est' : ''}">
+                        <td><input value="${it.no}" onchange="bomPage.up(${i},'no',this.value)"></td>
+                        <td class="l"><input value="${it.nm}" onchange="bomPage.up(${i},'nm',this.value)"></td>
+                        <td class="l"><input value="${it.dwg}" onchange="bomPage.up(${i},'dwg',this.value)"></td>
+                        <td><select style="min-width: 60px;" onchange="bomPage.up(${i},'g',this.value)">${this.GUBUN.map(x => `<option ${it.g === x ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
+                        <td><input list="kindsDL" value="${it.k}" ${it.g !== '제작품' ? 'disabled' : ''} onchange="bomPage.up(${i},'k',this.value)"></td>
+                        <td><input value="${it.qty}" onchange="bomPage.up(${i},'qty',+this.value)"></td>
+                        <td><span class="stat ${est ? 'est' : 'fix'}">${it.st}</span></td>
+                        <td><span class="x" onclick="bomPage.del(${i})">✕</span></td></tr>`;
+                }).join('');
+            }
+
+            up(i, k, v) {
+                let it = this.PRODUCTS[this.selP].units[this.selU].items[i];
+
+                // 유형칸 직접 입력 → 동의어 정규화 (bracket/브라켓 → plate 등)
+                if (k === 'k') {
+                    it.k = this.normKind(v);
+                    this.renderBom();
+                    return;
+                }
+
+                it[k] = v;
+
+                // 품목명 입력 시 유형 자동 추정 (제작품 + 유형 미지정일 때만 → 수동값 보존)
+                if (k === 'nm' && it.g === '제작품' && !it.k) {
+                    let guess = this.guessKind(v);
+                    if (guess) {
+                        it.k = guess;
+                        this.renderBom();
+                        return;
+                    }
+                }
+
+                // 구분을 제작품으로 바꾸면 품목명으로 한 번 추정
+                if (k === 'g') {
+                    if (v === '제작품' && !it.k) {
+                        let guess = this.guessKind(it.nm);
+                        if (guess) it.k = guess;
+                    }
+                    this.renderBom();
+                }
+            }
+
+            del(i) {
+                this.PRODUCTS[this.selP].units[this.selU].items.splice(i, 1);
+                this.renderBom();
+                this.renderUnit();
+            }
+
+            addItem() {
+                let u = this.PRODUCTS[this.selP].units[this.selU];
+                u.items.push({no: '', nm: '', dwg: '', g: '제작품', k: '', qty: 1, st: u.out ? '확정' : '추정'});
+                this.renderBom();
+                this.renderUnit();
+            }
+
+            addUnit() {
+                this.PRODUCTS[this.selP].units.push({nm: 'NEW', out: false, fin: false, items: []});
+                this.renderUnit();
+            }
+
+            renameUnit(i, v) {
+                let u = this.PRODUCTS[this.selP].units[i];
+                if (!u) return;
+                let name = v.trim();
+                if (!name) {            // 빈 값이면 기존 이름 유지
+                    this.renderUnit();
+                    return;
+                }
+                u.nm = name;
+                this.renderUnit();
+                this.renderBom();       // 선택 중인 유니트면 상단 제목(bomTitle)도 갱신
+            }
+
+            // 유니트 삭제 (실서버 적용 시 confirm → Alert.confirm 으로 교체 권장)
+            deleteUnit(i) {
+                let units = this.PRODUCTS[this.selP].units;
+                let u = units[i];
+                if (!u) return;
+                if (!confirm(`유니트 '${u.nm}' 을(를) 삭제하시겠습니까?\n소속 품목 ${u.items.length}건도 함께 삭제됩니다.`)) return;
+
+                units.splice(i, 1);
+                if (this.selU >= units.length) this.selU = Math.max(0, units.length - 1);
+                this.renderUnit();
+                this.renderBom();
+            }
+
+            toggleOut() {
+                let u = this.PRODUCTS[this.selP].units[this.selU];
+                u.out = this.el('chkOut').checked;
+                u.items.forEach(it => {
+                    if (it.st !== '완료') it.st = u.out ? '확정' : '추정';
+                });
+                this.renderUnit();
+                this.renderBom();
+            }
+
+            // 완료 ↔ 완료취소 토글 (공통재고 차감 로직 제거)
+            toggleDone(i) {
+                let u = this.PRODUCTS[this.selP].units[i];
+                u.fin = !u.fin;
+                this.renderUnit();
+                this.renderBom();
+            }
+
+            // ===== 유형(분류) 관리 모달 =====
+
+            openKindManager() {
+                // 원본을 건드리지 않도록 깊은 복사본(draft)으로 편집
+                this._draft = this.KIND_ALIASES.map(([c, a]) => [c, a.slice()]);
+                this.renderKindManager();
+                this.el('kindModal').style.display = 'flex';
+            }
+
+            renderKindManager() {
+                this.el('kindModalBody').innerHTML = this._draft.map((row, i) => {
+                    let [canon, aliases] = row;
+                    return `<tr>
+                        <td class="l"><input value="${canon}" placeholder="예: plate" onchange="bomPage.draftSet(${i},'canon',this.value)"></td>
+                        <td class="l"><input value="${aliases.join(', ')}" placeholder="PLATE, BRACKET, 브라켓" onchange="bomPage.draftSet(${i},'aliases',this.value)"></td>
+                        <td><span class="x" title="이 행 삭제" onclick="bomPage.draftRemove(${i})">✕</span></td>
+                    </tr>`;
+                }).join('');
+            }
+
+            draftSet(i, field, v) {
+                if (field === 'canon') {
+                    this._draft[i][0] = v.trim();
+                } else {
+                    this._draft[i][1] = v.split(',').map(s => s.trim()).filter(Boolean);
+                }
+            }
+
+            draftAdd() {
+                this._draft.push(['', []]);
+                this.renderKindManager();
+            }
+
+            draftRemove(i) {
+                this._draft.splice(i, 1);
+                this.renderKindManager();
+            }
+
+            saveKindAliases() {
+                // 정규유형이 비어있는 행은 제외, 별칭 정리
+                let cleaned = this._draft
+                    .map(([c, a]) => [c.trim(), a.map(x => x.trim()).filter(Boolean)])
+                    .filter(([c]) => c);
+
+                this.KIND_ALIASES = cleaned;
+                this.KINDS = this.KIND_ALIASES.map(a => a[0]);
+                this.buildKindsDatalist();
+                this.renderBom();
+                this.closeKindManager();
+            }
+
+            closeKindManager() {
+                this.el('kindModal').style.display = 'none';
+            }
+        }
+
+        // prod_plan 과 동일하게 ready 시점에 페이지 객체 생성
+        // (jQuery 가 있으면 $(document).ready, 미리보기 등 없을 땐 DOMContentLoaded)
+        function bootBomPage() {
+            window.bomPage = new BomDesignPage();
+        }
+
+        if (window.jQuery) {
+            jQuery(function () {
+                bootBomPage();
+            });
+        } else {
+            document.addEventListener('DOMContentLoaded', bootBomPage);
+        }
+
+    </script>
+</th:block>
+</html>
