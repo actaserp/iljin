@@ -51,4 +51,7 @@ public class TB_DA003 {
 
   @Column(name = "inuserid")
   private String inuserid;
+
+  @Column(name = "drawdate2d")
+  String drawdate2d;
 }

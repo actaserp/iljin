@@ -813,15 +813,19 @@ public class ComboService {
         dicParam.addValue("cond2", cond2);
         dicParam.addValue("cond3", cond3);
         return this.sqlRunner.getRows(sql, dicParam);		
-	};	
-	
-	ComboDataFunction user_code_id=(String cond1, String cond2, String cond3)-> {
-		String sql = "select id as Value, \"Value\" as text, \"Code\" as code from user_code where 1=1 order by \"Code\" ";
+	};
+
+	ComboDataFunction user_code_id = (String cond1, String cond2, String cond3) -> {
+		String sql = "select id as Value, \"Value\" as text, \"Code\" as code from user_code where 1=1 ";
+		if (cond1 != null && !cond1.isEmpty()) {
+			sql += " and \"Parent_id\" in (select id from user_code where \"Code\" = :cond1) ";
+		}
+		sql += " order by \"Code\" ";
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
-        dicParam.addValue("cond1", cond1);
-        dicParam.addValue("cond2", cond2);
-        dicParam.addValue("cond3", cond3);
-        return this.sqlRunner.getRows(sql, dicParam);
+		dicParam.addValue("cond1", cond1);
+		dicParam.addValue("cond2", cond2);
+		dicParam.addValue("cond3", cond3);
+		return this.sqlRunner.getRows(sql, dicParam);
 	};
 	
 	ComboDataFunction user_group=(String cond1, String cond2, String cond3)-> {

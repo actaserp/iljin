@@ -55,7 +55,8 @@ public class ProjectRegistrationController {  //프로젝트 관리
                                     @RequestParam(value ="eddate") String eddate,
                                     @RequestParam(value ="contdate") String contdate,
                                     @RequestParam(value ="remark")String remark,
-                                    @RequestParam(value ="spjangcd") String spjangcd){
+                                    @RequestParam(value ="spjangcd") String spjangcd,
+                                    @RequestParam(value = "dreawdate2d", required = false)String drawdate2d){
     /*log.info("프로젝트관리 projno:{}, projnm:{}, balcltnm:{}, balcltcd:{}, stdate:{},eddate:{}, contdate:{}, remark:{},spjangcd:{}",
         projno, projnm, balcltnm, balcltcd, stdate, eddate, contdate, remark,spjangcd);*/
 
@@ -64,6 +65,7 @@ public class ProjectRegistrationController {  //프로젝트 관리
     stdate = formatDate8(stdate);
     eddate = formatDate8(eddate);
     contdate = formatDate8(contdate);
+    drawdate2d = formatDate8(drawdate2d);
     // 1. 신규 등록
     if (projno == null || projno.trim().isEmpty()) {
       String newProjNo = generateNewProjectNo(); // 별도 메서드 필요
@@ -75,6 +77,7 @@ public class ProjectRegistrationController {  //프로젝트 관리
       newProject.setStdate(stdate);
       newProject.setEddate(eddate);
       newProject.setContdate(contdate);
+      newProject.setDrawdate2d(drawdate2d);
       newProject.setRemark(remark);
       newProject.setId(new TB_DA003Id(spjangcd, newProjNo));
 
@@ -94,6 +97,7 @@ public class ProjectRegistrationController {  //프로젝트 관리
         existing.setStdate(stdate);
         existing.setEddate(eddate);
         existing.setContdate(contdate);
+        existing.setDrawdate2d(drawdate2d);
         existing.setRemark(remark);
 
         this.projectRepository.save(existing);

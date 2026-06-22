@@ -1384,4 +1384,193 @@ public class SujuController {
     return result;
   }
 
+  // ===================================================================
+  // 프로젝트/수주 통합 등록 화면 전용 저장
+  //  - 금액 필드 없음 (유니트→SujuQty, SET→Standard, 라인/설비타입→신규 컬럼)
+  //  - Material_id 없는 행은 품목 get-or-create 후 수주 저장
+  // ===================================================================
+  @PostMapping("/manual_save_project")
+  @Transactional
+  public AjaxResult SujuSaveProject(@RequestBody Map<String, Object> payload, Authentication auth) {
+    User user = (User) auth.getPrincipal();
+    AjaxResult result = new AjaxResult();
+
+    Date jumunDate = CommonUtil.trySqlDate((String) payload.get("JumunDate"));
+    Date dueDate   = CommonUtil.trySqlDate((String) payload.get("DueDate"));
+    String spjangcd = (String) payload.get("spjangcd");
+    String sujuType = (String) payload.get("SujuType");
+    String description = (String) payload.get("Description");
+    Integer orderId = toIntegerOrNull(payload.get("order_id"));
+    String orderName = (String) payload.get("OrderName");
+    String projno = (String) payload.get("projno");
+
+    if (orderId == null) {
+      result.success = false;
+      result.message = "수주처가 지정되지 않았습니다.";
+      return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
+    if (items == null) items = new ArrayList<>();
+
+    // ---------- 헤더 (신규/수정) ----------
+    SujuHead head;
+    if (payload.get("id") != null && !payload.get("id").toString().isEmpty()) {
+      head = sujuHeadRepository.findById(Integer.parseInt(payload.get("id").toString()))
+               .orElse(new SujuHead());
+    } else {
+      head = new SujuHead();
+      head.setJumunNumber(generateJumunNumber(jumunDate));
+    }
+    head.setJumunDate(jumunDate);
+    head.setDeliveryDate(dueDate);
+    head.setCompany_id(orderId);
+    head.setSpjangcd(spjangcd);
+    head.setSujuType(sujuType);
+    head.setDescription(description);
+    head.setSuJuOrderId(orderId);
+    head.setSuJuOrderName(orderName);
+    head.set_status("manual");
+    head.set_audit(user);
+    head = sujuHeadRepository.save(head);
+
+    // ---------- 삭제 동기화 (payload에 없는 기존 라인 제거) ----------
+    List<Integer> incomingIds = new ArrayList<>();
+    for (Map<String, Object> it : items) {
+      Integer sid = toIntegerOrNull(it.get("suju_id"));
+      if (sid != null && sid > 0) incomingIds.add(sid);
+    }
+    for (Suju ex : SujuRepository.findBySujuHeadId(head.getId())) {
+      if (ex.getId() != null && !incomingIds.contains(ex.getId())) {
+        suJuDetailRepository.deleteBySujuId(ex.getId());
+        SujuRepository.deleteById(ex.getId());
+      }
+    }
+
+    // ---------- 라인 저장 ----------
+    for (Map<String, Object> item : items) {
+      String productName = str(item.get("txtProductName"));
+      if (productName.isEmpty()) continue;
+
+      // ★ 품목 확정 (없으면 생성)
+      Integer materialId = resolveOrCreateMaterialForProject(item, spjangcd, user);
+
+      Suju suju;
+      Integer sujuId = toIntegerOrNull(item.get("suju_id"));
+      if (sujuId != null && sujuId > 0) {
+        suju = SujuRepository.findById(sujuId).orElse(new Suju());
+      } else {
+        suju = new Suju();
+        suju.setJumunNumber(head.getJumunNumber());
+      }
+
+      suju.setSujuHeadId(head.getId());
+      suju.setJumunDate(jumunDate);
+      suju.setDueDate(dueDate);
+      suju.setCompanyId(orderId);
+      suju.setCompanyName(orderName);
+      suju.setSpjangcd(spjangcd);
+      suju.set_status("manual");
+      suju.setState("received");
+      suju.setConfirm("0");
+      suju.set_audit(user);
+
+      suju.setMaterialId(materialId);
+      suju.setMaterial_Name(productName);
+      suju.setProject_id(projno);
+
+      // 유니트 → SujuQty (NOT NULL 2개), SET → Standard
+      Double unitVal = dnum(item.get("unit"));   // 빈값/문자면 0
+      suju.setSujuQty(unitVal);
+      suju.setSujuQty2(unitVal);
+      suju.setStandard(str(item.get("setCnt")));
+
+      // 라인 / 설비타입 → 신규 컬럼 (Suju 엔티티에 필드 있어야 함)
+      suju.setLine(str(item.get("line")));
+      suju.setEquipType(str(item.get("equiptype")));
+
+      SujuRepository.save(suju);
+    }
+
+    result.success = true;
+    return result;
+  }
+
+  // ---------- 신규 품목 get-or-create (BOM 생성 제외) ----------
+  private Integer resolveOrCreateMaterialForProject(Map<String, Object> item, String spjangcd, User user) {
+    // 1) 이미 id 있으면 그대로
+    Integer mid = toIntegerOrNull(item.get("Material_id"));
+    if (mid != null) return mid;
+
+    String name = str(item.get("txtProductName"));
+    if (name.isEmpty()) {
+      throw new IllegalArgumentException("품목명이 비어 있습니다.");
+    }
+
+    // 2) 이름 + 사업장으로 재조회 (중복 생성 방지)
+    Integer existing = findMaterialIdByName(name, spjangcd);
+    if (existing != null) return existing;
+
+    // 3) 품목그룹(proc/hanger) → MaterialGroup_id 변환
+    String groupCode = str(item.get("MaterialGroupName"));
+    Integer groupId = findMaterialGroupIdByCode(groupCode);
+    if (groupId == null) {
+      throw new IllegalStateException("품목그룹을 찾을 수 없습니다: " + groupCode);
+    }
+
+    // 4) factory_id (라인에서 추출, 없으면 1)
+    Integer factoryId = toIntegerOrNull(item.get("factoryId"));
+    if (factoryId == null) factoryId = 1;
+
+    Integer workcenterId = toIntegerOrNull(item.get("lineId"));
+    Integer unitId = toIntegerOrNull(item.get("unitId"));
+    Integer equipId = toIntegerOrNull(item.get("equiptype"));
+
+    // 5) 신규 INSERT (BOM 생성 안 함)
+    Material material = new Material();
+    material.setCode(sujuService.getNextMatCode());
+    material.setName(name);
+    material.setMaterialGroupId(groupId);
+    material.setFactory_id(factoryId);
+    material.setUnitId(unitId);
+    material.setSpjangcd(spjangcd);
+    material.setUseyn("0");
+    material.setWorkCenterId(workcenterId);
+    material.setStoreHouseId(3);
+    material.setPurchaseOrderStandard("mrp");
+    material.setValidDays(1);
+    material.setMatUserCode(equipId);
+    material.set_audit(user);
+
+    Material saved = materialRepository.save(material);
+    return saved.getId();
+  }
+
+  // 품목명 + 사업장으로 기존 품목 id 조회 (없으면 null)
+  private Integer findMaterialIdByName(String name, String spjangcd) {
+    String sql = "SELECT id FROM material WHERE \"Name\" = :name AND spjangcd = :spjangcd ORDER BY id DESC LIMIT 1";
+    MapSqlParameterSource p = new MapSqlParameterSource();
+    p.addValue("name", name);
+    p.addValue("spjangcd", spjangcd);
+    try {
+      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  // proc/hanger 코드 → material_group id 변환 (없으면 null)
+  private Integer findMaterialGroupIdByCode(String code) {
+    if (code == null || code.isEmpty()) return null;
+    String sql = "SELECT id FROM mat_grp WHERE \"Code\" = :code LIMIT 1";
+    MapSqlParameterSource p = new MapSqlParameterSource();
+    p.addValue("code", code);
+    try {
+      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
 }
