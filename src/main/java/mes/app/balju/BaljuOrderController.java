@@ -352,6 +352,7 @@ public class BaljuOrderController {
       String title = (String) payload.get("title");
       String content = (String) payload.get("content");
       Integer bhId = (Integer) payload.get("bhId");
+      String replyTo = (String) payload.get("replyTo");
       // 1. 로그인 사용자 정보 추출
       User user = (User) auth.getPrincipal();
       String userid = user.getUsername();
@@ -566,7 +567,8 @@ public class BaljuOrderController {
             title,
             content,
             tempXlsx.toFile(),
-            fileName
+            fileName,
+          replyTo
         );
 //      log.info("✅ 메일 전송 완료: 수신자={}", recipients);
         // 임시 파일 삭제 예약

@@ -11,6 +11,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
@@ -46,7 +47,7 @@ public class MailService {
         mailSender.send(message);
     }
 
-    public void sendMailWithAttachment(List<String> recipients, String subject, String body, File attachment, String attachmentFileName) {
+    public void sendMailWithAttachment(List<String> recipients, String subject, String body, File attachment, String attachmentFileName, String replyTo) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -56,6 +57,9 @@ public class MailService {
             helper.setText(body, true);
             // 이렇게 맞춰야 됨 (메일 전송 계정과 동일)
             helper.setFrom(fromEmail);
+            if (StringUtils.hasText(replyTo)) {
+                helper.setReplyTo(replyTo);   // ✅ 화면에서 받은 회신 주소
+            }
 
             FileSystemResource file = new FileSystemResource(attachment);
             helper.addAttachment(attachmentFileName, file);

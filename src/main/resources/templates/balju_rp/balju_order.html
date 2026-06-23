@@ -77,12 +77,12 @@
         </div>
         <div class="button-wrap">
           <ul>
-            <!--<li>
+            <li>
               <a class="btn btn-excell" title="등록" id="btnMail">
                 <img th:src="@{/images/icon/ico-mail.svg}" alt="메일 아이콘">
                 메일 전송
               </a>
-            </li>-->
+            </li>
             <li>
               <a class="btn btn-excell" title="등록" id="btnAddNew">
                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
@@ -460,6 +460,15 @@
      <form id="BalJuMailForm">
        <table class="write-table">
          <tbody>
+         <tr>
+          <th style="text-align: center">
+            <label for="ReplyTo">회신 주소</label>
+          </th>
+          <td colspan="8">
+            <input id="ReplyTo" name="ReplyTo" style="width: 100%;"
+                   placeholder="구매처가 답장할 담당자 이메일" />
+          </td>
+        </tr>
          <tr>
            <th style="text-align: center">
              <label for="Recipient">받는사람</label>
@@ -856,7 +865,7 @@
           modalContainer = new PopupDraggable('발주서 발송');
         }
 
-        modalContainer.open({ width: 650, height: 410, $content });
+        modalContainer.open({ width: 650, height: 360, $content });
 
         // 수신자 필드 렌더링
         const recipientContainer = $content.find('#recipient-container');
@@ -931,6 +940,13 @@
             Alert.alert('', '메일 내용을 입력해주세요.');
             return;
           }
+         const replyTo = $content.find('#ReplyTo').val().trim();
+
+          // 형식 검증
+         if (replyTo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) {
+          Alert.alert('', '회신 주소 이메일 형식이 올바르지 않습니다.');
+          return;
+         }
 
           // Ajax로 전송
           $.ajax({
@@ -941,7 +957,8 @@
               'X-CSRF-TOKEN': csrfToken
             },
             data: JSON.stringify({
-              recipients: recipients,
+             replyTo: replyTo,
+             recipients: recipients,
               title: title,
               content: mailContent,
               bhId: data.id
@@ -974,7 +991,7 @@
         }
 
         //모달 크기
-        modalContainer.open({width: 1450, height: 630, $content});
+        modalContainer.open({width: 1450, height: 550, $content});
         $('#popSrchDt1').ax5DatePicker({direction: 'top'});
         $('#popSrchDt2').ax5DatePicker({direction: 'top'});
 
