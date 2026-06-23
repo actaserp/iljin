@@ -20,24 +20,7 @@
             padding: 14px 18px;
         }
 
-        .page-title-wrap {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 12px;
-        }
 
-        .page-title-wrap .left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .page-title-wrap h2 {
-            font-size: 19px;
-            font-weight: 700;
-            margin: 0;
-        }
 
         .bookmark {
             font-size: 12px;
@@ -47,33 +30,6 @@
             border-radius: 16px;
             padding: 4px 11px;
             cursor: pointer;
-        }
-
-        .page-navi {
-            list-style: none;
-            display: flex;
-            gap: 8px;
-            margin: 0;
-            padding: 0;
-            color: #8b95a7;
-            font-size: 12px;
-            align-items: center;
-        }
-
-        .page-navi li::after {
-            content: '›';
-            margin-left: 8px;
-            color: #c2c9d4;
-        }
-
-        .page-navi li:last-child::after {
-            content: '';
-        }
-
-        .page-navi li img {
-            width: 14px;
-            height: 14px;
-            vertical-align: middle;
         }
 
         .section {
@@ -312,13 +268,15 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>BOM 구성 (설계)</h2>
-                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+                <h2>생산 지시(설계)</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
-                <li>기준정보</li>
-                <li>BOM 구성</li>
+                <li>생산관리</li>
+                <li>생산 지시</li>
             </ul>
         </div>
 
@@ -334,7 +292,7 @@
                         </colgroup>
                         <thead>
                         <tr>
-                            <th>지그</th>
+                            <th>품목</th>
                             <th>설비타입</th>
                             <th>유니트</th>
                         </tr>

@@ -1,0 +1,211 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* ===== 미리보기용 공통 (layout_page에 있으면 이 블록 삭제) ===== */
+        body{margin:0;font-family:'Malgun Gothic','Pretendard',sans-serif;background:#eef1f6;color:#222;font-size:13px;}
+        .layout-contents{padding:14px 18px;}
+        .page-title-wrap{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+        .page-title-wrap .left{display:flex;align-items:center;gap:10px;}
+        .page-title-wrap h2{font-size:19px;font-weight:700;margin:0;}
+        .bookmark{font-size:12px;color:#5b6b86;border:1px solid #cfd6e2;background:#fff;border-radius:16px;padding:4px 11px;cursor:pointer;}
+        .page-navi{list-style:none;display:flex;gap:8px;margin:0;padding:0;color:#8b95a7;font-size:12px;}
+        .page-navi li::after{content:'›';margin-left:8px;color:#c2c9d4;}.page-navi li:last-child::after{content:'';}
+        .section{background:#fff;border:1px solid #d7dde7;border-radius:6px;}
+        .section-top{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #e9edf3;background:#f7f9fc;gap:12px;flex-wrap:wrap;}
+        .search-wrap{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
+        .search-wrap dl{margin:0;}.search-wrap dt{font-size:12px;color:#445;font-weight:600;margin-bottom:5px;}.search-wrap dd{margin:0;}
+        .search-wrap .eq{color:#e0533d;margin-left:2px;}
+        .search-wrap input,.search-wrap select{border:1px solid #cfd6e2;border-radius:5px;padding:6px 9px;font-size:13px;}
+        .date-box{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
+        .button-wrap ul{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
+        .btn{border:1px solid #cfd6e2;background:#fff;border-radius:5px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;color:#333;}
+        .btn:disabled{background:#eef0f4;color:#aab;cursor:not-allowed;}
+        .container-fluid{padding:12px 13px;}
+        table.work-table{width:100%;border-collapse:collapse;}
+        table.work-table th,table.work-table td{border:1px solid #d7dde7;padding:7px;font-size:12.5px;text-align:center;}
+        table.work-table th{background:#eef2f8;color:#445;font-weight:700;}
+        .table-wrap{padding:12px 13px;}
+        /* ===== 이 페이지 전용 ===== */
+        .aname{text-align:left;font-weight:700;padding-left:6px;}
+        tr.asy-row{cursor:pointer;} tr.asy-row:hover{background:#f4f8ff;} tr.asy-row.on{background:#e6efff;} tr.asy-row.on td:nth-child(1){box-shadow:inset 3px 0 0 #0026ff;}
+        .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:11px;display:inline-block;}
+        .badge.ready{background:#dcf0e2;color:#1b7a3d;}   /* 조립가능 */
+        .badge.wait{background:#f3e6c0;color:#8a6d1b;}    /* 설계대기 */
+        .badge.fin{background:#0026ff;color:#fff;}        /* 조립완료 */
+        .num{text-align:right;font-weight:700;}
+        .u-ok{color:#1b7a3d;font-weight:700;} .u-ng{color:#d23b53;font-weight:700;}
+        .empty{color:#99a;text-align:center;padding:18px 0;}
+        .hint{font-size:11.5px;color:#667;line-height:1.6;margin:10px 0 0;}
+
+        /* 풀하이트 */
+        html,body{height:100%;}
+        .layout-contents{display:flex;flex-direction:column;min-height:100vh;box-sizing:border-box;}
+        .main-row{display:flex;gap:5px;align-items:stretch;flex:1 1 auto;min-height:0;}
+        .main-row > .section{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .main-row > .section > .container-fluid{flex:1 1 auto;min-height:0;overflow:auto;}
+        .section-top{flex:0 0 auto;}
+        .right-col{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;min-height:0;}
+        .right-col > .reg-sec{flex:0 0 auto;display:flex;flex-direction:column;overflow:hidden;}
+        .right-col > .log-sec{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .right-col > .log-sec > .table-wrap{flex:1 1 auto;min-height:0;overflow:auto;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>조립 공정</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산 관리</li>
+                <li>조립 공정</li>
+            </ul>
+        </div>
+
+        <div class="main-row">
+            <!-- 좌: 조립 대상(완제품) 목록 -->
+            <section class="section" style="flex:1;">
+                <div class="section-top" style="justify-content:left; gap:15px;">
+                    <div class="search-wrap">
+                        <dl><dt>생산일<span class="eq">*</span></dt>
+                            <dd><ul class="date-box"><li><input type="date" id="pdate"></li></ul></dd></dl>
+                    </div>
+                    <div class="search-wrap"><dl><dd><li><a class="btn btn-search" id="btnSearch">검색</a></li></dd></dl></div>
+                </div>
+                <div class="container-fluid">
+                    <table class="work-table">
+                        <thead><tr>
+                            <th>완제품</th>
+                            <th style="width:90px">유니트</th>
+                            <th style="width:96px">상태</th>
+                            <th style="width:90px">완제품재고</th>
+                        </tr></thead>
+                        <tbody id="asyBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 우: 조립 등록(위) + 조립 이력(아래) -->
+            <div class="right-col">
+                <section class="section reg-sec">
+                    <div class="section-top">
+                        <span id="selLab" style="font-weight:700;">완제품을 선택하세요</span>
+                        <div class="button-wrap"><ul><li><button class="btn btn-go" id="btnAsy" disabled>조립 완료</button></li></ul></div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="work-table">
+                            <thead><tr><th>소요 유니트</th><th style="width:110px">상태</th></tr></thead>
+                            <tbody id="needBody"><tr><td colspan="2" class="empty">완제품을 선택하세요</td></tr></tbody>
+                        </table>
+                        <p class="hint" id="canHint"></p>
+                    </div>
+                </section>
+
+                <section class="section log-sec">
+                    <div class="section-top"><span style="font-weight:700;">오늘 조립 이력</span></div>
+                    <div class="table-wrap">
+                        <table class="work-table">
+                            <thead><tr><th>완제품</th><th>소모 유니트</th><th style="width:60px">취소</th></tr></thead>
+                            <tbody id="logBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        const $=s=>document.querySelector(s);
+
+        // 조립 대상(완제품). 소요 = 소속 유니트(설계 BOM). 유니트가 곧 소모 대상.
+        // u.done = 설계에서 해당 유니트 완료 여부. assembled = 완제품 조립 완료(=재고 1) 여부.
+        let ASSY=[
+            {nm:'PNL ASSY-FR DR L', assembled:false, units:[{nm:'U201',done:true},{nm:'U227',done:true},{nm:'U240',done:true}]},
+            {nm:'PNL ASSY-FR DR R', assembled:false, units:[{nm:'U201',done:true},{nm:'U227',done:false},{nm:'U240',done:true}]},
+            {nm:'CTR PLR ASSY',     assembled:false, units:[{nm:'U301',done:true},{nm:'U305',done:true}]},
+            {nm:'RR FLOOR ASSY',    assembled:false, units:[{nm:'U410',done:false},{nm:'U411',done:false}]}
+        ];
+
+        let sel=null, log=[];
+        $('#pdate').value=new Date().toISOString().slice(0,10);
+
+        const doneCnt=a=>a.units.filter(u=>u.done).length;
+        const allDone=a=>a.units.every(u=>u.done);
+        const canAssemble=a=>allDone(a) && !a.assembled;
+
+        function statusBadge(a){
+            if(a.assembled) return '<span class="badge fin">조립완료</span>';
+            if(allDone(a))  return '<span class="badge ready">조립가능</span>';
+            return '<span class="badge wait">설계대기</span>';
+        }
+
+        function renderList(){
+            $('#asyBody').innerHTML=ASSY.map((a,i)=>`
+    <tr class="asy-row ${sel===i?'on':''}" data-i="${i}">
+      <td class="aname">${a.nm}</td>
+      <td>${doneCnt(a)}/${a.units.length}</td>
+      <td>${statusBadge(a)}</td>
+      <td>${a.assembled?1:0}</td></tr>`).join('');
+            $('#asyBody').querySelectorAll('.asy-row').forEach(r=>r.onclick=()=>{sel=+r.dataset.i;renderList();renderDetail();});
+        }
+
+        function renderDetail(){
+            if(sel===null){
+                $('#selLab').textContent='완제품을 선택하세요';
+                $('#needBody').innerHTML='<tr><td colspan="2" class="empty">완제품을 선택하세요</td></tr>';
+                $('#canHint').textContent='';
+                $('#btnAsy').disabled=true;
+                return;
+            }
+            const a=ASSY[sel];
+            $('#selLab').textContent=`선택: ${a.nm}`;
+            $('#needBody').innerHTML=a.units.map(u=>`
+      <tr>
+        <td style="text-align:left;font-weight:700;padding-left:6px">${u.nm}</td>
+        <td class="${u.done?'u-ok':'u-ng'}">${u.done?'완료':'미완료'}</td>
+      </tr>`).join('');
+
+            if(a.assembled){
+                $('#canHint').innerHTML='이미 <b>조립 완료</b>되어 완제품 재고가 생성되었습니다.';
+            }else if(allDone(a)){
+                $('#canHint').innerHTML='모든 유니트 완료 — <b>조립 완료</b> 시 완제품 1개가 재고로 생성됩니다.';
+            }else{
+                const miss=a.units.filter(u=>!u.done).map(u=>u.nm).join(', ');
+                $('#canHint').innerHTML=`설계 대기: 미완료 유니트(<b class="u-ng">${miss}</b>)가 완료되면 조립할 수 있습니다.`;
+            }
+            $('#btnAsy').disabled=!canAssemble(a);
+        }
+
+        $('#btnAsy').onclick=()=>{
+            const a=ASSY[sel]; if(!canAssemble(a))return;
+            a.assembled=true;
+            log.unshift({nm:a.nm, units:a.units.map(u=>u.nm).join(', ')});
+            renderList();renderDetail();renderLog();
+        };
+
+        function renderLog(){
+            if(!log.length){$('#logBody').innerHTML='<tr><td colspan="3" class="empty">오늘 조립 내역 없음</td></tr>';return;}
+            $('#logBody').innerHTML=log.map((l,i)=>`
+    <tr>
+      <td style="text-align:left;font-weight:700;padding-left:6px">${l.nm}</td>
+      <td style="font-size:11.5px;color:#555;text-align:left">${l.units}</td>
+      <td><a class="btn" style="padding:3px 8px" data-i="${i}">취소</a></td></tr>`).join('');
+            $('#logBody').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{
+                const l=log[+b.dataset.i];
+                const a=ASSY.find(x=>x.nm===l.nm);
+                if(a)a.assembled=false;
+                log.splice(+b.dataset.i,1);
+                renderList();renderDetail();renderLog();
+            });
+        }
+
+        renderList();renderDetail();renderLog();
+    </script>
+</th:block>
+</html>

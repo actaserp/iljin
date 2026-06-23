@@ -24,30 +24,47 @@
         table.work-table{width:100%;border-collapse:collapse;}
         table.work-table th,table.work-table td{border:1px solid #d7dde7;padding:7px;font-size:12.5px;text-align:center;}
         table.work-table th{background:#eef2f8;color:#445;font-weight:700;}
-        .tab-wrap .tab-links{list-style:none;display:flex;gap:3px;margin:0;padding:0;}
-        .tab-wrap .tab-links a{display:block;padding:9px 16px;font-size:13px;font-weight:600;color:#667;background:#e9edf3;border:1px solid #d7dde7;border-bottom:0;border-radius:6px 6px 0 0;text-decoration:none;cursor:pointer;}
-        .tab-wrap .tab-links li.on a{background:#fff;color:#1d3b8b;}
-        .tab-item{background:#fff;border:1px solid #d7dde7;border-radius:0 6px 6px 6px;display:none;} .tab-item.on{display:block;}
         .table-wrap{padding:12px 13px;}
         /* ===== 이 페이지 전용 ===== */
         .background-blue{background:#dcf0f8 !important;font-weight:bold;text-align:right;}
         .background-scrap{background:#c28fbb !important;font-weight:bold;text-align:right;color:#fff;}
-        tr.kind-row{cursor:pointer;} tr.kind-row:hover{background:#f4f8ff;} tr.kind-row.on td:nth-child(2){box-shadow:inset 3px 0 0 #0026ff;} tr.kind-row.working{background:#fffbe8;}
+        tr.kind-row{cursor:pointer;} tr.kind-row:hover{background:#f4f8ff;} tr.kind-row.on td:nth-child(2){box-shadow:inset 3px 0 0 #0026ff;} tr.kind-row.on{background:#e6efff;} tr.kind-row.working{background:#fffbe8;}
         .kname{text-align:left;font-weight:700;padding-left:6px;}
         .work-table td.wsel select{width:100%;border:1px solid #cfd6e2;border-radius:4px;padding:4px;font-size:12px;}
-        .reg-input{width:100%;border:1px solid #cfd6e2;border-radius:5px;padding:9px;font-size:17px;font-weight:700;text-align:right;}
+        .reg-input{width:100%;border:1px solid #cfd6e2;border-radius:5px;padding:9px;font-size:17px;font-weight:700;text-align:right;box-sizing:border-box;}
         .reg-input.good{background:#dcf0f8;} .reg-input.scrap{background:#efdcea;}
         .empty{color:#99a;text-align:center;padding:18px 0;}
+
+        /* 풀하이트: 좌/우 영역이 화면 아래까지 꽉 차고, 표 영역만 내부 스크롤 */
+        html,body{height:100%;}
+        .layout-contents{display:flex;flex-direction:column;min-height:100vh;box-sizing:border-box;}
+        .main-row{display:flex;gap:5px;align-items:stretch;flex:1 1 auto;min-height:0;}
+        .main-row > .section{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .main-row > .section > .container-fluid{flex:1 1 auto;min-height:0;overflow:auto;}
+        .section-top{flex:0 0 auto;}
+        .right-col{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;min-height:0;}
+        .right-col > .reg-sec{flex:0 0 auto;display:flex;flex-direction:column;overflow:hidden;}
+        .right-col > .log-sec{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .right-col > .log-sec > .table-wrap{flex:1 1 auto;min-height:0;overflow:auto;}
     </style>
 </head>
 <th:block layout:fragment="content">
     <div class="layout-contents">
         <div class="page-title-wrap">
-            <div class="left"><h2>생산 실적 입력</h2><a class="bookmark toggle">내 메뉴</a></div>
-            <ul class="page-navi"><li>생산 관리</li><li>생산 실적 입력</li></ul>
+            <div class="left">
+                <h2>생산 실적 입력</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산관리</li>
+                <li>생산 실적 입력</li>
+            </ul>
         </div>
 
-        <div style="display:flex; gap:5px; align-items:flex-start;">
+        <div class="main-row">
             <!-- 좌: 유형별 재고/작업 -->
             <section class="section" style="flex:1;">
                 <div class="section-top" style="justify-content:left; gap:15px;">
@@ -65,39 +82,35 @@
                 </div>
             </section>
 
-            <!-- 우: 탭(실적 등록 / 오늘 등록) -->
-            <div class="tab-wrap" style="flex:1; min-width:0;">
-                <ul class="tab-links">
-                    <li class="on"><a href="#tabReg" name="tabReg">실적 등록</a></li>
-                    <li><a href="#tabLog" name="tabLog">오늘 등록</a></li>
-                </ul>
-                <div>
-                    <section class="tab-item on" id="tabReg">
-                        <div class="section-top">
-                            <span id="selKindLab" style="font-weight:700;">유형을 선택하세요</span>
-                            <div class="button-wrap"><ul><li><button class="btn btn-search" id="btnReg" disabled>등록</button></li></ul></div>
-                        </div>
-                        <div class="table-wrap">
-                            <table class="work-table">
-                                <colgroup><col style="width:35%"><col></colgroup>
-                                <tbody>
-                                <tr><th>선택 유형</th><td id="selKindCell" style="text-align:left;font-weight:700">-</td></tr>
-                                <tr><th>양품 수량</th><td><input type="number" id="good" min="0" value="0" class="reg-input good"></td></tr>
-                                <tr><th>파기 수량</th><td><input type="number" id="scrap" min="0" value="0" class="reg-input scrap"></td></tr>
-                                </tbody>
-                            </table>
-                            <p style="font-size:11.5px;color:#667;margin-top:10px;line-height:1.6">제작품만 입력. 양품은 공통재고로 쌓이고 파기는 별도 집계. 좌측에서 <b>작업중</b> 체크하고 작업자 지정(없으면 미지정)하면 대시보드에 표시돼요.</p>
-                        </div>
-                    </section>
-                    <section class="tab-item" id="tabLog">
-                        <div class="table-wrap">
-                            <table class="work-table">
-                                <thead><tr><th>유형</th><th>작업자</th><th>양품</th><th>파기</th><th>취소</th></tr></thead>
-                                <tbody id="logBody"></tbody>
-                            </table>
-                        </div>
-                    </section>
-                </div>
+            <!-- 우: 실적 등록(위) + 오늘 등록(아래) -->
+            <div class="right-col">
+                <section class="section reg-sec">
+                    <div class="section-top">
+                        <span id="selKindLab" style="font-weight:700;">유형을 선택하세요</span>
+                        <div class="button-wrap"><ul><li><button class="btn btn-search" id="btnReg" disabled>등록</button></li></ul></div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="work-table">
+                            <colgroup><col style="width:35%"><col></colgroup>
+                            <tbody>
+                            <tr><th>선택 유형</th><td id="selKindCell" style="text-align:left;font-weight:700">-</td></tr>
+                            <tr><th>양품 수량</th><td><input type="number" id="good" min="0" value="0" class="reg-input good"></td></tr>
+                            <tr><th>파기 수량</th><td><input type="number" id="scrap" min="0" value="0" class="reg-input scrap"></td></tr>
+                            </tbody>
+                        </table>
+                        <p style="font-size:11.5px;color:#667;margin-top:10px;line-height:1.6">제작품만 입력. 양품은 공통재고로 쌓이고 파기는 별도 집계. 좌측에서 <b>작업중</b> 체크하고 작업자 지정(없으면 미지정)하면 대시보드에 표시돼요.</p>
+                    </div>
+                </section>
+
+                <section class="section log-sec">
+                    <div class="section-top"><span style="font-weight:700;">오늘 등록</span></div>
+                    <div class="table-wrap">
+                        <table class="work-table">
+                            <thead><tr><th>유형</th><th>작업자</th><th>양품</th><th>파기</th><th>취소</th></tr></thead>
+                            <tbody id="logBody"></tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
         </div>
     </div>
@@ -119,10 +132,7 @@
         let sel=null, log=[];
         $('#pdate').value=new Date().toISOString().slice(0,10);
         const avail=k=>stock[k].g-stock[k].s;
-        // 탭
-        document.querySelectorAll('.tab-links a').forEach(a=>a.onclick=e=>{e.preventDefault();const id=a.getAttribute('href').slice(1);
-            document.querySelectorAll('.tab-links li').forEach(li=>li.classList.remove('on'));a.parentElement.classList.add('on');
-            document.querySelectorAll('.tab-item').forEach(t=>t.classList.toggle('on',t.id===id));});
+
         function renderStock(){
             $('#stockBody').innerHTML=KINDS.map(k=>{const r=stock[k];return `
     <tr class="kind-row ${sel===k?'on':''} ${r.w?'working':''}" data-k="${k}">
