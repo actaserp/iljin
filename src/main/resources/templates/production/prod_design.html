@@ -20,7 +20,24 @@
             padding: 14px 18px;
         }
 
+        .page-title-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
 
+        .page-title-wrap .left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .page-title-wrap h2 {
+            font-size: 19px;
+            font-weight: 700;
+            margin: 0;
+        }
 
         .bookmark {
             font-size: 12px;
@@ -269,20 +286,18 @@
         <div class="page-title-wrap">
             <div class="left">
                 <h2>생산 지시(설계)</h2>
-                <a title="북마크" class="bookmark toggle">
-                    내 메뉴
-                </a>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
-                <li>생산관리</li>
-                <li>생산 지시</li>
+                <li>생산 관리</li>
+                <li>생산 지시(설계)</li>
             </ul>
         </div>
 
         <div class="row3">
             <section class="section" style="flex:0 0 300px;">
-                <div class="section-top"><h3>품목</h3></div>
+                <div class="section-top"><h3>공정</h3></div>
                 <div class="container-fluid" style="padding:0;">
                     <table class="work-table">
                         <colgroup>
@@ -292,7 +307,7 @@
                         </colgroup>
                         <thead>
                         <tr>
-                            <th>품목</th>
+                            <th>공정</th>
                             <th>설비타입</th>
                             <th>유니트</th>
                         </tr>
@@ -333,7 +348,7 @@
                         <tr>
                             <th>유니트</th>
                             <th>2D출도</th>
-                            <th>품목</th>
+                            <th>부품</th>
                             <th>완료</th>
                             <th></th>
                         </tr>
@@ -357,7 +372,7 @@
                             <li>
                                 <a class="btn btn-excell" title="등록" onclick="bomPage.addItem()">
                                     <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
-                                    품목
+                                    부품
                                 </a>
                             </li>
                         </ul>
@@ -379,7 +394,7 @@
                         <thead>
                         <tr>
                             <th>NO</th>
-                            <th>품목명</th>
+                            <th>부품명</th>
                             <th>도번</th>
                             <th>구분</th>
                             <th>유형(분류)</th>
@@ -407,7 +422,7 @@
                     </div>
                 </div>
                 <div style="padding:12px 14px;overflow:auto;">
-                    <p class="hint">정규유형 1개에 여러 별칭(영문/한글)을 쉼표로 구분해 입력합니다. 품목명에 별칭이 포함되면 해당 정규유형으로 자동 분류됩니다. (예: plate ← PLATE, BRACKET, 브라켓)</p>
+                    <p class="hint">정규유형 1개에 여러 별칭(영문/한글)을 쉼표로 구분해 입력합니다. 부품명에 별칭이 포함되면 해당 정규유형으로 자동 분류됩니다. (예: plate ← PLATE, BRACKET, 브라켓)</p>
                     <table class="work-table">
                         <colgroup>
                             <col style="width:26%">
@@ -443,7 +458,7 @@
                 // 유형(분류) 동의어 표: [정규유형, [별칭들...]]
                 // - 같은 부품을 도면마다 다르게 부르는 경우를 하나로 모은다.
                 // - 예) plate 와 브라켓(bracket/brkt)은 동일 유형으로 취급 → 모두 'plate'
-                // - 품목명 스캔(guessKind) 시 위에서부터 먼저 매칭되므로 "더 구체적인 것"을 앞에 둔다.
+                // - 부품명 스캔(guessKind) 시 위에서부터 먼저 매칭되므로 "더 구체적인 것"을 앞에 둔다.
                 //   (PIN BRKT → plate, PIN BLOCK → block, CLAMP ARM → arm 처럼 충돌 해결)
                 this.KIND_ALIASES = [
                     ['locator', ['LOCATOR', '로케이터']],
@@ -520,7 +535,7 @@
 
             // ===== 유형(분류) 자동 분류 =====
 
-            // 품목명 안의 키워드로 유형 추정 (OCR 미사용, 입력 텍스트만 사용)
+            // 부품명 안의 키워드로 유형 추정 (OCR 미사용, 입력 텍스트만 사용)
             guessKind(name) {
                 if (!name) return '';
                 let s = name.toUpperCase();
@@ -606,11 +621,11 @@
                     this.el('bomBody').innerHTML = '';
                     return;
                 }
-                this.el('bomTitle').textContent = `${u.nm} 소속 품목`;
+                this.el('bomTitle').textContent = `${u.nm} 소속 부품`;
                 this.el('chkOut').checked = u.out;
                 this.el('bomHint').innerHTML = u.fin
                     ? '<b style="color:#0026ff">공정 완료된 유니트</b>'
-                    : (u.out ? '출도 완료 — 실제 품목/도번' : '<b style="color:#8a6d1b">미출도 — 유형+임시(추정) 수량</b>');
+                    : (u.out ? '출도 완료 — 실제 부품/도번' : '<b style="color:#8a6d1b">미출도 — 유형+임시(추정) 수량</b>');
                 this.el('bomBody').innerHTML = u.items.map((it, i) => {
                     let est = it.st === '추정';
                     return `<tr class="${est ? 'est' : ''}">
@@ -637,7 +652,7 @@
 
                 it[k] = v;
 
-                // 품목명 입력 시 유형 자동 추정 (제작품 + 유형 미지정일 때만 → 수동값 보존)
+                // 부품명 입력 시 유형 자동 추정 (제작품 + 유형 미지정일 때만 → 수동값 보존)
                 if (k === 'nm' && it.g === '제작품' && !it.k) {
                     let guess = this.guessKind(v);
                     if (guess) {
@@ -647,7 +662,7 @@
                     }
                 }
 
-                // 구분을 제작품으로 바꾸면 품목명으로 한 번 추정
+                // 구분을 제작품으로 바꾸면 부품명으로 한 번 추정
                 if (k === 'g') {
                     if (v === '제작품' && !it.k) {
                         let guess = this.guessKind(it.nm);
@@ -693,7 +708,7 @@
                 let units = this.PRODUCTS[this.selP].units;
                 let u = units[i];
                 if (!u) return;
-                if (!confirm(`유니트 '${u.nm}' 을(를) 삭제하시겠습니까?\n소속 품목 ${u.items.length}건도 함께 삭제됩니다.`)) return;
+                if (!confirm(`유니트 '${u.nm}' 을(를) 삭제하시겠습니까?\n소속 부품 ${u.items.length}건도 함께 삭제됩니다.`)) return;
 
                 units.splice(i, 1);
                 if (this.selU >= units.length) this.selU = Math.max(0, units.length - 1);

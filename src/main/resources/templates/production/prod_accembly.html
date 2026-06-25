@@ -106,7 +106,7 @@
                 </section>
 
                 <section class="section log-sec">
-                    <div class="section-top"><span style="font-weight:700;">오늘 조립 이력</span></div>
+                    <div class="section-top"><span style="font-weight:700;">조립 이력</span></div>
                     <div class="table-wrap">
                         <table class="work-table">
                             <thead><tr><th>완제품</th><th>소모 유니트</th><th style="width:60px">취소</th></tr></thead>
@@ -190,7 +190,7 @@
         };
 
         function renderLog(){
-            if(!log.length){$('#logBody').innerHTML='<tr><td colspan="3" class="empty">오늘 조립 내역 없음</td></tr>';return;}
+            if(!log.length){$('#logBody').innerHTML='<tr><td colspan="3" class="empty">조립 내역 없음</td></tr>';return;}
             $('#logBody').innerHTML=log.map((l,i)=>`
     <tr>
       <td style="text-align:left;font-weight:700;padding-left:6px">${l.nm}</td>

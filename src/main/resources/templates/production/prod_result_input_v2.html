@@ -1,0 +1,340 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* ===== 미리보기용 공통 (layout_page에 있으면 이 블록 삭제) ===== */
+        body{margin:0;font-family:'Malgun Gothic','Pretendard',sans-serif;background:#eef1f6;color:#222;font-size:13px;}
+        .layout-contents{padding:14px 18px;}
+        .page-title-wrap{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+        .page-title-wrap .left{display:flex;align-items:center;gap:10px;}
+        .page-title-wrap h2{font-size:19px;font-weight:700;margin:0;}
+        .bookmark{font-size:12px;color:#5b6b86;border:1px solid #cfd6e2;background:#fff;border-radius:16px;padding:4px 11px;cursor:pointer;}
+        .page-navi{list-style:none;display:flex;gap:8px;margin:0;padding:0;color:#8b95a7;font-size:12px;}
+        .page-navi li::after{content:'›';margin-left:8px;color:#c2c9d4;}.page-navi li:last-child::after{content:'';}
+        .section{background:#fff;border:1px solid #d7dde7;border-radius:6px;}
+        .section-top{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #e9edf3;background:#f7f9fc;gap:12px;flex-wrap:wrap;}
+        .search-wrap{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
+        .search-wrap dl{margin:0;}.search-wrap dt{font-size:12px;color:#445;font-weight:600;margin-bottom:5px;}.search-wrap dd{margin:0;}
+        .search-wrap .eq{color:#e0533d;margin-left:2px;}
+        .search-wrap input,.search-wrap select{border:1px solid #cfd6e2;border-radius:5px;font-size:13px;}
+        .date-box{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
+        .button-wrap ul{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
+        .btn{border:1px solid #cfd6e2;background:#fff;border-radius:5px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;color:#333;}
+        .btn:disabled{background:#eef0f4;color:#aab;cursor:not-allowed;}
+        .container-fluid{padding:12px 13px;}
+        table.work-table{width:100%;border-collapse:collapse;}
+        table.work-table th,table.work-table td{border:1px solid #d7dde7;padding:7px;font-size:12.5px;text-align:center;}
+        table.work-table th{background:#eef2f8;color:#445;font-weight:700;}
+        table.work-table input,table.work-table select{border:1px solid #cfd6e2;border-radius:4px;font-size:12.5px;width:100%;box-sizing:border-box;}
+        .table-wrap{padding:12px 13px;}
+        /* ===== 이 페이지 전용 ===== */
+        .background-blue{background:#dcf0f8 !important;font-weight:bold;text-align:right;}
+        .background-scrap{background:#c28fbb !important;font-weight:bold;text-align:right;color:#fff;}
+        tr.kind-row{cursor:pointer;} tr.kind-row:hover{background:#f4f8ff;} tr.kind-row.on td:nth-child(1){box-shadow:inset 3px 0 0 #0026ff;} tr.kind-row.on{background:#e6efff;}
+        .kname{text-align:left;font-weight:700;padding-left:6px;}
+        .pcell{text-align:right;font-weight:600;} .pcell.working{background:#fffbe8;}
+        .pdash{color:#cbd2dd;}
+        .wtag{font-size:10.5px;color:#a6791b;font-weight:700;}
+        .reg-input{width:100%;border:1px solid #cfd6e2;border-radius:5px;padding:9px;font-size:17px;font-weight:700;text-align:right;box-sizing:border-box;}
+        .reg-input.good{background:#dcf0f8;} .reg-input.scrap{background:#efdcea;}
+        .fsel{font-size:13px !important;}
+        .empty{color:#99a;text-align:center;padding:18px 0;}
+        .hint{font-size:11.5px;color:#667;line-height:1.6;}
+        .scope-pill{font-size:11.5px;font-weight:700;color:#1b5e9b;background:#e7f1fb;border:1px solid #cfe0f2;border-radius:12px;padding:2px 10px;}
+
+        /* 풀하이트 */
+        html,body{height:100%;}
+        .layout-contents{display:flex;flex-direction:column;min-height:100vh;box-sizing:border-box;}
+        .main-row{display:flex;gap:5px;align-items:stretch;flex:1 1 auto;min-height:0;}
+        .main-row > .section{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .main-row > .section > .container-fluid{flex:1 1 auto;min-height:0;overflow:auto;}
+        .section-top{flex:0 0 auto;}
+        .right-col{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;min-height:0;}
+        .right-col > .reg-sec{flex:0 0 auto;display:flex;flex-direction:column;overflow:hidden;}
+        .right-col > .log-sec{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .right-col > .log-sec > .table-wrap{flex:1 1 auto;min-height:0;overflow:auto;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>생산 실적 입력</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산관리</li>
+                <li>생산 실적 입력</li>
+            </ul>
+        </div>
+
+        <div class="main-row">
+            <!-- 좌: 유형 × 공정 매트릭스 -->
+            <section class="section" style="flex:1.6;">
+                <div class="section-top" style="justify-content:left; gap:14px;">
+                    <div class="search-wrap">
+                        <dl><dt>생산일<span class="eq">*</span></dt>
+                            <dd><ul class="date-box"><li><input type="date" id="pdate"></li></ul></dd></dl>
+                        <dl><dt>프로젝트</dt><dd><select id="fProject" style="min-width:150px"></select></dd></dl>
+                        <dl><dt>품목</dt><dd><select id="fItem" style="min-width:160px"></select></dd></dl>
+                        <dl><dt>유닛</dt><dd><select id="fUnit" style="min-width:110px"></select></dd></dl>
+                    </div>
+                    <div class="search-wrap"><dl><dd><li><a class="btn btn-search" id="btnMainSearch">검색</a></li></dd></dl></div>
+                </div>
+                <div class="container-fluid">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span class="scope-pill" id="scopePill">전체 프로젝트</span>
+                        <span class="hint">범위 내 <b>품목·유닛의 유형별 소요 합계</b>가 <b>프로젝트총합</b>으로 나옵니다.</span>
+                    </div>
+                    <table class="work-table">
+                        <thead><tr id="matHead"></tr></thead>
+                        <tbody id="stockBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 우: 실적 등록(위) + 등록(아래) -->
+            <div class="right-col">
+                <section class="section reg-sec">
+                    <div class="section-top">
+                        <span id="selKindLab" style="font-weight:700;">유형을 선택하세요</span>
+                        <div class="button-wrap"><ul><li><button class="btn btn-search" id="btnReg" disabled>등록</button></li></ul></div>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="work-table">
+                            <colgroup><col style="width:32%"><col></colgroup>
+                            <tbody>
+                            <tr><th>유형</th><td id="selKindCell" style="text-align:left;font-weight:700">-</td></tr>
+                            <tr><th>공정<span style="color:#e0533d">*</span></th><td><select id="proc" class="fsel" disabled></select></td></tr>
+                            <tr><th>설비<span style="color:#e0533d">*</span></th><td><select id="machine" class="fsel" disabled></select></td></tr>
+                            <tr><th>작업자</th><td><select id="worker" class="fsel"></select></td></tr>
+                            <tr><th>작업중</th><td style="text-align:left"><label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer"><input type="checkbox" id="fWorking" style="width:auto" disabled> 이 설비를 작업중으로 표시</label></td></tr>
+                            <tr><th>양품 수량</th><td><input type="number" id="good" min="0" value="0" class="reg-input good"></td></tr>
+                            <tr><th>파기 수량</th><td><input type="number" id="scrap" min="0" value="0" class="reg-input scrap"></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="section log-sec">
+                    <div class="section-top"><span style="font-weight:700;">등록</span></div>
+                    <div class="table-wrap">
+                        <table class="work-table">
+                            <thead><tr><th>유형</th><th>공정</th><th>설비</th><th>작업자</th><th>양품</th><th>파기</th><th style="width:54px">취소</th></tr></thead>
+                            <tbody id="logBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        const $=s=>document.querySelector(s);
+
+        // ── 마스터: 공정(순서) + 공정별 설비(여러 대) ──
+        const PROCESSES=[
+            {code:'laser', name:'레이저절단', machines:['LC-01','LC-02']},
+            {code:'mct',   name:'머시닝센터', machines:['MCT-01','MCT-02','MCT-03']},
+            {code:'wire',  name:'와이어컷',   machines:['WC-01','WC-02']},
+            {code:'lathe', name:'선반/밀링',  machines:['LM-01','LM-02']}
+        ];
+        const PROC_ORDER=PROCESSES.map(p=>p.code);
+        const procName=c=>(PROCESSES.find(p=>p.code===c)||{}).name||c;
+        const procMachines=c=>(PROCESSES.find(p=>p.code===c)||{machines:[]}).machines;
+
+        const KINDS=['plate','block','shim','brkt','pin','arm'];
+        const ROUTES={
+            plate:['laser','wire','lathe'],
+            block:['laser','mct','lathe'],
+            shim: ['laser','wire'],
+            brkt: ['laser','lathe'],
+            pin:  ['mct','lathe'],
+            arm:  ['laser','mct','wire','lathe']
+        };
+        const lastProc=k=>ROUTES[k][ROUTES[k].length-1];
+        const WORKERS=['미지정','홍길동','김철수','이영희','박민수'];
+
+        // ── 프로젝트 → 품목 → 유닛 → 유형별 소요(need) ──
+        const PROJECTS=[
+            {code:'PRJ-A', name:'A9 FR도어', items:[
+                    {code:'PNL ASSY-FR DR L', units:[
+                            {nm:'U201', need:{plate:3, block:4, shim:6}},
+                            {nm:'U227', need:{plate:2, block:1, brkt:1}},
+                            {nm:'U240', need:{plate:1, pin:2}}
+                        ]},
+                    {code:'PNL ASSY-FR DR R', units:[
+                            {nm:'U201', need:{plate:3, block:4, shim:6}},
+                            {nm:'U227', need:{plate:2, block:1, brkt:1}}
+                        ]}
+                ]},
+            {code:'PRJ-B', name:'A9 센터필러', items:[
+                    {code:'CTR PLR ASSY', units:[
+                            {nm:'U301', need:{plate:12, arm:2}},
+                            {nm:'U305', need:{block:3, shim:4}}
+                        ]}
+                ]},
+            {code:'PRJ-C', name:'리어플로어', items:[
+                    {code:'RR FLOOR ASSY', units:[
+                            {nm:'U410', need:{plate:4, block:1, pin:1, arm:1}},
+                            {nm:'U411', need:{plate:2, brkt:2}}
+                        ]}
+                ]}
+        ];
+
+        // ── 생산 실적: prod[유형][공정] = {g,s} ──
+        let prod={};
+        KINDS.forEach(k=>{prod[k]={};ROUTES[k].forEach(c=>prod[k][c]={g:0,s:0});});
+        prod.plate.laser.g=120; prod.plate.wire.g=95; prod.plate.lathe.g=60;
+        prod.block.laser.g=80;  prod.block.mct.g=70;  prod.block.lathe.g=55;
+        prod.shim.laser.g=200;  prod.shim.wire.g=180;
+        prod.brkt.laser.g=40;   prod.brkt.lathe.g=35;
+
+        // ── 진행중(작업중): key `유형|공정|설비` → {worker} ──
+        let working={};
+        const wKey=(k,c,m)=>`${k}|${c}|${m}`;
+        working[wKey('plate','wire','WC-01')]={worker:'홍길동'};
+        working[wKey('block','mct','MCT-02')]={worker:'김철수'};
+        function cellWorkers(k,c){return Object.keys(working).filter(key=>{const p=key.split('|');return p[0]===k&&p[1]===c;}).map(key=>key.split('|')[2]);}
+
+        // ── 범위(프로젝트/품목/유닛) ──
+        let selProj=-1, curItems=[], selItem=-1, curUnits=[], selUnit=-1;
+        function flattenItems(){let a=[];PROJECTS.forEach(p=>p.items.forEach(it=>a.push({it,label:`${p.code}·${it.code}`})));return a;}
+        function rebuildItemSelect(){
+            curItems = selProj>=0 ? PROJECTS[selProj].items.map(it=>({it,label:it.code})) : flattenItems();
+            $('#fItem').innerHTML='<option value="-1">전체 품목</option>'+curItems.map((x,i)=>`<option value="${i}">${x.label}</option>`).join('');
+            selItem=-1; rebuildUnitSelect();
+        }
+        function rebuildUnitSelect(){
+            curUnits = selItem>=0 ? curItems[selItem].it.units.map(u=>({u,label:u.nm})) : [];
+            $('#fUnit').innerHTML='<option value="-1">전체 유닛</option>'+curUnits.map((x,i)=>`<option value="${i}">${x.label}</option>`).join('');
+            selUnit=-1;
+        }
+        function scopedUnits(){
+            if(selItem>=0 && selUnit>=0) return [curUnits[selUnit].u];
+            if(selItem>=0) return curItems[selItem].it.units;
+            if(selProj>=0) return PROJECTS[selProj].items.flatMap(it=>it.units);
+            return PROJECTS.flatMap(p=>p.items.flatMap(it=>it.units));
+        }
+        const soyo=k=>scopedUnits().reduce((a,u)=>a+(u.need[k]||0),0);
+        function visibleKinds(){let v=KINDS.filter(k=>soyo(k)>0);return v.length?v:KINDS.slice();}
+        function scopeText(){
+            if(selItem>=0&&selUnit>=0) return `유닛 · ${curUnits[selUnit].label}`;
+            if(selItem>=0) return `품목 · ${curItems[selItem].label}`;
+            if(selProj>=0) return `프로젝트 · ${PROJECTS[selProj].code} (${PROJECTS[selProj].name})`;
+            return '전체 프로젝트';
+        }
+
+        let selKind=null, log=[];
+        $('#pdate').value=new Date().toISOString().slice(0,10);
+
+        // ── 매트릭스 ──
+        function renderHead(){
+            $('#matHead').innerHTML=
+                `<th style="width:70px">유형</th><th style="width:88px">프로젝트총합</th>`+
+                PROC_ORDER.map(c=>`<th>${procName(c)}</th>`).join('')+
+                `<th style="width:68px">완성</th>`;
+        }
+        function renderMatrix(){
+            const vis=visibleKinds();
+            $('#stockBody').innerHTML=vis.map(k=>{
+                const cells=PROC_ORDER.map(c=>{
+                    if(!ROUTES[k].includes(c)) return `<td class="pdash">-</td>`;
+                    const last=lastProc(k)===c, wk=cellWorkers(k,c);
+                    const tag = wk.length?`<div class="wtag">▶ ${wk.join(', ')}</div>`:'';
+                    return `<td class="pcell ${wk.length?'working':''}" title="${procName(c)}${last?' · 완성공정':''}">${prod[k][c].g}${last?' ●':''}${tag}</td>`;
+                }).join('');
+                return `<tr class="kind-row ${selKind===k?'on':''}" data-k="${k}">
+      <td class="kname">${k}</td>
+      <td style="text-align:right;font-weight:700">${soyo(k)}</td>
+      ${cells}
+      <td class="background-blue">${prod[k][lastProc(k)].g}</td></tr>`;
+            }).join('');
+            $('#stockBody').querySelectorAll('.kind-row').forEach(r=>r.onclick=()=>selectKind(r.dataset.k));
+            $('#scopePill').textContent=scopeText();
+        }
+
+        // ── 폼 ──
+        function fillWorkers(){$('#worker').innerHTML=WORKERS.map(w=>`<option>${w}</option>`).join('');}
+        function fillProc(){
+            if(!selKind){$('#proc').innerHTML='';$('#machine').innerHTML='';$('#proc').disabled=true;$('#machine').disabled=true;return;}
+            $('#proc').disabled=false;$('#machine').disabled=false;
+            $('#proc').innerHTML=ROUTES[selKind].map(c=>`<option value="${c}">${procName(c)}${c===lastProc(selKind)?'':''}</option>`).join('');
+            fillMachine();
+        }
+        function fillMachine(){$('#machine').innerHTML=procMachines($('#proc').value).map(m=>`<option>${m}</option>`).join('');}
+        function selectKind(k){
+            selKind=k; $('#good').value=0; $('#scrap').value=0;
+            renderMatrix();renderForm();fillProc();updWorkChk();sync();
+        }
+        function renderForm(){
+            $('#selKindLab').textContent=selKind?`선택: ${selKind}`:'유형을 선택하세요';
+            $('#selKindCell').textContent=selKind?`${selKind}  (완성 ${prod[selKind][lastProc(selKind)].g} / 소요 ${soyo(selKind)})`:'-';
+        }
+        function updWorkChk(){
+            const k=selKind,c=$('#proc').value,m=$('#machine').value, ok=!!(k&&c&&m);
+            $('#fWorking').disabled=!ok;
+            $('#fWorking').checked = ok && !!working[wKey(k,c,m)];
+        }
+        function sync(){
+            const g=+$('#good').value||0,s=+$('#scrap').value||0;
+            $('#btnReg').disabled=!(selKind && $('#proc').value && $('#machine').value && (g>0||s>0));
+        }
+
+        // ── 이벤트 ──
+        $('#fProject').onchange=()=>{selProj=+$('#fProject').value;rebuildItemSelect();afterScope();};
+        $('#fItem').onchange=()=>{selItem=+$('#fItem').value;rebuildUnitSelect();afterScope();};
+        $('#fUnit').onchange=()=>{selUnit=+$('#fUnit').value;afterScope();};
+        function afterScope(){
+            if(selKind && !visibleKinds().includes(selKind)){selKind=null;renderForm();fillProc();updWorkChk();sync();}
+            renderMatrix();renderForm();
+        }
+        $('#proc').onchange=()=>{fillMachine();updWorkChk();sync();};
+        $('#machine').onchange=()=>{updWorkChk();sync();};
+        $('#worker').onchange=()=>{ // 작업중이면 작업자 갱신
+            const k=selKind,c=$('#proc').value,m=$('#machine').value;
+            if(k&&c&&m&&working[wKey(k,c,m)]){working[wKey(k,c,m)].worker=$('#worker').value;renderMatrix();}
+        };
+        $('#fWorking').onchange=()=>{
+            const k=selKind,c=$('#proc').value,m=$('#machine').value; if(!(k&&c&&m))return;
+            if($('#fWorking').checked) working[wKey(k,c,m)]={worker:$('#worker').value};
+            else delete working[wKey(k,c,m)];
+            renderMatrix();
+        };
+        $('#good').oninput=sync; $('#scrap').oninput=sync;
+
+        $('#btnReg').onclick=()=>{
+            const k=selKind,c=$('#proc').value,m=$('#machine').value,wk=$('#worker').value;
+            const g=+$('#good').value||0,s=+$('#scrap').value||0;
+            if(!(k&&c&&m&&(g>0||s>0)))return;
+            prod[k][c].g+=g; prod[k][c].s+=s;
+            log.unshift({kind:k,code:c,proc:procName(c),machine:m,worker:wk,good:g,scrap:s});
+            $('#good').value=0;$('#scrap').value=0;
+            sync();renderMatrix();renderForm();renderLog();
+        };
+
+        function renderLog(){
+            if(!log.length){$('#logBody').innerHTML='<tr><td colspan="7" class="empty">등록 내역 없음</td></tr>';return;}
+            $('#logBody').innerHTML=log.map((l,i)=>`<tr>
+      <td style="font-weight:700">${l.kind}</td>
+      <td>${l.proc}${l.code===lastProc(l.kind)?' <span style="color:#0b69a3;font-weight:700"></span>':''}</td>
+      <td>${l.machine}</td><td>${l.worker}</td>
+      <td class="background-blue">${l.good||0}</td><td class="background-scrap">${l.scrap||0}</td>
+      <td><a class="btn" style="padding:3px 8px" data-i="${i}">취소</a></td></tr>`).join('');
+            $('#logBody').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{
+                const l=log[+b.dataset.i];
+                prod[l.kind][l.code].g-=l.good; prod[l.kind][l.code].s-=l.scrap;
+                log.splice(+b.dataset.i,1);
+                renderMatrix();renderForm();renderLog();sync();
+            });
+        }
+
+        // init
+        $('#fProject').innerHTML='<option value="-1">전체 프로젝트</option>'+PROJECTS.map((p,i)=>`<option value="${i}">${p.code} (${p.name})</option>`).join('');
+        rebuildItemSelect();
+        renderHead();fillWorkers();fillProc();updWorkChk();renderMatrix();renderForm();renderLog();sync();
+    </script>
+</th:block>
+</html>

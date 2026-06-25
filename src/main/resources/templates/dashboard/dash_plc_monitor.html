@@ -1,0 +1,216 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* ===== 미리보기용 공통 (layout_page에 있으면 이 블록 삭제) ===== */
+        body{margin:0;font-family:'Malgun Gothic','Pretendard',sans-serif;background:#eef1f6;color:#222;font-size:13px;}
+        .layout-contents{padding:14px 18px;}
+        .page-title-wrap{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+        .page-title-wrap .left{display:flex;align-items:center;gap:10px;}
+        .page-title-wrap h2{font-size:19px;font-weight:700;margin:0;}
+        .bookmark{font-size:12px;color:#5b6b86;border:1px solid #cfd6e2;background:#fff;border-radius:16px;padding:4px 11px;cursor:pointer;}
+        .page-navi{list-style:none;display:flex;gap:8px;margin:0;padding:0;color:#8b95a7;font-size:12px;}
+        .page-navi li::after{content:'›';margin-left:8px;color:#c2c9d4;}.page-navi li:last-child::after{content:'';}
+        .section{background:#fff;border:1px solid #d7dde7;border-radius:6px;}
+        .section-top{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #e9edf3;background:#f7f9fc;gap:12px;flex-wrap:wrap;}
+        .button-wrap ul{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
+        .btn{border:1px solid #cfd6e2;background:#fff;border-radius:5px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;color:#333;}
+        .btn.sm{padding:3px 9px;font-size:11.5px;}
+        .btn-go{background:#1976d2;color:#fff;border-color:#1976d2;}
+        .btn-stop{background:#b3242e;color:#fff;border-color:#b3242e;}
+        .container-fluid{padding:12px 13px;}
+        table.work-table{width:100%;border-collapse:collapse;}
+        table.work-table th,table.work-table td{border:1px solid #d7dde7;padding:7px;font-size:12.5px;text-align:center;}
+        table.work-table th{background:#eef2f8;color:#445;font-weight:700;}
+        table.work-table select,table.work-table input{border:1px solid #cfd6e2;border-radius:4px;padding:5px 6px;font-size:12.5px;width:100%;box-sizing:border-box;}
+        /* ===== 이 페이지 전용 ===== */
+        .mname{text-align:left;font-weight:700;padding-left:8px;}
+        .num{text-align:right;font-weight:700;}
+        .badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:11px;cursor:pointer;display:inline-block;}
+        .badge.run{background:#dcf0e2;color:#1b7a3d;} .badge.idle{background:#eef0f3;color:#667;} .badge.alarm{background:#f8d7da;color:#b3242e;}
+        /* PLC 자동 수집 컬럼(음영) vs 사람 확정 컬럼(흰색) */
+        .plc{background:#f3f7fc;}
+        th .tag{display:inline-block;font-size:9.5px;font-weight:800;color:#2b6cb0;background:#e3eefb;border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:middle;}
+        th .tag.man{color:#7a5; background:#eef6e6;}
+        .fin{font-size:10px;font-weight:700;color:#0026ff;margin-left:4px;}
+        .diff-bad{color:#b3242e;font-weight:800;} .diff-ok{color:#9aa3b0;font-weight:700;}
+        .live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#1b7a3d;font-weight:700;}
+        .dot{width:8px;height:8px;border-radius:50%;background:#1b7a3d;display:inline-block;}
+        .dot.off{background:#aab;}
+        /* 요약 카드 */
+        .cards{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+        .card{flex:1;min-width:120px;background:#fff;border:1px solid #d7dde7;border-radius:8px;padding:9px 12px;}
+        .card .k{font-size:11.5px;color:#667;} .card .v{font-size:20px;font-weight:800;margin-top:2px;}
+        .card.run .v{color:#1b7a3d;} .card.alarm .v{color:#b3242e;}
+
+        html,body{height:100%;}
+        .layout-contents{display:flex;flex-direction:column;min-height:100vh;box-sizing:border-box;}
+        .section.fill{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .section.fill > .container-fluid{flex:1 1 auto;min-height:0;overflow:auto;}
+        .section-top{flex:0 0 auto;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>설비 가동 현황 (PLC 연동)</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산관리</li>
+                <li>설비 가동 현황</li>
+            </ul>
+        </div>
+
+        <div class="cards" id="cards"></div>
+
+        <section class="section fill">
+            <div class="section-top">
+                <span style="font-weight:700;">실시간 설비 모니터 <span style="font-weight:400;color:#889;font-size:11.5px">· 음영 칸은 PLC 자동수집, 흰 칸은 사람 확정</span></span>
+                <div class="button-wrap" style="display:flex;align-items:center;gap:12px;">
+                    <span class="live" id="liveLab"><span class="dot off" id="liveDot"></span>중지됨</span>
+                    <ul>
+                        <li><button class="btn btn-go" id="btnSim">시뮬레이션 시작</button></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="container-fluid">
+                <table class="work-table">
+                    <colgroup>
+                        <col style="width:80px"><col style="width:96px"><col style="width:84px">
+                        <col style="width:96px"><col style="width:96px">
+                        <col style="width:150px"><col style="width:96px"><col style="width:80px"><col style="width:70px">
+                    </colgroup>
+                    <thead>
+                    <tr>
+                        <th>설비</th>
+                        <th>공정</th>
+                        <th class="plc">상태<span class="tag">PLC</span></th>
+                        <th class="plc">가동시간<span class="tag">PLC</span></th>
+                        <th class="plc">PLC 사이클<span class="tag">PLC</span></th>
+                        <th>현재작업(유형)<span class="tag man">확정</span></th>
+                        <th>양품(확정)<span class="tag man">확정</span></th>
+                        <th>차이</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="mcBody"></tbody>
+                </table>
+                <p style="font-size:11.5px;color:#667;line-height:1.7;margin-top:10px;">
+                    · <b>상태</b> 배지를 클릭하면 가동 → 대기 → 알람 순으로 바뀝니다(실제로는 PLC 상태값).<br>
+                    · <b>PLC 사이클</b>은 설비가 찍은 횟수(자동). <b>양품(확정)</b>은 사람이 불량/다캐비티 등을 반영해 확정한 값.<br>
+                    · <b>차이</b>(사이클−양품)가 곧 로스/미확정. <b>확정</b> 버튼은 PLC 사이클값을 양품으로 그대로 채웁니다.<br>
+                    · <b>현재작업(유형)</b>이 "이 설비가 지금 무슨 유형·공정을 하는가" 매핑입니다. 마지막 공정이면 <span class="fin">완성</span> 표시.
+                </p>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        const $=s=>document.querySelector(s);
+        const SPEED=3; // 1틱(1초) 당 진행시키는 가상 시간(초)
+
+        const PROCESSES=[
+            {code:'laser', name:'레이저절단'},
+            {code:'mct',   name:'머시닝센터'},
+            {code:'wire',  name:'와이어컷'},
+            {code:'lathe', name:'선반/밀링'}
+        ];
+        const procName=c=>(PROCESSES.find(p=>p.code===c)||{}).name||c;
+
+        const KINDS=['plate','block','shim','brkt','pin','arm'];
+        const ROUTES={
+            plate:['laser','wire','lathe'], block:['laser','mct','lathe'], shim:['laser','wire'],
+            brkt:['laser','lathe'], pin:['mct','lathe'], arm:['laser','mct','wire','lathe']
+        };
+        const lastProc=k=>ROUTES[k][ROUTES[k].length-1];
+        const kindsForProc=c=>KINDS.filter(k=>ROUTES[k].includes(c));
+
+        // 설비 마스터 + PLC 상태값
+        // st: run/idle/alarm, ct: 표준 사이클타임(초), runSec: 가동시간, cyc: PLC 누적 사이클, good: 사람 확정 양품, kind: 매핑된 유형
+        let M=[
+            {code:'LC-01', proc:'laser', ct:20, st:'run',   runSec:2400, cyc:120, good:110, kind:'plate', _a:0},
+            {code:'LC-02', proc:'laser', ct:20, st:'idle',  runSec:800,  cyc:40,  good:40,  kind:'',      _a:0},
+            {code:'MCT-01',proc:'mct',   ct:45, st:'run',   runSec:3150, cyc:70,  good:68,  kind:'block', _a:0},
+            {code:'MCT-02',proc:'mct',   ct:50, st:'run',   runSec:1650, cyc:33,  good:33,  kind:'arm',   _a:0},
+            {code:'MCT-03',proc:'mct',   ct:45, st:'idle',  runSec:0,    cyc:0,   good:0,   kind:'',      _a:0},
+            {code:'WC-01', proc:'wire',  ct:60, st:'run',   runSec:5700, cyc:95,  good:90,  kind:'plate', _a:0},
+            {code:'WC-02', proc:'wire',  ct:60, st:'alarm', runSec:720,  cyc:12,  good:12,  kind:'shim',  _a:0},
+            {code:'LM-01', proc:'lathe', ct:40, st:'run',   runSec:2400, cyc:60,  good:58,  kind:'plate', _a:0},
+            {code:'LM-02', proc:'lathe', ct:40, st:'idle',  runSec:0,    cyc:0,   good:0,   kind:'',      _a:0}
+        ];
+
+        const hhmmss=s=>{const h=(s/3600|0),m=((s%3600)/60|0),x=s%60;return [h,m,x].map(n=>String(n).padStart(2,'0')).join(':');};
+        const stLab={run:'가동',idle:'대기',alarm:'알람'};
+        const nextSt={run:'idle',idle:'alarm',alarm:'run'};
+
+        function buildTable(){
+            $('#mcBody').innerHTML=M.map((m,i)=>{
+                const opts=`<option value="">- 미지정 -</option>`+kindsForProc(m.proc).map(k=>`<option value="${k}" ${m.kind===k?'selected':''}>${k}</option>`).join('');
+                const fin=m.kind&&lastProc(m.kind)===m.proc?'<span class="fin">완성</span>':'';
+                return `<tr>
+      <td class="mname">${m.code}</td>
+      <td>${procName(m.proc)}</td>
+      <td class="plc"><span id="st-${i}" class="badge ${m.st}" onclick="cycleSt(${i})">${stLab[m.st]}</span></td>
+      <td class="plc num" id="rt-${i}">${hhmmss(m.runSec)}</td>
+      <td class="plc num" id="cy-${i}">${m.cyc}</td>
+      <td style="text-align:left">
+        <div style="display:flex;align-items:center;gap:4px">
+          <select onchange="setKind(${i},this.value)">${opts}</select><span id="fin-${i}">${fin}</span>
+        </div>
+      </td>
+      <td><input type="number" min="0" id="gd-${i}" value="${m.good}" oninput="setGood(${i},this.value)" class="num"></td>
+      <td class="num" id="df-${i}">${m.cyc-m.good}</td>
+      <td><a class="btn sm" onclick="confirmGood(${i})">확정</a></td></tr>`;
+            }).join('');
+            M.forEach((m,i)=>paintDiff(i));
+        }
+
+        function paintDiff(i){
+            const m=M[i], d=m.cyc-m.good, el=$('#df-'+i);
+            el.textContent=d;
+            el.className='num '+(d>0?'diff-bad':'diff-ok');
+        }
+        function renderSummary(){
+            const run=M.filter(m=>m.st==='run').length, idle=M.filter(m=>m.st==='idle').length, al=M.filter(m=>m.st==='alarm').length;
+            const cyc=M.reduce((a,m)=>a+m.cyc,0), good=M.reduce((a,m)=>a+m.good,0);
+            const rate=Math.round(run/M.length*100);
+            $('#cards').innerHTML=`
+      <div class="card run"><div class="k">가동</div><div class="v">${run}<span style="font-size:12px;color:#889"> / ${M.length}대</span></div></div>
+      <div class="card"><div class="k">대기</div><div class="v">${idle}</div></div>
+      <div class="card alarm"><div class="k">알람</div><div class="v">${al}</div></div>
+      <div class="card"><div class="k">가동률</div><div class="v">${rate}<span style="font-size:12px;color:#889">%</span></div></div>
+      <div class="card"><div class="k">PLC 사이클 합계</div><div class="v">${cyc}</div></div>
+      <div class="card"><div class="k">양품(확정) 합계</div><div class="v">${good}</div></div>`;
+        }
+
+        // 사용자 조작
+        function cycleSt(i){M[i].st=nextSt[M[i].st];const b=$('#st-'+i);b.className='badge '+M[i].st;b.textContent=stLab[M[i].st];renderSummary();}
+        function setKind(i,v){M[i].kind=v;$('#fin-'+i).innerHTML=(v&&lastProc(v)===M[i].proc)?'<span class="fin">완성</span>':'';}
+        function setGood(i,v){M[i].good=+v||0;paintDiff(i);renderSummary();}
+        function confirmGood(i){M[i].good=M[i].cyc;$('#gd-'+i).value=M[i].good;paintDiff(i);renderSummary();}
+        window.cycleSt=cycleSt;window.setKind=setKind;window.setGood=setGood;window.confirmGood=confirmGood;
+
+        // PLC 스트리밍 시뮬레이션
+        let timer=null;
+        function tick(){
+            M.forEach((m,i)=>{
+                if(m.st!=='run')return;
+                m.runSec+=SPEED; $('#rt-'+i).textContent=hhmmss(m.runSec);
+                m._a+=SPEED;
+                if(m._a>=m.ct){const inc=Math.floor(m._a/m.ct);m.cyc+=inc;m._a-=inc*m.ct;$('#cy-'+i).textContent=m.cyc;paintDiff(i);}
+            });
+            renderSummary();
+        }
+        $('#btnSim').onclick=()=>{
+            if(timer){clearInterval(timer);timer=null;$('#btnSim').textContent='시뮬레이션 시작';$('#btnSim').className='btn btn-go';$('#liveLab').innerHTML='<span class="dot off"></span>중지됨';}
+            else{timer=setInterval(tick,1000);$('#btnSim').textContent='시뮬레이션 정지';$('#btnSim').className='btn btn-stop';$('#liveLab').innerHTML='<span class="dot"></span>수집중';}
+        };
+
+        buildTable();renderSummary();
+    </script>
+</th:block>
+</html>

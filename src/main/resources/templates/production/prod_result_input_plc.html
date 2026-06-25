@@ -1,0 +1,347 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* ===== 미리보기용 공통 (layout_page에 있으면 이 블록 삭제) ===== */
+        body{margin:0;font-family:'Malgun Gothic','Pretendard',sans-serif;background:#eef1f6;color:#222;font-size:13px;}
+        .layout-contents{padding:14px 18px;}
+        .page-title-wrap{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+        .page-title-wrap .left{display:flex;align-items:center;gap:10px;}
+        .page-title-wrap h2{font-size:19px;font-weight:700;margin:0;}
+        .bookmark{font-size:12px;color:#5b6b86;border:1px solid #cfd6e2;background:#fff;border-radius:16px;padding:4px 11px;cursor:pointer;}
+        .page-navi{list-style:none;display:flex;gap:8px;margin:0;padding:0;color:#8b95a7;font-size:12px;}
+        .page-navi li::after{content:'›';margin-left:8px;color:#c2c9d4;}.page-navi li:last-child::after{content:'';}
+        .section{background:#fff;border:1px solid #d7dde7;border-radius:6px;}
+        .section-top{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #e9edf3;background:#f7f9fc;gap:12px;flex-wrap:wrap;}
+        .search-wrap{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
+        .search-wrap dl{margin:0;}.search-wrap dt{font-size:12px;color:#445;font-weight:600;margin-bottom:5px;}.search-wrap dd{margin:0;}
+        .search-wrap .eq{color:#e0533d;margin-left:2px;}
+        .search-wrap input,.search-wrap select{border:1px solid #cfd6e2;border-radius:5px;padding:6px 9px;font-size:13px;}
+        .date-box{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
+        .button-wrap ul{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
+        .btn{border:1px solid #cfd6e2;background:#fff;border-radius:5px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;color:#333;}
+        .btn.sm{padding:3px 9px;font-size:11.5px;}
+        .btn:disabled{background:#eef0f4;color:#aab;cursor:not-allowed;}
+        .btn-go{background:#1976d2;color:#fff;border-color:#1976d2;}
+        .btn-stop{background:#b3242e;color:#fff;border-color:#b3242e;}
+        .btn-reg{background:#0026ff;color:#fff;border-color:#0026ff;}
+        .container-fluid{padding:12px 13px;}
+        table.work-table{width:100%;border-collapse:collapse;}
+        table.work-table th,table.work-table td{border:1px solid #d7dde7;padding:6px 7px;font-size:12.5px;text-align:center;}
+        table.work-table th{background:#eef2f8;color:#445;font-weight:700;}
+        table.work-table select,table.work-table input{border:1px solid #cfd6e2;border-radius:4px;padding:4px 5px;font-size:12.5px;width:100%;box-sizing:border-box;}
+        .table-wrap{padding:12px 13px;}
+        /* ===== 이 페이지 전용 ===== */
+        .background-blue{background:#dcf0f8 !important;font-weight:bold;text-align:right;}
+        .kname{text-align:left;font-weight:700;padding-left:6px;}
+        .pcell{text-align:right;font-weight:600;} .pcell.working{background:#fffbe8;}
+        .pdash{color:#cbd2dd;}
+        .wtag{font-size:10.5px;color:#a6791b;font-weight:700;}
+        .num{text-align:right;font-weight:700;}
+        .mname{text-align:left;font-weight:700;padding-left:7px;}
+        .badge{font-size:11px;font-weight:700;padding:3px 9px;border-radius:11px;cursor:pointer;display:inline-block;}
+        .badge.run{background:#dcf0e2;color:#1b7a3d;} .badge.idle{background:#eef0f3;color:#667;} .badge.alarm{background:#f8d7da;color:#b3242e;}
+        .plc{background:#f3f7fc;}
+        th .tag{display:inline-block;font-size:9px;font-weight:800;color:#2b6cb0;background:#e3eefb;border-radius:4px;padding:0 4px;margin-left:3px;vertical-align:middle;}
+        th .tag.man{color:#7a5;background:#eef6e6;}
+        .fin{font-size:10px;font-weight:700;color:#0026ff;margin-left:3px;}
+        .uncf{color:#b3242e;font-weight:800;cursor:pointer;} .uncf.z{color:#9aa3b0;cursor:default;}
+        .scope-pill{font-size:11.5px;font-weight:700;color:#1b5e9b;background:#e7f1fb;border:1px solid #cfe0f2;border-radius:12px;padding:2px 10px;}
+        .live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#1b7a3d;font-weight:700;}
+        .dot{width:8px;height:8px;border-radius:50%;background:#1b7a3d;display:inline-block;}.dot.off{background:#aab;}
+        .empty{color:#99a;text-align:center;padding:16px 0;}
+        .hint{font-size:11.5px;color:#667;line-height:1.6;}
+
+        html,body{height:100%;}
+        .layout-contents{display:flex;flex-direction:column;min-height:100vh;box-sizing:border-box;}
+        .main-row{display:flex;gap:5px;align-items:stretch;flex:1 1 auto;min-height:0;}
+        .main-row > .section{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .main-row > .section > .container-fluid{flex:1 1 auto;min-height:0;overflow:auto;}
+        .section-top{flex:0 0 auto;}
+        .right-col{display:flex;flex-direction:column;gap:5px;flex:1.5;min-width:0;min-height:0;}
+        .right-col > .plc-sec{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .right-col > .plc-sec > .container-fluid{flex:1 1 auto;min-height:0;overflow:auto;}
+        .right-col > .log-sec{flex:0 0 38%;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+        .right-col > .log-sec > .table-wrap{flex:1 1 auto;min-height:0;overflow:auto;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>생산 실적 입력 (PLC 연동)</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산관리</li>
+                <li>생산 실적 입력</li>
+            </ul>
+        </div>
+
+        <div class="main-row">
+            <!-- 좌: 실적 누적 결과(유형×가공공정) = 단일 저장소 -->
+            <section class="section" style="flex:1.1;">
+                <div class="section-top" style="justify-content:left; gap:14px;">
+                    <div class="search-wrap">
+                        <dl><dt>생산일<span class="eq">*</span></dt>
+                            <dd><ul class="date-box"><li><input type="date" id="pdate"></li></ul></dd></dl>
+                        <dl><dt>프로젝트</dt><dd><select id="fProject" style="min-width:140px"></select></dd></dl>
+                        <dl><dt>품목</dt><dd><select id="fItem" style="min-width:150px"></select></dd></dl>
+                        <dl><dt>유닛</dt><dd><select id="fUnit" style="min-width:100px"></select></dd></dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                        <span class="scope-pill" id="scopePill">전체 프로젝트</span>
+                        <span class="hint">실적(가공공정별 양품)은 <b>공통 누적</b>, <b>프로젝트총합</b>만 범위 소요로 바뀝니다.</span>
+                    </div>
+                    <table class="work-table">
+                        <thead><tr id="matHead"></tr></thead>
+                        <tbody id="matBody"></tbody>
+                    </table>
+                    <p class="hint" style="margin-top:10px;">우측에서 <b>확정 등록</b>하면 이 표에 누적됩니다. <b>●</b>=마지막(완성) 가공공정, 노란칸 <span class="wtag">▶설비</span>=PLC 가동중, 파란 <b>완성</b> 열이 실제 생산량.</p>
+                </div>
+            </section>
+
+            <!-- 우: PLC 설비 패널(위) + 오늘 확정 실적(아래) -->
+            <div class="right-col">
+                <section class="section plc-sec">
+                    <div class="section-top">
+                        <span style="font-weight:700;">설비 현황 <span style="font-weight:400;color:#889;font-size:11.5px">· 음영=PLC 자동, 흰칸=사람 확정</span></span>
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span class="live" id="liveLab"><span class="dot off" id="liveDot"></span>중지됨</span>
+                            <div class="button-wrap"><ul><li><button class="btn btn-go" id="btnSim">PLC 수집 시작</button></li></ul></div>
+                        </div>
+                    </div>
+                    <div class="container-fluid">
+                        <table class="work-table">
+                            <colgroup>
+                                <col style="width:88px"><col style="width:66px"><col style="width:78px"><col style="width:66px">
+                                <col style="width:62px"><col style="width:96px"><col style="width:62px"><col style="width:56px"><col style="width:66px">
+                            </colgroup>
+                            <thead><tr>
+                                <th>설비/가공공정</th>
+                                <th class="plc">상태<span class="tag">PLC</span></th>
+                                <th class="plc">가동시간<span class="tag">PLC</span></th>
+                                <th class="plc">사이클<span class="tag">PLC</span></th>
+                                <th>미확정</th>
+                                <th>유형<span class="tag man">확정</span></th>
+                                <th>양품<span class="tag man">확정</span></th>
+                                <th>파기<span class="tag man">확정</span></th>
+                                <th></th>
+                            </tr></thead>
+                            <tbody id="mcBody"></tbody>
+                        </table>
+                        <p class="hint" style="margin-top:9px;">상태 배지 클릭=가동/대기/알람 전환(실제론 PLC값). <b>미확정</b>(=사이클−확정누적)을 클릭하면 양품칸에 채워집니다. <b>확정 등록</b>=그 수량을 실적으로 좌측 표에 반영(유형 매핑 필요).</p>
+                    </div>
+                </section>
+
+                <section class="section log-sec">
+                    <div class="section-top"><span style="font-weight:700;">오늘 확정 실적</span></div>
+                    <div class="table-wrap">
+                        <table class="work-table">
+                            <thead><tr><th>설비</th><th>유형</th><th>가공공정</th><th>양품</th><th>파기</th><th style="width:50px">취소</th></tr></thead>
+                            <tbody id="logBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        const $=s=>document.querySelector(s);
+        const SPEED=3;
+
+        const PROCESSES=[
+            {code:'laser',name:'레이저절단'},{code:'mct',name:'머시닝센터'},
+            {code:'wire',name:'와이어컷'},{code:'lathe',name:'선반/밀링'}
+        ];
+        const PROC_ORDER=PROCESSES.map(p=>p.code);
+        const procName=c=>(PROCESSES.find(p=>p.code===c)||{}).name||c;
+
+        const KINDS=['plate','block','shim','brkt','pin','arm'];
+        const ROUTES={
+            plate:['laser','wire','lathe'],block:['laser','mct','lathe'],shim:['laser','wire'],
+            brkt:['laser','lathe'],pin:['mct','lathe'],arm:['laser','mct','wire','lathe']
+        };
+        const lastProc=k=>ROUTES[k][ROUTES[k].length-1];
+        const kindsForProc=c=>KINDS.filter(k=>ROUTES[k].includes(c));
+
+        // ── 프로젝트 → 품목 → 유닛 → 유형별 소요 ──
+        const PROJECTS=[
+            {code:'PRJ-A',name:'A9 FR도어',items:[
+                    {code:'PNL ASSY-FR DR L',units:[{nm:'U201',need:{plate:3,block:4,shim:6}},{nm:'U227',need:{plate:2,block:1,brkt:1}},{nm:'U240',need:{plate:1,pin:2}}]},
+                    {code:'PNL ASSY-FR DR R',units:[{nm:'U201',need:{plate:3,block:4,shim:6}},{nm:'U227',need:{plate:2,block:1,brkt:1}}]}
+                ]},
+            {code:'PRJ-B',name:'A9 센터필러',items:[
+                    {code:'CTR PLR ASSY',units:[{nm:'U301',need:{plate:12,arm:2}},{nm:'U305',need:{block:3,shim:4}}]}
+                ]},
+            {code:'PRJ-C',name:'리어플로어',items:[
+                    {code:'RR FLOOR ASSY',units:[{nm:'U410',need:{plate:4,block:1,pin:1,arm:1}},{nm:'U411',need:{plate:2,brkt:2}}]}
+                ]}
+        ];
+
+        // ── 단일 실적 저장소: prod[유형][가공공정] = {g,s} ──
+        let prod={};
+        KINDS.forEach(k=>{prod[k]={};ROUTES[k].forEach(c=>prod[k][c]={g:0,s:0});});
+        prod.plate.laser.g=120; prod.plate.wire.g=95; prod.plate.lathe.g=60;
+        prod.block.laser.g=80;  prod.block.mct.g=70;  prod.block.lathe.g=55;
+        prod.shim.laser.g=200;  prod.shim.wire.g=180;
+        prod.brkt.laser.g=40;   prod.brkt.lathe.g=35;
+
+        // ── 설비(PLC). committed=이미 실적 확정된 사이클(중복확정 방지) ──
+        let M=[
+            {code:'LC-01',proc:'laser',ct:20,st:'run',  runSec:2400,cyc:120,committed:118,kind:'plate',_a:0},
+            {code:'LC-02',proc:'laser',ct:20,st:'idle', runSec:800, cyc:40, committed:40, kind:'',     _a:0},
+            {code:'MCT-01',proc:'mct', ct:45,st:'run',  runSec:3150,cyc:70, committed:68, kind:'block',_a:0},
+            {code:'MCT-02',proc:'mct', ct:50,st:'run',  runSec:1650,cyc:33, committed:30, kind:'arm',  _a:0},
+            {code:'WC-01',proc:'wire', ct:60,st:'run',  runSec:5700,cyc:95, committed:92, kind:'plate',_a:0},
+            {code:'WC-02',proc:'wire', ct:60,st:'alarm',runSec:720, cyc:12, committed:12, kind:'shim', _a:0},
+            {code:'LM-01',proc:'lathe',ct:40,st:'run',  runSec:2400,cyc:60, committed:58, kind:'plate',_a:0},
+            {code:'LM-02',proc:'lathe',ct:40,st:'idle', runSec:0,   cyc:0,  committed:0,  kind:'',     _a:0}
+        ];
+        const uncf=m=>Math.max(0,m.cyc-m.committed);
+        const hhmmss=s=>{const h=(s/3600|0),mm=((s%3600)/60|0),x=s%60;return [h,mm,x].map(n=>String(n).padStart(2,'0')).join(':');};
+        const stLab={run:'가동',idle:'대기',alarm:'알람'};
+        const nextSt={run:'idle',idle:'alarm',alarm:'run'};
+
+        // ── 범위 ──
+        let selProj=-1,curItems=[],selItem=-1,curUnits=[],selUnit=-1;
+        function flattenItems(){let a=[];PROJECTS.forEach(p=>p.items.forEach(it=>a.push({it,label:`${p.code}·${it.code}`})));return a;}
+        function rebuildItemSelect(){
+            curItems=selProj>=0?PROJECTS[selProj].items.map(it=>({it,label:it.code})):flattenItems();
+            $('#fItem').innerHTML='<option value="-1">전체 품목</option>'+curItems.map((x,i)=>`<option value="${i}">${x.label}</option>`).join('');
+            selItem=-1;rebuildUnitSelect();
+        }
+        function rebuildUnitSelect(){
+            curUnits=selItem>=0?curItems[selItem].it.units.map(u=>({u,label:u.nm})):[];
+            $('#fUnit').innerHTML='<option value="-1">전체 유닛</option>'+curUnits.map((x,i)=>`<option value="${i}">${x.label}</option>`).join('');
+            selUnit=-1;
+        }
+        function scopedUnits(){
+            if(selItem>=0&&selUnit>=0)return [curUnits[selUnit].u];
+            if(selItem>=0)return curItems[selItem].it.units;
+            if(selProj>=0)return PROJECTS[selProj].items.flatMap(it=>it.units);
+            return PROJECTS.flatMap(p=>p.items.flatMap(it=>it.units));
+        }
+        const soyo=k=>scopedUnits().reduce((a,u)=>a+(u.need[k]||0),0);
+        function visibleKinds(){let v=KINDS.filter(k=>soyo(k)>0);return v.length?v:KINDS.slice();}
+        function scopeText(){
+            if(selItem>=0&&selUnit>=0)return `유닛 · ${curUnits[selUnit].label}`;
+            if(selItem>=0)return `품목 · ${curItems[selItem].label}`;
+            if(selProj>=0)return `프로젝트 · ${PROJECTS[selProj].code} (${PROJECTS[selProj].name})`;
+            return '전체 프로젝트';
+        }
+
+        let log=[];
+        $('#pdate').value=new Date().toISOString().slice(0,10);
+
+        // ── 좌측 매트릭스 ──
+        const cellWorkers=(k,c)=>M.filter(m=>m.st==='run'&&m.kind===k&&m.proc===c).map(m=>m.code);
+        function renderHead(){
+            $('#matHead').innerHTML=`<th style="width:64px">유형</th><th style="width:80px">프로젝트총합</th>`+
+                PROC_ORDER.map(c=>`<th>${procName(c)}</th>`).join('')+`<th style="width:62px">완성</th>`;
+        }
+        function renderMatrix(){
+            $('#matBody').innerHTML=visibleKinds().map(k=>{
+                const cells=PROC_ORDER.map(c=>{
+                    if(!ROUTES[k].includes(c))return `<td class="pdash">-</td>`;
+                    const last=lastProc(k)===c,wk=cellWorkers(k,c);
+                    const tag=wk.length?`<div class="wtag">▶ ${wk.join(', ')}</div>`:'';
+                    return `<td class="pcell ${wk.length?'working':''}">${prod[k][c].g}${last?' ●':''}${tag}</td>`;
+                }).join('');
+                return `<tr><td class="kname">${k}</td><td class="num">${soyo(k)}</td>${cells}<td class="background-blue">${prod[k][lastProc(k)].g}</td></tr>`;
+            }).join('');
+            $('#scopePill').textContent=scopeText();
+        }
+
+        // ── 우측 PLC 패널 ──
+        function buildPanel(){
+            $('#mcBody').innerHTML=M.map((m,i)=>{
+                const opts=`<option value="">-</option>`+kindsForProc(m.proc).map(k=>`<option value="${k}" ${m.kind===k?'selected':''}>${k}</option>`).join('');
+                const fin=m.kind&&lastProc(m.kind)===m.proc?'<span class="fin">완성</span>':'';
+                const u=uncf(m);
+                return `<tr>
+      <td class="mname">${m.code}<div style="font-size:10.5px;color:#889;font-weight:400">${procName(m.proc)}</div></td>
+      <td class="plc"><span id="st-${i}" class="badge ${m.st}" onclick="cycleSt(${i})">${stLab[m.st]}</span></td>
+      <td class="plc num" id="rt-${i}">${hhmmss(m.runSec)}</td>
+      <td class="plc num" id="cy-${i}">${m.cyc}</td>
+      <td class="num"><span id="uc-${i}" class="uncf ${u?'':'z'}" onclick="fillUnc(${i})">${u}</span></td>
+      <td style="text-align:left"><div style="display:flex;align-items:center;gap:3px"><select onchange="setKind(${i},this.value)">${opts}</select><span id="fin-${i}">${fin}</span></div></td>
+      <td><input type="number" min="0" id="gd-${i}" value="${u}" class="num"></td>
+      <td><input type="number" min="0" id="sc-${i}" value="0" class="num"></td>
+      <td><button class="btn btn-reg sm" id="rg-${i}" onclick="confirmReg(${i})" ${m.kind?'':'disabled'}>확정</button></td></tr>`;
+            }).join('');
+            renderSummaryDot();
+        }
+        function renderSummaryDot(){}
+
+        function cycleSt(i){M[i].st=nextSt[M[i].st];const b=$('#st-'+i);b.className='badge '+M[i].st;b.textContent=stLab[M[i].st];renderMatrix();}
+        function setKind(i,v){M[i].kind=v;$('#fin-'+i).innerHTML=(v&&lastProc(v)===M[i].proc)?'<span class="fin">완성</span>':'';$('#rg-'+i).disabled=!v;renderMatrix();}
+        function fillUnc(i){$('#gd-'+i).value=uncf(M[i]);}
+        window.cycleSt=cycleSt;window.setKind=setKind;window.fillUnc=fillUnc;
+
+        function confirmReg(i){
+            const m=M[i]; if(!m.kind){alert('유형을 먼저 매핑하세요');return;}
+            const g=+$('#gd-'+i).value||0, s=+$('#sc-'+i).value||0;
+            if(g<=0&&s<=0)return;
+            prod[m.kind][m.proc].g+=g; prod[m.kind][m.proc].s+=s;
+            m.committed+=g+s; if(m.committed>m.cyc)m.cyc=m.committed; // 수동 보정분 반영
+            log.unshift({code:m.code,kind:m.kind,proc:m.proc,good:g,scrap:s});
+            // 해당 행 갱신
+            $('#cy-'+i).textContent=m.cyc;
+            const u=uncf(m); const uc=$('#uc-'+i); uc.textContent=u; uc.className='uncf '+(u?'':'z');
+            $('#gd-'+i).value=u; $('#sc-'+i).value=0;
+            renderMatrix();renderLog();
+        }
+        window.confirmReg=confirmReg;
+
+        function renderLog(){
+            if(!log.length){$('#logBody').innerHTML='<tr><td colspan="6" class="empty">오늘 확정 내역 없음</td></tr>';return;}
+            $('#logBody').innerHTML=log.map((l,i)=>`<tr>
+      <td style="font-weight:700">${l.code}</td><td style="font-weight:700">${l.kind}</td>
+      <td>${procName(l.proc)}${l.proc===lastProc(l.kind)?' <span style="color:#0b69a3;font-weight:700">(완성)</span>':''}</td>
+      <td class="num">${l.good}</td><td class="num">${l.scrap}</td>
+      <td><a class="btn sm" data-i="${i}">취소</a></td></tr>`).join('');
+            $('#logBody').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{
+                const l=log[+b.dataset.i];
+                prod[l.kind][l.proc].g-=l.good; prod[l.kind][l.proc].s-=l.scrap;
+                const m=M.find(x=>x.code===l.code); if(m)m.committed-=(l.good+l.scrap);
+                log.splice(+b.dataset.i,1);
+                buildPanel();renderMatrix();renderLog();
+            });
+        }
+
+        // ── PLC 스트리밍 시뮬레이션 ──
+        let timer=null;
+        function tick(){
+            M.forEach((m,i)=>{
+                if(m.st!=='run')return;
+                m.runSec+=SPEED; $('#rt-'+i).textContent=hhmmss(m.runSec);
+                m._a+=SPEED;
+                if(m._a>=m.ct){const inc=Math.floor(m._a/m.ct);m.cyc+=inc;m._a-=inc*m.ct;
+                    $('#cy-'+i).textContent=m.cyc;
+                    const u=uncf(m); const uc=$('#uc-'+i); uc.textContent=u; uc.className='uncf '+(u?'':'z');
+                    const gd=$('#gd-'+i); if(document.activeElement!==gd) gd.value=u;
+                }
+            });
+        }
+        $('#btnSim').onclick=()=>{
+            if(timer){clearInterval(timer);timer=null;$('#btnSim').textContent='PLC 수집 시작';$('#btnSim').className='btn btn-go';$('#liveLab').innerHTML='<span class="dot off"></span>중지됨';}
+            else{timer=setInterval(tick,1000);$('#btnSim').textContent='PLC 수집 정지';$('#btnSim').className='btn btn-stop';$('#liveLab').innerHTML='<span class="dot"></span>수집중';}
+        };
+
+        // init
+        $('#fProject').innerHTML='<option value="-1">전체 프로젝트</option>'+PROJECTS.map((p,i)=>`<option value="${i}">${p.code} (${p.name})</option>`).join('');
+        rebuildItemSelect();
+        $('#fProject').onchange=()=>{selProj=+$('#fProject').value;rebuildItemSelect();renderMatrix();};
+        $('#fItem').onchange=()=>{selItem=+$('#fItem').value;rebuildUnitSelect();renderMatrix();};
+        $('#fUnit').onchange=()=>{selUnit=+$('#fUnit').value;renderMatrix();};
+
+        renderHead();buildPanel();renderMatrix();renderLog();
+    </script>
+</th:block>
+</html>
