@@ -1,35 +1,39 @@
 <html layout:decorate="~{layout_page}">
 <head>
   <style>
-      /* ===== 통합 화면 레이아웃 (좌: 프로젝트 1 / 우: 수주 2) ===== */
+      /* ===== 통합 화면 레이아웃 (위: 수주목록 / 아래: 수주상세, 3:7) ===== */
       .ps-wrap {
           display: flex;
+          flex-direction: column;     /* 위/아래 배치 */
           gap: 12px;
-          align-items: flex-start;
-          /* 컨텐츠 영역 높이 안에서 좌/우 컬럼이 각자 스크롤 (헤더/타이틀/푸터 높이에 맞춰 조정) */
-          /* height: calc(100vh - 210px);*/
+          align-items: stretch;
+          height: calc(100vh - 210px);
           min-height: 600px;
       }
-      .ps-left {
-          flex: 1 1 33%;
-          min-width: 430px;
-          max-width: 600px;
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          height: 100%;
-          overflow-y: auto;
-          padding-right: 4px;
-      }
-      .ps-right {
-          flex: 2 1 67%;
+      .ps-left {                       /* 상단: 수주 목록 (비율 3) */
+          flex: 3 1 0;
           min-width: 0;
+          min-height: 0;
           display: flex;
           flex-direction: column;
-          gap: 12px;
-          height: 100%;
+      }
+      .ps-right {                      /* 하단: 수주 상세 (비율 7) */
+          flex: 7 1 0;
+          min-width: 0;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+      }
+      .ps-left > .ps-panel,
+      .ps-right > .ps-panel {
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+      }
+      /* 하단 패널: 내용이 길면 패널 내부에서 스크롤 */
+      .ps-right > .ps-panel {
           overflow-y: auto;
-          padding-right: 4px;
       }
       .ps-panel {
           background: #fff;
@@ -87,11 +91,6 @@
       }
       .ps-search dt { font-size: 13px; white-space: nowrap; }
 
-      /* 프로젝트 폼 */
-      #projForm .view-table { table-layout: fixed; width: 100%; }
-      #projForm .view-table th { width: 100px; white-space: nowrap; }
-      #projForm input[type="text"], #projForm input[type="date"] { height: 36px; }
-
       /* 수주상세 헤더 폼 */
       #sujuForm .write-table { table-layout: fixed; width: 100%; }
       #sujuForm .write-table th {
@@ -110,11 +109,16 @@
       #sujuForm textarea { height: 50px; width: 100%; box-sizing: border-box; }
 
       /* ===== 품목 테이블 (기존 수주 화면 스타일 이식) ===== */
+      .item-scroll {
+          width: 100%;
+          overflow-x: auto;
+          margin-top: 8px;
+      }
       .item-table {
           width: 100%;
           border-collapse: collapse;
           table-layout: fixed;
-          margin-top: 8px;
+          margin-top: 0;
       }
       .item-table th {
           background-color: #EDEFF5;
@@ -165,6 +169,12 @@
           background-color: #EDEFF5;
           border: 1px solid #D5D7DC !important;
           color: #333333;
+      }
+      #sujuForm .item-table input[type="date"] {
+          min-width: 0;
+          width: 100%;
+          box-sizing: border-box;
+          padding: 4px 2px;
       }
 
       /* 반응형에서 셀이 display:block으로 깨지지 않도록 이 테이블만 보호 */
@@ -223,8 +233,6 @@
           line-height: 30px !important;
       }
 
-      #projForm .view-table th,
-      #projForm .view-table td,
       #sujuForm .write-table th,
       #sujuForm .write-table td,
       #sujuForm .item-table th,
@@ -232,14 +240,8 @@
           height: auto !important;
           padding: 2px 6px;
       }
-      #projForm .view-table th,
       #sujuForm .write-table th {
           font-size: 13px;
-      }
-      #btnProjClearFilter.active {
-          background: #1d5d90;
-          color: #fff;
-          border-color: #1d5d90;
       }
   </style>
 </head>
@@ -248,13 +250,13 @@
   <div class="layout-contents">
     <div class="page-title-wrap">
       <div class="left">
-        <h2>프로젝트/수주 통합 등록</h2>
+        <h2>수주 등록</h2>
         <a title="북마크" class="bookmark toggle">내 메뉴</a>
       </div>
       <ul class="page-navi">
         <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
         <li>영업 관리</li>
-        <li>프로젝트/수주 통합 등록</li>
+        <li>수주 등록</li>
       </ul>
     </div>
 
@@ -263,109 +265,11 @@
     <section class="section">
       <div class="ps-wrap">
 
-        <!-- ===================== 좌측 : 프로젝트 ===================== -->
+        <!-- ===================== 상단 : 수주 목록 ===================== -->
         <div class="ps-left">
-
-          <!-- ① 프로젝트 목록 -->
           <div class="ps-panel">
             <div class="ps-panel-head">
-              <h3>프로젝트 목록</h3>
-              <ul>
-                <li>
-                  <a class="btn btn-delete" title="전체 보기" id="btnProjClearFilter" style="display:none;">전체 수주 보기</a>
-                </li>
-              </ul>
-            </div>
-            <div class="ps-search">
-              <dl>
-                <dt>프로젝트명</dt>
-                <dd><input type="text" id="projSrchName" placeholder="프로젝트명" style="width:150px;"></dd>
-              </dl>
-              <dl>
-                <dt>계약일</dt>
-                <dd>
-                  <input type="date" id="projSrchStartDt">
-                  ~
-                  <input type="date" id="projSrchEndDt">
-                </dd>
-              </dl>
-              <a class="btn btn-delete" title="검색" id="btnProjSearch">
-                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
-              </a>
-            </div>
-            <div id="projGrid" style="height: 160px;"></div>
-          </div>
-
-          <!-- ② 프로젝트 입력 -->
-          <div class="ps-panel">
-            <div class="ps-panel-head">
-              <h3>프로젝트 <span class="mode-badge" id="projModeBadge">신규</span></h3>
-              <ul>
-                <li><a class="btn btn-excell" id="btnProjNew" title="신규"><img th:src="@{/images/icon/ico-plus.svg}" alt="신규">신규</a></li>
-                <li><a class="btn btn-edit" id="btnProjSave" title="저장"><img th:src="@{/images/icon/ico-save.svg}" alt="저장">저장</a></li>
-                <li><a class="btn btn-delete" id="btnProjDelete" title="삭제"><img th:src="@{/images/icon/ico-delete.svg}" alt="삭제">삭제</a></li>
-              </ul>
-            </div>
-            <form id="projForm">
-              <table class="view-table">
-                <caption>프로젝트 등록</caption>
-                <tbody>
-                <tr>
-                  <th><label for="projno">프로젝트번호</label></th>
-                  <td colspan="3">
-                    <input type="text" id="projno" name="projno" class="wp100" placeholder="저장 시 자동 채번" readonly/>
-                  </td>
-                </tr>
-                <tr>
-                  <th><label for="projnm">프로젝트명<span class="eq">*</span></label></th>
-                  <td colspan="3">
-                    <input type="text" id="projnm" name="projnm" class="wp100" placeholder="프로젝트명"/>
-                  </td>
-                </tr>
-                <tr>
-                  <th><label for="balcltnm">발주처</label></th>
-                  <td colspan="3">
-                    <input type="text" id="balcltnm" name="balcltnm" class="wp100" placeholder="클릭하여 발주처를 선택하세요." readonly>
-                    <input type="hidden" id="balcltcd">
-                  </td>
-                </tr>
-                <tr>
-                  <th><label for="stdate">일자</label></th>
-                  <td colspan="3">
-                    <div class="date-range">
-                      <input type="date" id="stdate" name="stdate"/>
-                      <span class="tilde">~</span>
-                      <input type="date" id="eddate" name="eddate"/>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <th><label for="contdate">계약일자</label></th>
-                  <td colspan="3"><input type="date" id="contdate" name="contdate" class="wp100"/></td>
-                </tr>
-                <tr>
-                  <th><label for="drawdate2d">2D 출도일</label></th>
-                  <td colspan="3"><input type="date" id="drawdate2d" name="drawdate2d" class="wp100"/></td>
-                </tr>
-                <tr>
-                  <th><label for="projRemark">비고</label></th>
-                  <td colspan="3">
-                    <textarea type="text" id="projRemark" name="remark" class="wp100" style="height:100px"  placeholder="비고"></textarea>
-                  </td>
-                </tr>
-                </tbody>
-              </table>
-            </form>
-          </div>
-        </div>
-
-        <!-- ===================== 우측 : 수주 ===================== -->
-        <div class="ps-right">
-
-          <!-- ③ 수주 목록 -->
-          <div class="ps-panel">
-            <div class="ps-panel-head">
-              <h3>수주 목록 <span class="mode-badge" id="sujuFilterBadge">전체</span></h3>
+              <h3>수주 목록</h3>
               <ul></ul>
             </div>
             <div class="ps-search">
@@ -378,32 +282,38 @@
                 </dd>
               </dl>
               <dl>
-                <dt>판매처</dt>
-                <dd><input type="text" id="sujuSrchCompany" placeholder="판매처" style="width:140px;"></dd>
+                <dt>프로젝트</dt>
+                <dd>
+                  <select id="sujuSrchProjno" style="min-width:200px;">
+                    <option value="">전체 프로젝트</option>
+                  </select>
+                </dd>
               </dl>
               <a class="btn btn-delete" title="검색" id="btnSujuSearch">
                 <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
               </a>
             </div>
-            <div id="sujuGrid" style="height: 210px;"></div>
+            <div id="sujuGrid" style="flex:1 1 auto; min-height:90px;"></div>
           </div>
+        </div>
 
-          <!-- ④ 수주상세 입력 -->
+        <!-- ===================== 하단 : 수주상세 ===================== -->
+        <div class="ps-right">
           <div class="ps-panel">
             <div class="ps-panel-head">
               <h3>수주상세 <span class="mode-badge" id="sujuModeBadge">신규</span></h3>
               <ul>
+                <li><a class="btn btn-excell" id="btnExcelNew" title="엑셀업로드"><img th:src="@{/images/icon/ico-plus.svg}" alt="신규">엑셀 업로드</a></li>
                 <li><a class="btn btn-excell" id="btnSujuNew" title="신규"><img th:src="@{/images/icon/ico-plus.svg}" alt="신규">신규</a></li>
                 <li><a class="btn btn-edit y_write_auth" id="btnSujuSave" title="저장"><img th:src="@{/images/icon/ico-save.svg}" alt="저장">저장</a></li>
                 <li><a class="btn btn-delete" id="btnSujuDelete" title="삭제"><img th:src="@{/images/icon/ico-delete.svg}" alt="삭제">삭제</a></li>
               </ul>
             </div>
 
-            <!-- 프로젝트 미선택 시 안내 -->
-            <div class="ps-guide" id="sujuGuide">프로젝트를 먼저 선택하면 수주를 등록할 수 있습니다.</div>
-
-            <form id="sujuForm" style="display:none;">
+            <form id="sujuForm">
               <input type="hidden" id="sujuId" name="id">
+              <input type="hidden" id="sujuProjnm">
+
               <table class="write-table">
                 <caption>수주 등록</caption>
                 <colgroup>
@@ -413,22 +323,23 @@
                   <col>
                 </colgroup>
                 <tbody>
-                <tr>
-                  <th><label>프로젝트</label></th>
-                  <td>
-                    <input type="hidden" id="sujuProjno" name="projno">
-                    <input type="text" id="sujuProjnm" readonly style="background:#f5f6f8;">
+                <!--<tr>
+                  <th><label for="sujuProjSel">프로젝트<span class="eq">*</span></label></th>
+                  <td colspan="3">
+                    <select id="sujuProjSel" name="projno" style="width:100%;">
+                      <option value="">프로젝트를 선택하세요</option>
+                    </select>
                   </td>
+                </tr>-->
+                <tr>
                   <th><label for="cboSujuType">수주구분</label></th>
                   <td><select id="cboSujuType" name="SujuType"></select></td>
-                </tr>
-                <tr>
                   <th><label for="JumunDate">수주일<span class="eq">*</span></label></th>
                   <td><input type="date" id="JumunDate" name="JumunDate"></td>
-                  <th><label for="DueDate">납기일<span class="eq">*</span></label></th>
-                  <td><input type="date" id="DueDate" name="DueDate"></td>
                 </tr>
                 <tr>
+                  <th><label for="DueDate">납기일<span class="eq">*</span></label></th>
+                  <td><input type="date" id="DueDate" name="DueDate"></td>
                   <th><label>수주처<span class="eq">*</span></label></th>
                   <td>
                     <div class="input-with-button">
@@ -440,9 +351,6 @@
                         <img th:src="@{/images/icon/ico-plus.svg}" alt="등록"></a>
                     </div>
                   </td>
-
-                 <!-- <th><label for="totalAmountSum">총액</label></th>
-                  <td><input id="totalAmountSum" name="totalAmountSum" style="text-align:right;" readonly></td>-->
                 </tr>
                 <tr>
                   <th><label for="SujuDescription">비고</label></th>
@@ -451,68 +359,110 @@
                 </tbody>
               </table>
 
-              <!-- ===== 공정/행거 구성 ===== -->
-              <table class="item-table">
-                <colgroup>
-                  <col style="width: 13%">  <!-- 라인 -->
-                  <col style="width: 30%">  <!-- 품목 -->
-                  <col style="width: 15%">  <!-- 품목그룹 -->
-                  <col style="width: 13%">  <!-- SET -->
-                  <col style="width: 13%">  <!-- 유니트 -->
-                  <col style="width: 16%">  <!-- 설비타입 -->
-                  <col style="width: 6%"> <!--행추가 버튼-->
-                </colgroup>
-                <thead>
-                <tr>
-                  <th>라인</th>
-                  <th>품목</th>
-                  <th>품목그룹</th>
-                  <th>SET</th>
-                  <th>유니트</th>
-                  <th>설비타입</th>
-                  <th>
-                    <a class="btn in_btn plus" id="btnAddItemRow" title="행 추가">
-                      <img src="/images/icon/ico-plus.svg" alt="추가"></a>
-                  </th>
-                </tr>
-                </thead>
-                <tbody id="itemTbody">
-                <tr class="item-template-row" style="display:none;">
-                  <td><select name="line"></select></td>
-                  <!--<td>
-                    <div class="input-with-button">
+              <!-- ===== 공정 구성 ===== -->
+              <div class="item-scroll">
+                <table class="item-table">
+                  <colgroup>
+                    <col style="width: 7.5%">   <!-- 라인 -->
+                    <col style="width: 6.5%">  <!-- 공정명 -->
+                    <col style="width: 5.0%">   <!-- JIG SET -->
+                    <col style="width: 5.0%">   <!-- 유니트 -->
+                    <col style="width: 6.5%">   <!-- PIN SHIFT UNIT -->
+                    <col style="width: 8.0%">   <!-- 설비타입 -->
+                    <col style="width: 6.5%">   <!-- 다리발 사양 -->
+                    <col style="width: 6.5%">   <!-- 다리발 개수 -->
+                    <col style="width: 5.5%">   <!-- 제작구분 -->
+                    <col style="width: 9.5%">   <!-- 설계 업체 -->
+                    <col style="width: 8.5%">   <!-- 도면출도일 -->
+                    <col style="width: 9.5%">   <!-- 제작 업체 -->
+                    <col style="width: 8.5%">   <!-- 비고 -->
+                    <col style="width: 3.0%">   <!-- 행추가/삭제 버튼 -->
+                  </colgroup>
+                  <thead>
+                  <tr>
+                    <th>라인</th>
+                    <th>공정명</th>
+                    <th>JIG SET</th>
+                    <th>유니트</th>
+                    <th>PIN SHIFT UNIT</th>
+                    <th>설비타입</th>
+                    <th>다리발 사양</th>
+                    <th>다리발 개수</th>
+                    <th>제작구분</th>
+                    <th>설계 업체</th>
+                    <th>도면출도일</th>
+                    <th>제작 업체</th>
+                    <th>비고</th>
+                    <th>
+                      <a class="btn in_btn plus" id="btnAddItemRow" title="행 추가">
+                        <img src="/images/icon/ico-plus.svg" alt="추가"></a>
+                    </th>
+                  </tr>
+                  </thead>
+                  <tbody id="itemTbody">
+                  <tr class="item-template-row" style="display:none;">
+                    <!-- 라인 -->
+                    <td><input type="text" name="line" placeholder="라인"/></td>
+                    <!-- 공정명 -->
+                    <td>
                       <input type="hidden" name="suju_id"/>
                       <input type="hidden" name="Material_id"/>
                       <input type="hidden" name="product_code"/>
                       <input type="hidden" name="group_code"/>
-                      <input type="text" name="txtProductName" placeholder="코드/품명 입력 후 엔터" autocomplete="off" />
-                      &lt;!&ndash;<a class="btn in_btn ps-inbtn" title="품목 검색" onclick="sujuPanel.openMaterialPopup($(this).closest('tr'))">
-                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색"/></a>&ndash;&gt;
-                    </div>
-                  </td>-->
-                  <td>
-                    <input type="hidden" name="suju_id"/>
-                    <input type="hidden" name="Material_id"/>
-                    <input type="hidden" name="product_code"/>
-                    <input type="hidden" name="group_code"/>
-                    <input type="text" name="txtProductName" placeholder="코드/품명 입력 후 엔터" autocomplete="off"/>
-                  </td>
-                  <td>
-                    <select name="MaterialGroupName">
-                      <option value="proc">공정</option>
-                      <option value="hanger">행거</option>
-                    </select>
-                  </td>
-                  <td><input type="text" style="text-align:center;" name="setCnt" placeholder="SET"/></td>
-                  <td><input type="text" style="text-align:center;" name="unit" placeholder="유니트"/></td>
-                  <td><select name="equiptype"></select></td>
-                  <td>
-                    <a class="btn in_btn" title="삭제" onclick="removeItemRow(this)">
-                      <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제"/></a>
-                  </td>
-                </tr>
-                </tbody>
-              </table>
+                      <!-- 이 화면은 공정 입력 전용: 품목유형은 proc 고정 -->
+                      <input type="hidden" name="MaterialGroupName" value="proc"/>
+                      <input type="text" name="txtProductName" placeholder="코드/공정명 입력 후 엔터" autocomplete="off"/>
+                    </td>
+                    <!-- JIG SET -->
+                    <td><input type="text" style="text-align:center;" name="setCnt" placeholder="SET"/></td>
+                    <!-- 유니트 -->
+                    <td><input type="text" style="text-align:center;" name="unit" placeholder="유니트"/></td>
+                    <!-- PIN SHIFT UNIT -->
+                    <td><input type="text" style="text-align:center;" name="pinShiftUnit" placeholder="PIN SHIFT"/></td>
+                    <!-- 설비타입 -->
+                    <td><input type="text" name="equiptype" placeholder="설비타입" /></td>
+                    <!-- 다리발 사양 -->
+                    <td><input type="text" style="text-align:center;" name="legSpec" placeholder="다리발 사양"/></td>
+                    <!-- 다리발 개수 -->
+                    <td><input type="text" style="text-align:center;" name="legCnt" placeholder="다리발 개수"/></td>
+                    <!-- 제작구분 -->
+                    <td>
+                      <select name="makeType">
+                        <option value="self">내작</option>
+                        <option value="outsource">외작</option>
+                      </select>
+                    </td>
+                    <!-- 설계 업체 -->
+                    <td>
+                      <div class="input-with-button">
+                        <input type="hidden" name="designCompId"/>
+                        <input type="text" name="designCompName" placeholder="설계 업체" readonly/>
+                        <a class="btn in_btn ps-inbtn btn-design-comp" title="설계 업체 검색">
+                          <img th:src="@{/images/icon/btn-srch.svg}" alt="검색"/></a>
+                      </div>
+                    </td>
+                    <!-- 도면출도일 -->
+                    <td><input type="date" name="drawDate" /></td>
+                    <!-- 제작 업체 -->
+                    <td>
+                      <div class="input-with-button">
+                        <input type="hidden" name="makeCompId"/>
+                        <input type="text" name="makeCompName" placeholder="제작 업체" readonly/>
+                        <a class="btn in_btn ps-inbtn btn-make-comp" title="제작 업체 검색">
+                          <img th:src="@{/images/icon/btn-srch.svg}" alt="검색"/></a>
+                      </div>
+                    </td>
+                    <!-- 비고 -->
+                    <td><input type="text" name="itemRemark" placeholder="비고"/></td>
+                    <!-- 삭제 -->
+                    <td>
+                      <a class="btn in_btn" title="삭제" onclick="removeItemRow(this)">
+                        <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제"/></a>
+                    </td>
+                  </tr>
+                  </tbody>
+                </table>
+              </div>
 
               <div class="ps-form-foot">
                 <span class="warn" id="sujuNotEditable" style="display:none;">* 계획 또는 출하가 진행된 수주는 수정이 불가합니다.</span>
@@ -520,11 +470,51 @@
               </div>
             </form>
           </div>
-
         </div>
       </div>
     </section>
   </div>
+
+
+
+  <script type="text/x-tmpl" id="excelUploadTemplate">
+    <div class="content_wrap popup" id="div_excel_upload">
+      <div class="table-wrap">
+        <form id="excelUploadForm">
+          <table class="write-table">
+            <colgroup>
+              <col style="width: 25%;"/>
+              <col style="width: 75%;"/>
+            </colgroup>
+            <tbody>
+              <tr>
+                <th style="text-align:center"><label>첨부파일</label></th>
+                <td>
+                  <input style="width:320px; height:40px;" type="file" id="upload_file"
+                         name="upload_file" accept=".xls,.xlsx"/>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </form>
+      </div>
+
+      <div class="pt-2" style="margin-top:8px;">
+        <span style="color:#555;">* 제작출도리스트 / 공정별 수량집계 양식만 업로드 가능합니다.</span>
+        <p style="margin:6px 0 0; font-size:12px; color:#888;">
+          · 2행(헤더)을 기준으로 양식을 자동 인식합니다.<br/>
+          · 업로드 후 하단 품목 테이블에 채워지며, 수주처/수주일/납기일은 직접 입력 후 저장하세요.
+        </p>
+        <textarea id="upload_message" style="display:none; width:100%; height:120px;"></textarea>
+      </div>
+
+      <div class="popup-button">
+        <button type="button" class="btn-popup y_write_auth" id="btn_excel_save">업로드</button>
+        <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+      </div>
+    </div>
+  </script>
+
 </th:block>
 
 <th:block layout:fragment="scripts">
@@ -547,244 +537,13 @@
    }
 
    /* =========================================================
-    *  프로젝트 패널 (좌측)
-    * ========================================================= */
-   class ProjectPanel {
-    constructor() {
-     this.url = '/api/transaction/projectRegistration';
-     this.grid = null;
-     this.viewData = new wijmo.collections.CollectionView();
-     this.selectedProj = null;   // 현재 선택된 프로젝트
-     this.init();
-    }
-
-    init() {
-     const _this = this;
-
-     this.grid = new wijmo.grid.FlexGrid('#projGrid', {
-      autoGenerateColumns: false,
-      selectionMode: wijmo.grid.SelectionMode.Row,
-      headersVisibility: wijmo.grid.HeadersVisibility.Column,
-      isReadOnly: true,
-      showMarquee: true,
-      formatItem: (s, e) => {
-       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-        e.cell.style.textAlign = 'center';
-       }
-      },
-      columns: [
-       {binding: 'projno', header: '번호', width: 110, align: 'center'},
-       {binding: 'projnm', header: '프로젝트명', width: '*'},
-       {binding: 'balcltnm', header: '발주처', width: 130}
-      ],
-      itemsSource: this.viewData
-     });
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = '프로젝트목록';
-
-     // ★ 목록 클릭(선택 변경) → 상세 바인딩 + 우측 수주 목록 필터
-     this.grid.selectionChanged.addHandler((s) => {
-      const item = s.selectedItems[0];
-      if (!item) return;
-      if (item === _this.selectedProj) return;
-
-      // 수주상세에 미저장 변경이 있으면 확인
-      if (sujuPanel && sujuPanel.isDirty()) {
-       Alert.confirm('', '저장하지 않은 수주 내용이 있습니다. 이동하시겠습니까?', function () {
-        _this.applySelection(item);
-       }, function () {
-        // 선택 원복
-        if (_this.selectedProj) {
-         GridUtil.selectRowById(_this.grid, _this.selectedProj.projno, 'projno');
-        }
-       });
-      } else {
-       _this.applySelection(item);
-      }
-     });
-
-     // 검색
-     $('#btnProjSearch').click(() => _this.search());
-     $('#projSrchName').on('keypress', function (e) {
-      if (e.keyCode === 13) _this.search();
-     });
-
-     // 신규
-     $('#btnProjNew').click(function (e) {
-      e.preventDefault();
-      _this.resetForm();
-     });
-
-     // 저장
-     $('#btnProjSave').click(function (e) {
-      e.preventDefault();
-      _this.save();
-     });
-
-     // 삭제
-     $('#btnProjDelete').click(function (e) {
-      e.preventDefault();
-      _this.remove();
-     });
-
-     // 전체 수주 보기 (프로젝트 필터 해제)
-     $('#btnProjClearFilter').click(function () {
-      _this.clearSelection();
-     });
-
-     // 발주처 팝업
-     $('#balcltnm').click(function () {
-      const pop = new PopCompComponent();
-      pop.show(function (items) {
-       $('#balcltnm').val(items.compname);
-       $('#balcltcd').val(items.id);
-      });
-     });
-    }
-
-    // 프로젝트 선택 적용 → 폼 바인딩 + 수주 패널 연동
-    applySelection(item) {
-     this.selectedProj = item;
-     this.bindForm(item);
-     $('#btnProjClearFilter').show().removeClass('active');
-     sujuPanel.setProject(item);          // 수주 목록 필터 + 상세 초기화
-    }
-
-    // 선택 해제 → 전체 수주 보기
-    clearSelection() {
-     this.selectedProj = null;
-     this.grid.select(-1, -1);
-     this.resetForm();
-     $('#btnProjClearFilter').hide().addClass('active');
-     sujuPanel.setProject(null);
-    }
-
-    bindForm(item) {
-     $('#projno').val(item.projno || '');
-     $('#projnm').val(item.projnm || '');
-     $('#balcltnm').val(item.balcltnm || '');
-     $('#balcltcd').val(item.balcltcd || '');
-     $('#stdate').val(this.formatDateDash(item.stdate));
-     $('#eddate').val(this.formatDateDash(item.eddate));
-     $('#contdate').val(this.formatDateDash(item.contdate));
-     $('#drawdate2d').val(this.formatDateDash(item.drawdate2d));
-     $('#projRemark').val(item.remark || '');
-     $('#projModeBadge').text('수정').addClass('edit');
-    }
-
-    resetForm() {
-     $('#projForm')[0].reset();
-     $('#projno').val('');
-     $('#balcltcd').val('');
-     const todayStr = CommonUtil.getYYYYMMDD();
-     $('#stdate').val(todayStr);
-     $('#eddate').val(todayStr);
-     $('#contdate').val(todayStr);
-     $('#projModeBadge').text('신규').removeClass('edit');
-     $('#drawdate2d').val('');
-    }
-
-    formatDateDash(yyyymmdd) {
-     if (!yyyymmdd) return '';
-     const s = String(yyyymmdd);
-     if (s.includes('-')) return s;
-     if (s.length !== 8) return '';
-     return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
-    }
-
-    search() {
-     const _this = this;
-     const data = {
-      srchStartDt: $('#projSrchStartDt').val(),
-      srchEndDt: $('#projSrchEndDt').val(),
-      txtDescription: $('#projSrchName').val(),
-      spjangcd: $('#spjangcdHidden').val()
-     };
-     AjaxUtil.getAsyncData(this.url + '/read', data, function (result) {
-      if (result != null) {
-       _this.viewData.sourceCollection = result.data || [];
-       // 저장 직후 재선택
-       if (window.selectedProjno) {
-        GridUtil.selectRowById(_this.grid, window.selectedProjno, 'projno');
-        window.selectedProjno = null;
-       }
-      }
-     });
-    }
-
-    save() {
-     const _this = this;
-     if (!$('#projnm').val().trim()) {
-      Alert.alert('', '프로젝트명을 입력하세요.');
-      return;
-     }
-
-     const data = {
-      projno: $('#projno').val(),
-      projnm: $('#projnm').val(),
-      balcltnm: $('#balcltnm').val(),
-      balcltcd: $('#balcltcd').val(),
-      stdate: $('#stdate').val(),
-      eddate: $('#eddate').val(),
-      contdate: $('#contdate').val(),
-      remark: $('#projRemark').val(),
-      spjangcd: $('#spjangcdHidden').val(),
-      drawdate2d: $('#drawdate2d').val(),
-     };
-
-     Alert.confirm('', '저장하시겠습니까?', function () {
-      AjaxUtil.postAsyncData(_this.url + '/save', data, function (result) {
-       if (result && result.success) {
-        Notify.success('저장되었습니다.');
-        // ★ 채번된 projno 유지 → 목록 재조회 후 자동 선택 → 바로 수주 입력 가능
-        const savedNo = (result.data && result.data.projno) || data.projno;
-        if (savedNo) {
-         $('#projno').val(savedNo);
-         window.selectedProjno = savedNo;
-         $('#projModeBadge').text('수정').addClass('edit');
-        }
-        _this.search();
-       } else {
-        Alert.alert('', (result && result.message) || '저장에 실패했습니다.');
-       }
-      });
-     });
-    }
-
-    remove() {
-     const _this = this;
-     const projno = $('#projno').val();
-     if (!projno) {
-      Alert.alert('', '삭제할 프로젝트를 선택하세요.');
-      return;
-     }
-     // ※ 서버에서 해당 프로젝트의 수주/WBS 존재 여부 체크 후
-     //    있으면 success:false + message 로 거부할 것
-     Alert.confirm('', '삭제하시겠습니까?', function () {
-      AjaxUtil.postAsyncData(_this.url + '/delete',
-       {projno: projno, spjangcd: $('#spjangcdHidden').val()},
-       function (result) {
-        if (result && result.success) {
-         Notify.success('삭제되었습니다.');
-         _this.clearSelection();
-         _this.search();
-        } else {
-         Alert.alert('', (result && result.message) || '삭제에 실패했습니다.');
-        }
-       });
-     });
-    }
-   }
-
-   /* =========================================================
-    *  수주 패널 (우측)
+    *  수주 패널 (상단: 목록 / 하단: 상세)
     * ========================================================= */
    class SujuPanel {
     constructor() {
      this.url = '/api/sales/suju';
      this.grid = null;
      this.viewData = new wijmo.collections.CollectionView();
-     this.currentProj = null;   // 선택된 프로젝트 (null = 전체)
      this.itemIndex = 0;        // 품목 행 인덱스 채번
      this.dirty = false;        // 미저장 변경 여부
      this.suppressDirty = false;
@@ -841,17 +600,13 @@
 
      // 검색
      $('#btnSujuSearch').click(() => _this.search());
-     $('#sujuSrchCompany').on('keypress', function (e) {
-      if (e.keyCode === 13) _this.search();
+     $('#sujuSrchProjno').on('change', function () {
+      _this.search();
      });
 
      // 신규 / 저장 / 삭제
      $('#btnSujuNew').click(function (e) {
       e.preventDefault();
-      if (!_this.currentProj) {
-       Alert.alert('', '프로젝트를 먼저 선택하세요.');
-       return;
-      }
       _this.resetForm('new');
      });
      $('#btnSujuSave').click(function (e) {
@@ -863,25 +618,165 @@
       _this.remove();
      });
 
+     //엑셀 업로드
+     $('#btnExcelNew').click(function (e) {
+      e.preventDefault();
+      _this.openExcelUpload();
+     });
+
      // 수주구분 콤보
-     AjaxUtil.fillSelectOptions($('#cboSujuType'), 'system_code', 'choose', 'sales', 'suju_type');
+     AjaxUtil.fillSelectOptions($('#cboSujuType'), 'system_code', 'choose', 'plan', 'suju_type');
 
      this.bindFormEvents();
     }
 
-    /* ---------- 프로젝트 연동 ---------- */
+    /* ---------- 엑셀 업로드 팝업 ---------- */
+    openExcelUpload() {
+     const _this = this;
 
-    // 프로젝트 패널에서 호출: 선택(객체) 또는 해제(null)
-    setProject(proj) {
-     this.currentProj = proj;
-     if (proj) {
-      $('#sujuFilterBadge').text(proj.projnm).addClass('edit');
-      this.hideForm();
-     } else {
-      $('#sujuFilterBadge').text('전체').removeClass('edit');
-      this.hideForm();
+     // 기존 팝업 있으면 닫기
+     if (_this.excelPopup) {
+      _this.excelPopup.close();
+      _this.excelPopup = null;
      }
-     this.search();
+
+     const content = tmpl('excelUploadTemplate', {});
+     _this.excelPopup = new PopupDraggable('수주 엑셀 업로드');
+     _this.excelPopup.open({ width: 560, height: 215, $content: $(content) });
+
+     // 업로드 버튼
+     $(document).off('click', '#btn_excel_save').on('click', '#btn_excel_save', function () {
+      _this.uploadExcel();
+     });
+     // 닫기 버튼
+     $(document).off('click', '#modal-close-button').on('click', '#modal-close-button', function () {
+      if (_this.excelPopup) {
+       _this.excelPopup.close();
+       _this.excelPopup = null;
+      }
+     });
+    }
+
+    uploadExcel() {
+     const _this = this;
+     const fileInput = document.getElementById('upload_file');
+     if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+      Alert.alert('', '엑셀 파일을 선택하세요.');
+      return;
+     }
+
+     const formData = new FormData(document.getElementById('excelUploadForm'));
+
+     const res = AjaxUtil.postFileSyncData(_this.url + '/excel_parse', formData);
+     if (!res) {
+      Alert.alert('업로드 실패', '서버 응답이 없습니다.');
+      return;
+     }
+     if (!res.success) {
+      const msg = res.message || '엑셀 파싱에 실패했습니다.';
+      $('#upload_message').show().val(msg);
+      Alert.alert('업로드 실패', msg);
+      return;
+     }
+
+     const rows = (res.data && res.data.items) || [];
+     if (rows.length === 0) {
+      Alert.alert('', '읽어들인 데이터가 없습니다. 양식을 확인하세요.');
+      return;
+     }
+
+     _this.fillItemsFromExcel(rows);
+     const formName = (res.data && res.data.formName) || '';
+     Notify.success(`${formName ? formName + ' ' : ''}${rows.length}건을 불러왔습니다. 수주처/일자 입력 후 저장하세요.`);
+
+     // ★ 신규 등록된 거래처 안내
+     const newComps = (res.data && res.data.newCompanies) || [];
+     if (newComps.length) {
+      const names = newComps
+      .map(c => c.name + (c.code ? ` (${c.code})` : ''))
+      .join(', ');
+      Alert.alert(
+       '신규 거래처 등록',
+       `다음 거래처가 신규로 등록되었습니다. 사업자번호 등 상세정보는 거래처 관리에서 추후 등록해 주세요.\n\n${names}`
+      );
+     }
+
+     if (_this.excelPopup) {
+      _this.excelPopup.close();
+      _this.excelPopup = null;
+     }
+    }
+
+    /* ---------- 파싱 결과를 품목 테이블에 채움 ---------- */
+    fillItemsFromExcel(rows) {
+     this.suppressDirty = true;
+     // 신규 입력 상태가 아니면 신규로 전환 (헤더 비우고 행만 채움)
+     if (!$('#sujuForm').is(':visible')) this.showForm();
+     this.clearItemRows();
+
+     const _this = this;
+     rows.forEach(it => {
+      const $row = _this.addItemRows(1);
+      $row.find('input[name^="line_"]').val(it.line || '');
+      $row.find('input[name^="txtProductName_"]').val(it.procName || '');
+      $row.find('input[name^="setCnt_"]').val(it.jigSet || '');
+      $row.find('input[name^="unit_"]').val(it.unitQty || '');
+      $row.find('input[name^="pinShiftUnit_"]').val(it.pinShiftUnit || '');
+      $row.find('input[name^="equiptype_"]').val(it.equipType || '');
+      $row.find('input[name^="legSpec_"]').val(it.legSpec || '');
+      $row.find('input[name^="legCnt_"]').val(it.legCnt || '');
+      $row.find('input[name^="designCompName_"]').val(it.designCompName || '');
+      $row.find('input[name^="drawDate_"]').val(it.drawDate || '');
+      $row.find('input[name^="makeCompName_"]').val(it.makeCompName || '');
+      $row.find('input[name^="itemRemark_"]').val(it.itemRemark || '');
+     });
+     this.addItemRows(1); // 추가 입력용 빈 행
+     this.dirty = true;   // 검토 후 저장하도록 dirty 처리
+     this.suppressDirty = false;
+    }
+
+    /* ---------- 프로젝트 목록 로딩 ---------- */
+    escapeHtml(str) {
+     if (str === null || str === undefined) return '';
+     return String(str)
+     .replace(/&/g, '&amp;')
+     .replace(/"/g, '&quot;')
+     .replace(/</g, '&lt;')
+     .replace(/>/g, '&gt;');
+    }
+
+    loadProjectOptions() {
+     const _this = this;
+     AjaxUtil.getAsyncData('/api/transaction/projectRegistration/read',
+      {
+       spjangcd: $('#spjangcdHidden').val(),
+       srchStartDt: $("#sujuSrchStartDt").val(),
+       srchEndDt: $("#sujuSrchEndDt").val(),
+       txtDescription: ''
+      },
+      function (result) {
+       const list = (result && result.data) || [];
+       _this.projectList = list;
+
+       const $srch = $('#sujuSrchProjno');
+       const $detail = $('#sujuProjSel');
+       const srchVal = $srch.val();
+       const detailVal = $detail.val();
+
+       $srch.empty().append('<option value="">전체 프로젝트</option>');
+       $detail.empty().append('<option value="">프로젝트를 선택하세요</option>');
+
+       list.forEach(function (p) {
+        const no = _this.escapeHtml(p.projno);
+        const nm = _this.escapeHtml(p.projnm);
+        const label = (p.projno ? no + ' / ' : '') + nm;
+        $srch.append(`<option value="${no}">${label}</option>`);
+        $detail.append(`<option value="${no}" data-projnm="${nm}">${label}</option>`);
+       });
+
+       if (srchVal) $srch.val(srchVal);
+       if (detailVal) $detail.val(detailVal);
+      });
     }
 
     /* ---------- 조회 ---------- */
@@ -890,8 +785,7 @@
      const data = {
       start: $('#sujuSrchStartDt').val(),
       end: $('#sujuSrchEndDt').val(),
-      company: $('#sujuSrchCompany').val(),
-      projno: this.currentProj ? this.currentProj.projno : '',   // ★ 프로젝트 필터
+      projno: $('#sujuSrchProjno').val(),   // ★ 프로젝트로 검색
       action: 'read'
      };
      AjaxUtil.getAsyncData(this.url + '/read', data, function (result) {
@@ -928,8 +822,9 @@
 
      $('#sujuModeBadge').text('수정 - ' + (d.JumunNumber || row.JumunNumber || '')).addClass('edit');
      $('#sujuId').val(d.id || row.id || '');
-     $('#sujuProjno').val(d.projno || row.projno || (this.currentProj ? this.currentProj.projno : ''));
-     $('#sujuProjnm').val(d.projnm || row.projnm || (this.currentProj ? this.currentProj.projnm : ''));
+     // 수주에 연결된 프로젝트 선택
+     $('#sujuProjSel').val(d.projno || row.projno || '');
+     $('#sujuProjnm').val(d.projnm || row.projnm || '');
      $('#JumunDate').val(d.JumunDate || '');
      $('#DueDate').val(d.DueDate || '');
      $('#SuJuOrderId').val(d.order_id || d.SuJuOrderId || '');
@@ -951,17 +846,25 @@
        $row.find('input[name^="product_code_"]').val(it.product_code || '');
        $row.find('input[name^="Material_id_"]').val(it.Material_id || '');
        $row.find('input[name^="txtProductName_"]').val(it.txtProductName || it.product_name || '');
+       $row.find('input[name^="setCnt_"]').val(it.setCnt || it.Standard || '');
        $row.find('input[name^="unit_"]').val(it.unit || it.UnitName || '');
-       $row.find('input[name^="standard_"]').val(it.standard || it.Standard || '');
-       $row.find('input[name^="quantity_"]').val(fmtComma(it.quantity ?? it.Qty));
-       $row.find('input[name^="unitPrice_"]').val(fmtComma(it.unitPrice ?? it.UnitPrice));
-       $row.find('input[name^="originalUnitPrice_"]').val(fmtComma(it.unitPrice ?? it.UnitPrice));
-       $row.find('input[name^="supplyAmount_"]').val(fmtComma(it.supplyAmount ?? it.SupplyAmount));
-       $row.find('input[name^="VatAmount_"]').val(fmtComma(it.VatAmount ?? it.vat_amount));
-       $row.find('input[name^="totalAmount_"]').val(fmtComma(it.totalAmount ?? it.TotalAmount));
-       // 기존 금액 보존 플래그
-       $row.data('supplyEdited', true);
-       $row.data('vatEdited', true);
+       $row.find('input[name^="pinShiftUnit_"]').val(it.pinShiftUnit || '');
+       // 라인
+       if (it.line || it.lineId) $row.find('select[name^="line_"]').val(it.line || it.lineId);
+       // 설비타입 (proc 옵션이 이미 채워진 상태)
+       if (it.equiptype) $row.find('select[name^="equiptype_"]').val(it.equiptype);
+       // 제작구분
+       $row.find('select[name^="makeType_"]').val(it.makeType || '');
+       // 설계 업체
+       $row.find('input[name^="designCompId_"]').val(it.designCompId || '');
+       $row.find('input[name^="designCompName_"]').val(it.designCompName || '');
+       // 도면출도일
+       $row.find('input[name^="drawDate_"]').val(it.drawDate || '');
+       // 제작 업체
+       $row.find('input[name^="makeCompId_"]').val(it.makeCompId || '');
+       $row.find('input[name^="makeCompName_"]').val(it.makeCompName || '');
+       // 비고
+       $row.find('input[name^="itemRemark_"]').val(it.itemRemark || '');
       });
       this.addItemRows(1); // 추가 입력용 빈 행
      }
@@ -974,34 +877,24 @@
 
     /* ---------- 폼 표시/초기화 ---------- */
     showForm() {
-     $('#sujuGuide').hide();
      $('#sujuForm').show();
     }
 
-    hideForm() {
-     $('#sujuForm').hide();
-     $('#sujuGuide').show();
-     this.dirty = false;
-     $('#sujuModeBadge').text('신규').removeClass('edit');
-    }
-
-    // mode: 'new' (프로젝트 선택 상태 전제)
+    // mode: 'new'
     resetForm(mode) {
      this.suppressDirty = true;
      this.showForm();
      $('#sujuForm')[0].reset();
      $('#sujuId').val('');
+     // 신규 시 목록에서 선택된 프로젝트가 있으면 기본값으로 연결
+     $('#sujuProjSel').val($('#sujuSrchProjno').val() || '');
+     $('#sujuProjnm').val('');
      $('#SuJuOrderId').val('');
      $('#cboCompany').val('');
      $('#sujuModeBadge').text('신규').removeClass('edit');
      $('#sujuNotEditable').hide();
      $('#btnSujuSave').show();
 
-     // 프로젝트 자동 세팅
-     if (this.currentProj) {
-      $('#sujuProjno').val(this.currentProj.projno);
-      $('#sujuProjnm').val(this.currentProj.projnm);
-     }
      // 기본 일자: 수주일 오늘 / 납기일 +10일
      $('#JumunDate').val(CommonUtil.getYYYYMMDD());
      $('#DueDate').val(CommonUtil.getYYYYMMDD(10));
@@ -1060,7 +953,7 @@
       // 라인 콤보
       AjaxUtil.fillSelectOptions($newRow.find('select[name^="line_"]'), 'workcenter', 'choose','58'); // dash 를 가본으로
 
-    // 설비타입: 품목그룹 기본값 기준으로 토글이 채움 (여기서 user_code_id 직접 호출 X)
+      // 설비타입: 품목그룹 기본값 기준으로 토글이 채움 (여기서 user_code_id 직접 호출 X)
       this.applyEquipState($newRow);
       $tbody.append($newRow);
       $last = $newRow;
@@ -1069,9 +962,9 @@
     }
 
 
-    /* ---------- 품목그룹(proc/hanger)에 따라 설비타입 토글 ---------- */
+    /* ---------- 품목그룹(proc 고정)에 따라 설비타입 채움 ---------- */
     applyEquipState($row) {
-     const group = String($row.find('select[name^="MaterialGroupName_"]').val() || '');
+     const group = String($row.find('[name^="MaterialGroupName_"]').val() || 'proc');
      const $equip = $row.find('select[name^="equiptype_"]');
      const cur = $equip.val();   // 기존 선택값 보존
 
@@ -1181,6 +1074,28 @@
       _this.addItemRows(3);
      });
 
+     // 설계 업체 검색 (행별)
+     $form.on('click', '.btn-design-comp', function () {
+      const $row = $(this).closest('tr');
+      const pop = new PopCompComponent();
+      pop.show(function (items) {
+       $row.find('input[name^="designCompId_"]').val(items.id || '');
+       $row.find('input[name^="designCompName_"]').val(items.compname || '');
+       _this.dirty = true;
+      });
+     });
+
+     // 제작 업체 검색 (행별)
+     $form.on('click', '.btn-make-comp', function () {
+      const $row = $(this).closest('tr');
+      const pop = new PopCompComponent();
+      pop.show(function (items) {
+       $row.find('input[name^="makeCompId_"]').val(items.id || '');
+       $row.find('input[name^="makeCompName_"]').val(items.compname || '');
+       _this.dirty = true;
+      });
+     });
+
      // 품목 검색 (엔터)
      $form.on('keydown', 'input[name^="txtProductName_"]', function (e) {
       if (e.key !== 'Enter' && e.keyCode !== 13) return;
@@ -1270,7 +1185,7 @@
      });
 
      // 키보드 네비게이션 (Enter/방향키)
-     const focusOrder = ['txtProductName_', 'standard_', 'quantity_', 'unitPrice_', 'supplyAmount_', 'VatAmount_'];
+     const focusOrder = ['txtProductName_', 'setCnt_', 'unit_', 'pinShiftUnit_', 'itemRemark_'];
      $form.on('keydown', '.item-table input', function (e) {
       const key = e.key;
       if (!['Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) return;
@@ -1328,8 +1243,8 @@
      const _this = this;
 
      // 검증
-     if (!$('#sujuProjno').val()) {
-      Alert.alert('', '프로젝트를 먼저 선택하세요.');
+     if (!$('#sujuProjSel').val()) {
+      Alert.alert('', '프로젝트를 선택하세요.');
       return;
      }
      if (!$('#SuJuOrderName').val()) {
@@ -1344,16 +1259,10 @@
      $('#itemTbody tr:visible').each(function (i) {
       const $row = $(this);
       const productName = ($row.find('input[name^="txtProductName_"]').val() || '').trim();
-      if (!productName) return;   // 품목명 없는 빈 행 스킵
+      if (!productName) return;   // 공정명 없는 빈 행 스킵
 
-      const group = String($row.find('select[name^="MaterialGroupName_"]').val() || '');
+      const group = String($row.find('[name^="MaterialGroupName_"]').val() || 'proc');
       const equip = $row.find('select[name^="equiptype_"]').val() || '';
-
-      // 공정은 설비타입 필수 (불필요하면 이 블록 삭제)
-      if (group === 'proc' && !equip) {
-       rowError = `(${i + 1}번째 행) 공정은 설비타입을 선택하세요.`;
-       return false;
-      }
 
       // 라인 + factory_id 추출 (라인 option의 data에 Factory_id가 실려 있어야 함)
       const $line = $row.find('select[name^="line_"]');
@@ -1368,17 +1277,26 @@
        suju_id: $row.find('input[name^="suju_id_"]').val() || '',
        Material_id: normMaterialId,
        isNewMaterial: normMaterialId == null,             // 서버 get-or-create 신호
-       txtProductName: productName,
-       MaterialGroupName: group,                          // proc / hanger
+       txtProductName: productName,                        // 공정명
+       MaterialGroupName: group,                          // proc 고정
        product_code: $row.find('input[name^="product_code_"]').val() || '',
 
        line: lineVal,                                     // 라인 코드/값
        lineId: lineVal,                                   // workcenter id
        factoryId: factoryId,                              // 신규 품목 생성용
 
-       setCnt: ($row.find('input[name^="setCnt_"]').val() || '').trim(),   // → Standard
-       unit: ($row.find('input[name^="unit_"]').val() || '').trim(),       // → SujuQty
-       equiptype: (group === 'proc') ? equip : ''         // 행거는 설비 비움
+       setCnt: ($row.find('input[name^="setCnt_"]').val() || '').trim(),         // JIG SET → Standard
+       unit: ($row.find('input[name^="unit_"]').val() || '').trim(),             // 유니트 → SujuQty
+       pinShiftUnit: ($row.find('input[name^="pinShiftUnit_"]').val() || '').trim(), // PIN SHIFT UNIT
+       equiptype: equip,                                  // 설비타입
+
+       makeType: $row.find('select[name^="makeType_"]').val() || '',             // 제작구분
+       designCompId: $row.find('input[name^="designCompId_"]').val() || '',      // 설계 업체 id
+       designCompName: ($row.find('input[name^="designCompName_"]').val() || '').trim(),
+       drawDate: $row.find('input[name^="drawDate_"]').val() || '',              // 도면출도일
+       makeCompId: $row.find('input[name^="makeCompId_"]').val() || '',          // 제작 업체 id
+       makeCompName: ($row.find('input[name^="makeCompName_"]').val() || '').trim(),
+       itemRemark: ($row.find('input[name^="itemRemark_"]').val() || '').trim()  // 비고
       });
      });
 
@@ -1394,7 +1312,7 @@
      Alert.confirm('', '저장하시겠습니까?', function () {
       const payload = {
        id: $('#sujuId').val(),
-       projno: $('#sujuProjno').val(),
+       projno: $('#sujuProjSel').val(),    // ★ 선택한 프로젝트와 연결
        JumunDate: $('#JumunDate').val(),
        DueDate: $('#DueDate').val(),
        SujuType: $('#cboSujuType').val(),
@@ -1436,8 +1354,7 @@
         if (res.success) {
          Notify.success('삭제되었습니다.');
          _this.search();
-         if (_this.currentProj) _this.resetForm('new');
-         else _this.hideForm();
+         _this.resetForm('new');
         } else {
          Alert.alert('', res.message);
         }
@@ -1447,7 +1364,7 @@
    }
 
    /* =========================================================
-    *  품목 행 삭제 (최소 3행 유지)
+    *  품목 행 삭제 (최소 2행 유지)
     * ========================================================= */
    function removeItemRow(el) {
     const $tbody = $(el).closest('tbody');
@@ -1468,7 +1385,6 @@
    /* =========================================================
     *  페이지 초기화
     * ========================================================= */
-   let projPanel = null;
    let sujuPanel = null;
 
    $(document).ready(function () {
@@ -1476,7 +1392,6 @@
     if (spjangcd) $('#spjangcdHidden').val(spjangcd);
 
     sujuPanel = new SujuPanel();
-    projPanel = new ProjectPanel();
 
     // 검색 기간 기본값
     const now = new Date();
@@ -1484,17 +1399,13 @@
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     const oneMonthLater = new Date(now);
     oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    $('#projSrchStartDt').val(CommonUtil.formatYYYYMMDD(monthStart));
-    $('#projSrchEndDt').val(CommonUtil.formatYYYYMMDD(now));
     $('#sujuSrchStartDt').val(CommonUtil.formatYYYYMMDD(oneYearAgo));
     $('#sujuSrchEndDt').val(CommonUtil.formatYYYYMMDD(oneMonthLater));
 
-    projPanel.search();
-    sujuPanel.search();   // 초기엔 전체 수주
-
-    $('#btnProjClearFilter').show().addClass('active');
+    sujuPanel.loadProjectOptions();
+    sujuPanel.search();         // 전체 수주 목록 조회
+    sujuPanel.resetForm('new'); // 하단에 신규 입력 폼 표시
    });
   </script>
 </th:block>

@@ -14,6 +14,7 @@ import mes.domain.repository.*;
 import mes.domain.repository.iljin.SuJuDetailRepository;
 import mes.domain.services.CommonUtil;
 import mes.domain.services.SqlRunner;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.security.core.Authentication;
@@ -24,6 +25,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
+import org.apache.poi.ss.usermodel.*;
+import java.util.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.transaction.Transactional;
@@ -98,14 +101,9 @@ public class SujuController {
   private ShipmentRepository shipmentRepository;
 
   @Autowired
-  BomRepository bomRepository;
-
-  @Autowired
-  BomComponentRepository bomCompRepository;
-
-  @Autowired
   BomService bomService;
 
+  private static final String DEFAULT_COMPANY_TYPE = "";
 
   // 수주 목록 조회
   @GetMapping("/read")
@@ -1571,6 +1569,250 @@ public class SujuController {
     } catch (Exception e) {
       return null;
     }
+  }
+
+  // ===================================================================
+  //  수주 엑셀 업로드 - 파싱 전용 (DB 저장 X, 화면에 채우기용 JSON 반환)
+  //  양식 자동 인식: 2행(헤더) 컬럼명 기준
+  //   · 제작출도리스트: LINE/공정명/JIG SET/장비/UNIT 수량/PIN SHIFT.../설계업체/도면출도일/제작업체/비고
+  //   · 수량집계      : LINE/공정명/JIG SET/유니트갯수/설비 타입/다리발 사양/다리발 개수
+  // ===================================================================
+  @PostMapping("/excel_parse")
+  @Transactional
+  public AjaxResult excelParse(
+    @RequestParam("upload_file") MultipartFile file,
+    @RequestParam(value = "spjangcd", required = false) String spjangcd,
+    Authentication auth) {
+
+    AjaxResult result = new AjaxResult();
+    if (file == null || file.isEmpty()) {
+      result.success = false;
+      result.message = "파일이 없습니다.";
+      return result;
+    }
+
+    User user = (auth != null) ? (User) auth.getPrincipal() : null;
+
+    // 업체 캐시(이름 기준): 같은 엑셀 안에서 같은 업체명이 여러 번 나와도 1번만 생성
+    Map<String, Company> companyCache = new HashMap<>();
+    if (spjangcd != null && !spjangcd.isEmpty()) {
+      for (Company c : companyRepository.findBySpjangcd(spjangcd)) {
+        if (c.getName() != null) companyCache.putIfAbsent(c.getName().trim(), c);
+      }
+    }
+
+    try (Workbook wb = WorkbookFactory.create(file.getInputStream())) {
+      Sheet sheet = wb.getSheetAt(0);
+      List<CellRangeAddress> merged = sheet.getMergedRegions();  // ★ 병합 영역
+
+      // 1행: 제목, 2행: 헤더 → 헤더 행 인덱스 1 (0-base)
+      Row headerRow = sheet.getRow(1);
+      if (headerRow == null) {
+        result.success = false;
+        result.message = "헤더(2행)를 찾을 수 없습니다.";
+        return result;
+      }
+
+      // 헤더명 → 컬럼 인덱스 매핑
+      Map<String, Integer> col = new HashMap<>();
+      for (Cell c : headerRow) {
+        String h = getString(c).replaceAll("\\s+", ""); // 공백 제거 후 비교
+        if (!h.isEmpty()) col.put(h, c.getColumnIndex());
+      }
+
+      // 양식 판별
+      boolean isMakeList = col.containsKey("도면출도일") || col.containsKey("PINSHIFTUNIT수량")
+                             || col.containsKey("UNIT수량");
+      boolean isQtyList  = col.containsKey("유니트갯수") || col.containsKey("다리발개수")
+                             || col.containsKey("설비타입");
+      String formName;
+      if (isMakeList) formName = "제작출도리스트";
+      else if (isQtyList) formName = "공정별 수량집계";
+      else {
+        result.success = false;
+        result.message = "인식할 수 없는 엑셀 양식입니다. (헤더 2행 확인)";
+        return result;
+      }
+
+      List<Map<String, Object>> items = new ArrayList<>();
+      int last = sheet.getLastRowNum();
+
+      for (int r = 2; r <= last; r++) {  // 3행부터 데이터
+        Row row = sheet.getRow(r);
+        if (row == null) continue;
+
+        String lineRaw  = cellByHeader(sheet, merged, row, col, "LINE");
+        String procName = cellByHeader(sheet, merged, row, col, "공정명");
+
+        // 합계 행 / 빈 행 스킵
+        if (procName.isEmpty()) continue;
+        if (lineRaw.contains("합계") || procName.contains("합계")) continue;
+
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("line", lineRaw);   // 병합 상속은 cellByHeader 내부에서 처리
+        m.put("procName", procName);
+        m.put("jigSet", cellByHeader(sheet, merged, row, col, "JIGSET"));
+
+        if (isMakeList) {
+          m.put("equipType",    cellByHeader(sheet, merged, row, col, "장비"));
+          m.put("unitQty",      cellByHeader(sheet, merged, row, col, "UNIT수량"));
+          m.put("pinShiftUnit", cellByHeader(sheet, merged, row, col, "PINSHIFTUNIT수량"));
+
+          // ★ 설계 업체: 조회 → 없으면 신규 등록, id·코드 반환
+          String designName = cellByHeader(sheet, merged, row, col, "설계업체");
+//          Map<String, Object> dc = resolveOrCreateCompany(designName, spjangcd, user, companyCache);
+//          m.put("designCompName", dc.get("name"));
+//          m.put("designCompId",   dc.get("id"));
+//          m.put("designCompCode", dc.get("code"));
+
+          m.put("drawDate", normalizeDrawDate(cellByHeader(sheet, merged, row, col, "도면출도일")));
+
+          // ★ 제작 업체: 조회 → 없으면 신규 등록, id·코드 반환
+          String makeName = cellByHeader(sheet, merged, row, col, "제작업체");
+//          Map<String, Object> mc = resolveOrCreateCompany(makeName, spjangcd, user, companyCache);
+//          m.put("makeCompName", mc.get("name"));
+//          m.put("makeCompId",   mc.get("id"));
+//          m.put("makeCompCode", mc.get("code"));
+
+          m.put("itemRemark", cellByHeader(sheet, merged, row, col, "비고"));
+          m.put("legSpec", "");
+          m.put("legCnt", "");
+        } else {
+          m.put("unitQty",   cellByHeader(sheet, merged, row, col, "유니트갯수"));
+          m.put("equipType", cellByHeader(sheet, merged, row, col, "설비타입"));
+          m.put("legSpec",   cellByHeader(sheet, merged, row, col, "다리발사양"));
+          m.put("legCnt",    cellByHeader(sheet, merged, row, col, "다리발개수"));
+          m.put("pinShiftUnit", "");
+          m.put("designCompName", ""); m.put("designCompId", null); m.put("designCompCode", "");
+          m.put("drawDate", "");
+          m.put("makeCompName", "");   m.put("makeCompId", null);   m.put("makeCompCode", "");
+          m.put("itemRemark", "");
+        }
+        items.add(m);
+      }
+
+      Map<String, Object> data = new HashMap<>();
+      data.put("formName", formName);
+      data.put("items", items);
+      result.success = true;
+      result.data = data;
+      return result;
+
+    } catch (Exception e) {
+      result.success = false;
+      result.message = "엑셀 파싱 오류: " + e.getMessage();
+      return result;
+    }
+  }
+
+  /* ---------- 헬퍼 ---------- */
+  /*private Map<String, Object> resolveOrCreateCompany(String name, String spjangcd,
+                                                     User user, Map<String, Company> cache) {
+    Map<String, Object> r = new HashMap<>();
+    if (name == null || name.trim().isEmpty()) {
+      r.put("id", null);
+      r.put("code", "");
+      r.put("name", "");
+      return r;
+    }
+    String nm = name.trim();
+
+    // 1) 이미 존재(캐시 = 사업장 내 기존 거래처)하면 그대로 사용
+    Company company = cache.get(nm);
+
+    // 2) 없으면 신규 거래처 등록 (save_Comp 신규등록과 동일하게 세팅)
+    if (company == null) {
+      company = new Company();
+      company.setCode(sujuService.getNextCompCode());   // 신규 거래처 코드 채번
+      company.setName(nm);
+      company.setCompanyType(DEFAULT_COMPANY_TYPE);      // ★ 거래처 구분 (save_Comp의 cboCompanyType 대응)
+      company.setTelNumber("");
+      company.setBusinessNumber("");
+      company.setBusinessType("");
+      company.setBusinessItem("");
+      company.setRelyn("0");
+      company.setAddress("");
+      company.setFaxNumber("");
+      company.setSalesManager("");
+      company.setEmail("");
+      company.setSpjangcd(spjangcd);
+      if (user != null) company.set_audit(user);
+
+      company = companyRepository.save(company);
+      cache.put(nm, company);
+    }
+
+    r.put("id", company.getId());
+    r.put("code", company.getCode());
+    r.put("name", company.getName());
+    return r;
+  }*/
+
+  /* ---------- 헤더명으로 셀 값 (병합 셀이면 좌상단 값 상속) ---------- */
+  private String cellByHeader(Sheet sheet, List<CellRangeAddress> merged,
+                              Row row, Map<String, Integer> col, String headerNoSpace) {
+    Integer idx = col.get(headerNoSpace);
+    if (idx == null) return "";
+    return getMergedString(sheet, merged, row.getRowNum(), idx);
+  }
+
+  /* ---------- 병합 영역을 고려해 실제 값을 가진 셀을 찾아 반환 ---------- */
+  private String getMergedString(Sheet sheet, List<CellRangeAddress> merged, int rowIdx, int colIdx) {
+    Cell cell = null;
+    Row row = sheet.getRow(rowIdx);
+    if (row != null) cell = row.getCell(colIdx);
+
+    String v = getString(cell);
+    if (!v.isEmpty()) return v;
+
+    // 비어 있으면 이 좌표를 포함하는 병합영역의 좌상단 셀 값을 가져옴
+    for (CellRangeAddress ca : merged) {
+      if (ca.isInRange(rowIdx, colIdx)) {
+        Row fr = sheet.getRow(ca.getFirstRow());
+        if (fr != null) {
+          return getString(fr.getCell(ca.getFirstColumn()));
+        }
+      }
+    }
+    return "";
+  }
+
+  private String getString(Cell c) {
+    if (c == null) return "";
+    switch (c.getCellType()) {
+      case STRING:  return c.getStringCellValue().trim();
+      case NUMERIC:
+        if (DateUtil.isCellDateFormatted(c)) {
+          return new java.text.SimpleDateFormat("yyyy-MM-dd").format(c.getDateCellValue());
+        }
+        double d = c.getNumericCellValue();
+        return (d == Math.floor(d)) ? String.valueOf((long) d) : String.valueOf(d);
+      case BOOLEAN: return String.valueOf(c.getBooleanCellValue());
+      case FORMULA:
+        try { return c.getStringCellValue().trim(); }
+        catch (Exception e) { return String.valueOf(c.getNumericCellValue()); }
+      default: return "";
+    }
+  }
+
+  /* ---------- "06월 17일", "6/17" 등 → yyyy-MM-dd ---------- */
+  private String normalizeDrawDate(String raw) {
+    if (raw == null) return "";
+    String s = raw.trim();
+    if (s.isEmpty()) return "";
+    if (s.matches("\\d{4}-\\d{2}-\\d{2}")) return s;
+
+    java.util.regex.Matcher m = java.util.regex.Pattern
+                                  .compile("(\\d{1,2})\\D+(\\d{1,2})").matcher(s);
+    if (m.find()) {
+      int mon = Integer.parseInt(m.group(1));
+      int day = Integer.parseInt(m.group(2));
+      if (mon >= 1 && mon <= 12 && day >= 1 && day <= 31) {
+        int year = java.time.LocalDate.now().getYear();
+        return String.format("%04d-%02d-%02d", year, mon, day);
+      }
+    }
+    return "";
   }
 
 }

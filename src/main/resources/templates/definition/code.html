@@ -44,6 +44,15 @@
                                 <label>설명</label>
                             </dt>
                             <dd>
+                                <input type="text" class="form-control2" id="txtDescription" name="txtDescription">
+                            </dd>
+                        </dl>
+
+                        <dl>
+                            <dt>
+                                <label>코드타입</label>
+                            </dt>
+                            <dd>
                                 <input type="text" class="form-control2" id="txtCodeType" name="txtCodeType">
                             </dd>
                         </dl>
@@ -339,6 +348,7 @@
                 let data = {
                     'txtCode': $('#txtCode2').val(),
                     'txtCodeType': $('#txtCodeType').val(),
+                    'txtDescription': $('#txtDescription').val(),
                     spjangcd: sessionStorage.getItem('spjangcd'),
 
                 };

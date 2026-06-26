@@ -57,10 +57,11 @@ public class UserCodeController {
 	public AjaxResult getSystemCodeList(
 			@RequestParam("txtCode") String txtCode,
 			@RequestParam("txtCodeType") String txtCodeType,
-			@RequestParam(value ="spjangcd") String spjangcd
+			@RequestParam(value ="spjangcd") String spjangcd,
+			@RequestParam(value = "txtDescription") String txtDescription
 	) {
 
-		List<Map<String, Object>> items = this.codeService.getSystemCodeList(txtCode,txtCodeType,spjangcd);
+		List<Map<String, Object>> items = this.codeService.getSystemCodeList(txtCode,txtCodeType,spjangcd, txtDescription);
 		AjaxResult result = new AjaxResult();
 
 		result.data = items;
