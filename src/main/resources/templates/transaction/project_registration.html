@@ -173,9 +173,10 @@
                     <caption>진행단계</caption>
                     <colgroup>
                       <col style="width:8%">    <!-- 순번 -->
-                      <col style="width:34%">   <!-- 단계명 -->
-                      <col style="width:24%">   <!-- 예정일 -->
-                      <col style="width:24%">   <!-- 완료일 -->
+                      <col style="width:28%">   <!-- 단계명 -->
+                      <col style="width:22%">   <!-- 예정일 -->
+                      <col style="width:22%">   <!-- 완료일 -->
+                      <col style="width:10%">   <!-- 완료 -->
                       <col style="width:10%">   <!-- 삭제 -->
                     </colgroup>
                     <thead>
@@ -184,6 +185,7 @@
                       <th>단계명</th>
                       <th>예정일</th>
                       <th>완료일</th>
+                      <th>완료</th>
                       <th>삭제</th>
                     </tr>
                     </thead>
@@ -308,6 +310,9 @@
             <td><input type="date" class="wp100 stage-pldate" value="${this.toDateInputValue(stage.pldate)}"/></td>
             <td><input type="date" class="wp100 stage-cpdate" value="${this.toDateInputValue(stage.cpdate)}"/></td>
             <td style="text-align:center;">
+             <a class="btn btn-edit btn-stage-complete" title="완료">완료</a>
+            </td>
+            <td style="text-align:center;">
               <a class="btn btn-delete btn-stage-del" title="행 삭제">삭제</a>
             </td>
           </tr>`;
@@ -333,6 +338,13 @@
     // ✅ 진행단계 비우기
     clearStages() {
      $('#stageTableBody').empty();
+    }
+
+    // ✅ 특정 행의 완료일을 오늘 날짜로 채움
+    completeStageRow($tr) {
+     const today = new Date();
+     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+     $tr.find('.stage-cpdate').val(todayStr);
     }
 
     // ✅ 화면의 진행단계 행들을 배열로 수집 (단계명이 빈 행은 제외)
@@ -523,6 +535,12 @@
      e.preventDefault();
      $(this).closest('tr').remove();
      page.renumberStages();
+    });
+
+    // ✅ 진행단계 행별 완료 버튼 (이벤트 위임)
+    $('#stageTableBody').on('click', '.btn-stage-complete', function (e) {
+     e.preventDefault();
+     page.completeStageRow($(this).closest('tr'));
     });
 
     // 팝업 열기 및 값 세팅

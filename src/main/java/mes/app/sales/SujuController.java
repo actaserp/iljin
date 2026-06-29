@@ -103,6 +103,9 @@ public class SujuController {
   @Autowired
   BomService bomService;
 
+  @Autowired
+  UserCodeRepository userCodeRepository;
+
   private static final String DEFAULT_COMPANY_TYPE = "";
 
   // 수주 목록 조회
@@ -1558,151 +1561,136 @@ public class SujuController {
     }
   }
 
-  // proc/hanger 코드 → material_group id 변환 (없으면 null)
-  private Integer findMaterialGroupIdByCode(String code) {
-    if (code == null || code.isEmpty()) return null;
-    String sql = "SELECT id FROM mat_grp WHERE \"Code\" = :code LIMIT 1";
-    MapSqlParameterSource p = new MapSqlParameterSource();
-    p.addValue("code", code);
-    try {
-      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
-    } catch (Exception e) {
-      return null;
-    }
-  }
-
   // ===================================================================
-  //  수주 엑셀 업로드 - 파싱 전용 (DB 저장 X, 화면에 채우기용 JSON 반환)
-  //  양식 자동 인식: 2행(헤더) 컬럼명 기준
-  //   · 제작출도리스트: LINE/공정명/JIG SET/장비/UNIT 수량/PIN SHIFT.../설계업체/도면출도일/제작업체/비고
-  //   · 수량집계      : LINE/공정명/JIG SET/유니트갯수/설비 타입/다리발 사양/다리발 개수
-  // ===================================================================
-  @PostMapping("/excel_parse")
+//  수주 엑셀 업로드 - 즉시 저장
+//   파일 + 헤더(수주처/프로젝트/수주일/납기일) 받아
+//   파싱 → 라인(중분류) → 공정(품목) → 수주 라인까지 한 번에 저장
+// ===================================================================
+  @PostMapping("/excel_save")
   @Transactional
-  public AjaxResult excelParse(
+  public AjaxResult excelSave(
     @RequestParam("upload_file") MultipartFile file,
     @RequestParam(value = "spjangcd", required = false) String spjangcd,
+    @RequestParam("order_id") Integer orderId,
+    @RequestParam("OrderName") String orderName,
+    @RequestParam("JumunDate") String jumunDateStr,
+    @RequestParam("DueDate") String dueDateStr,
+    @RequestParam("projno") String projno,
     Authentication auth) {
 
     AjaxResult result = new AjaxResult();
+
+    // ── 0) 검증 ──
     if (file == null || file.isEmpty()) {
-      result.success = false;
-      result.message = "파일이 없습니다.";
-      return result;
+      result.success = false; result.message = "파일이 없습니다."; return result;
+    }
+    if (orderId == null) {
+      result.success = false; result.message = "수주처가 지정되지 않았습니다."; return result;
+    }
+    if (projno == null || projno.trim().isEmpty()) {
+      result.success = false; result.message = "프로젝트가 지정되지 않았습니다."; return result;
     }
 
-    User user = (auth != null) ? (User) auth.getPrincipal() : null;
+    User user = (User) auth.getPrincipal();
+    Date jumunDate = CommonUtil.trySqlDate(jumunDateStr);
+    Date dueDate   = CommonUtil.trySqlDate(dueDateStr);
 
-    // 업체 캐시(이름 기준): 같은 엑셀 안에서 같은 업체명이 여러 번 나와도 1번만 생성
-    Map<String, Company> companyCache = new HashMap<>();
-    if (spjangcd != null && !spjangcd.isEmpty()) {
-      for (Company c : companyRepository.findBySpjangcd(spjangcd)) {
-        if (c.getName() != null) companyCache.putIfAbsent(c.getName().trim(), c);
-      }
-    }
-
-    try (Workbook wb = WorkbookFactory.create(file.getInputStream())) {
-      Sheet sheet = wb.getSheetAt(0);
-      List<CellRangeAddress> merged = sheet.getMergedRegions();  // ★ 병합 영역
-
-      // 1행: 제목, 2행: 헤더 → 헤더 행 인덱스 1 (0-base)
-      Row headerRow = sheet.getRow(1);
-      if (headerRow == null) {
-        result.success = false;
-        result.message = "헤더(2행)를 찾을 수 없습니다.";
-        return result;
-      }
-
-      // 헤더명 → 컬럼 인덱스 매핑
-      Map<String, Integer> col = new HashMap<>();
-      for (Cell c : headerRow) {
-        String h = getString(c).replaceAll("\\s+", ""); // 공백 제거 후 비교
-        if (!h.isEmpty()) col.put(h, c.getColumnIndex());
-      }
-
-      // 양식 판별
-      boolean isMakeList = col.containsKey("도면출도일") || col.containsKey("PINSHIFTUNIT수량")
-                             || col.containsKey("UNIT수량");
-      boolean isQtyList  = col.containsKey("유니트갯수") || col.containsKey("다리발개수")
-                             || col.containsKey("설비타입");
-      String formName;
-      if (isMakeList) formName = "제작출도리스트";
-      else if (isQtyList) formName = "공정별 수량집계";
-      else {
-        result.success = false;
-        result.message = "인식할 수 없는 엑셀 양식입니다. (헤더 2행 확인)";
-        return result;
-      }
-
-      List<Map<String, Object>> items = new ArrayList<>();
-      int last = sheet.getLastRowNum();
-
-      for (int r = 2; r <= last; r++) {  // 3행부터 데이터
-        Row row = sheet.getRow(r);
-        if (row == null) continue;
-
-        String lineRaw  = cellByHeader(sheet, merged, row, col, "LINE");
-        String procName = cellByHeader(sheet, merged, row, col, "공정명");
-
-        // 합계 행 / 빈 행 스킵
-        if (procName.isEmpty()) continue;
-        if (lineRaw.contains("합계") || procName.contains("합계")) continue;
-
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("line", lineRaw);   // 병합 상속은 cellByHeader 내부에서 처리
-        m.put("procName", procName);
-        m.put("jigSet", cellByHeader(sheet, merged, row, col, "JIGSET"));
-
-        if (isMakeList) {
-          m.put("equipType",    cellByHeader(sheet, merged, row, col, "장비"));
-          m.put("unitQty",      cellByHeader(sheet, merged, row, col, "UNIT수량"));
-          m.put("pinShiftUnit", cellByHeader(sheet, merged, row, col, "PINSHIFTUNIT수량"));
-
-          // ★ 설계 업체: 조회 → 없으면 신규 등록, id·코드 반환
-          String designName = cellByHeader(sheet, merged, row, col, "설계업체");
-//          Map<String, Object> dc = resolveOrCreateCompany(designName, spjangcd, user, companyCache);
-//          m.put("designCompName", dc.get("name"));
-//          m.put("designCompId",   dc.get("id"));
-//          m.put("designCompCode", dc.get("code"));
-
-          m.put("drawDate", normalizeDrawDate(cellByHeader(sheet, merged, row, col, "도면출도일")));
-
-          // ★ 제작 업체: 조회 → 없으면 신규 등록, id·코드 반환
-          String makeName = cellByHeader(sheet, merged, row, col, "제작업체");
-//          Map<String, Object> mc = resolveOrCreateCompany(makeName, spjangcd, user, companyCache);
-//          m.put("makeCompName", mc.get("name"));
-//          m.put("makeCompId",   mc.get("id"));
-//          m.put("makeCompCode", mc.get("code"));
-
-          m.put("itemRemark", cellByHeader(sheet, merged, row, col, "비고"));
-          m.put("legSpec", "");
-          m.put("legCnt", "");
-        } else {
-          m.put("unitQty",   cellByHeader(sheet, merged, row, col, "유니트갯수"));
-          m.put("equipType", cellByHeader(sheet, merged, row, col, "설비타입"));
-          m.put("legSpec",   cellByHeader(sheet, merged, row, col, "다리발사양"));
-          m.put("legCnt",    cellByHeader(sheet, merged, row, col, "다리발개수"));
-          m.put("pinShiftUnit", "");
-          m.put("designCompName", ""); m.put("designCompId", null); m.put("designCompCode", "");
-          m.put("drawDate", "");
-          m.put("makeCompName", "");   m.put("makeCompId", null);   m.put("makeCompCode", "");
-          m.put("itemRemark", "");
-        }
-        items.add(m);
-      }
-
-      Map<String, Object> data = new HashMap<>();
-      data.put("formName", formName);
-      data.put("items", items);
-      result.success = true;
-      result.data = data;
-      return result;
-
+    // ── 1) 엑셀 파싱 ──
+    List<Map<String, Object>> items;
+    String formName;
+    try {
+      Map<String, Object> parsed = parseSujuExcel(file);
+      formName = (String) parsed.get("formName");
+      @SuppressWarnings("unchecked")
+      List<Map<String, Object>> parsedItems = (List<Map<String, Object>>) parsed.get("items");
+      items = parsedItems;
     } catch (Exception e) {
       result.success = false;
-      result.message = "엑셀 파싱 오류: " + e.getMessage();
+      result.message = e.getMessage();
+      TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
       return result;
     }
+
+    if (items == null || items.isEmpty()) {
+      result.success = false;
+      result.message = "읽어들인 데이터가 없습니다. 양식을 확인하세요.";
+      return result;
+    }
+
+    // ── 2) 수주 헤더 생성 ──
+    SujuHead head = new SujuHead();
+    head.setJumunNumber(generateJumunNumber(jumunDate));
+    head.setJumunDate(jumunDate);
+    head.setDeliveryDate(dueDate);
+    head.setCompany_id(orderId);
+    head.setSpjangcd(spjangcd);
+    head.setSujuType("sales");
+    head.setSuJuOrderId(orderId);
+    head.setSuJuOrderName(orderName);
+    head.set_status("manual");
+    head.set_audit(user);
+    head = sujuHeadRepository.save(head);
+
+    // ── 3) 라인(중분류) → 품목 → 수주 라인 저장 ──
+    Map<String, Integer> lineCache = new HashMap<>();
+    Map<String, Integer> matCache  = new HashMap<>();
+    int saved = 0;
+
+    for (Map<String, Object> it : items) {
+      String lineName = str(it.get("line"));
+      String procName = str(it.get("procName"));
+      if (procName.isEmpty()) continue;
+
+      Integer lineId = resolveOrCreateLineUserCode(lineName, "proc", user, lineCache);
+      Integer matId  = resolveOrCreateProcMaterial(procName, "proc", lineId, spjangcd, user, matCache);
+
+      Suju suju = new Suju();
+      suju.setSujuHeadId(head.getId());
+      suju.setJumunNumber(head.getJumunNumber());
+      suju.setJumunDate(jumunDate);
+      suju.setDueDate(dueDate);
+      suju.setCompanyId(orderId);
+      suju.setCompanyName(orderName);
+      suju.setSpjangcd(spjangcd);
+      suju.set_status("manual");
+      suju.setState("received");
+      suju.setConfirm("0");
+      suju.set_audit(user);
+
+      suju.setMaterialId(matId);
+      suju.setMaterial_Name(procName);
+      suju.setProject_id(projno);
+
+      // 유니트 → SujuQty (NOT NULL 2개), JIG SET → Standard
+      Double unitVal = dnum(it.get("unitQty"));
+      suju.setSujuQty(unitVal);
+      suju.setSujuQty2(unitVal);
+      suju.setStandard(str(it.get("jigSet")));
+
+      // 라인 / 설비타입 → 신규 컬럼
+      suju.setLine(lineName);
+      suju.setEquipType(str(it.get("equipType")));
+
+      SujuRepository.save(suju);
+      saved++;
+    }
+
+    if (saved == 0) {
+      result.success = false;
+      result.message = "저장할 공정 데이터가 없습니다.";
+      TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+      return result;
+    }
+
+    // ── 4) 결과 ──
+    Map<String, Object> data = new HashMap<>();
+    data.put("formName", formName);
+    data.put("savedCount", saved);
+    data.put("headId", head.getId());
+    result.success = true;
+    result.message = formName + " " + saved + "건이 저장되었습니다.";
+    result.data = data;
+    return result;
   }
 
   /* ---------- 헬퍼 ---------- */
@@ -1747,6 +1735,211 @@ public class SujuController {
     r.put("name", company.getName());
     return r;
   }*/
+
+// ===================================================================
+//  엑셀 업로드 저장용 헬퍼 (라인 중분류 / 공정 품목 get-or-create)
+// ===================================================================
+
+  // 라인(중분류) 조회 → 없으면 user_code 신규 등록, id 반환
+  private Integer resolveOrCreateLineUserCode(
+    String lineName, String parentGroupCode,
+    User user, Map<String, Integer> lineCache) {
+
+    if (lineName == null || lineName.trim().isEmpty()) return null;
+    String nm = lineName.trim();
+    if (lineCache.containsKey(nm)) return lineCache.get(nm);
+
+    Integer parentId = findParentUserCodeId(parentGroupCode);
+    if (parentId == null) {
+      throw new IllegalStateException("품목그룹의 분류 부모를 찾을 수 없습니다: " + parentGroupCode);
+    }
+
+    Integer existing = findUserCodeIdByValue(parentId, nm);
+    if (existing != null) { lineCache.put(nm, existing); return existing; }
+
+    UserCode uc = new UserCode();
+    uc.setParentId(parentId);
+    uc.setCode(generateLineCode(parentId));
+    uc.setValue(nm);
+    uc.setDescription(null);
+    if (user != null) uc.set_audit(user);
+
+    UserCode saved = userCodeRepository.save(uc);
+    lineCache.put(nm, saved.getId());
+    return saved.getId();
+  }
+
+  // 공정(품목) 조회 → 없으면 material 신규 등록, id 반환
+  private Integer resolveOrCreateProcMaterial(
+    String name, String groupCode, Integer userCodeId,
+    String spjangcd, User user, Map<String, Integer> cache) {
+
+    if (name == null || name.trim().isEmpty()) return null;
+    String key = (userCodeId == null ? "" : userCodeId) + "|" + name.trim();
+    if (cache.containsKey(key)) return cache.get(key);
+
+    Integer existing = findMaterialIdByName(name.trim(), spjangcd, userCodeId);
+    if (existing != null) { cache.put(key, existing); return existing; }
+
+    Integer groupId = findMaterialGroupIdByCode(groupCode);
+    if (groupId == null) throw new IllegalStateException("품목그룹을 찾을 수 없습니다: " + groupCode);
+
+    Material m = new Material();
+    m.setCode(sujuService.getNextMatCode());
+    m.setName(name.trim());
+    m.setMaterialGroupId(groupId);
+    m.setFactory_id(1);
+    m.setSpjangcd(spjangcd);
+    m.setUseyn("0");
+    m.setStoreHouseId(3);
+    m.setPurchaseOrderStandard("mrp");
+    m.setValidDays(1);
+    m.setMatUserCode(userCodeId);
+    m.set_audit(user);
+
+    Material saved = materialRepository.save(m);
+    cache.put(key, saved.getId());
+    return saved.getId();
+  }
+
+  // 품목그룹 code → 그 품목그룹에 연결된 usercode_id (= 중분류들의 parentId)
+  private Integer findParentUserCodeId(String groupCode) {
+    if (groupCode == null || groupCode.isEmpty()) return null;
+    String sql = "SELECT usercode_id FROM mat_grp WHERE \"Code\" = :code LIMIT 1";
+    MapSqlParameterSource p = new MapSqlParameterSource().addValue("code", groupCode);
+    try {
+      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  // 부모 하위에서 value(중분류명)로 user_code id 조회
+  private Integer findUserCodeIdByValue(Integer parentId, String value) {
+    String sql = "SELECT id FROM user_code WHERE parent_id = :pid AND \"Value\" = :val LIMIT 1";
+    MapSqlParameterSource p = new MapSqlParameterSource()
+                                .addValue("pid", parentId).addValue("val", value);
+    try {
+      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  // 중분류 코드 채번 (부모 하위 숫자코드 max+1)
+  private String generateLineCode(Integer parentId) {
+    String sql = "SELECT COALESCE(MAX(CAST(\"Code\" AS INTEGER)), 0) + 1 " +
+                   "FROM user_code WHERE parent_id = :pid AND \"Code\" ~ '^[0-9]+$'";
+    MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", parentId);
+    try {
+      Integer next = sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
+      return String.format("%03d", next == null ? 1 : next);
+    } catch (Exception e) {
+      return String.valueOf(System.currentTimeMillis() % 100000);
+    }
+  }
+
+  // 품목그룹 code → material_group id (proc/hanger)
+  private Integer findMaterialGroupIdByCode(String code) {
+    if (code == null || code.isEmpty()) return null;
+    String sql = "SELECT id FROM mat_grp WHERE \"Code\" = :code LIMIT 1";
+    MapSqlParameterSource p = new MapSqlParameterSource().addValue("code", code);
+    try {
+      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  // 품목명 + 사업장 (+중분류)로 기존 품목 id 조회
+  private Integer findMaterialIdByName(String name, String spjangcd, Integer userCodeId) {
+    StringBuilder sql = new StringBuilder(
+      "SELECT id FROM material WHERE \"Name\" = :name AND spjangcd = :spjangcd");
+    MapSqlParameterSource p = new MapSqlParameterSource()
+                                .addValue("name", name).addValue("spjangcd", spjangcd);
+    if (userCodeId != null) {
+      sql.append(" AND \"MatUserCode\" = :uc");
+      p.addValue("uc", userCodeId);
+    }
+    sql.append(" ORDER BY id DESC LIMIT 1");
+    try {
+      return sqlRunner.queryForObject(sql.toString(), p, (rs, n) -> rs.getInt(1));
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  // ===================================================================
+//  엑셀 → items 파싱 (excel_save / excel_parse 공통)
+//  반환: Map { "formName": String, "items": List<Map> }
+// ===================================================================
+  private Map<String, Object> parseSujuExcel(MultipartFile file) throws IOException {
+    try (Workbook wb = WorkbookFactory.create(file.getInputStream())) {
+      Sheet sheet = wb.getSheetAt(0);
+      List<CellRangeAddress> merged = sheet.getMergedRegions();
+
+      Row headerRow = sheet.getRow(1);
+      if (headerRow == null) {
+        throw new IllegalArgumentException("헤더(2행)를 찾을 수 없습니다.");
+      }
+
+      Map<String, Integer> col = new HashMap<>();
+      for (Cell c : headerRow) {
+        String h = getString(c).replaceAll("\\s+", "");
+        if (!h.isEmpty()) col.put(h, c.getColumnIndex());
+      }
+
+      boolean isMakeList = col.containsKey("도면출도일") || col.containsKey("PINSHIFTUNIT수량")
+                             || col.containsKey("UNIT수량");
+      boolean isQtyList  = col.containsKey("유니트갯수") || col.containsKey("다리발개수")
+                             || col.containsKey("설비타입");
+      String formName;
+      if (isMakeList) formName = "제작출도리스트";
+      else if (isQtyList) formName = "공정별 수량집계";
+      else throw new IllegalArgumentException("인식할 수 없는 엑셀 양식입니다. (헤더 2행 확인)");
+
+      List<Map<String, Object>> items = new ArrayList<>();
+      int last = sheet.getLastRowNum();
+      for (int r = 2; r <= last; r++) {
+        Row row = sheet.getRow(r);
+        if (row == null) continue;
+
+        String lineRaw  = cellByHeader(sheet, merged, row, col, "LINE");
+        String procName = cellByHeader(sheet, merged, row, col, "공정명");
+        if (procName.isEmpty()) continue;
+        if (lineRaw.contains("합계") || procName.contains("합계")) continue;
+
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("line", lineRaw);
+        m.put("procName", procName);
+        m.put("jigSet", cellByHeader(sheet, merged, row, col, "JIGSET"));
+
+        if (isMakeList) {
+          m.put("equipType",    cellByHeader(sheet, merged, row, col, "장비"));
+          m.put("unitQty",      cellByHeader(sheet, merged, row, col, "UNIT수량"));
+          m.put("pinShiftUnit", cellByHeader(sheet, merged, row, col, "PINSHIFTUNIT수량"));
+          m.put("drawDate", normalizeDrawDate(cellByHeader(sheet, merged, row, col, "도면출도일")));
+          m.put("itemRemark", cellByHeader(sheet, merged, row, col, "비고"));
+          m.put("legSpec", "");
+          m.put("legCnt", "");
+        } else {
+          m.put("unitQty",   cellByHeader(sheet, merged, row, col, "유니트갯수"));
+          m.put("equipType", cellByHeader(sheet, merged, row, col, "설비타입"));
+          m.put("legSpec",   cellByHeader(sheet, merged, row, col, "다리발사양"));
+          m.put("legCnt",    cellByHeader(sheet, merged, row, col, "다리발개수"));
+          m.put("pinShiftUnit", "");
+          m.put("drawDate", "");
+          m.put("itemRemark", "");
+        }
+        items.add(m);
+      }
+
+      Map<String, Object> out = new HashMap<>();
+      out.put("formName", formName);
+      out.put("items", items);
+      return out;
+    }
+  }
 
   /* ---------- 헤더명으로 셀 값 (병합 셀이면 좌상단 값 상속) ---------- */
   private String cellByHeader(Sheet sheet, List<CellRangeAddress> merged,

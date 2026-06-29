@@ -488,7 +488,35 @@
             </colgroup>
             <tbody>
               <tr>
-                <th style="text-align:center"><label>첨부파일</label></th>
+                <th style="text-align:center"><label>수주처<span class="eq">*</span></label></th>
+                <td>
+                  <div class="input-with-button">
+                    <input type="hidden" id="up_order_id" name="order_id"/>
+                    <input type="text" id="up_order_name" name="OrderName"
+                           placeholder="검색 버튼으로 선택" readonly style="flex:1;"/>
+                    <a class="btn in_btn ps-inbtn" id="btnUpOrderSearch" title="수주처 검색">
+                      <img th:src="@{/images/icon/btn-srch.svg}" alt="검색"/></a>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label>수주일<span class="eq">*</span></label></th>
+                <td><input type="date" id="up_jumun_date" name="JumunDate" style="width:200px;"/></td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label>납기일<span class="eq">*</span></label></th>
+                <td><input type="date" id="up_due_date" name="DueDate" style="width:200px;"/></td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label>프로젝트</label></th>
+                <td>
+                  <select id="up_projno" name="projno" style="width:100%;">
+                    <option value="">프로젝트 선택(선택)</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label>첨부파일<span class="eq">*</span></label></th>
                 <td>
                   <input style="width:320px; height:40px;" type="file" id="upload_file"
                          name="upload_file" accept=".xls,.xlsx"/>
@@ -503,13 +531,13 @@
         <span style="color:#555;">* 제작출도리스트 / 공정별 수량집계 양식만 업로드 가능합니다.</span>
         <p style="margin:6px 0 0; font-size:12px; color:#888;">
           · 2행(헤더)을 기준으로 양식을 자동 인식합니다.<br/>
-          · 업로드 후 하단 품목 테이블에 채워지며, 수주처/수주일/납기일은 직접 입력 후 저장하세요.
+          · 업로드하면 라인·공정·수주가 한 번에 저장됩니다.
         </p>
         <textarea id="upload_message" style="display:none; width:100%; height:120px;"></textarea>
       </div>
 
       <div class="popup-button">
-        <button type="button" class="btn-popup y_write_auth" id="btn_excel_save">업로드</button>
+        <button type="button" class="btn-popup y_write_auth" id="btn_excel_save">업로드 저장</button>
         <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
       </div>
     </div>
@@ -633,78 +661,85 @@
     /* ---------- 엑셀 업로드 팝업 ---------- */
     openExcelUpload() {
      const _this = this;
-
-     // 기존 팝업 있으면 닫기
-     if (_this.excelPopup) {
-      _this.excelPopup.close();
-      _this.excelPopup = null;
-     }
+     if (_this.excelPopup) { _this.excelPopup.close(); _this.excelPopup = null; }
 
      const content = tmpl('excelUploadTemplate', {});
      _this.excelPopup = new PopupDraggable('수주 엑셀 업로드');
-     _this.excelPopup.open({ width: 560, height: 215, $content: $(content) });
+     _this.excelPopup.open({ width: 560, height: 420, $content: $(content) });
 
-     // 업로드 버튼
-     $(document).off('click', '#btn_excel_save').on('click', '#btn_excel_save', function () {
-      _this.uploadExcel();
+     // 기본 일자
+     $('#up_jumun_date').val(CommonUtil.getYYYYMMDD());
+     $('#up_due_date').val(CommonUtil.getYYYYMMDD(10));
+
+     // 프로젝트 옵션 복사 (이미 로드된 상단 검색 콤보 재사용)
+     const $src = $('#sujuSrchProjno');
+     const $tgt = $('#up_projno');
+     $src.find('option').each(function () {
+      if (!$(this).val()) return; // '전체 프로젝트' 스킵
+      $tgt.append(`<option value="${$(this).val()}">${$(this).text()}</option>`);
      });
-     // 닫기 버튼
+     // 상단에서 선택된 프로젝트가 있으면 기본값
+     if ($('#sujuSrchProjno').val()) $tgt.val($('#sujuSrchProjno').val());
+
+     // 수주처 검색
+     $(document).off('click', '#btnUpOrderSearch').on('click', '#btnUpOrderSearch', function () {
+      const pop = new PopCompSuJuComponent();
+      pop.show(function (items) {
+       $('#up_order_id').val(items.id);
+       $('#up_order_name').val(items.compname);
+      });
+     });
+
+     // 업로드 저장
+     $(document).off('click', '#btn_excel_save').on('click', '#btn_excel_save', function () {
+      _this.uploadExcelSave();
+     });
+     // 닫기
      $(document).off('click', '#modal-close-button').on('click', '#modal-close-button', function () {
-      if (_this.excelPopup) {
-       _this.excelPopup.close();
-       _this.excelPopup = null;
-      }
+      if (_this.excelPopup) { _this.excelPopup.close(); _this.excelPopup = null; }
      });
     }
 
-    uploadExcel() {
+    uploadExcelSave() {
      const _this = this;
+
      const fileInput = document.getElementById('upload_file');
      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-      Alert.alert('', '엑셀 파일을 선택하세요.');
-      return;
+      Alert.alert('', '엑셀 파일을 선택하세요.'); return;
+     }
+     if (!$('#up_order_id').val()) {
+      Alert.alert('', '수주처를 선택하세요.'); return;
+     }
+     if (!$('#up_jumun_date').val()) {
+      Alert.alert('', '수주일을 입력하세요.'); return;
+     }
+     if (!$('#up_due_date').val()) {
+      Alert.alert('', '납기일을 입력하세요.'); return;
      }
 
      const formData = new FormData(document.getElementById('excelUploadForm'));
+     formData.append('spjangcd', $('#spjangcdHidden').val());
 
-     const res = AjaxUtil.postFileSyncData(_this.url + '/excel_parse', formData);
-     if (!res) {
-      Alert.alert('업로드 실패', '서버 응답이 없습니다.');
-      return;
-     }
-     if (!res.success) {
-      const msg = res.message || '엑셀 파싱에 실패했습니다.';
-      $('#upload_message').show().val(msg);
-      Alert.alert('업로드 실패', msg);
-      return;
-     }
+     Alert.confirm('', '업로드한 내용으로 수주를 저장하시겠습니까?', function () {
+      const res = AjaxUtil.postFileSyncData(_this.url + '/excel_save', formData);
+      if (!res) { Alert.alert('업로드 실패', '서버 응답이 없습니다.'); return; }
+      if (!res.success) {
+       const msg = res.message || '엑셀 저장에 실패했습니다.';
+       $('#upload_message').show().val(msg);
+       Alert.alert('업로드 실패', msg);
+       return;
+      }
 
-     const rows = (res.data && res.data.items) || [];
-     if (rows.length === 0) {
-      Alert.alert('', '읽어들인 데이터가 없습니다. 양식을 확인하세요.');
-      return;
-     }
+      const cnt = (res.data && res.data.savedCount) || 0;
+      const formName = (res.data && res.data.formName) || '';
+      Notify.success(`${formName ? formName + ' ' : ''}수주 ${cnt}건이 저장되었습니다.`);
 
-     _this.fillItemsFromExcel(rows);
-     const formName = (res.data && res.data.formName) || '';
-     Notify.success(`${formName ? formName + ' ' : ''}${rows.length}건을 불러왔습니다. 수주처/일자 입력 후 저장하세요.`);
+      if (res.data && res.data.headId) window.selectedSujuId = res.data.headId;
 
-     // ★ 신규 등록된 거래처 안내
-     const newComps = (res.data && res.data.newCompanies) || [];
-     if (newComps.length) {
-      const names = newComps
-      .map(c => c.name + (c.code ? ` (${c.code})` : ''))
-      .join(', ');
-      Alert.alert(
-       '신규 거래처 등록',
-       `다음 거래처가 신규로 등록되었습니다. 사업자번호 등 상세정보는 거래처 관리에서 추후 등록해 주세요.\n\n${names}`
-      );
-     }
-
-     if (_this.excelPopup) {
-      _this.excelPopup.close();
-      _this.excelPopup = null;
-     }
+      if (_this.excelPopup) { _this.excelPopup.close(); _this.excelPopup = null; }
+      _this.search();
+      _this.resetForm('new');
+     });
     }
 
     /* ---------- 파싱 결과를 품목 테이블에 채움 ---------- */
