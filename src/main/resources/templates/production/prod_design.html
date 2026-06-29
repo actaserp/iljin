@@ -101,12 +101,6 @@
             height: 13px;
         }
 
-        .btn-delete {
-            background: #3d5a99;
-            color: #fff;
-            border-color: #3d5a99;
-        }
-
         .container-fluid {
             padding: 12px 13px;
         }
@@ -279,6 +273,43 @@
             align-items: center;
             gap: 4px;
         }
+
+        /* 프로젝트 선택 바 */
+        .proj-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #fff;
+            border: 1px solid #d7dde7;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            flex: 0 0 auto;
+        }
+
+        .proj-bar label {
+            font-weight: 700;
+            color: #445;
+            font-size: 12.5px;
+        }
+
+        .proj-bar select {
+            border: 1px solid #cfd6e2;
+            border-radius: 5px;
+            font-size: 12.5px;
+            min-width: 240px;
+        }
+
+        /* 작업지시 상태 뱃지 */
+        .badge.ordered {
+            background: #0026ff;
+            color: #fff;
+        }
+
+        .badge.unordered {
+            background: #eef0f3;
+            color: #777;
+        }
     </style>
 </head>
 <th:block layout:fragment="content">
@@ -295,21 +326,42 @@
             </ul>
         </div>
 
+        <div class="proj-bar">
+            <label>프로젝트</label>
+            <select id="projSel" onchange="bomPage.selectProject(+this.value)"></select>
+        </div>
+
         <div class="row3">
-            <section class="section" style="flex:0 0 300px;">
-                <div class="section-top"><h3>공정</h3></div>
+            <section class="section" style="flex:0 0 470px;">
+                <div class="section-top">
+                    <div class="search-wrap" style="margin-bottom: 0">
+                        <h3>공정</h3>
+                    </div>
+                    <div class="button-wrap" style="margin-bottom: 0">
+                        <ul>
+                            <li>
+                                <a id="orderBtn" class="btn btn-delete" title="선택 공정에 작업 지시"
+                                   onclick="bomPage.toggleOrder()">작업지시</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
                 <div class="container-fluid" style="padding:0;">
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:46%">
-                            <col style="width:34%">
+                            <col style="width:16%">
+                            <col style="width:35%">
                             <col style="width:20%">
+                            <col style="width:13%">
+                            <col style="width:16%">
                         </colgroup>
                         <thead>
                         <tr>
+                            <th>라인</th>
                             <th>공정</th>
                             <th>설비타입</th>
                             <th>유니트</th>
+                            <th>작업지시</th>
                         </tr>
                         </thead>
                         <tbody id="prodBody"></tbody>
@@ -317,51 +369,10 @@
                 </div>
             </section>
 
-            <section class="section" style="flex:0 0 350px;">
-                <div class="section-top">
-                    <div class="search-wrap" style="margin-bottom: 0">
-                        <h3>유니트</h3>
-                    </div>
-                    <div class="button-wrap" style="margin-bottom: 0">
-                        <ul>
-                            <li>
-                                <a class="btn btn-excell" title="등록" onclick="bomPage.addUnit()">
-                                    <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
-                                    유니트
-                                </a>
-                            </li>
-                        </ul>
-
-
-                    </div>
-                </div>
-                <div class="container-fluid" style="padding:0;">
-                    <table class="work-table">
-                        <colgroup>
-                            <col style="width:28%">
-                            <col style="width:18%">
-                            <col style="width:14%">
-                            <col style="width:28%">
-                            <col style="width:12%">
-                        </colgroup>
-                        <thead>
-                        <tr>
-                            <th>유니트</th>
-                            <th>2D출도</th>
-                            <th>부품</th>
-                            <th>완료</th>
-                            <th></th>
-                        </tr>
-                        </thead>
-                        <tbody id="unitBody"></tbody>
-                    </table>
-                </div>
-            </section>
-
             <section class="section" style="flex:1 1 auto; min-width:0;">
                 <div class="section-top">
                     <div class="search-wrap" style="margin-bottom: 0">
-                        <h3 id="bomTitle">유니트 선택</h3>
+                        <h3 id="bomTitle">공정 선택</h3>
                     </div>
                     <div class="button-wrap" style="margin-bottom: 0">
                         <ul>
@@ -372,7 +383,7 @@
                             <li>
                                 <a class="btn btn-excell" title="등록" onclick="bomPage.addItem()">
                                     <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
-                                    부품
+                                    UNIT
                                 </a>
                             </li>
                         </ul>
@@ -382,20 +393,18 @@
                     <div class="hint" id="bomHint"></div>
                     <table class="work-table bom-table">
                         <colgroup>
-                            <col style="width:6%">
-                            <col style="width:22%">
-                            <col style="width:20%">
-                            <col style="width:13%">
-                            <col style="width:16%">
-                            <col style="width:9%">
-                            <col style="width:12%">
                             <col style="width:7%">
+                            <col style="width:30%">
+                            <col style="width:15%">
+                            <col style="width:20%">
+                            <col style="width:11%">
+                            <col style="width:9%">
+                            <col style="width:8%">
                         </colgroup>
                         <thead>
                         <tr>
                             <th>NO</th>
                             <th>부품명</th>
-                            <th>도번</th>
                             <th>구분</th>
                             <th>유형(분류)</th>
                             <th>수량</th>
@@ -469,54 +478,47 @@
                     ['pin', ['PIN', '핀']],
                     ['link', ['LINK', '링크']],
                     ['clamp', ['CLAMP', '클램프']],
-                    ['assy', ['ASSEMBLY', 'ASSY', '어셈블리']]
+                    ['assy', ['ASSEMBLY', 'ASSY', '어셈블리']],
+                    ['etc', ['ETC', '기타']]   // 유형 미지정 시 기본값
                 ];
                 // 정규 유형 목록 (datalist 추천값)
                 this.KINDS = this.KIND_ALIASES.map(a => a[0]);
+                this.DEFAULT_KIND = 'etc';   // 유형 비어있으면 etc(기타)로
 
-                this.selP = 0;
-                this.selU = 0;
+                this.selProj = 0;   // 선택된 프로젝트
+                this.selP = 0;      // 선택된 공정(프로젝트 내 index)
 
-                this.PRODUCTS = [
+                // 데이터: 프로젝트 → 공정 → 부품
+                // - 유니트는 이 화면에서 관리하지 않음(부품은 공정에 바로 소속).
+                // - line: 라인 / equ: 설비타입 / unitCnt: 이전 등록에서 넘어온 유니트 개수(읽기 전용)
+                // - out: 2D 출도 여부(공정 단위) / ordered: 작업지시 상태(내림/취소 토글)
+                this.PROJECTS = [
                     {
-                        nm: 'PNL ASSY-FR DR,L/R', equ: '고정지그', units: [
+                        nm: 'A9-760', processes: [
                             {
-                                nm: 'U201', out: true, fin: false, items: [
-                                    {
-                                        no: 1,
-                                        nm: 'JOINT PLATE',
-                                        dwg: 'A9-760-FD10-01-09',
-                                        g: '제작품',
-                                        k: 'plate',
-                                        qty: 2,
-                                        st: '확정'
-                                    },
-                                    {no: 2, nm: 'LOC BLOCK', dwg: '-01-12', g: '제작품', k: 'block', qty: 4, st: '확정'},
-                                    {no: 3, nm: 'SHIM 3T', dwg: 'SH-02-16', g: 'STD', k: 'shim', qty: 6, st: '확정'}
+                                line: 'MAIN', nm: 'S10', equ: '고정지그', unitCnt: 8, out: true, ordered: false, items: [
+                                    {no: 1, nm: 'JOINT PLATE', g: '제작품', k: 'plate', qty: 2, st: '확정'},
+                                    {no: 2, nm: 'LOC BLOCK', g: '제작품', k: 'block', qty: 4, st: '확정'},
+                                    {no: 3, nm: 'SHIM 3T', g: 'STD', k: 'etc', qty: 6, st: '확정'},
+                                    {no: 9, nm: 'UNIT PLATE', g: '제작품', k: 'plate', qty: 1, st: '확정'},
+                                    {no: 11, nm: 'PIN BRKT', g: '제작품', k: 'plate', qty: 1, st: '확정'},
+                                    {no: 12, nm: 'PIN BLOCK', g: '제작품', k: 'block', qty: 1, st: '확정'},
+                                    {no: 101, nm: 'CLAMP CYL', g: '구매품', k: 'etc', qty: 2, st: '확정'}
                                 ]
                             },
                             {
-                                nm: 'U227', out: true, fin: false, items: [
-                                    {no: 9, nm: 'UNIT PLATE', dwg: '-02-09', g: '제작품', k: 'plate', qty: 1, st: '확정'},
-                                    // 브라켓도 plate 로 동일 취급
-                                    {no: 11, nm: 'PIN BRKT', dwg: '-02-11', g: '제작품', k: 'plate', qty: 1, st: '확정'},
-                                    {no: 12, nm: 'PIN BLOCK', dwg: '-02-12', g: '제작품', k: 'block', qty: 1, st: '확정'},
-                                    {no: 101, nm: 'CLAMP CYL', dwg: 'CKG1A50(SMC)', g: '구매품', k: '', qty: 2, st: '확정'}
-                                ]
-                            },
-                            {
-                                nm: 'P228', out: false, fin: false, items: [
-                                    {no: 1, nm: '(미정) plate', dwg: '', g: '제작품', k: 'plate', qty: 8, st: '추정'},
-                                    {no: 2, nm: '(미정) block', dwg: '', g: '제작품', k: 'block', qty: 6, st: '추정'}
+                                line: 'HOOD', nm: 'S25', equ: '슬라이더', unitCnt: 2, out: false, ordered: false, items: [
+                                    {no: 1, nm: '(미정) plate', g: '제작품', k: 'plate', qty: 8, st: '추정'},
+                                    {no: 2, nm: '(미정) block', g: '제작품', k: 'block', qty: 6, st: '추정'}
                                 ]
                             }
                         ]
                     },
                     {
-                        nm: 'A9-820', equ: '턴테이블', units: [
+                        nm: 'A9-820', processes: [
                             {
-                                nm: 'U301', out: false, fin: false, items: [
-                                    {no: 1, nm: '(미정) plate', dwg: '', g: '제작품', k: 'plate', qty: 12, st: '추정'}
+                                line: 'SUB1', nm: 'SI01', equ: '턴테이블', unitCnt: 1, out: false, ordered: false, items: [
+                                    {no: 1, nm: '(미정) plate', g: '제작품', k: 'plate', qty: 12, st: '추정'}
                                 ]
                             }
                         ]
@@ -524,9 +526,18 @@
                 ];
 
                 this.buildKindsDatalist();
+                this.buildProjectSelect();
                 this.renderProd();
-                this.renderUnit();
                 this.renderBom();
+            }
+
+            // 현재 선택된 공정 목록 / 공정
+            procs() {
+                return this.PROJECTS[this.selProj].processes;
+            }
+
+            proc() {
+                return this.procs()[this.selP];
             }
 
             el(id) {
@@ -549,9 +560,9 @@
 
             // 유형칸에 직접 입력한 값(별칭 포함)을 정규유형으로 변환 (예: bracket/브라켓 → plate)
             normKind(token) {
-                if (!token) return '';
+                if (!token) return this.DEFAULT_KIND;
                 let t = token.trim();
-                if (!t) return '';
+                if (!t) return this.DEFAULT_KIND;
                 let up = t.toUpperCase();
                 for (let [canon, aliases] of this.KIND_ALIASES) {
                     if (up === canon.toUpperCase()) return canon;
@@ -577,63 +588,79 @@
                 });
             }
 
-            renderProd() {
-                let body = this.el('prodBody');
-                body.innerHTML = this.PRODUCTS.map((p, i) =>
-                    `<tr class="row-sel ${this.selP === i ? 'on' : ''}" data-i="${i}">
-                        <td class="l" style="font-weight:700;padding-left:9px">${p.nm}</td>
-                        <td>${p.equ}</td>
-                        <td>${p.units.length}</td></tr>`).join('');
-                body.querySelectorAll('.row-sel').forEach(r => r.onclick = () => {
-                    this.selP = +r.dataset.i;
-                    this.selU = 0;
-                    this.renderUnit();
-                    this.renderBom();
-                });
+            buildProjectSelect() {
+                let sel = this.el('projSel');
+                sel.innerHTML = this.PROJECTS.map((pj, i) =>
+                    `<option value="${i}" ${this.selProj === i ? 'selected' : ''}>${pj.nm}</option>`).join('');
             }
 
-            renderUnit() {
-                let us = this.PRODUCTS[this.selP].units;
-                let body = this.el('unitBody');
-                body.innerHTML = us.map((u, i) =>
-                    `<tr class="row-sel ${this.selU === i ? 'on' : ''} ${u.fin ? 'fin-row' : ''}" data-i="${i}">
-                        <td><input value="${u.nm}" style="font-weight:700;"
-     onclick="event.stopPropagation()"
-     onchange="bomPage.renameUnit(${i}, this.value)"></td>
-                        <td><span class="badge ${u.out ? 'out' : 'no'}">${u.out ? '출도' : '미출도'}</span></td>
-                        <td>${u.items.length}</td>
-                        <td>${u.fin
-                        ? `<a class="btn done cancel sm" onclick="event.stopPropagation();bomPage.toggleDone(${i})">완료취소</a>`
-                        : `<a class="btn done sm" onclick="event.stopPropagation();bomPage.toggleDone(${i})">완료</a>`}</td>
-                        <td><span class="x" title="유니트 삭제" onclick="event.stopPropagation();bomPage.deleteUnit(${i})">✕</span></td></tr>`).join('');
+            selectProject(i) {
+                this.selProj = i;
+                this.selP = 0;
+                this.renderProd();
+                this.renderBom();
+            }
+
+            renderProd() {
+                let body = this.el('prodBody');
+                body.innerHTML = this.procs().map((p, i) =>
+                    `<tr class="row-sel ${this.selP === i ? 'on' : ''}" data-i="${i}">
+                        <td>${p.line}</td>
+                        <td class="l" style="font-weight:700;padding-left:9px">${p.nm}</td>
+                        <td>${p.equ}</td>
+                        <td>${p.unitCnt}</td>
+                        <td><span class="badge ${p.ordered ? 'ordered' : 'unordered'}">${p.ordered ? '지시완료' : '미지시'}</span></td></tr>`).join('');
                 body.querySelectorAll('.row-sel').forEach(r => r.onclick = () => {
-                    this.selU = +r.dataset.i;
-                    this.renderUnit();
+                    this.selP = +r.dataset.i;
+                    this.renderProd();
                     this.renderBom();
                 });
+                this.updateOrderBtn();
+            }
+
+            // 작업지시 버튼: 선택 공정 상태에 따라 '작업지시' ↔ '지시취소'
+            updateOrderBtn() {
+                let p = this.proc();
+                let btn = this.el('orderBtn');
+                if (!btn) return;
+                if (p && p.ordered) {
+                    btn.textContent = '지시취소';
+                    btn.title = '선택 공정의 작업 지시 취소';
+                } else {
+                    btn.textContent = '작업지시';
+                    btn.title = '선택 공정에 작업 지시';
+                }
+            }
+
+            // 작업 지시 내림/취소 (모달 없이 바로 처리)
+            toggleOrder() {
+                let p = this.proc();
+                if (!p) return;
+                p.ordered = !p.ordered;   // 실서버: 작업지시 생성/취소 API 호출
+                this.renderProd();
             }
 
             renderBom() {
-                let u = this.PRODUCTS[this.selP].units[this.selU];
-                if (!u) {
-                    this.el('bomTitle').textContent = '유니트 선택';
+                let p = this.proc();
+                if (!p) {
+                    this.el('bomTitle').textContent = '공정 선택';
                     this.el('bomHint').innerHTML = '';
                     this.el('bomBody').innerHTML = '';
                     return;
                 }
-                this.el('bomTitle').textContent = `${u.nm} 소속 부품`;
-                this.el('chkOut').checked = u.out;
-                this.el('bomHint').innerHTML = u.fin
-                    ? '<b style="color:#0026ff">공정 완료된 유니트</b>'
-                    : (u.out ? '출도 완료 — 실제 부품/도번' : '<b style="color:#8a6d1b">미출도 — 유형+임시(추정) 수량</b>');
-                this.el('bomBody').innerHTML = u.items.map((it, i) => {
+                this.el('bomTitle').textContent = `${p.nm} UNIT`;
+                this.el('chkOut').checked = p.out;
+                this.el('bomHint').innerHTML = p.out
+                    ? '출도 완료 — UNIT'
+                    : '<b style="color:#8a6d1b">미출도 — 유형+임시(추정) 수량</b>';
+                this.el('bomBody').innerHTML = p.items.map((it, i) => {
                     let est = it.st === '추정';
+                    let kind = it.k || this.DEFAULT_KIND;
                     return `<tr class="${est ? 'est' : ''}">
                         <td><input value="${it.no}" onchange="bomPage.up(${i},'no',this.value)"></td>
                         <td class="l"><input value="${it.nm}" onchange="bomPage.up(${i},'nm',this.value)"></td>
-                        <td class="l"><input value="${it.dwg}" onchange="bomPage.up(${i},'dwg',this.value)"></td>
                         <td><select style="min-width: 60px;" onchange="bomPage.up(${i},'g',this.value)">${this.GUBUN.map(x => `<option ${it.g === x ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
-                        <td><input list="kindsDL" value="${it.k}" ${it.g !== '제작품' ? 'disabled' : ''} onchange="bomPage.up(${i},'k',this.value)"></td>
+                        <td><input list="kindsDL" value="${kind}" ${it.g !== '제작품' ? 'disabled' : ''} onchange="bomPage.up(${i},'k',this.value)"></td>
                         <td><input value="${it.qty}" onchange="bomPage.up(${i},'qty',+this.value)"></td>
                         <td><span class="stat ${est ? 'est' : 'fix'}">${it.st}</span></td>
                         <td><span class="x" onclick="bomPage.del(${i})">✕</span></td></tr>`;
@@ -641,9 +668,9 @@
             }
 
             up(i, k, v) {
-                let it = this.PRODUCTS[this.selP].units[this.selU].items[i];
+                let it = this.proc().items[i];
 
-                // 유형칸 직접 입력 → 동의어 정규화 (bracket/브라켓 → plate 등)
+                // 유형칸 직접 입력 → 동의어 정규화 (bracket/브라켓 → plate, 빈 값 → etc)
                 if (k === 'k') {
                     it.k = this.normKind(v);
                     this.renderBom();
@@ -652,8 +679,8 @@
 
                 it[k] = v;
 
-                // 부품명 입력 시 유형 자동 추정 (제작품 + 유형 미지정일 때만 → 수동값 보존)
-                if (k === 'nm' && it.g === '제작품' && !it.k) {
+                // 부품명 입력 시 유형 자동 추정 (제작품 + 유형 미지정/etc 일 때만 → 수동값 보존)
+                if (k === 'nm' && it.g === '제작품' && (!it.k || it.k === this.DEFAULT_KIND)) {
                     let guess = this.guessKind(v);
                     if (guess) {
                         it.k = guess;
@@ -664,7 +691,7 @@
 
                 // 구분을 제작품으로 바꾸면 부품명으로 한 번 추정
                 if (k === 'g') {
-                    if (v === '제작품' && !it.k) {
+                    if (v === '제작품' && (!it.k || it.k === this.DEFAULT_KIND)) {
                         let guess = this.guessKind(it.nm);
                         if (guess) it.k = guess;
                     }
@@ -673,64 +700,22 @@
             }
 
             del(i) {
-                this.PRODUCTS[this.selP].units[this.selU].items.splice(i, 1);
+                this.proc().items.splice(i, 1);
                 this.renderBom();
-                this.renderUnit();
             }
 
             addItem() {
-                let u = this.PRODUCTS[this.selP].units[this.selU];
-                u.items.push({no: '', nm: '', dwg: '', g: '제작품', k: '', qty: 1, st: u.out ? '확정' : '추정'});
-                this.renderBom();
-                this.renderUnit();
-            }
-
-            addUnit() {
-                this.PRODUCTS[this.selP].units.push({nm: 'NEW', out: false, fin: false, items: []});
-                this.renderUnit();
-            }
-
-            renameUnit(i, v) {
-                let u = this.PRODUCTS[this.selP].units[i];
-                if (!u) return;
-                let name = v.trim();
-                if (!name) {            // 빈 값이면 기존 이름 유지
-                    this.renderUnit();
-                    return;
-                }
-                u.nm = name;
-                this.renderUnit();
-                this.renderBom();       // 선택 중인 유니트면 상단 제목(bomTitle)도 갱신
-            }
-
-            // 유니트 삭제 (실서버 적용 시 confirm → Alert.confirm 으로 교체 권장)
-            deleteUnit(i) {
-                let units = this.PRODUCTS[this.selP].units;
-                let u = units[i];
-                if (!u) return;
-                if (!confirm(`유니트 '${u.nm}' 을(를) 삭제하시겠습니까?\n소속 부품 ${u.items.length}건도 함께 삭제됩니다.`)) return;
-
-                units.splice(i, 1);
-                if (this.selU >= units.length) this.selU = Math.max(0, units.length - 1);
-                this.renderUnit();
+                let p = this.proc();
+                p.items.push({no: '', nm: '', g: '제작품', k: this.DEFAULT_KIND, qty: 1, st: p.out ? '확정' : '추정'});
                 this.renderBom();
             }
 
             toggleOut() {
-                let u = this.PRODUCTS[this.selP].units[this.selU];
-                u.out = this.el('chkOut').checked;
-                u.items.forEach(it => {
-                    if (it.st !== '완료') it.st = u.out ? '확정' : '추정';
+                let p = this.proc();
+                p.out = this.el('chkOut').checked;
+                p.items.forEach(it => {
+                    if (it.st !== '완료') it.st = p.out ? '확정' : '추정';
                 });
-                this.renderUnit();
-                this.renderBom();
-            }
-
-            // 완료 ↔ 완료취소 토글 (공통재고 차감 로직 제거)
-            toggleDone(i) {
-                let u = this.PRODUCTS[this.selP].units[i];
-                u.fin = !u.fin;
-                this.renderUnit();
                 this.renderBom();
             }
 

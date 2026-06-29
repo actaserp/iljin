@@ -65,18 +65,18 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>조립 공정</h2>
+                <h2>검사 공정</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>생산 관리</li>
-                <li>조립 공정</li>
+                <li>검사 공정</li>
             </ul>
         </div>
 
         <div class="main-row">
-            <!-- 좌: 조립 대상(완제품=공정/품목) 목록 -->
+            <!-- 좌: 검사 대상(공정/품목) 목록 -->
             <section class="section" style="flex:1;">
                 <div class="section-top" style="justify-content:left; gap:15px;">
                     <div class="search-wrap">
@@ -90,33 +90,33 @@
                 <div class="container-fluid">
                     <table class="work-table">
                         <thead><tr>
-                            <th>완제품 (공정/품목)</th>
+                            <th>검사 대상 (공정/품목)</th>
                             <th style="width:110px">상태</th>
-                            <th style="width:100px">완제품재고</th>
+                            <th style="width:100px">검사완료</th>
                         </tr></thead>
                         <tbody id="asyBody"></tbody>
                     </table>
                 </div>
             </section>
 
-            <!-- 우: 조립 시작/종료(위) + 조립 이력(아래) -->
+            <!-- 우: 검사 시작/종료(위) + 검사 이력(아래) -->
             <div class="right-col">
                 <section class="section reg-sec">
                     <div class="section-top">
-                        <span id="selLab" style="font-weight:700;">완제품을 선택하세요</span>
+                        <span id="selLab" style="font-weight:700;">검사 대상을 선택하세요</span>
                     </div>
                     <div class="table-wrap">
                         <div class="pick-card" id="pickCard">
-                            <div class="empty" style="width:100%">왼쪽에서 완제품을 선택하세요</div>
+                            <div class="empty" style="width:100%">왼쪽에서 검사 대상을 선택하세요</div>
                         </div>
                     </div>
                 </section>
 
                 <section class="section log-sec">
-                    <div class="section-top"><span style="font-weight:700;">조립 이력</span></div>
+                    <div class="section-top"><span style="font-weight:700;">검사 이력</span></div>
                     <div class="table-wrap">
                         <table class="work-table">
-                            <thead><tr><th style="width:90px">프로젝트</th><th>완제품</th><th style="width:78px">시작</th><th style="width:78px">종료</th><th style="width:96px">생산일</th><th style="width:60px">취소</th></tr></thead>
+                            <thead><tr><th style="width:90px">프로젝트</th><th>검사 대상</th><th style="width:78px">시작</th><th style="width:78px">종료</th><th style="width:96px">생산일</th><th style="width:60px">취소</th></tr></thead>
                             <tbody id="logBody"></tbody>
                         </table>
                     </div>
@@ -132,9 +132,9 @@
         const toYMD = d => { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
         const nowHM = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${z(d.getHours())}:${z(d.getMinutes())}`; };
 
-        // 프로젝트 → 완제품(공정/품목). 프로젝트로 거른 뒤 그 대상만 목록에 표시.
-        //  st: 'wait'(대기) | 'run'(진행중)   /   stock: 완료 누적(완제품 재고)
-        //  종료(완료) 시 stock+1. 실제로는 백단에서 해당 완제품 유닛의 공정별 재고를 차감.
+        // 프로젝트 → 검사 대상(공정/품목). 프로젝트로 거른 뒤 그 대상만 목록에 표시.
+        //  st: 'wait'(대기) | 'run'(진행중)   /   stock: 검사 완료 누적 건수
+        //  종료(완료) 시 stock+1 (검사 완료 1건 기록).
         const PROJECTS = [
             {code: 'PRJ-A', name: 'A9 FR도어', items: [
                     {code: 'RS01', st: 'wait', stock: 0, start: ''},
@@ -179,8 +179,8 @@
 
         function renderDetail() {
             if (sel === null) {
-                $('#selLab').textContent = '완제품을 선택하세요';
-                $('#pickCard').innerHTML = '<div class="empty" style="width:100%">왼쪽에서 완제품을 선택하세요</div>';
+                $('#selLab').textContent = '검사 대상을 선택하세요';
+                $('#pickCard').innerHTML = '<div class="empty" style="width:100%">왼쪽에서 검사 대상을 선택하세요</div>';
                 return;
             }
             const a = ASSY()[sel];
@@ -189,14 +189,14 @@
             $('#pickCard').innerHTML = `
                 <div class="pick-name">${a.code}</div>
                 <div class="pick-status"><span class="lab">상태</span>${statusBadge(a)}${running ? ` <span style="color:#8a6d1b">· ${a.start} 시작</span>` : ''}</div>
-                <div class="pick-status"><span class="lab">완제품재고</span>${a.stock}</div>
+                <div class="pick-status"><span class="lab">검사완료</span>${a.stock}</div>
                 <div class="big-actions">
                     <button class="btn btn-start" id="btnStart" ${running ? 'disabled' : ''}>시작</button>
                     <button class="btn btn-end" id="btnEnd" ${running ? '' : 'disabled'}>종료(완료)</button>
                 </div>
                 <p class="hint">${running
-                ? '진행중 — <b>종료(완료)</b> 시 완제품 1개가 재고로 생성됩니다.'
-                : '대기 — <b>시작</b>을 누르면 조립을 시작합니다. (한 완제품을 여러 번 조립해 재고를 쌓을 수 있습니다)'}</p>`;
+                ? '진행중 — <b>종료(완료)</b> 시 검사 완료로 기록됩니다.'
+                : '대기 — <b>시작</b>을 누르면 검사를 시작합니다. (한 대상을 여러 번 검사할 수 있습니다)'}</p>`;
             $('#btnStart').onclick = () => start(sel);
             $('#btnEnd').onclick = () => end(sel);
         }
@@ -212,7 +212,7 @@
         function end(i) {
             const a = ASSY()[i];
             if (a.st !== 'run') return;
-            a.stock += 1;                 // 완제품 재고 1 생성 (백단: 유닛 공정별 재고 차감)
+            a.stock += 1;                 // 검사 완료 1건 기록
             log.unshift({proj: PROJECTS[selProj].code, code: a.code, start: a.start, end: nowHM(), date: curDate});
             a.st = 'wait';
             a.start = '';
@@ -220,7 +220,7 @@
         }
 
         function renderLog() {
-            if (!log.length) { $('#logBody').innerHTML = '<tr><td colspan="6" class="empty">조립 내역 없음</td></tr>'; return; }
+            if (!log.length) { $('#logBody').innerHTML = '<tr><td colspan="6" class="empty">검사 내역 없음</td></tr>'; return; }
             $('#logBody').innerHTML = log.map((l, i) => `
                 <tr>
                     <td>${l.proj}</td>
@@ -231,7 +231,7 @@
                 const l = log[+b.dataset.i];
                 const p = PROJECTS.find(x => x.code === l.proj);
                 const a = p && p.items.find(x => x.code === l.code);
-                if (a && a.stock > 0) a.stock -= 1;   // 완료 취소 → 재고 1 감소
+                if (a && a.stock > 0) a.stock -= 1;   // 검사 완료 취소 → 건수 1 감소
                 log.splice(+b.dataset.i, 1);
                 renderList(); renderDetail(); renderLog();
             });

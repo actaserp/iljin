@@ -1,123 +1,554 @@
 <html layout:decorate="~{layout_page}">
 <head>
     <style>
-        #dashWrap{background:#0d1117;color:#e6edf3;min-height:100vh;padding:24px 28px;font-family:'Pretendard','Malgun Gothic',sans-serif;}
-        #dashWrap .dash-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-        #dashWrap .dash-head h1{font-size:30px;font-weight:800;color:#fff;margin:0;}
-        #dashWrap .dash-clock{font-size:22px;font-weight:600;color:#58a6ff;font-variant-numeric:tabular-nums;}
-        .working-banner{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:12px 18px;margin-bottom:18px;}
-        .wb-title{font-size:14px;color:#f0b72f;font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:8px;}
-        .wb-dot{width:9px;height:9px;border-radius:50%;background:#f0b72f;animation:blink 1.1s infinite;}@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
-        .wb-list{display:flex;flex-wrap:wrap;gap:10px;} .wb-item{background:#21262d;border-radius:9px;padding:8px 14px;border-left:3px solid #f0b72f;}
-        .wb-item .k{font-size:15px;font-weight:800;color:#fff;} .wb-item .w{font-size:13px;color:#c9d1d9;} .wb-empty{color:#8b949e;font-size:14px;}
-        .sec-label{font-size:14px;color:#8b949e;font-weight:700;margin:0 0 10px;}
-        /* 프로젝트 요약 카드 */
-        .proj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-bottom:22px;}
-        .proj-card{background:#161b22;border:1px solid #30363d;border-radius:14px;padding:16px 18px;cursor:pointer;transition:.15s;}
-        .proj-card:hover{border-color:#58a6ff;transform:translateY(-2px);} .proj-card.active{border-color:#58a6ff;box-shadow:0 0 0 2px rgba(88,166,255,.3);}
-        .pc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
-        .pc-name{font-size:20px;font-weight:700;color:#fff;} .pc-jigs{font-size:12px;color:#58a6ff;font-weight:600;background:rgba(88,166,255,.12);padding:3px 10px;border-radius:20px;white-space:nowrap;}
-        .jg{margin-top:10px;} .jg .gl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:#8b949e;} .jg .gl b{font-weight:700;}
-        .gtrack{height:9px;background:#21262d;border-radius:6px;overflow:hidden;} .gfill{height:100%;border-radius:6px;}
-        .gfill.out{background:linear-gradient(90deg,#1f6feb,#58a6ff);} .gfill.fin{background:linear-gradient(90deg,#238636,#3fb950);}
-        .pc-stats{display:flex;gap:16px;margin-top:13px;font-size:13px;color:#c9d1d9;} .pc-stats b{color:#fff;font-size:15px;}
-        .pc-working{margin-left:auto;color:#f0b72f;font-weight:700;font-size:12px;}
-        /* 지그 아코디언 */
-        .jig-wrap{margin-bottom:18px;}
-        .jig-block{background:#161b22;border:1px solid #30363d;border-radius:14px;margin-bottom:12px;overflow:hidden;}
-        .jig-head{display:flex;align-items:center;gap:18px;padding:15px 20px;cursor:pointer;} .jig-head:hover{background:#1b212a;} .jig-block.open .jig-head{border-bottom:1px solid #30363d;}
-        .jig-name{font-size:19px;font-weight:700;color:#fff;min-width:220px;} .jig-name .jn-no{font-size:12px;color:#58a6ff;font-weight:600;background:rgba(88,166,255,.12);padding:2px 9px;border-radius:14px;margin-left:8px;}
-        .jig-gauges{flex:1;display:flex;gap:22px;max-width:500px;} .jig-stat{font-size:13px;color:#c9d1d9;white-space:nowrap;} .jig-stat b{color:#fff;}
-        .jig-toggle{color:#8b949e;font-size:18px;transition:.2s;} .jig-block.open .jig-toggle{transform:rotate(180deg);}
-        .jig-detail{display:none;padding:14px 20px 18px;background:#0f141b;} .jig-block.open .jig-detail{display:block;}
-        .unit-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #21262d;flex-wrap:wrap;} .unit-row:first-child{border-top:0;}
-        .ur-name{font-size:16px;font-weight:700;color:#fff;min-width:80px;}
-        .bdg{font-size:11px;font-weight:700;padding:3px 10px;border-radius:13px;}
-        .bdg.out{background:rgba(88,166,255,.16);color:#58a6ff;}.bdg.no{background:rgba(240,183,47,.16);color:#f0b72f;}
-        .bdg.fin{background:rgba(63,185,80,.18);color:#3fb950;}.bdg.ing{background:#21262d;color:#8b949e;}
-        .item-chips{display:flex;flex-wrap:wrap;gap:7px;margin-left:auto;} .ic{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:5px 10px;font-size:12.5px;color:#c9d1d9;}
-        .ic.done{border-color:rgba(63,185,80,.4);color:#3fb950;} .ic .k{font-size:11px;color:#58a6ff;margin-left:4px;}
-        .foot-strip{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#161b22;border:1px solid #30363d;border-radius:12px;padding:12px 18px;}
-        .foot-strip .fl{font-size:13px;color:#8b949e;font-weight:700;margin-right:6px;} .foot-strip .c{background:#21262d;border:1px solid #30363d;border-radius:8px;padding:7px 12px;font-size:13px;color:#c9d1d9;} .foot-strip .c b{color:#58a6ff;font-size:16px;} .foot-strip .c.scrap b{color:#f0b72f;}
+        #udWrap{background:#1b1f27;color:#f3f6f9;min-height:100vh;padding:1.6vw 1.8vw 4vw;font-family:'Pretendard','Malgun Gothic',sans-serif;font-size:clamp(14px,0.85vw,18px);}
+        #udInner{max-width:1500px;margin:0 auto;}
+        #udWrap *{box-sizing:border-box;}
+        .ud-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+        .ud-head h2{font-size:clamp(22px,1.5vw,32px);font-weight:700;color:#f3f6f9;margin:0;}
+        .ud-head .sub{font-size:12px;color:#aeb7c4;margin-top:3px;}
+        .ud-clock{font-size:clamp(20px,1.4vw,32px);font-weight:600;color:#6c9fd1;font-variant-numeric:tabular-nums;}
+        .view-only{font-size:11px;color:#7e8794;border:1px solid #2a2f38;border-radius:6px;padding:3px 9px;margin-left:10px;}
+        @keyframes udblink{0%,100%{opacity:1}50%{opacity:.3}}
+
+        .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+        .kpi{background:#272f3a;border:1px solid #404a59;border-radius:12px;padding:1vw 1.2vw;}
+        .kpi .l{font-size:clamp(13px,0.95vw,20px);color:#aeb7c4;} .kpi .v{font-size:clamp(24px,1.8vw,36px);font-weight:700;color:#f3f6f9;margin-top:3px;}
+        .kpi .v small{font-size:13px;color:#aeb7c4;font-weight:600;}
+        .kpi.made .v{color:#6c9fd1;} .kpi.rate .v{color:#5cbf9b;} .kpi.risk .v{color:#d4685f;}
+
+        .alert-bar{display:flex;flex-wrap:wrap;gap:9px;align-items:center;background:#1a1316;border:1px solid #3a2226;border-radius:12px;padding:11px 15px;margin-bottom:14px;}
+        .alert-bar .at{font-size:13px;font-weight:700;color:#d4685f;display:flex;align-items:center;gap:7px;margin-right:4px;}
+        .alert-bar .ad{width:9px;height:9px;border-radius:50%;background:#d4685f;animation:udblink 1.1s infinite;}
+        .alert-chip{font-size:clamp(12px,0.9vw,18px);font-weight:600;border-radius:8px;padding:6px 11px;}
+        .alert-chip.danger{background:rgba(248,81,73,.14);color:#d4685f;border:1px solid rgba(248,81,73,.4);}
+        .alert-chip.warn{background:rgba(251,191,36,.14);color:#d3aa55;border:1px solid rgba(251,191,36,.4);}
+        .alert-chip.out{background:rgba(96,165,250,.12);color:#6c9fd1;border:1px solid rgba(96,165,250,.35);}
+        .alert-none{font-size:13px;color:#5cbf9b;font-weight:600;}
+
+        .work-banner{background:#272f3a;border:1px solid #404a59;border-radius:12px;padding:11px 15px;margin-bottom:18px;}
+        .wb-title{font-size:13px;color:#d3aa55;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+        .wb-dot{width:9px;height:9px;border-radius:50%;background:#d3aa55;animation:udblink 1.1s infinite;}
+        .wb-list{display:flex;flex-wrap:wrap;gap:9px;}
+        .wb-item{background:#2b333e;border-radius:9px;padding:0.5vw 0.9vw;border-left:3px solid #d3aa55;font-size:clamp(13px,0.95vw,20px);}
+        .wb-item b{color:#f3f6f9;} .wb-item .w{color:#ccd3dc;margin-left:6px;} .wb-item .p{color:#aeb7c4;margin-left:6px;font-size:12px;}
+        .wb-empty{color:#9099a7;font-size:13px;}
+
+        .sec-label{font-size:clamp(14px,1vw,20px);color:#aeb7c4;font-weight:700;margin:2px 0 10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+        .sec-label .legend{font-weight:500;color:#7e8794;font-size:11px;}
+
+        #projRows{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;align-items:start;}
+        @media(min-width:1100px){#projRows{grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));}}
+        .pcard{background:#272f3a;border:1px solid #404a59;border-radius:14px;padding:16px 16px 14px;cursor:pointer;display:flex;flex-direction:column;gap:11px;transition:.15s;min-height:320px;}
+        .pcard:hover{background:#262e39;border-color:#46505f;}
+        .pcard.risk{border-color:rgba(248,81,73,.5);}
+        .pcard.open{border-color:#5f8fc0;background:#262e39;}
+        .pc-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+        .pc-head .nm{font-size:clamp(17px,1.2vw,24px);font-weight:800;color:#f3f6f9;}
+        .pc-head .owner{font-size:clamp(12px,0.85vw,16px);color:#aeb7c4;margin-left:4px;}
+        .pc-due{font-size:clamp(12px,0.9vw,17px);color:#aeb7c4;font-weight:700;white-space:nowrap;background:#1e242d;border:1px solid #404a59;border-radius:7px;padding:3px 9px;}
+        .pc-due.soon{color:#d4685f;border-color:rgba(248,81,73,.4);}
+        .pc-foot{display:flex;flex-direction:column;gap:6px;margin-top:auto;}
+        .pc-work{font-size:clamp(12px,0.9vw,17px);color:#d49279;font-weight:600;min-height:1.4em;}
+        .pc-prog{font-size:clamp(26px,2vw,40px);font-weight:800;line-height:1;}
+        .pc-prog small{font-size:clamp(12px,0.85vw,16px);color:#aeb7c4;font-weight:600;}
+        .pc-track{height:8px;background:#39424f;border-radius:999px;overflow:hidden;}
+        .pc-track .f{height:100%;border-radius:999px;}
+        .pc-sub{font-size:clamp(12px,0.9vw,17px);color:#aeb7c4;}
+        .pc-sub .m{color:#6c9fd1;font-weight:700;}
+        .pc-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:1px;}
+
+        .stage-dots{display:flex;align-items:center;gap:4px;}
+        .sd{flex:1;text-align:center;}
+        .sd .dot{height:clamp(32px,2.2vw,46px);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:clamp(14px,1vw,20px);font-weight:700;border:1px solid;}
+        .sd .dot.done{background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.45);color:#5cbf9b;}
+        .sd .dot.cur{background:rgba(251,191,36,.18);border-color:#d3aa55;color:#d3aa55;animation:udblink 1.2s infinite;}
+        .sd .dot.up{background:#1e242d;border-color:#404a59;color:#727a87;}
+        .sd .nm{font-size:clamp(12px,0.85vw,17px);color:#9099a7;margin-top:4px;}
+        .sd .pc{font-size:clamp(12px,0.85vw,17px);font-weight:700;color:#aeb7c4;margin-top:2px;font-variant-numeric:tabular-nums;}
+        .sd.clickable .dot{cursor:pointer;}
+        .sd.clickable .dot:hover{filter:brightness(1.25);}
+        .dz-car{font-size:9px;margin-left:3px;opacity:.8;}
+        .dz-panel{background:#20262f;border:1px solid #404a59;border-radius:9px;padding:0.9vw 1.1vw;margin-bottom:0.5vw;}
+        .dz-lab{font-size:clamp(12px,0.95vw,18px);color:#7e8794;font-weight:600;display:block;margin-bottom:0.6vw;}
+        .dz-row{display:flex;align-items:center;gap:0;flex-wrap:wrap;}
+        .dz-step{font-size:clamp(13px,1vw,20px);font-weight:700;padding:0.5vw 1vw;border-radius:8px;border:1px solid;}
+        .dz-step.done{background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.45);color:#5cbf9b;}
+        .dz-step.cur{background:rgba(251,191,36,.18);border-color:#d3aa55;color:#d3aa55;}
+        .dz-step.up{background:#1e242d;border-color:#404a59;color:#727a87;}
+        .dz-conn{width:14px;height:2px;background:#2a2f38;}
+        .sd-conn{width:10px;height:2px;background:#404a59;flex:0 0 auto;}
+        .tag{font-size:clamp(11px,0.85vw,16px);font-weight:700;padding:2px 8px;border-radius:6px;}
+        .tag.danger{background:rgba(248,81,73,.14);color:#d4685f;} .tag.warn{background:rgba(251,191,36,.14);color:#d3aa55;}
+        .tag.out{background:rgba(96,165,250,.12);color:#6c9fd1;} .tag.work{background:rgba(240,153,123,.14);color:#d49279;}
+
+        .pdetail-full{grid-column:1/-1;background:#1e242d;border:1px solid #46505f;border-radius:12px;padding:1.2vw 1.6vw 1.4vw;margin:-4px 0 4px;}
+        .pd-title{font-size:clamp(18px,1.4vw,28px);font-weight:800;color:#f3f6f9;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #46505f;}
+        .pd-title .owner{font-size:clamp(12px,0.85vw,16px);color:#aeb7c4;font-weight:500;margin-left:6px;}
+        .sub-h{font-size:clamp(14px,1.05vw,21px);color:#f3f6f9;font-weight:800;margin:0 0 0.7vw;padding-left:11px;border-left:4px solid #5f8fc0;line-height:1.2;}
+        .make-split{display:grid;grid-template-columns:1fr 1fr;gap:1vw;margin-bottom:0.6vw;}
+        .ms-card{background:#20262f;border:1px solid #404a59;border-radius:8px;padding:0.8vw 1vw;}
+        .ms-card .mh{display:flex;justify-content:space-between;font-size:clamp(13px,1vw,20px);margin-bottom:0.5vw;color:#aeb7c4;}
+        .ms-card .mh .in{color:#6c9fd1;font-weight:700;} .ms-card .mh .out{color:#d49279;font-weight:700;}
+        .ms-card .mt{height:9px;background:#39424f;border-radius:999px;overflow:hidden;}
+        .ms-card .mt .f{height:100%;border-radius:999px;}
+
+        .lblock{margin-bottom:8px;}
+        .lhead{display:grid;grid-template-columns:minmax(130px,auto) 1fr minmax(170px,auto);gap:1.4vw;align-items:center;background:#262e39;border:1px solid #46505f;border-radius:9px;padding:0.9vw 1.2vw;cursor:pointer;}
+        .lhead:hover{border-color:#46505f;}
+        .lname{font-size:clamp(15px,1.2vw,26px);font-weight:700;color:#ccd3dc;display:flex;align-items:center;gap:6px;}
+        .lname .lchev{color:#727a87;font-size:12px;transition:.15s;}
+        .lblock.open .lname .lchev{transform:rotate(90deg);}
+        .lmini{height:6px;width:100%;background:#39424f;border-radius:999px;overflow:hidden;align-self:center;opacity:.85;}
+        .lmini .f{height:100%;border-radius:999px;}
+        .lright{text-align:left;font-size:clamp(14px,1.05vw,22px);color:#bcc4ce;display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;}
+        .lright b{font-weight:800;color:#f3f6f9;}
+        .lpct{font-weight:700;font-size:clamp(15px,1.1vw,21px);margin-left:6px;}
+        .ipct{font-weight:700;font-size:clamp(14px,1vw,19px);text-align:right;}
+        .lright b{color:#e6ebf1;} .lright .r{font-weight:800;margin-left:6px;}
+        .litems{display:none;padding:0.6vw 0 0.4vw 0.8vw;}
+        .lblock.open .litems{display:block;}
+        .irow{display:grid;grid-template-columns:minmax(90px,120px) minmax(120px,auto) 1fr auto minmax(120px,auto);gap:1.2vw;align-items:center;padding:0.9vw 0.4vw;border-top:1px solid #2a313c;font-size:clamp(14px,1.05vw,22px);}
+        .irow:first-child{border-top:0;}
+        .icode{font-weight:800;color:#f3f6f9;font-size:clamp(15px,1.1vw,23px);}
+        .imini{height:5px;width:100%;background:#39424f;border-radius:999px;overflow:hidden;opacity:.8;}
+        .imini .f{height:100%;border-radius:999px;}
+        .inum{text-align:left;color:#bcc4ce;white-space:nowrap;display:flex;align-items:baseline;gap:2px;} .inum .m{color:#6c9fd1;font-weight:700;}
+        .ibadges{display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap;}
+        .ib{font-size:clamp(11px,0.85vw,17px);font-weight:700;padding:0.3vw 0.6vw;border-radius:6px;}
+        .ib.in{background:rgba(96,165,250,.14);color:#6c9fd1;} .ib.out{background:rgba(240,153,123,.14);color:#d49279;}
+        .ib.dok{background:rgba(52,211,153,.16);color:#5cbf9b;} .ib.dno{background:rgba(251,191,36,.16);color:#d3aa55;}
+        .ib.work{background:rgba(240,153,123,.2);color:#d49279;}
+        .ship-chips{display:flex;gap:7px;margin-top:10px;}
+        .ship{font-size:clamp(13px,1vw,20px);color:#aeb7c4;background:#20262f;border:1px solid #404a59;border-radius:7px;padding:0.5vw 0.9vw;}
+        .ship b{color:#ccd3dc;}
+        .note{font-size:11px;color:#7e8794;margin-top:10px;line-height:1.5;}
+        .stage-stat{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+        .stage-stat .ss{background:#272f3a;border:1px solid #46505f;border-radius:8px;padding:0.7vw 1vw;font-size:clamp(13px,1vw,20px);color:#bcc4ce;}
+        .stage-stat .ss .l{color:#aeb7c4;margin-right:7px;}
+        .stage-stat .ss b{color:#e6ebf1;font-size:14px;font-variant-numeric:tabular-nums;}
+        .hide-done{font-size:12px;color:#ccd3dc;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;}
+        .hide-done input{cursor:pointer;width:14px;height:14px;accent-color:#6c9fd1;}
+        .vhead .lname{color:#d49279;}
+        .vrow{display:grid;grid-template-columns:1.2fr 3fr 1.2fr 1fr 1.6fr;gap:1vw;align-items:center;padding:0.7vw 0.4vw;border-top:1px solid #2a313c;font-size:clamp(13px,1vw,20px);}
+        .vrow:first-child{border-top:0;}
+        .vrow .v{color:#aeb7c4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .vrow .inum{text-align:right;color:#6c9fd1;font-weight:700;}
+        .vrow .vd{font-size:11px;color:#aeb7c4;text-align:right;} .vrow .vd.soon{color:#d4685f;font-weight:700;}
+        .idetail2{padding:2px 0 8px 10px;margin-left:90px;}
+        .idrow{display:flex;align-items:flex-start;gap:0.8vw;padding:0.6vw 0;font-size:clamp(13px,1vw,20px);}
+        .idrow .idl{color:#aeb7c4;font-weight:600;min-width:clamp(78px,7vw,140px);flex:0 0 auto;padding-top:2px;font-size:clamp(12px,0.9vw,18px);}
+        .idrow .idl .idn{color:#727a87;font-weight:500;}
+        .idrow .idc{display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+        .pchip{background:#272f3a;border:1px solid #46505f;border-radius:8px;padding:0.45vw 0.8vw;font-size:clamp(13px,1vw,20px);color:#bcc4ce;}
+        .pchip .pn{color:#aeb7c4;} .pchip b{color:#6c9fd1;font-weight:700;margin-left:3px;} .pchip .pt{color:#727a87;font-size:clamp(12px,0.95vw,19px);}
+        .kchip{background:#20262f;border:1px solid #404a59;border-radius:8px;padding:0.45vw 0.8vw;font-size:clamp(13px,1vw,20px);color:#ccd3dc;}
+        .kchip .pn{color:#ccd3dc;} .kchip b{color:#a6a0d4;font-weight:700;margin-left:3px;} .kchip .pt{color:#727a87;font-size:clamp(12px,0.95vw,19px);}
+        .kchip.etc .pn{color:#7e8794;} .kchip.etc b{color:#9099a7;}
+        .iu{color:#7e8794;font-size:clamp(11px,0.8vw,15px);font-weight:600;}
+        .idwork{color:#d49279;font-weight:700;margin-left:4px;}
     </style>
 </head>
 <th:block layout:fragment="content">
-    <div id="dashWrap">
-        <div class="dash-head"><h2 data-layout-toggle-anchor>생산 현황판 · 프로젝트</h2><span class="dash-clock" id="clock"></span></div>
-        <div class="working-banner"><div class="wb-title"><span class="wb-dot"></span>현재 작업중</div><div class="wb-list" id="working"></div></div>
+    <div id="udWrap">
+        <div id="udInner">
+            <div class="ud-head">
+                <div>
+                    <h2 data-layout-toggle-anchor>프로젝트 현황<span class="view-only">읽기 전용 · 모니터링</span></h2>
+                    <div class="sub">일진테크 · 관리자 대시보드 — WBS 표준단계(설계·제작·조립·검사) 증빙 자동판정 + 조기경보</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:16px">
+                    <label class="hide-done"><input type="checkbox" id="hideDone" checked> 완료 프로젝트 숨기기</label>
+                    <span class="ud-clock" id="udClock"></span>
+                </div>
+            </div>
 
-        <p class="sec-label">프로젝트</p>
-        <div class="proj-grid" id="projGrid"></div>
+            <div class="kpi-row" id="kpiRow"></div>
+            <div class="alert-bar" id="alertBar"></div>
+            <div class="work-banner">
+                <div class="wb-title"><span class="wb-dot"></span>현재 작업중</div>
+                <div class="wb-list" id="workList"></div>
+            </div>
 
-        <p class="sec-label" id="jigLabel"></p>
-        <div class="jig-wrap" id="jigList"></div>
+            <div class="sec-label">
+                <span>프로젝트 (위험·진척 우선순위 순) — 행 클릭 시 라인 → 공정 펼침</span>
+                <span class="legend">단계 설계(출도)·제작·조립·검사 &nbsp;|&nbsp; ●완료 ◐진행 ○대기</span>
+            </div>
+            <div id="projRows"></div>
 
-        <div class="foot-strip" id="foot"></div>
+            <p class="sec-label" style="margin-top:22px">
+                <span>외주 현황 (외작) — 외주처별 입고, 행 클릭 시 공정 펼침</span>
+                <span class="legend" id="vendorAlertLab"></span>
+            </p>
+            <div id="vendorRows"></div>
+        </div>
     </div>
 </th:block>
 
 <th:block layout:fragment="scripts">
     <script type="text/javascript" th:inline="none">
-        const $=s=>document.querySelector(s);
-        let stock={plate:{g:300,s:12},block:{g:120,s:5},shim:{g:60,s:0},brkt:{g:40,s:0}};
-        let working=[{kind:'plate',worker:'홍길동'},{kind:'block',worker:'김철수'}];
-        let PROJECTS=[
-            {nm:'LW 호원', jigs:[
-                    {no:'A9-760-FD10',nm:'FR DR 패널 지그',units:[
-                            {nm:'U201',out:true,fin:true,items:[ ['JOINT PLATE','plate'],['LOC BLOCK','block'],['SHIM 3T','shim']]},
-                            {nm:'U227',out:true,fin:false,items:[ ['UNIT PLATE','plate'],['PIN BRKT','brkt'],['PIN BLOCK','block']]},
-                            {nm:'P228',out:false,fin:false,items:[ ['(미정) plate','plate'],['(미정) block','block']]},
+        const $ = s => document.querySelector(s);
+        const nf = n => (n || 0).toLocaleString();
+
+        // WBS 표준 단계 + 완료기준(증빙):
+        //  설계=도면출도 100% / 제작=가공(내작)+구매(외작) 유닛 100% / 조립=조립완료 / 검사=검사완료
+        const STAGES = ['설계', '제작', '조립', '검사'];
+
+        // 데이터(읽기 전용, 서버 집계). item: out(출도), need/made(유닛), type(내작=가공/외작=구매),
+        //  vendor, asm(조립완료), insp(검사완료), working. proj: due, ship(출하), outd(출고)
+        const PROJECTS = [
+            {name: 'HMC-A23', owner: '현대차', due: '2026-07-20', dsteps: [{n:'1차검도',s:'done'},{n:'2차검도',s:'done'},{n:'3차검도',s:'cur'},{n:'출도',s:'wait'}], ship: false, outd: false, lines: [
+                    {name: 'MAIN', items: [
+                            {code: 'RS01', need: 120, made: 78, parts: {kinds: {PLATE: {t: 259, d: 168}, 기타: {t: 1181, d: 768}}, procs: {레이저커팅: 323, 선반밀링: 295, 와이어컷: 211, 머시닝센터: 119}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '가공', machine: 'WC-01', worker: '이종길'}},
+                            {code: 'RS02', need: 80, made: 52, parts: {kinds: {기타: {t: 787, d: 512}}, procs: {레이저커팅: 215, 선반밀링: 197, 와이어컷: 140, 머시닝센터: 80}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null},
+                            {code: 'A9-801', need: 60, made: 0, asm: 0, insp: 0, out: true, type: '외작', vendor: '대성정밀', rcv: false, working: null}
                         ]},
-                    {no:'A9-820',nm:'RR DR 패널 지그',units:[
-                            {nm:'U301',out:false,fin:false,items:[ ['(미정) plate','plate']]},
-                            {nm:'U302',out:true,fin:true,items:[ ['BASE PLATE','plate'],['GUIDE','block']]},
+                    {name: 'SUB1', items: [
+                            {code: 'LH-01', need: 40, made: 30, parts: {kinds: {기타: {t: 394, d: 296}}, procs: {레이저커팅: 124, 선반밀링: 113, 와이어컷: 81, 머시닝센터: 46}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null},
+                            {code: 'RH-01', need: 40, made: 18, parts: {kinds: {기타: {t: 394, d: 177}}, procs: {레이저커팅: 75, 선반밀링: 68, 와이어컷: 49, 머시닝센터: 28}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '가공', machine: 'LC-02', worker: '채완병'}}
+                        ]}
+                ]},
+            {name: 'KIA-K8', owner: '기아', due: '2026-07-02', dsteps: [{n:'1차검도',s:'done'},{n:'2차검도',s:'done'},{n:'출도',s:'done'}], ship: false, outd: false, lines: [
+                    {name: 'MAIN', items: [
+                            {code: 'K8-RS1', need: 140, made: 140, parts: {kinds: {PLATE: {t: 302, d: 302}, 기타: {t: 1378, d: 1378}}, procs: {레이저커팅: 504, 선반밀링: 504, 와이어컷: 378, 머시닝센터: 214}}, asm: 90, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '조립', machine: '조립1', worker: '우병철'}},
+                            {code: 'K8-RS2', need: 100, made: 100, parts: {kinds: {기타: {t: 984, d: 984}}, procs: {레이저커팅: 360, 선반밀링: 360, 와이어컷: 270, 머시닝센터: 153}}, asm: 70, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null}
                         ]},
+                    {name: 'SUB1', items: [
+                            {code: 'K8-LH1', need: 60, made: 60, parts: {kinds: {기타: {t: 590, d: 590}}, procs: {레이저커팅: 216, 선반밀링: 216, 와이어컷: 162, 머시닝센터: 92}}, asm: 45, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null},
+                            {code: 'K8-OUT', need: 40, made: 0, asm: 0, insp: 0, out: true, type: '외작', vendor: '동양지그', rcv: true, working: null}
+                        ]}
                 ]},
-            {nm:'대우 2차', jigs:[
-                    {no:'B1-100',nm:'사이드 멤버 지그',units:[{nm:'U410',out:true,fin:false,items:[ ['SIDE PLATE','plate'],['ARM','arm']]}]},
-                    {no:'B1-200',nm:'리어 멤버 지그',units:[{nm:'U420',out:false,fin:false,items:[ ['REAR PLATE','plate']]}]},
+            {name: 'GM-크루즈', owner: 'GM', due: '2026-07-06', dsteps: [{n:'1차검도',s:'cur'},{n:'2차검도',s:'wait'},{n:'출도',s:'wait'}], ship: false, outd: false, lines: [
+                    {name: 'MAIN', items: [
+                            {code: 'GM-01', need: 90, made: 12, parts: {kinds: {기타: {t: 886, d: 118}}, procs: {레이저커팅: 50, 선반밀링: 45, 와이어컷: 32, 머시닝센터: 18}}, asm: 0, insp: 0, out: false, type: '내작', vendor: '', rcv: false, working: null},
+                            {code: 'GM-02', need: 50, made: 0, asm: 0, insp: 0, out: false, type: '외작', vendor: '대성정밀', rcv: false, working: null}
+                        ]},
+                    {name: 'SUB1', items: [
+                            {code: 'GM-11', need: 40, made: 5, parts: {kinds: {기타: {t: 394, d: 49}}, procs: {레이저커팅: 21, 선반밀링: 19, 와이어컷: 14, 머시닝센터: 8}}, asm: 0, insp: 0, out: false, type: '내작', vendor: '', rcv: false, working: null}
+                        ]}
                 ]},
+            {name: 'KIA-쏘렌토', owner: '기아', due: '2026-08-25', dsteps: [{n:'1차검도',s:'done'},{n:'출도',s:'done'}], ship: false, outd: false, lines: [
+                    {name: 'MAIN', items: [
+                            {code: 'SR-01', need: 80, made: 80, parts: {kinds: {PLATE: {t: 173, d: 173}, 기타: {t: 787, d: 787}}, procs: {레이저커팅: 288, 선반밀링: 288, 와이어컷: 216, 머시닝센터: 122}}, asm: 80, insp: 80, out: true, type: '내작', vendor: '', rcv: false, working: null},
+                            {code: 'SR-02', need: 60, made: 60, asm: 60, insp: 60, out: true, type: '외작', vendor: '한길테크', rcv: true, working: null}
+                        ]}
+                ]},
+            {name: 'HMC-팰리세이드', owner: '현대차', due: '2026-07-15', dsteps: [{n:'1차검도',s:'done'},{n:'2차검도',s:'done'},{n:'출도',s:'done'}], ship: false, outd: false, lines: [
+                    {name: 'MAIN', items: [
+                            {code: 'PA-01', need: 100, made: 100, parts: {kinds: {PLATE: {t: 216, d: 216}, 기타: {t: 984, d: 984}}, procs: {레이저커팅: 360, 선반밀링: 360, 와이어컷: 270, 머시닝센터: 153}}, asm: 100, insp: 35, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '검사', machine: '검사1', worker: '유현민'}},
+                            {code: 'PA-02', need: 60, made: 60, asm: 60, insp: 20, out: true, type: '외작', vendor: '동양지그', rcv: true, working: null}
+                        ]}
+                ]}
         ];
-        let selP=0, openJig=null;
-        function clock(){$('#clock').textContent=new Date().toLocaleTimeString('ko-KR');}setInterval(clock,1000);clock();
-        function renderWorking(){$('#working').innerHTML=working.length?working.map(w=>`<div class="wb-item"><span class="k">${w.kind}</span> <span class="w">👤 ${w.worker}</span></div>`).join(''):'<div class="wb-empty">작업중 없음</div>';}
-        function jigStat(j){const n=j.units.length,fin=j.units.filter(u=>u.fin).length,out=j.units.filter(u=>u.out).length;return{n,fin,out,finPct:Math.round(fin/n*100),outPct:Math.round(out/n*100)};}
-        function projStat(p){let n=0,fin=0,out=0;p.jigs.forEach(j=>j.units.forEach(u=>{n++;if(u.fin)fin++;if(u.out)out++;}));return{jigs:p.jigs.length,n,fin,out,finPct:n?Math.round(fin/n*100):0,outPct:n?Math.round(out/n*100):0};}
-        function renderProjCards(){
-            $('#projGrid').innerHTML=PROJECTS.map((p,i)=>{const s=projStat(p);
-                return `<div class="proj-card ${selP===i?'active':''}" data-i="${i}">
-      <div class="pc-top"><div class="pc-name">${p.nm}</div><div class="pc-jigs">지그 ${s.jigs}</div></div>
-      <div class="jg"><div class="gl"><span>2D 출도율</span><b style="color:#58a6ff">${s.outPct}%</b></div><div class="gtrack"><div class="gfill out" style="width:${s.outPct}%"></div></div></div>
-      <div class="jg"><div class="gl"><span>유니트 완료율</span><b style="color:#3fb950">${s.finPct}%</b></div><div class="gtrack"><div class="gfill fin" style="width:${s.finPct}%"></div></div></div>
-      <div class="pc-stats"><span>완료 <b>${s.fin}</b>/${s.n}</span><span>출도 <b>${s.out}</b>/${s.n}</span></div></div>`;
-            }).join('');
-            $('#projGrid').querySelectorAll('.proj-card').forEach(c=>c.onclick=()=>{selP=+c.dataset.i;openJig=null;renderProjCards();renderJigs();});
+
+        const flat = p => p.lines.reduce((a, l) => a.concat(l.items), []);
+        // 외작 제작수량 = 입고완료(rcv) 시 need만큼(공정 통째 입고, 수량재고 없음), 미입고면 0
+        const itemMade = x => x.type === '외작' ? (x.rcv ? x.need : 0) : x.made;
+        function agg(items) {
+            const need = items.reduce((s, x) => s + x.need, 0);
+            const made = items.reduce((s, x) => s + itemMade(x), 0);
+            const asm = items.reduce((s, x) => s + (x.asm || 0), 0);
+            const insp = items.reduce((s, x) => s + (x.insp || 0), 0);
+            const inNeed = items.filter(x => x.type === '내작').reduce((s, x) => s + x.need, 0);
+            const inMade = items.filter(x => x.type === '내작').reduce((s, x) => s + x.made, 0);
+            const outNeed = items.filter(x => x.type === '외작').reduce((s, x) => s + x.need, 0);
+            const outMade = items.filter(x => x.type === '외작').reduce((s, x) => s + itemMade(x), 0);
+            const outAll = items.filter(x => x.type === '외작').length;
+            const outRcv = items.filter(x => x.type === '외작' && x.rcv).length;
+            const outWait = items.filter(x => !x.out).length;
+            const working = items.filter(x => x.working);
+            return {need, made, asm, insp, rem: Math.max(0, need - made), rate: need ? Math.round(made / need * 100) : 0,
+                inNeed, inMade, outNeed, outMade, outAll, outRcv, outWait, working, cnt: items.length,
+                prog: prodProg(items)};
         }
-        function renderJigs(){
-            const p=PROJECTS[selP];
-            $('#jigLabel').textContent=`${p.nm} · 지그`;
-            $('#jigList').innerHTML=p.jigs.map((j,i)=>{const s=jigStat(j);const open=openJig===i;
-                return `<div class="jig-block ${open?'open':''}">
-      <div class="jig-head" data-i="${i}">
-        <div class="jig-name">${j.nm}<span class="jn-no">${j.no}</span></div>
-        <div class="jig-gauges">
-          <div class="jg" style="margin:0"><div class="gl"><span>출도율</span><b style="color:#58a6ff">${s.outPct}%</b></div><div class="gtrack"><div class="gfill out" style="width:${s.outPct}%"></div></div></div>
-          <div class="jg" style="margin:0"><div class="gl"><span>완료율</span><b style="color:#3fb950">${s.finPct}%</b></div><div class="gtrack"><div class="gfill fin" style="width:${s.finPct}%"></div></div></div>
-        </div>
-        <div class="jig-stat">완료 <b>${s.fin}</b>/${s.n}</div><div class="jig-toggle">▾</div>
-      </div>
-      <div class="jig-detail">${j.units.map(u=>`<div class="unit-row">
-        <span class="ur-name">${u.nm}</span>
-        <span class="bdg ${u.out?'out':'no'}">${u.out?'2D 출도':'미출도'}</span>
-        <span class="bdg ${u.fin?'fin':'ing'}">${u.fin?'공정완료':'진행'}</span>
-        <span class="item-chips">${u.items.map(it=>`<span class="ic ${u.fin?'done':''}">${u.fin?'✓ ':''}${it[0]}<span class="k">${it[1]}</span></span>`).join('')}</span>
-      </div>`).join('')}</div></div>`;
-            }).join('');
-            $('#jigList').querySelectorAll('.jig-head').forEach(h=>h.onclick=()=>{const i=+h.dataset.i;openJig=(openJig===i?null:i);renderJigs();});
+        // 생산 진척(%) = 제작 달성 (내작 생산 + 외작 입고) / 전체 필요. ※설계·조립·검사는 %에 안 섞음
+        function prodProg(items) {
+            const need = items.reduce((s, x) => s + x.need, 0);
+            const made = items.reduce((s, x) => s + itemMade(x), 0);
+            return need ? Math.round(made / need * 100) : 0;
         }
-        function renderFoot(){const totS=Object.values(stock).reduce((s,x)=>s+x.s,0);
-            $('#foot').innerHTML='<span class="fl">공통재고(가용)</span>'+Object.entries(stock).map(([k,v])=>`<span class="c">${k} <b>${v.g-v.s}</b></span>`).join('')+`<span class="c scrap" style="margin-left:auto">누적 파기 <b>${totS}</b></span>`;}
-        renderWorking();renderProjCards();renderJigs();renderFoot();
+        // 단계별 완료수/대상수.  설계·조립·검사 = 공정(품목) 개수, 제작 = 유니트
+        //  조립 공정 = 그 공정 유닛이 모두 조립완료(asm>=need)된 공정 / 검사 = insp>=need
+        function stageStats(items) {
+            const need = items.reduce((s, x) => s + x.need, 0);
+            const cnt = items.length;
+            const asmDone = items.filter(x => x.need > 0 && (x.asm || 0) >= x.need).length;
+            const inspDone = items.filter(x => x.need > 0 && (x.insp || 0) >= x.need).length;
+            return {
+                design: {d: items.filter(x => x.out).length, t: cnt, unit: '공정'},
+                make: {d: items.reduce((s, x) => s + itemMade(x), 0), t: need, unit: '유니트'},
+                asm: {d: asmDone, t: cnt, unit: '공정'},
+                insp: {d: inspDone, t: cnt, unit: '공정'}
+            };
+        }
+        // 단계 상태: done(d>=t) / cur(0<d<t) / up(0) — 순차 아님(중간검사 등 독립 진행 허용)
+        function stageState(st) { if (st.t > 0 && st.d >= st.t) return 'done'; if (st.d > 0) return 'cur'; return 'up'; }
+        // 설계 상태: 검도 스텝 + 출도 종합 (1차검도만 시작돼도 설계 진행중)
+        function designState(items, dsteps) {
+            const ss = stageStats(items);
+            const outDone = ss.design.t > 0 && ss.design.d >= ss.design.t;
+            const dz = dsteps || [];
+            const dzAllDone = dz.length > 0 && dz.every(x => x.s === 'done');
+            const dzStarted = dz.some(x => x.s === 'done' || x.s === 'cur');
+            if (outDone && (dz.length === 0 || dzAllDone)) return 'done';
+            if (dzStarted || ss.design.d > 0) return 'cur';
+            return 'up';
+        }
+        function isAllDone(p) {
+            const ss = stageStats(flat(p));
+            return ss.insp.t > 0 && ss.insp.d >= ss.insp.t && ss.asm.d >= ss.asm.t;
+        }
+        const NEAR = 7;   // 납기 임박 기준(일) — 지연위험·출도지연·외주미입고 공통
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const dday = due => { const d = new Date(due); d.setHours(0, 0, 0, 0); return Math.round((d - today) / 86400000); };
+        function risk(p) {
+            const items = flat(p), a = agg(items), d = dday(p.due), tags = [];
+            const allDone = isAllDone(p);
+            const near = d >= 0 && d <= NEAR;
+            let danger = false;
+            if (!allDone) {
+                if (d < 0) { tags.push(['danger', '납기초과']); danger = true; }
+                else if (near) { tags.push(['danger', 'D-' + d + ' 지연위험']); danger = true; }
+            }
+            // 출도지연 = 임박 + 미출도 공정 존재
+            if (near && a.outWait > 0) tags.push(['out', 'D-' + d + ' 출도지연 ' + a.outWait + '공정']);
+            // 외주 미입고 = 임박 + 미입고 외작 존재 (전체 미입고는 외주현황 섹션에서)
+            const outLagNear = (near || d < 0) ? items.filter(x => x.type === '외작' && !x.rcv).length : 0;
+            if (outLagNear > 0) tags.push(['warn', '외주 미입고 ' + outLagNear + '(임박)']);
+            return {danger, tags, d, prog: a.prog, allDone};
+        }
+        function score(p) {
+            const r = risk(p), a = agg(flat(p));
+            let s = (100 - a.prog);
+            if (!r.allDone) s += Math.max(0, 100 - r.d);
+            r.tags.forEach(t => s += t[0] === 'danger' ? 60 : t[0] === 'warn' ? 25 : 10);
+            return s;
+        }
+
+        function clock() { $('#udClock').textContent = new Date().toLocaleTimeString('ko-KR'); }
+        setInterval(clock, 1000); clock();
+        const rateColor = r => r >= 100 ? '#5cbf9b' : '#5f8fc0';
+        const fill = (pct, c) => '<div class="f" style="width:' + Math.min(100, pct) + '%;background:' + c + '"></div>';
+
+        let openP = -1, openL = {}, openV = -1, hideDone = false;
+
+        function renderKpi() {
+            const all = PROJECTS.reduce((a, p) => a.concat(flat(p)), []);   // 항상 전체 기준
+            const a = agg(all);
+            const riskN = PROJECTS.filter(p => risk(p).danger).length;
+            $('#kpiRow').innerHTML =
+                '<div class="kpi"><div class="l">총 필요 유니트(전사)</div><div class="v">' + nf(a.need) + '<small> 개</small></div></div>'
+                + '<div class="kpi made"><div class="l">생산·입고 완료</div><div class="v">' + nf(a.made) + '<small> 개</small></div></div>'
+                + '<div class="kpi"><div class="l">남은 수량</div><div class="v" style="color:#d3aa55">' + nf(a.rem) + '<small> 개</small></div></div>'
+                + '<div class="kpi risk"><div class="l">지연 위험</div><div class="v">' + riskN + '<small> 건</small></div></div>';
+        }
+        function renderAlert() {
+            const dangers = [], warns = [], outs = [];
+            PROJECTS.forEach(p => risk(p).tags.forEach(t => {
+                const label = p.name + ' · ' + t[1];
+                if (t[0] === 'danger') dangers.push(label);
+                else if (t[0] === 'warn') warns.push(label);
+                else outs.push(label);
+            }));
+            if (!dangers.length && !warns.length && !outs.length) {
+                $('#alertBar').innerHTML = '<span class="alert-none">✓ 현재 지연 위험·출도 지연 없음</span>';
+                return;
+            }
+            $('#alertBar').innerHTML = '<span class="at"><span class="ad"></span>조기경보</span>'
+                + dangers.map(x => '<span class="alert-chip danger">🔴 ' + x + '</span>').join('')
+                + warns.map(x => '<span class="alert-chip warn">🟡 ' + x + '</span>').join('')
+                + outs.map(x => '<span class="alert-chip out">📐 ' + x + '</span>').join('');
+        }
+        function renderWorking() {
+            const all = PROJECTS.reduce((a, p) => a.concat(flat(p).map(x => ({x, p}))), []).filter(o => o.x.working);
+            $('#workList').innerHTML = all.length
+                ? all.map(o => '<div class="wb-item"><b>' + o.x.code + '</b> <span style="color:#d3aa55">' + (o.x.working.stage || '') + '</span> <span style="color:#aeb7c4">' + o.x.working.machine + '</span><span class="w">👤 ' + o.x.working.worker + '</span><span class="p">· ' + o.p.name + '</span></div>').join('')
+                : '<div class="wb-empty">작업중 없음</div>';
+        }
+        function stageDots(items, pi, dsteps) {
+            const ss = stageStats(items);
+            const keys = ['design', 'make', 'asm', 'insp'];
+            let html = '';
+            STAGES.forEach((s, i) => {
+                const stt = ss[keys[i]];
+                const state = (i === 0) ? designState(items, dsteps) : stageState(stt);
+                const mark = state === 'done' ? '●' : state === 'cur' ? '◐' : '○';
+                const cnt = '<div class="pc">' + nf(stt.d) + '/' + nf(stt.t) + '</div>';
+                const isDesign = (i === 0 && dsteps && dsteps.length);
+                const exp = isDesign ? ' design-toggle" data-dz="' + pi : '';
+                const car = isDesign ? '<span class="dz-car">▾</span>' : '';
+                html += '<div class="sd' + (isDesign ? ' clickable' : '') + '"><div class="dot ' + state + (exp ? exp + '"' : '"') + '>' + mark + car + '</div><div class="nm">' + s + '</div>' + cnt + '</div>';
+                if (i < STAGES.length - 1) html += '<div class="sd-conn"></div>';
+            });
+            return '<div class="stage-dots">' + html + '</div>';
+        }
+        function dzPanel(dsteps) {
+            if (!dsteps || !dsteps.length) return '';
+            const steps = dsteps.map((s, i) => {
+                const mark = s.s === 'done' ? '●' : s.s === 'cur' ? '◐' : '○';
+                const cls = s.s === 'done' ? 'done' : s.s === 'cur' ? 'cur' : 'up';
+                return '<div class="dz-step ' + cls + '">' + mark + ' ' + s.n + '</div>'
+                    + (i < dsteps.length - 1 ? '<div class="dz-conn"></div>' : '');
+            }).join('');
+            return '<div class="dz-panel"><span class="dz-lab">설계 검도 (수주 등록)</span><div class="dz-row">' + steps + '</div></div>';
+        }
+        function lineBlock(p, li, pi) {
+            const l = p.lines[li], a = agg(l.items), col = rateColor(a.prog);
+            const open = openL[pi] === li;
+            const items = l.items.map(it => {
+                const ia = agg([it]), ic = rateColor(ia.prog), im = itemMade(it);
+                const io = '<span class="ib ' + (it.type === '내작' ? 'in' : 'out') + '">' + (it.type === '내작' ? '가공' : '구매') + '</span>';
+                const ob = '<span class="ib ' + (it.out ? 'dok' : 'dno') + '">' + (it.out ? '출도' : '미출도') + '</span>';
+                const rc = it.type === '외작' ? ('<span class="ib ' + (it.rcv ? 'dok' : 'dno') + '">' + (it.rcv ? '입고' : '미입고') + '</span>') : '';
+                const wk = it.working ? '<span class="ib work">▶' + (it.working.stage || '') + '·' + it.working.worker + '</span>' : '';
+                // 가공품 단위 상세 (유닛과 별개) — 내작만
+                let detail = '';
+                if (it.type === '내작' && it.parts) {
+                    const ks = it.parts.kinds || {}, ps = it.parts.procs || {};
+                    const procChips = Object.entries(ps).map(p2 => {
+                        return '<span class="pchip"><span class="pn">' + p2[0] + '</span> <b>' + nf(p2[1]) + '</b></span>';
+                    }).join('');
+                    const kindChips = Object.entries(ks).map(k => '<span class="kchip ' + (k[0] === '기타' ? 'etc' : '') + '"><span class="pn">' + k[0] + '</span> <b>' + nf(k[1].d) + '</b><span class="pt">/' + nf(k[1].t) + '</span></span>').join('');
+                    detail = '<div class="idetail2">'
+                        + '<div class="idrow"><span class="idl">가공품 공정별 <span class="idn">(처리 실적)</span></span><span class="idc">' + procChips
+                        + (it.working && it.working.stage === '가공' ? ' <span class="idwork">▶' + it.working.machine + '·' + it.working.worker + '</span>' : '') + '</span></div>'
+                        + '<div class="idrow"><span class="idl">가공품 유형별 <span class="idn">(실적/목표·기타 중심)</span></span><span class="idc">' + kindChips + '</span></div>'
+                        + '</div>';
+                }
+                return '<div class="irow"><span class="icode">' + it.code + '</span>'
+                    + '<span class="inum"><span class="m">' + nf(im) + '</span>/' + nf(it.need) + ' <span class="iu">유닛</span></span>'
+                    + '<div class="imini">' + fill(ia.prog, ic) + '</div>'
+                    + '<span class="ipct" style="color:' + ic + '">' + ia.prog + '%</span>'
+                    + '<span class="ibadges">' + io + ob + rc + wk + '</span></div>' + detail;
+            }).join('');
+            return '<div class="lblock ' + (open ? 'open' : '') + '">'
+                + '<div class="lhead" data-line="' + li + '">'
+                + '<span class="lname"><span class="lchev">▶</span>' + l.name + ' 라인</span>'
+                + '<div class="lmini">' + fill(a.prog, col) + '</div>'
+                + '<span class="lright">생산 <b>' + nf(a.made) + '</b>/' + nf(a.need) + ' <span class="lpct" style="color:' + col + '">' + a.prog + '%</span></span>'
+                + '</div><div class="litems">' + items + '</div></div>';
+        }
+        function renderRows() {
+            let list = PROJECTS.map((p, i) => ({p, i, s: score(p)}));
+            if (hideDone) list = list.filter(o => !isAllDone(o.p));
+            const ordered = list.sort((a, b) => b.s - a.s);
+            if (!ordered.length) { $('#projRows').innerHTML = '<div style="padding:18px;text-align:center;color:#7e8794;font-size:13px">표시할 프로젝트가 없습니다 (완료건 숨김)</div>'; return; }
+            $('#projRows').innerHTML = ordered.map(o => {
+                const p = o.p, i = o.i, a = agg(flat(p)), col = rateColor(a.prog), r = risk(p);
+                const d = r.d, dueSoon = d <= 7 && !r.allDone;
+                const dueTxt = d < 0 ? ('납기 ' + (-d) + '일 초과') : ('D-' + d);
+                const tags = r.tags.map(t => '<span class="tag ' + t[0] + '">' + t[1] + '</span>').join('')
+                    + (a.working.length ? '<span class="tag work">작업중 ' + a.working.length + '</span>' : '');
+                const ss = stageStats(flat(p));
+                const inR = a.inNeed ? Math.round(a.inMade / a.inNeed * 100) : 0;
+                const outR = a.outAll ? Math.round(a.outRcv / a.outAll * 100) : 0;
+                const workLine = '<div class="pc-work">' + (a.working.length
+                    ? '▶ ' + a.working.map(w => (w.working.stage || '') + '·' + w.working.worker).join(', ') : '') + '</div>';
+                // ── 컴팩트 카드 ──
+                const card = '<div class="pcard ' + (r.danger ? 'risk' : '') + ' ' + (openP === i ? 'open' : '') + '" data-proj="' + i + '">'
+                    + '<div class="pc-head"><div><span class="nm">' + p.name + '</span></div>'
+                    + '<span class="pc-due ' + (dueSoon ? 'soon' : '') + '">' + dueTxt + '</span></div>'
+                    + stageDots(flat(p), i, p.dsteps)
+                    + '<div class="pc-foot">'
+                    + '<div class="pc-prog" style="color:' + col + '">' + a.prog + '<small>% 생산진척</small></div>'
+                    + '<div class="pc-track">' + fill(a.prog, col) + '</div>'
+                    + '<div class="pc-sub">생산 <span class="m">' + nf(a.made) + '</span>/' + nf(a.need) + ' · 남음 ' + nf(a.rem) + '</div>'
+                    + workLine
+                    + '<div class="pc-tags">' + tags + '</div>'
+                    + '</div></div>';
+                if (openP !== i) return card;
+                // ── 펼침: 전체폭 상세 ──
+                const makeSplit = '<div class="make-split">'
+                    + '<div class="ms-card"><div class="mh"><span class="in">가공 (내작 생산)</span><span>' + nf(a.inMade) + '/' + nf(a.inNeed) + ' · ' + inR + '%</span></div><div class="mt">' + fill(inR, '#6c9fd1') + '</div></div>'
+                    + '<div class="ms-card"><div class="mh"><span class="out">구매 (외작 입고)</span><span>' + a.outRcv + '/' + a.outAll + ' 공정 · ' + outR + '%</span></div><div class="mt">' + fill(outR, '#d49279') + '</div></div>'
+                    + '</div>';
+                const stageStat = '<div class="stage-stat">'
+                    + '<span class="ss"><span class="l">설계(출도)</span><b>' + ss.design.d + '/' + ss.design.t + '</b> 공정</span>'
+                    + '<span class="ss"><span class="l">제작</span><b>' + nf(ss.make.d) + '/' + nf(ss.make.t) + '</b> 유니트</span>'
+                    + '<span class="ss"><span class="l">조립</span><b>' + ss.asm.d + '/' + ss.asm.t + '</b> 공정</span>'
+                    + '<span class="ss"><span class="l">검사</span><b>' + ss.insp.d + '/' + ss.insp.t + '</b> 공정</span>'
+                    + '</div>';
+                const lines = p.lines.map((l, li) => lineBlock(p, li, i)).join('');
+                const ship = '<div class="ship-chips">'
+                    + '<span class="ship">시운전(출하): <b style="color:' + (p.ship ? '#5cbf9b' : '#7e8794') + '">' + (p.ship ? '완료' : '대기') + '</b></span>'
+                    + '<span class="ship">출고(종료): <b style="color:' + (p.outd ? '#5cbf9b' : '#7e8794') + '">' + (p.outd ? '완료' : '대기') + '</b></span></div>';
+                const detail = '<div class="pdetail-full">'
+                    + '<div class="pd-title">' + p.name + ' — 상세</div>'
+                    + dzPanel(p.dsteps)
+                    + '<div class="sub-h" style="margin-top:22px">단계별 현황 (완료/대상)</div>' + stageStat
+                    + '<div class="sub-h" style="margin-top:22px">제작 — 가공(내작 생산) / 구매(외작 입고)</div>' + makeSplit
+                    + '<div class="sub-h" style="margin-top:22px">라인별 (라인 클릭 시 공정 펼침)</div>' + lines
+                    + ship
+                    + '<div class="note">※ 단계 증빙: 설계=도면출도(검도→출도, 수주) · 제작=가공+구매 유니트 · 조립=조립완료 공정 · 검사=검사완료 공정. 보기 전용 — 변경은 각 업무화면에서.</div>'
+                    + '</div>';
+                return card + detail;
+            }).join('');
+
+            $('#projRows').querySelectorAll('[data-dz]').forEach(el => el.onclick = (e) => {
+                e.stopPropagation();
+                openP = +el.dataset.dz; renderRows();
+            });
+            $('#projRows').querySelectorAll('[data-proj]').forEach(el => el.onclick = () => {
+                const i = +el.dataset.proj; openP = (openP === i) ? -1 : i; renderRows();
+                if (openP === i) requestAnimationFrame(() => {
+                    const d = $('#projRows').querySelector('.pdetail-full');
+                    if (d) d.scrollIntoView({behavior: 'smooth', block: 'center'});
+                });
+            });
+            $('#projRows').querySelectorAll('[data-line]').forEach(el => el.onclick = (e) => {
+                e.stopPropagation();
+                const li = +el.dataset.line;
+                openL[openP] = (openL[openP] === li) ? -1 : li; renderRows();
+            });
+        }
+
+        // ── 외주 현황 (전사 외주처별) ──────────────────────────────
+        function renderVendors() {
+            const map = {};   // vendor → [{code, proj, need, rcv, due, d}]
+            PROJECTS.forEach(p => {
+                if (hideDone && isAllDone(p)) return;   // 완료 프로젝트 제외(목록·외주 정리)
+                flat(p).forEach(x => {
+                    if (x.type !== '외작') return;
+                    const v = x.vendor || '(미지정)';
+                    (map[v] = map[v] || []).push({code: x.code, proj: p.name, need: x.need, rcv: x.rcv, due: p.due, d: dday(p.due)});
+                });
+            });
+            const vendors = Object.keys(map).sort();
+            let nearMiss = 0;
+            const html = vendors.map((v, vi) => {
+                const its = map[v];
+                const total = its.length, rcvN = its.filter(x => x.rcv).length, rate = Math.round(rcvN / total * 100);
+                const miss = its.filter(x => !x.rcv);
+                const missNear = miss.filter(x => x.d >= 0 && x.d <= NEAR || x.d < 0).length;
+                nearMiss += missNear;
+                const col = rate >= 100 ? '#5cbf9b' : rate >= 50 ? '#d3aa55' : '#d49279';
+                const open = openV === vi;
+                const warn = missNear > 0 ? '<span class="tag warn">⚠ 임박 미입고 ' + missNear + '</span>' : '';
+                const rows = its.sort((a, b) => a.rcv - b.rcv || a.d - b.d).map(x => {
+                    const near = !x.rcv && (x.d < 0 || x.d <= NEAR);
+                    const st = x.rcv ? '<span class="ib dok">입고</span>' : ('<span class="ib ' + (near ? 'dno' : 'up') + '">미입고</span>');
+                    return '<div class="vrow"><span class="icode">' + x.code + '</span>'
+                        + '<span class="v">' + x.proj + '</span>'
+                        + '<span class="inum">' + nf(x.need) + ' 유닛</span>'
+                        + '<span class="vd ' + (near ? 'soon' : '') + '">' + (x.d < 0 ? '납기초과' : 'D-' + x.d) + '</span>'
+                        + '<span class="ibadges">' + st + (near ? '<span class="tag warn">임박</span>' : '') + '</span></div>';
+                }).join('');
+                return '<div class="lblock ' + (open ? 'open' : '') + '">'
+                    + '<div class="lhead vhead" data-vendor="' + vi + '" style="grid-template-columns:150px 1fr 170px">'
+                    + '<span class="lname"><span class="lchev">▶</span>🏭 ' + v + '</span>'
+                    + '<div class="lmini">' + fill(rate, col) + '</div>'
+                    + '<span class="lright">입고 <b>' + rcvN + '</b>/' + total + ' 공정 <span class="r" style="color:' + col + '">' + rate + '%</span> ' + warn + '</span>'
+                    + '</div><div class="litems">' + rows + '</div></div>';
+            }).join('');
+            $('#vendorRows').innerHTML = html || '<div style="padding:14px;color:#7e8794;font-size:13px">외작 공정이 없습니다</div>';
+            $('#vendorAlertLab').innerHTML = nearMiss > 0 ? '<span style="color:#d3aa55;font-weight:700">⚠ 임박 미입고 ' + nearMiss + '건</span>' : '<span style="color:#5cbf9b">임박 미입고 없음</span>';
+            $('#vendorRows').querySelectorAll('[data-vendor]').forEach(el => el.onclick = () => {
+                const vi = +el.dataset.vendor; openV = (openV === vi) ? -1 : vi; renderVendors();
+            });
+        }
+
+        $('#hideDone').onchange = e => { hideDone = e.target.checked; renderRows(); renderVendors(); };
+        renderKpi(); renderAlert(); renderWorking(); renderRows(); renderVendors();
     </script>
 </th:block>
 </html>
