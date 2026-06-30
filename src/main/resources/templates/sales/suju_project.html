@@ -1219,36 +1219,66 @@
       });
      });
 
-     // 키보드 네비게이션 (Enter/방향키)
-     const focusOrder = ['txtProductName_', 'setCnt_', 'unit_', 'pinShiftUnit_', 'itemRemark_'];
-     $form.on('keydown', '.item-table input', function (e) {
+     // 키보드 네비게이션 (Enter/방향키) — input + select + date 포함
+     const focusOrder = [
+      'line_',            // select
+      'txtProductName_',  // 공정명 (Enter는 검색)
+      'setCnt_', 'unit_', 'pinShiftUnit_',
+      'equiptype_',       // select
+      'legSpec_', 'legCnt_',
+      'makeType_',        // select
+      'drawDate_',        // date
+      'itemRemark_'
+     ];
+
+     $form.on('keydown', '.item-table input, .item-table select', function (e) {
       const key = e.key;
       if (!['Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) return;
+
       const $input = $(this);
       const name = $input.attr('name') || '';
       const cur = focusOrder.findIndex(p => name.startsWith(p));
       if (cur === -1) return;
-      if (name.startsWith('txtProductName_') && key === 'Enter') return; // 품목 엔터는 검색
+
+      // 품목명 엔터는 검색 동작이므로 네비게이션에서 제외
+      if (name.startsWith('txtProductName_') && key === 'Enter') return;
+
+      const tag = this.tagName.toLowerCase();
+      const isDate = (this.type === 'date');
+
+      // select: 위/아래는 옵션 선택에 양보 (좌우·Enter만 이동)
+      if (tag === 'select' && (key === 'ArrowUp' || key === 'ArrowDown')) return;
+      // date: 위/아래는 날짜 증감에 양보
+      if (isDate && (key === 'ArrowUp' || key === 'ArrowDown')) return;
 
       e.preventDefault();
       const $row = $input.closest('tr');
       let $next = null;
 
+      // 다음 칸이 존재하는 셀을 찾는 헬퍼 (input/select 모두 매칭)
+      const findCell = ($r, idx) =>
+       $r.find(`[name^="${focusOrder[idx]}"]`).filter('input, select').first();
+
       if ((key === 'Enter' || key === 'ArrowRight') && cur < focusOrder.length - 1) {
-       $next = $row.find(`input[name^="${focusOrder[cur + 1]}"]`);
+       $next = findCell($row, cur + 1);
       } else if (key === 'ArrowLeft' && cur > 0) {
-       $next = $row.find(`input[name^="${focusOrder[cur - 1]}"]`);
+       $next = findCell($row, cur - 1);
       } else if (key === 'ArrowDown' || (key === 'Enter' && cur === focusOrder.length - 1)) {
        let $t = $row.nextAll('tr:visible').first();
        if (!$t.length) {
         _this.addItemRows(3);
         $t = $row.nextAll('tr:visible').first();
        }
-       $next = $t.find(`input[name^="${key === 'Enter' ? 'txtProductName_' : focusOrder[cur]}"]`);
+       const targetIdx = (key === 'Enter') ? focusOrder.indexOf('txtProductName_') : cur;
+       $next = findCell($t, targetIdx);
       } else if (key === 'ArrowUp') {
-       $next = $row.prevAll('tr:visible').first().find(`input[name^="${focusOrder[cur]}"]`);
+       $next = findCell($row.prevAll('tr:visible').first(), cur);
       }
-      if ($next && $next.length) $next.focus().select();
+
+      if ($next && $next.length) {
+       $next.focus();
+       if ($next.is('input')) $next.select();   // select 요소엔 .select() 없음
+      }
      });
     }
 
