@@ -1,0 +1,680 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+      .select2-container--open {
+          z-index: 9001;
+      }
+
+  </style>
+</head>
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>공정능력분석</h2>
+        <a class="bookmark toggle" title="북마크">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img alt="홈아이콘" src="/images/icon/ico-nav-home.svg"></li>
+        <li>품질관리</li>
+        <li>공정능력분석</li>
+      </ul>
+    </div>
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              조회 일자<span class="eq">*</span>
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input id="date_from" name="date_from" step="60" type="datetime-local">
+                  <label class="hide" for="date_from">시작일</label>
+                </li>
+                ~
+                <li>
+                  <input id="date_to" name="date_to" step="60" type="datetime-local">
+                  <label class="hide" for="date_to">종료일</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="item_name">
+                품목명<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input id="item_name" style="width: 160px;" type="text">
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="processCode">
+                공정<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="processCode" style="width: 160px;" type="text"></select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="measure_code">
+                측정항목<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select id="measure_code" style="width: 160px;" type="text"></select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="recipe">
+                레시피명<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input id="recipe" style="width: 160px;" type="text">
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" id="btnSearch" title="검색">
+                  <img alt="검색 아이콘" src="/images/icon/btn-srch.svg">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+      </div>
+      <div>
+        <h4 style=" margin-top: 10px;">관리기준</h4>
+        <table class="write-table" style="width: 100%; border-collapse: collapse;">
+          <caption style="text-align: left; margin-bottom: 8px;">관리기준 상세테이블</caption>
+          <tbody>
+          <tr>
+            <!-- Target -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="std_target">Target</label>
+            </th>
+            <td>
+              <input id="std_target" name="std_target" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- USL -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="std_usl">USL</label>
+            </th>
+            <td colspan="2">
+              <input id="std_usl" name="std_usl" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- LSL -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="std_lsl">LSL</label>
+            </th>
+            <td colspan="2">
+              <input id="std_lsl" name="std_lsl" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- 표본 수(N) -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="std_n">표본 수(N)</label>
+            </th>
+            <td colspan="2">
+              <input id="std_n" name="std_n" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- 데이터 기간 -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="std_period">데이터 기간</label>
+            </th>
+            <td colspan="2">
+              <input id="std_period" name="std_period" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- 정규성 -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="std_normality">정규성</label>
+            </th>
+            <td colspan="2">
+              <input id="std_normality" name="std_normality" readonly style="width:100%;" type="text">
+            </td>
+          </tr>
+
+          </tbody>
+        </table>
+
+        <h4 style=" margin-top: 10px;">공정능력지표</h4>
+        <table class="write-table" style="width: 100%; border-collapse: collapse;">
+          <caption style="text-align: left; margin-bottom: 8px;">공정능력지표</caption>
+          <tbody>
+          <tr>
+            <!-- 평균(μ) -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="kpi_mean">평균(μ)</label>
+            </th>
+            <td>
+              <input id="kpi_mean" name="kpi_mean" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- σ(Within) -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="kpi_sigma_within">σ (Within)</label>
+            </th>
+            <td colspan="2">
+              <input id="kpi_sigma_within" name="kpi_sigma_within" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- σ(Overall) -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="kpi_sigma_overall">σ (Overall)</label>
+            </th>
+            <td colspan="2">
+              <input id="kpi_sigma_overall" name="kpi_sigma_overall" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- Cp -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="kpi_cp">Cp</label>
+            </th>
+            <td>
+              <input id="kpi_cp" name="kpi_cp" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- Cpk -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="kpi_cpk">Cpk</label>
+            </th>
+            <td>
+              <input id="kpi_cpk" name="kpi_cpk" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- Pp -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="kpi_pp">Pp</label>
+            </th>
+            <td colspan="2">
+              <input id="kpi_pp" name="kpi_pp" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- Ppk -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="kpi_ppk">Ppk</label>
+            </th>
+            <td colspan="2">
+              <input id="kpi_ppk" name="kpi_ppk" readonly style="width:100%;" type="text">
+            </td>
+
+            <!-- 판정 -->
+            <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+              <label for="kpi_judge">판정</label>
+            </th>
+            <td colspan="2">
+              <input id="kpi_judge" name="kpi_judge" readonly style="width:100%;" type="text">
+            </td>
+          </tr>
+
+          </tbody>
+        </table>
+
+        <div class="tab-wrap" style="margin-top: 15px;">
+          <ul class="tab-links">
+            <li class="active"><a href="#tabHist">Histogram with USL/LSL</a></li>
+            <li><a href="#tabCap">Capability 지표</a></li>
+            <li><a href="#tabBox">설비별 Box Plot</a></li>
+          </ul>
+
+          <!-- 측정값 탭 -->
+          <section class="tab-item active" id="tabHist">
+            <h5 style="margin:6px 0;">Histogram with USL/LSL</h5>
+            <div style="height:390px; position:relative;">
+              <canvas id="histChart"></canvas>
+            </div>
+            <div id="histSummary" style="margin-top:6px; color:#666; font-size:12px;"></div>
+          </section>
+
+          <section class="tab-item" id="tabCap">
+            <h5 style="margin:6px 0;">Capability Indices</h5>
+            <div style="height:390px; position:relative;">
+              <canvas id="capChart"></canvas>
+            </div>
+            <div id="capGuide" style="margin-top:6px; color:#666; font-size:12px;"></div>
+          </section>
+
+          <section class="tab-item" id="tabBox">
+            <h5 style="margin:6px 0;">Box Plot by Equipment</h5>
+            <div style="height:390px; position:relative;">
+              <canvas id="boxChart"></canvas>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4.4.4/build/index.umd.min.js"></script>
+  <script type="text/javascript">
+   class ProcessCapabilityPage {
+    constructor() {
+     this.url = '/api/spc/process_capability';
+     this.init();
+    }
+
+    init() {
+     //공정코드
+     const $p = $('#processCode');
+
+     AjaxUtil.fillSelectOptions($p, 'process', '', '', '');
+
+     // 41/43만 남기기
+     const allowProc = new Set(['41', '43']);
+     $p.find('option').each(function () {
+      const v = String($(this).val());
+      if (v !== '' && !allowProc.has(v)) $(this).remove();
+     });
+
+     // 기본 공정 선택
+     $p.val('43').change();
+
+     // 공정 변경 시 측정항목 다시 로드
+     $p.off('change.spc').on('change.spc', function () {
+      const procCode = String($(this).val());
+      fillMeasureByProcess(procCode, ''); // 필요하면 이전 선택값 넣기
+     });
+
+     // 최초 1회
+     fillMeasureByProcess('43', '');
+    }//init
+
+    // -------------------------
+    // ✅ input 바인딩
+    // -------------------------
+    bindSpec(spec, periodText, normality) {
+     spec = spec || {};
+
+     $('#std_target').val(this._fmt(spec.target));
+     $('#std_usl').val(this._fmt(spec.usl));
+     $('#std_lsl').val(this._fmt(spec.lsl));
+
+     // "표본 수(N)"는 관리기준 sampleSize가 아니라,
+     // 실제 데이터 개수(kpi.n)를 보여주는게 보통이라서
+     // 여기서는 일단 관리기준 sampleSize를 넣고,
+     // bindKpi에서 kpi.n으로 덮어쓰게 할 수도 있음
+     $('#std_n').val(this._fmt(spec.sampleSize));
+
+     $('#std_period').val(periodText || '');
+     $('#std_normality').val(normality?.resultText || '-');
+    }
+
+    bindKpi(kpi) {
+     kpi = kpi || {};
+
+     $('#kpi_mean').val(this._fmt(kpi.mean));
+     $('#kpi_sigma_within').val(this._fmt(kpi.sigmaWithin));
+     $('#kpi_sigma_overall').val(this._fmt(kpi.sigmaOverall));
+
+     $('#kpi_cp').val(this._fmt(kpi.cp, 3));
+     $('#kpi_cpk').val(this._fmt(kpi.cpk, 3));
+     $('#kpi_pp').val(this._fmt(kpi.pp, 3));
+     $('#kpi_ppk').val(this._fmt(kpi.ppk, 3));
+
+     $('#kpi_judge').val(kpi.judge || '-');
+
+     // ✅ 관리기준 표본 수(N) 자리에 실제 N을 쓰고 싶으면
+     if (kpi.n != null && kpi.n !== '') {
+      $('#std_n').val(kpi.n);
+     }
+    }
+
+    // -------------------------
+    // ✅ Histogram + 규격선(Target/USL/LSL/Mean)
+    // -------------------------
+    drawHistogram(resData) {
+     const hist = resData?.histogram || {};
+     const spec = resData?.spec || {};
+     const unit = spec.unitName || hist.unitName || '';
+
+     const labels = hist.labels || [];
+     const counts = hist.counts || [];
+
+     const usl = this._toNum(spec.usl ?? hist.usl);
+     const lsl = this._toNum(spec.lsl ?? hist.lsl);
+     const target = this._toNum(spec.target ?? hist.target);
+     const mean = this._toNum(hist.mean ?? resData?.kpi?.mean);
+
+     // x축은 "구간 문자열"이라서 line을 정확히 넣기 어렵다.
+     // 그래서 "annotation plugin" 없이도 보이게:
+     // ✅ summary 영역에 규격값/평균을 표시
+     $('#histSummary').text(
+      `단위: ${unit} | N=${resData?.kpi?.n ?? 0} | Mean=${this._fmt(mean)} | Target=${this._fmt(target)} | LSL=${this._fmt(lsl)} | USL=${this._fmt(usl)}`
+     );
+
+     const ctx = document.getElementById('histChart');
+     if (!ctx) return;
+
+     if (this._histChart) {
+      this._histChart.destroy();
+      this._histChart = null;
+     }
+
+     this._histChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+       labels,
+       datasets: [{
+        label: 'Count',
+        data: counts
+       }]
+      },
+      options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       plugins: {
+        legend: {display: false},
+        tooltip: {enabled: true}
+       },
+       scales: {
+        x: {ticks: {maxRotation: 0, autoSkip: true}},
+        y: {beginAtZero: true}
+       }
+      }
+     });
+    }
+
+    // -------------------------
+    // ✅ Capability(Cp, Cpk) 막대 + 가이드 1.00/1.33/1.67
+    // -------------------------
+    drawCapability(resData) {
+     const cap = resData?.capability || {};
+     const labels = cap.labels || ['Cp', 'Cpk'];
+     const values = cap.values || [0, 0];
+     const guides = cap.guides || [1.00, 1.33, 1.67];
+
+     $('#capGuide').text(`가이드: ${guides.join(' / ')}`);
+
+     const ctx = document.getElementById('capChart');
+     console.log('capChart el:', ctx, 'tag=', ctx?.tagName);
+     if (!ctx) return;
+
+     if (this._capChart) {
+      this._capChart.destroy();
+      this._capChart = null;
+     }
+
+     // bar + guide lines(수평선) 구현:
+     // Chart.js annotation 플러그인 없이도,
+     // "line dataset"을 같은 차트에 올려서 표현.
+     const maxY = Math.max(...values.map(v => this._toNum(v) || 0), ...guides) * 1.2 || 2;
+
+     const guideDatasets = guides.map((g, idx) => ({
+      type: 'line',
+      label: `Guide ${g}`,
+      data: labels.map(() => g),
+      borderWidth: 1,
+      pointRadius: 0,
+      fill: false
+     }));
+
+     this._capChart = new Chart(ctx, {
+      data: {
+       labels,
+       datasets: [
+        {
+         type: 'bar',
+         label: 'Capability',
+         data: values
+        },
+        ...guideDatasets
+       ]
+      },
+      options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       plugins: {
+        legend: {display: true}
+       },
+       scales: {
+        y: {beginAtZero: true, suggestedMax: maxY}
+       }
+      }
+     });
+    }
+
+    // -------------------------
+    // ✅ 설비별 Box Plot + 규격선(표시는 summary로)
+    // -------------------------
+    drawBox(resData) {
+     const boxRows = resData?.box || [];
+     const spec = resData?.spec || {};
+
+     const usl = this._toNum(spec.usl);
+     const lsl = this._toNum(spec.lsl);
+     const target = this._toNum(spec.target); // ✅ target 있으면 사용 (없으면 mean으로 대체 가능)
+
+     const labels = boxRows.map(r => r.label);
+
+     // ✅ boxplot 데이터(사분위 기반)
+     const boxData = boxRows.map(r => ({
+      min: this._toNum(r.min),
+      q1: this._toNum(r.q1),
+      median: this._toNum(r.median),
+      q3: this._toNum(r.q3),
+      max: this._toNum(r.max),
+      outliers: r.outliers?.map(v => this._toNum(v)) || []  // 서버가 주면 표시 가능
+     }));
+
+     // ✅ 평균(또는 target) 마커: 각 설비별 mean이 있으면 그걸 쓰고, 없으면 median 같은 걸 임시로
+     const meanPoints = boxRows
+     .map(r => ({
+      x: r.label,
+      y: this._toNum(r.mean) ?? this._toNum(r.median) // mean 없으면 median으로 대체
+     }))
+     .filter(p => p.y != null);
+
+     const ctx = document.getElementById('boxChart');
+     if (!ctx) return;
+
+     if (this._boxChart) {
+      this._boxChart.destroy();
+      this._boxChart = null;
+     }
+
+     // ✅ 수평선(가이드라인) 생성 함수
+     const hline = (name, y, dashed = false) => ({
+      type: 'line',
+      label: name,
+      data: labels.map(x => ({x, y})),   // ✅ 핵심: {x,y}
+      parsing: false,
+      pointRadius: 0,
+      tension: 0,
+      borderWidth: 2,
+      borderDash: dashed ? [6, 6] : undefined
+     });
+
+     const datasets = [
+      {
+       type: 'boxplot',
+       label: 'Equipment',
+       data: boxData
+      }
+     ];
+
+     if (lsl != null) datasets.push(hline('LSL', lsl, false));
+     if (usl != null) datasets.push(hline('USL', usl, false));
+     if (target != null) datasets.push(hline('Target', target, true)); // 점선
+
+     // ✅ 평균(초록 삼각형) 마커
+     if (meanPoints.length) {
+      datasets.push({
+       type: 'scatter',
+       label: 'Mean',
+       data: meanPoints,
+       parsing: false,
+       pointStyle: 'triangle',
+       pointRadius: 6,
+       pointHoverRadius: 7
+      });
+     }
+
+     this._boxChart = new Chart(ctx, {
+      data: {labels, datasets},
+      options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       plugins: {
+        legend: {display: true}
+       },
+       scales: {
+        x: {offset: true},
+        y: {
+         beginAtZero: false
+         // ✅ 필요하면 범위 고정도 가능:
+         // min: lsl != null ? lsl - 2 : undefined,
+         // max: usl != null ? usl + 2 : undefined
+        }
+       }
+      }
+     });
+    }
+
+    // -------------------------
+    // ✅ 조회
+    // -------------------------
+    searchMainData() {
+     const _this = this;
+     const data = {
+      date_from: $('#date_from').val(),
+      date_to: $('#date_to').val(),
+      item_name: $('#item_name').val(),
+      process_cd: $('#processCode').val(),
+      measure_code: $('#measure_code').val(),
+      recipe: $('#recipe').val(),
+      action: 'read'
+     };
+
+     let fnsuccess = function (result) {
+      if (!result || result.success === false) {
+       Alert.alert('Error', result?.message || '조회된 데이터가 없습니다.');
+       return;
+      }
+
+      const resData = result.data || {};
+
+      _this.bindSpec(resData.spec, resData.periodText, resData.normality);
+      _this.bindKpi(resData.kpi);
+
+      _this.drawHistogram(resData);
+      _this.drawCapability(resData);
+      _this.drawBox(resData);
+     };
+
+     AjaxUtil.getAsyncData(_this.url + "/read", data, fnsuccess);
+    }
+
+    // -------------------------
+    // util
+    // -------------------------
+    _toNum(v) {
+     const n = Number(v);
+     return Number.isFinite(n) ? n : null;
+    }
+
+    _fmt(v, digits) {
+     if (v === null || v === undefined || v === '') return '';
+     const n = Number(v);
+     if (!Number.isFinite(n)) return String(v);
+     const d = (digits === undefined) ? 6 : digits;
+     return n.toFixed(d).replace(/\.?0+$/, ''); // 뒤 0 제거
+    }
+
+
+   }//page
+   //공통 코드
+   function fillMeasureByProcess(procCode, selectedValue) {
+    const $m = $('#measure_code').empty();
+    $m.append($('<option>').val('').text(i18n.getCommonText('선택')));
+
+    // console.log('[fillMeasureByProcess] procCode=', procCode);
+
+    const res = AjaxUtil.getSyncData('/api/spc/SPCStatistics/measureCodes', {process_code: procCode});
+    // console.log('[measureCodes res]=', res);
+
+    // ✅ 가능한 형태를 전부 커버
+    const rows =
+     res?.data?.rows
+     || res?.data
+     || res?.rows
+     || [];
+
+    // console.log('[measureCodes rows]=', rows);
+
+    rows.forEach(r => {
+     $m.append($('<option>').val(r.value).text(r.text));
+    });
+
+    if (selectedValue && $m.find(`option[value="${selectedValue}"]`).length) {
+     $m.val(selectedValue).change();
+    } else if (rows.length > 0) {
+     $m.val(rows[0].value).change(); // 원하면 choose 유지로 변경 가능
+    } else {
+     $m.val('').change();
+    }
+   }
+
+   // ✅ date 기본값(오늘 00:00 ~ 현재), 그리고 조회 순서 중요
+   function pad2(n) {
+    return String(n).padStart(2, '0');
+   }
+
+   function toDatetimeLocalValue(d) {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+   }
+
+   function setTodayRangeDefault() {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    if (!$('#date_from').val()) $('#date_from').val(toDatetimeLocalValue(start));
+    if (!$('#date_to').val()) $('#date_to').val(toDatetimeLocalValue(now));
+   }
+
+
+   let page = null;
+   $(document).ready(function () {
+    setTodayRangeDefault();
+    page = new ProcessCapabilityPage();
+    page.searchMainData();
+    $('#btnSearch').on('click', function () {
+     page.searchMainData();
+    });
+
+   });
+  </script>
+</th:block>
+<input th:name="${_csrf.parameterName}" th:value="${_csrf.token}" type="hidden"/>
+</html>

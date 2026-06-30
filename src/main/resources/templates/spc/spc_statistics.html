@@ -1,0 +1,1318 @@
+<html layout:decorate="~{layout_page}">
+<style>
+    /* 기본: 안보이게 */
+    #leftWrap .tab-item,
+    #rightWrap .tab-item {
+        display: none;
+    }
+
+    /* active만 보이게 */
+    #leftWrap .tab-item.active,
+    #rightWrap .tab-item.active {
+        display: block;
+    }
+    .active-row {
+        outline: 2px solid #4c8bf5;
+        background: rgba(76, 139, 245, 0.08);
+    }
+
+</style>
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>SPC통계적분석</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img src="/images/icon/ico-nav-home.svg" alt="홈아이콘"></li>
+        <li>품질관리</li>
+        <li>SPC통계적분석</li>
+      </ul>
+    </div>
+
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <dl>
+            <dt>
+              조회 일자<span class="eq">*</span>
+            </dt>
+            <dd>
+              <ul class="date-box">
+                <li>
+                  <input type="datetime-local" id="date_from" name="date_from" step="60">
+                  <label for="date_from" class="hide">시작일</label>
+                </li>
+                ~
+                <li>
+                  <input type="datetime-local" id="date_to" name="date_to" step="60" >
+                  <label for="date_to" class="hide">종료일</label>
+                </li>
+              </ul>
+            </dd>
+          </dl>
+
+          <dl>
+            <dt>
+              <label for="item_name">
+                품목명<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input type="text" id="item_name" style="width: 160px;">
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="processCode">
+                공정<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select type="text" id ="processCode" style="width: 160px;"></select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="measure_code">
+                측정항목<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <select type="text" id="measure_code" style="width: 160px;"></select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>
+              <label for="recipe">
+                레시피명<span class="eq">*</span>
+              </label>
+            </dt>
+            <dd>
+              <div class="srch-box">
+                <input type="text" id="recipe" style="width: 160px;">
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnMainSearch">
+                  <!--                                        class 쓰이는 곳 찾고 없으면 클래스명 수정하기-->
+                  <img src="/images/icon/btn-srch.svg" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+      </div>
+
+      <h4 style=" margin-top: 10px;">관리기준</h4>
+      <div id="analysisMeta"
+           style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;
+            padding:8px 10px; border:1px solid #e6e6e6; border-radius:10px; background:#fafafa; margin:6px 0 10px;">
+        <span><b>공정(설비)</b>: <span id="metaProcess">-</span></span>
+        <span><b>측정항목</b>: <span id="metaMeasure">-</span></span>
+        <span><b>레시피</b>: <span id="metaRecipe">-</span></span>
+        <span><b>품목</b>: <span id="metaItem">-</span></span>
+      </div>
+      <table class="write-table" style="width: 100%; border-collapse: collapse;">
+        <caption style="text-align: left; margin-bottom: 8px;">관리기준 상세테이블</caption>
+        <input type="hidden" class="form-control2" id="spc_std_id" name="spc_std_id" readonly disabled/>
+        <tbody>
+        <tr>
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label for="targetValue">Target:</label>
+          </th>
+          <td>
+            <input id="targetValue" name="targetValue" style="width:100%;" readonly>
+          </td>
+
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;" readonly>
+            <label>USL/LSL:</label>
+          </th>
+          <td colspan="4">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <input type="text" id="usl" name="usl" style="width:100%;" readonly>
+              <span>/</span>
+              <input type="text" id="lsl" name="lsl" style="width:100%;" readonly>
+              <!-- 필요하면 단위 표시 -->
+              <!-- <span>℃</span> -->
+            </div>
+          </td>
+
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label>UCL/LCL:</label>
+          </th>
+          <td colspan="2">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <input type="text" id="ucl" name="ucl" style="width:100%;" readonly>
+              <span>/</span>
+              <input type="text" id="lcl" name="lcl" style="width:100%;" readonly>
+              <!-- <span>℃</span> -->
+            </div>
+          </td>
+
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label for="sampleSize">샘플수(n):</label>
+          </th>
+          <td colspan="2">
+            <input type="text" id="sampleSize" name="sampleSize" style="width:100%;" readonly>
+          </td>
+
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label for="measure_cycle_value">측정주기:</label>
+          </th>
+          <td colspan="2">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <input type="text" id="measure_cycle_value" name="measure_cycle_value" style="width:100%;" readonly>
+            </div>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+
+      <h4 style=" margin-top: 10px;">분석지표 요약 KPI</h4>
+      <table class="write-table" style="width: 100%; border-collapse: collapse;">
+        <caption style="text-align: left; margin-bottom: 8px;">상세테이블</caption>
+        <input type="hidden" class="form-control2" id="id" name="id" readonly disabled/>
+        <tbody>
+        <tr>
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label for="master_grp">평균(Mean)</label>
+          </th>
+          <td>
+            <input id="master_grp" name="master_grp" style="width:100%;" readonly>
+          </td>
+
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label for="master_name">표준편차(σ)</label>
+          </th>
+          <td colspan="2">
+            <input type="text" id="master_name" name="master_name" style="width:100%;" readonly>
+          </td>
+
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label>최소/최대</label>
+          </th>
+          <td colspan="2">
+            <input style="width:100%;" id="minMax" name="minMax" readonly>
+          </td>
+
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label>샘플수(N)</label>
+          </th>
+          <td>
+            <input style="width:100%;" id="sampleCountN" name="sampleCountN" readonly>
+          </td>
+
+          <th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label>이상점(한계초과)</label>
+          </th>
+          <td>
+            <input style="width:100%;" id="outOfLimitCount" name="outOfLimitCount" readonly>
+          </td>
+
+          <!--<th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label>CPK</label>
+          </th>
+          <td colspan="2">
+            <input style="width:100%;" id="cpk" name="cpk" readonly>
+          </td>-->
+
+          <!--<th style="text-align:center; width:7%; padding:5px; border:1px solid #ddd;">
+            <label>측정주기</label>
+          </th>
+          <td colspan="2">
+            <input style="width:100%;" id="measureCycleKpi" name="measureCycleKpi" readonly>
+          </td>-->
+        </tr>
+        </tbody>
+      </table>
+
+      <h4 style=" margin-top: 10px;">측정값</h4>
+      <div style="display:flex; gap:20px; width:100%; max-height:415px; ">
+
+        <!-- LEFT -->
+        <div class="tab-wrap" id="leftWrap" style="width:50%; min-width:0;">
+          <ul class="tab-links">
+            <li class="active"><a href="#L_tabBasic">측정값</a></li>
+            <li><a href="#L_tabChasu">이벤트 타임라인</a></li>
+          </ul>
+
+          <!-- 측정값 탭 -->
+          <section class="tab-item active" id="L_tabBasic">
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <h5 style="margin:0;">원천 측정값(로그 기반)</h5>
+            </div>
+
+            <table class="write-table" style="width:100%;">
+              <thead>
+              <tr>
+                <th style="width:110px;">일시</th>
+                <th id="valueHeader" style="width:90px; text-align:right;">값</th>
+                <th style="width:140px;">UCL/LCL 판정</th>
+                <th>비고</th>
+              </tr>
+              </thead>
+              <tbody id="rawLogTableBody"><!-- JS로 채움 --></tbody>
+            </table>
+          </section>
+
+          <!-- 이벤트 타임라인 탭 -->
+          <section class="tab-item" id="L_tabChasu"  style="flex:1; min-width:240px; border-radius:14px;">
+
+            <!-- 6) 알람 타임라인 -->
+              <h5 style="margin-bottom:2px;">알람 / 이상 조짐 타임라인</h5>
+
+              <div id="eventTimeline"><!-- JS로 채움 --></div>
+
+          </section>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="tab-wrap" id="rightWrap" style="width:50%; min-width:0;">
+          <ul class="tab-links">
+            <li class="active"><a href="#R_tabHist">Histogram with USL/LSL</a></li>
+            <li><a href="#R_tabI">관리도 I (측정값)</a></li>
+            <li><a href="#R_tabMr">관리도 MR (변동)</a></li>
+            <li><a href="#R_tabBox">Box Plot</a></li>
+          </ul>
+
+          <!-- Histogram -->
+          <section class="tab-item active" id="R_tabHist">
+            <h5 style="margin:6px 0;">Histogram with USL/LSL</h5>
+            <div style="height:260px; position:relative;">
+              <canvas id="histChart"></canvas>
+            </div>
+            <div id="histSummary" style="margin-top:6px; color:#666; font-size:12px;"></div>
+          </section>
+
+          <!-- I-MR -->
+          <!--<section class="tab-item" id="R_tabImr">
+            <h5 style="margin:6px 0;">관리도 I-MR</h5>
+            <div style="height:260px; position:relative;">
+              <canvas id="imrChart"></canvas>
+            </div>
+            <div id="imrSummary" style="margin-top:6px; color:#666; font-size:12px;"></div>
+          </section>-->
+          <!-- I Chart -->
+          <section class="tab-item" id="R_tabI">
+            <h5 style="margin:6px 0;">관리도 I (측정값)</h5>
+            <div style="height:260px; position:relative;">
+              <canvas id="iChart"></canvas>
+            </div>
+            <div id="iSummary" style="margin-top:6px; color:#666; font-size:12px;"></div>
+          </section>
+
+          <!-- MR Chart -->
+          <section class="tab-item" id="R_tabMr">
+            <h5 style="margin:6px 0;">관리도 MR (변동)</h5>
+            <div style="height:260px; position:relative;">
+              <canvas id="mrChart"></canvas>
+            </div>
+            <div id="mrSummary" style="margin-top:6px; color:#666; font-size:12px;"></div>
+          </section>
+
+
+          <!-- Box Plot -->
+          <section class="tab-item" id="R_tabBox">
+            <h5 style="margin:6px 0;">Box Plot</h5>
+            <div style="height:260px; position:relative;">
+              <canvas id="boxChart"></canvas>
+            </div>
+            <div id="boxSummary" style="margin-top:6px; color:#666; font-size:12px;"></div>
+          </section>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4.4.4/build/index.umd.min.js"></script>
+  <script type="text/javascript">
+   (function registerBoxPlot(){
+    const mod = window.ChartBoxPlot || window['chartjs-chart-boxplot'] || null;
+    if (!mod || !window.Chart || !Chart.register) return;
+
+    Object.keys(mod).forEach(k => {
+     const v = mod[k];
+     // Chart.js register 가능한 것(Controller/Scale/Element/Plugin 등)만 등록 시도
+     try { Chart.register(v); } catch(e) {}
+    });
+   })();
+
+   class SPCStatisticsPage {
+    constructor() {
+     this.baseUrl = '/api/spc/SPCStatistics';
+     this.urlSpcList = this.baseUrl + '/spcList';
+
+     this._histChart = null;
+     this._imrChart = null;
+     this._boxChart = null;
+
+     this.loading = false;
+     this._lastSpcPayload = null;
+
+     this.init();
+    }
+
+    init() {
+     //공정코드
+     const $p = $('#processCode');
+
+     AjaxUtil.fillSelectOptions($p, 'process', '', '', '');
+
+// 41/43만 남기기
+     const allowProc = new Set(['41', '43']);
+     $p.find('option').each(function () {
+      const v = String($(this).val());
+      if (v !== '' && !allowProc.has(v)) $(this).remove();
+     });
+
+    // 기본 공정 선택
+     $p.val('43').change();
+
+    // 공정 변경 시 측정항목 다시 로드
+     $p.off('change.spc').on('change.spc', function () {
+      const procCode = String($(this).val());
+      fillMeasureByProcess(procCode, ''); // 필요하면 이전 선택값 넣기
+     });
+
+    // 최초 1회
+     fillMeasureByProcess('43', '');
+
+    }//init
+
+
+    // ✅ 로그 API 호출
+    searchMainData() {
+     const _this = this;
+
+     if (_this.loading) return;
+     _this.loading = true;
+
+     const data = {
+      date_from: $('#date_from').val(),
+      date_to: $('#date_to').val(),
+      item_name: $('#item_name').val(),
+      process_cd: $('#processCode').val(),
+      measure_code: $('#measure_code').val(),
+      recipe: $('#recipe').val(),
+      action: 'read'
+     };
+
+     AjaxUtil.getAsyncData(_this.urlSpcList, data,
+      function (result) {
+       _this.loading = false;
+
+       if (!result || result.success !== true) {
+        const last = _this._lastSpcPayload || null;
+        if (last) _this.renderSpc(last);
+        else _this.renderEmptyRawLog(result?.message || '조회된 데이터가 없습니다.');
+        return;
+       }
+
+       const payload = result.data ?? result;
+       _this._lastSpcPayload = payload;
+
+       _this.bindSpecToForm(payload);
+       _this.bindKpiToForm(payload);
+       _this.renderSpc(payload);
+      },
+      function (err) {
+       _this.loading = false;
+       console.error('spcList api error', err);
+
+       const last = _this._lastSpcPayload || null;
+       if (last) _this.renderSpc(last);
+       else _this.renderEmptyRawLog('조회 중 오류가 발생했습니다.');
+      }
+     );
+    }
+
+    bindSpecToForm(payload) {
+     if (!payload) return;
+
+     const spec = payload.spec || payload; // 혹시 예전 형태도 같이 대응
+
+     $('#targetValue').val(spec.target_value ?? spec.target ?? '');
+     $('#usl').val(spec.usl ?? '');
+     $('#lsl').val(spec.lsl ?? '');
+     $('#ucl').val(spec.ucl ?? '');
+     $('#lcl').val(spec.lcl ?? '');
+
+     $('#sampleSize').val(spec.sample_size ?? spec.sampleSize ?? '');
+
+     const cycleValue = spec.measure_cycle_value ?? spec.measureCycleValue ?? '';
+     const cycleUnit  = spec.measure_cycle_unit_name ?? ''; // "MIN"
+     const cycleText  = (cycleValue && cycleUnit) ? `${cycleValue} ${cycleUnit}` : (cycleValue || '');
+     $('#measure_cycle_value').val(cycleText);
+    }
+
+    bindKpiToForm(payload) {
+     if (!payload) return;
+
+     // ✅ Capability 스타일( spec/kpi ) 우선, 없으면 기존 flat도 fallback
+     const spec = payload.spec || payload;
+     const kpi  = payload.kpi  || payload;
+
+     // KPI 값
+     const mean = this._toNum(kpi.mean);
+     const std  = this._toNum(kpi.std ?? kpi.sigmaWithin ?? kpi.sigmaOverall);
+     const min  = this._toNum(kpi.min);
+     const max  = this._toNum(kpi.max);
+     const n    = kpi.n ?? kpi.sampleCount ?? '';
+
+     // 이상점(한계초과)
+     // - spcList 통일안: limitOverCount
+     // - capability: oosCount(규격초과)
+     const out = kpi.limitOverCount ?? kpi.oosCount ?? kpi.outOfLimitCount ?? '';
+
+     // CPK
+     const cpk = kpi.cpk ?? '';
+
+     // 측정주기(관리기준에서)
+     const cycleValue = spec.measure_cycle_value ?? spec.measureCycleValue ?? '';
+     const cycleUnit  = spec.measure_cycle_unit_name   ?? '';
+     const cycleText  = (cycleValue && cycleUnit) ? `${cycleValue} ${cycleUnit}` : (cycleValue || '');
+
+     // ✅ 폼 바인딩
+     $('#master_grp').val(mean == null ? '' : this._fmt(mean, 3));
+     $('#master_name').val(std  == null ? '' : this._fmt(std, 3));
+
+     $('#minMax').val((min == null || max == null) ? '' : `${this._fmt(min)} / ${this._fmt(max)}`);
+     $('#sampleCountN').val(n);
+
+     $('#outOfLimitCount').val(out);
+
+     const cpkNum = this._toNum(cpk);
+     $('#cpk').val(cpkNum == null ? '' : this._fmt(cpkNum, 3));
+
+     $('#measureCycleKpi').val(cycleText);
+    }
+
+    // ✅ 빈 화면 처리
+    renderEmptyRawLog(message) {
+     $('#rawLogTableBody').html(
+      `<tr><td colspan="4" style="text-align:center; color:#888; padding:12px;">${message || '데이터가 없습니다.'}</td></tr>`
+     );
+     $('#eventTimeline').html(`<div style="color:#888; padding:6px 0;">이벤트가 없습니다.</div>`);
+
+     $('#histSummary').text('');
+     //$('#imrSummary').text('');
+     $('#boxSummary').text('');
+
+     $('#iSummary').text('');     // ✅ 추가
+     $('#mrSummary').text('');    // ✅ 추가
+
+     this._destroyCharts();
+    }
+
+    // ✅ payload => 테이블/타임라인/차트 렌더
+    renderSpc(payload) {
+     const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+     if (rows.length === 0) {
+      this.renderEmptyRawLog(payload?.message || '조회된 데이터가 없습니다.');
+      return;
+     }
+
+     const spec = payload.spec || {};
+     const kpi  = payload.kpi  || {};
+
+     const unit = payload.unit || spec.unit_name || '';
+
+     const mean = this._toNum(kpi.mean);
+     const std  = this._toNum(kpi.std);
+     const n    = kpi.n ?? rows.length;
+
+     // ✅ 규격한계(USL/LSL)
+     const usl = this._toNum(spec.usl);
+     const lsl = this._toNum(spec.lsl);
+
+     // ✅ 관리한계(UCL/LCL)도 내려주면 그걸 쓰는 게 정석
+     const ucl = this._toNum(spec.ucl);
+     const lcl = this._toNum(spec.lcl);
+
+     const processText = $('#processCode option:selected').text() || payload.process_name || spec.process_name || '-';
+     const measureText = $('#measure_code option:selected').text() || payload.measure_name || spec.measure_name || '-';
+
+     const recipeText  =
+      ($('#recipe').val() || '').trim()
+      || payload.recipe
+      || spec.recipe
+      || rows[0]?.recipe
+      || rows[0]?.file_name
+      || rows[0]?.fileName
+      || '-';
+
+     const itemText =
+      ($('#item_name').val() || '').trim()
+      || payload.item_name
+      || spec.item_name
+      || '-';
+
+     $('#metaProcess').text(processText);
+     $('#metaMeasure').text(measureText);
+     $('#metaRecipe').text(recipeText);
+     $('#metaItem').text(itemText);
+
+     $('#valueHeader').text(unit ? `값(${unit})` : '값');
+
+     // LEFT: judge 기준을 뭘로 할지 결정
+     // - "규격 초과"를 보고 싶으면 usl/lsl
+     // - "관리한계 초과"를 보고 싶으면 ucl/lcl
+     // 보통 SPC 화면에서는 UCL/LCL(관리한계)이 맞습니다.
+     this._renderRawTable(rows, { ucl, lcl });
+     this._renderTimeline(rows, { ucl, lcl });
+
+     // RIGHT
+     const values = rows.map(r => this._toNum(r.value)).filter(v => v != null);
+     const labels = rows.map(r => this._fmtTime(r.time));
+
+     this._drawHistogram(values, {
+      usl: spec.usl,
+      lsl: spec.lsl,
+      target: spec.target_value ?? spec.target,
+      mean: kpi.mean,
+      std: kpi.std,
+      unit,
+      metricName: spec.measure_name || payload.measure_name
+     });
+
+     // I-MR은 내부에서 한계 계산하니 mean만 있으면 되지만,
+     // 규격선(USL/LSL)을 같이 보여주려면 usl/lsl 넘기는 건 OK
+     // this._drawIMR(values, labels, { mean, usl, lsl, unit });
+     this._drawIChart(values, labels, {
+      mean,
+      target: spec.target_value ?? spec.target,
+      ucl, lcl,
+      unit
+     });
+
+     this._drawMRChart(values, labels, { mean, unit });
+
+     this._drawBoxPlot(values, { unit });
+
+     $('#histSummary').text(`N=${n} / 평균=${this._fmt(mean)} / 표준편차=${this._fmt(std)}`);
+     $('#imrSummary').text(`I-MR: 평균=${this._fmt(mean)} / (I-UCL/LCL은 MRbar 기반)`);
+     $('#boxSummary').text(`Box: 중앙값/사분위 기반(분포 확인용)`);
+    }
+
+    // ✅ "2026-01-29 오전 06:58:26" -> timestamp(ms)
+    _toMs(t) {
+     if (t == null) return NaN;
+     if (typeof t === 'number') return t;
+
+     const s = String(t).trim();
+     const m = s.match(/^(\d{4}-\d{2}-\d{2})\s+(오전|오후)\s+(\d{1,2}):(\d{2}):(\d{2})$/);
+     if (m) {
+      const date = m[1];
+      const ampm = m[2];
+      let hh = parseInt(m[3], 10);
+      const mm = m[4];
+      const ss = m[5];
+
+      if (ampm === '오전') {
+       if (hh === 12) hh = 0;
+      } else {
+       if (hh !== 12) hh += 12;
+      }
+      return new Date(`${date}T${String(hh).padStart(2, '0')}:${mm}:${ss}`).getTime();
+     }
+
+     const ms = Date.parse(s);
+     return Number.isNaN(ms) ? NaN : ms;
+    }
+
+    // ✅ 테이블/타임라인 연결용 고유키
+    _rowKey(r) {
+     // time이 가장 안정적이라 time 기준 + 값(동일시각 중복 대비)
+     return `${r?.time ?? ''}__${r?.value ?? ''}`;
+    }
+
+    // ---------- LEFT: 테이블 ----------
+    _renderRawTable(rows, { ucl, lcl }) {
+     const $tb = $('#rawLogTableBody').empty();
+     if (!Array.isArray(rows) || rows.length === 0) return;
+
+     // ✅ 최신순 DESC
+     const sortedRows = [...rows].sort((a, b) => {
+      const ta = this._toMs(a.time);
+      const tb = this._toMs(b.time);
+      if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+      if (Number.isNaN(ta)) return 1;
+      if (Number.isNaN(tb)) return -1;
+      return tb - ta;
+     });
+
+     sortedRows.forEach((r) => {
+      const t = this._fmtTime(r.time);
+      const v = this._toNum(r.value);
+      const memo = (r.memo ?? '').toString();
+
+      // ✅ 관리한계 판정(한쪽만 있어도 OK)
+      let judge = (r.judge ?? '').toString();
+      if (v != null) {
+       const overUcl  = (ucl != null && v > ucl);
+       const underLcl = (lcl != null && v < lcl);
+       judge = (overUcl || underLcl) ? '이상' : '정상';
+      }
+
+      const badge = (judge === '이상')
+       ? `<span style="display:inline-block; padding:2px 8px; border-radius:10px; background:#ffe8e8; color:#b00020; font-size:12px;">이상</span>`
+       : `<span style="display:inline-block; padding:2px 8px; border-radius:10px; background:#e9f7ef; color:#1b7f3a; font-size:12px;">정상</span>`;
+
+      const key = this._rowKey(r);
+
+      $tb.append(`
+      <tr data-key="${this._escapeHtml(key)}">
+        <td style="white-space:nowrap;">${this._escapeHtml(t)}</td>
+        <td style="text-align:right;">${v == null ? '-' : this._fmt(v, 3)}</td>
+        <td>${badge}</td>
+        <td>${this._escapeHtml(memo)}</td>
+      </tr>
+    `);
+     });
+    }
+
+    // ---------- LEFT: 타임라인(이상점만) ----------
+    _renderTimeline(rows, { ucl, lcl }) {
+     const $t = $('#eventTimeline').empty();
+     if (!Array.isArray(rows) || rows.length === 0) {
+      $t.html(`<div style="color:#888; padding:6px 0;">이벤트가 없습니다.</div>`);
+      return;
+     }
+
+     // ✅ 이상 이벤트 수집 (UCL/LCL 한쪽만 있어도 동작)
+     const events = [];
+     rows.forEach((r) => {
+      const v = this._toNum(r.value);
+      if (v == null) return;
+
+      const overUcl  = (ucl != null && v > ucl);
+      const underLcl = (lcl != null && v < lcl);
+      if (!(overUcl || underLcl)) return;
+
+      events.push({
+       key: this._rowKey(r),
+       time: r.time,
+       value: v,
+       type: '이상'
+      });
+     });
+
+     if (events.length === 0) {
+      $t.html(`<div style="color:#888; padding:6px 0;">이상 이벤트가 없습니다.</div>`);
+      return;
+     }
+
+     // ✅ 타임라인도 최신순 DESC
+     events.sort((a, b) => {
+      const ta = this._toMs(a.time);
+      const tb = this._toMs(b.time);
+      if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+      if (Number.isNaN(ta)) return 1;
+      if (Number.isNaN(tb)) return -1;
+      return tb - ta;
+     });
+
+     // ✅ 렌더
+     events.forEach(ev => {
+      $t.append(`
+      <div class="timeline-item" data-key="${this._escapeHtml(ev.key)}"
+           style="padding:6px 10px; border:1px solid #eee; border-radius:10px; margin:6px 0; cursor:pointer;">
+        <div style="font-size:12px; color:#666;">${this._escapeHtml(this._fmtTime(ev.time))}</div>
+        <div style="font-weight:600; color:#b00020;">[${ev.type}] 값: ${this._fmt(ev.value, 3)}</div>
+      </div>
+    `);
+     });
+
+     // ✅ 클릭 시 테이블의 같은 rowKey로 이동/강조
+     $t.off('click').on('click', '.timeline-item', (e) => {
+      const key = String($(e.currentTarget).data('key') ?? '');
+      const $row = $(`#rawLogTableBody tr[data-key="${CSS.escape(key)}"]`);
+
+      if ($row.length) {
+       $row.addClass('active-row');
+       $row.siblings().removeClass('active-row');
+       $row[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+     });
+    }
+
+    // ---------- RIGHT: Histogram ----------
+    _drawHistogram(values, { usl, lsl, target, mean, std, unit, metricName }) {
+     const ctx = document.getElementById('histChart');
+     if (!ctx) return;
+
+     if (this._histChart) { this._histChart.destroy(); this._histChart = null; }
+     if (!values || !values.length) return;
+
+     // ✅ bins
+     const min = Math.min(...values);
+     const max = Math.max(...values);
+     const k = Math.max(5, Math.ceil(Math.log2(values.length) + 1));
+     const binW = (max - min) / k || 1;
+
+     const bins = new Array(k).fill(0);
+     for (const v of values) {
+      let idx = Math.floor((v - min) / binW);
+      if (idx >= k) idx = k - 1;
+      if (idx < 0) idx = 0;
+      bins[idx]++;
+     }
+
+     // ✅ bin 중심값(정규분포 곡선 X좌표로 사용)
+     const centers = bins.map((_, i) => min + (i + 0.5) * binW);
+
+     // ✅ x축 라벨은 너무 길면 가독성 떨어져서 간단히
+     const labels = bins.map((_, i) => {
+      const a = min + i * binW;
+      const b = a + binW;
+      return `${this._fmt(a, 2)}~${this._fmt(b, 2)}`;
+     });
+
+     // ✅ 정규분포 곡선(빈도 스케일에 맞춤)
+     // pdf(x)= 1/(std*sqrt(2pi))*exp(-(x-mean)^2/(2std^2))
+     // 빈도 맞추기 위해 N*binW 곱함 (이게 히스토그램 스케일링 정석)
+     const N = values.length;
+     const pdfToCount = (x) => {
+      if (!std || std <= 0 || mean == null) return null;
+      const z = (x - mean) / std;
+      const pdf = (1 / (std * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * z * z);
+      return pdf * N * binW;
+     };
+
+     const normalCurve = centers.map(c => pdfToCount(c));
+
+     // ✅ Cpk 계산(가능할 때만)
+     const cpk = (() => {
+      if (mean == null || std == null || std <= 0) return null;
+      if (usl == null && lsl == null) return null;
+      const cpu = (usl != null) ? (usl - mean) / (3 * std) : null;
+      const cpl = (lsl != null) ? (mean - lsl) / (3 * std) : null;
+      if (cpu == null) return cpl;
+      if (cpl == null) return cpu;
+      return Math.min(cpu, cpl);
+     })();
+
+     // ✅ 수직선 플러그인: LSL/USL/MEAN/TARGET
+     const vlinePlugin = {
+      id: 'vlinePluginHist',
+      afterDraw: (chart) => {
+       const { ctx, chartArea } = chart;
+
+       const toX = (val) => {
+        if (val == null) return null;
+        const ratio = (val - min) / (max - min || 1);
+        return chartArea.left + ratio * (chartArea.right - chartArea.left);
+       };
+
+       const drawLine = (x, text) => {
+        if (x == null) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(x, chartArea.top);
+        ctx.lineTo(x, chartArea.bottom);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = '#999';
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#666';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(text, x + 4, chartArea.top + 12);
+        ctx.restore();
+       };
+
+       drawLine(toX(lsl), 'LSL');
+       drawLine(toX(usl), 'USL');
+       drawLine(toX(target), 'TARGET');
+       drawLine(toX(mean), 'MEAN');
+      }
+     };
+
+     // ✅ 차트 생성
+     this._histChart = new Chart(ctx, {
+      data: {
+       labels,
+       datasets: [
+        // 막대(빈도)
+        {
+         type: 'bar',
+         label: unit ? `빈도(${unit})` : '빈도',
+         data: bins
+        },
+        // 정규분포 곡선(overlay)
+        {
+         type: 'line',
+         label: 'Normal',
+         data: normalCurve,
+         pointRadius: 0,
+         tension: 0.35,
+         borderWidth: 2
+        }
+       ]
+      },
+      options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       plugins: {
+        legend: { display: false },
+        tooltip: {
+         callbacks: {
+          afterBody: () => {
+           const parts = [];
+           if (mean != null) parts.push(`평균: ${this._fmt(mean, 2)}`);
+           if (std != null) parts.push(`표준편차: ${this._fmt(std, 2)}`);
+           if (cpk != null) parts.push(`Cpk: ${this._fmt(cpk, 2)}`);
+           return parts.join('\n');
+          }
+         }
+        },
+        title: {
+         display: true,
+         text: metricName ? `${metricName} 분포` : 'Histogram'
+        }
+       },
+       scales: {
+        x: {
+         title: {
+          display: true,
+          text: unit ? `측정값 (${unit})` : '측정값'
+         },
+         ticks: { maxRotation: 35, minRotation: 0 }
+        },
+        y: {
+         title: { display: true, text: '빈도' },
+         beginAtZero: true
+        }
+       }
+      },
+      plugins: [vlinePlugin]
+     });
+
+     // 필요하면 이 값을 밖에서 써도 됨
+     return { cpk };
+    }
+
+    // ---------- RIGHT: I-MR (Data-based) ----------
+    _calcIMRParams(values, mean) {
+     if (!values || values.length < 2) return null;
+
+     const mr = [];
+     for (let i = 1; i < values.length; i++) mr.push(Math.abs(values[i] - values[i - 1]));
+     const mrBar = mr.reduce((a, b) => a + b, 0) / mr.length;
+
+     const iUcl = mean + 2.66 * mrBar;
+     const iLcl = mean - 2.66 * mrBar;
+     const mrUcl = 3.268 * mrBar;
+
+     return { mr, mrBar, iUcl, iLcl, mrUcl };
+    }
+    _drawIChart(values, labels, { mean, target = null, ucl = null, lcl = null, unit } = {}) {
+     const ctx = document.getElementById('iChart');
+     if (!ctx) return;
+
+     if (this._iChart) { this._iChart.destroy(); this._iChart = null; }
+     if (!values || !values.length) return;
+
+     const cleaned = [];
+     for (let i = 0; i < values.length; i++) {
+      const v = Number(values[i]);
+      if (Number.isFinite(v)) cleaned.push({ v, l: labels?.[i] ?? String(i + 1) });
+     }
+     const xs = cleaned.map(x => x.v);
+     const ls = cleaned.map(x => x.l);
+     if (xs.length < 2) return;
+
+     const imr = this._calcIMRParams(xs, mean);
+     const iUcl = (ucl != null) ? ucl : imr?.iUcl ?? null;
+     const iLcl = (lcl != null) ? lcl : imr?.iLcl ?? null;
+
+     const center = (target != null) ? target : mean;
+
+     const pointBg = xs.map(v => {
+      const over = (iUcl != null && v > iUcl);
+      const under = (iLcl != null && v < iLcl);
+      return (over || under) ? 'red' : 'rgba(54, 162, 235, 1)';
+     });
+
+     const datasets = [
+      { label: unit ? `I(${unit})` : 'I', data: xs, pointRadius: 3, tension: 0,
+       pointBackgroundColor: pointBg, pointBorderColor: pointBg },
+      { label: (target != null ? 'Target' : 'Mean'), data: xs.map(() => center), pointRadius: 0, borderDash: [6, 4] },
+      ...(iUcl != null ? [{ label: 'UCL', data: xs.map(() => iUcl), pointRadius: 0, borderDash: [6, 4] }] : []),
+      ...(iLcl != null ? [{ label: 'LCL', data: xs.map(() => iLcl), pointRadius: 0, borderDash: [6, 4] }] : []),
+     ];
+
+     this._iChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: ls, datasets },
+      options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       plugins: {
+        legend: { display: true },
+        tooltip: {
+         callbacks: {
+          afterBody: (items) => {
+           const v = items?.[0]?.parsed?.y;
+           if (!Number.isFinite(v)) return '';
+           if (iUcl != null && v > iUcl) return `🔴 UCL(${iUcl.toFixed(2)}) 초과`;
+           if (iLcl != null && v < iLcl) return `🔴 LCL(${iLcl.toFixed(2)}) 미만`;
+           return '';
+          }
+         }
+        }
+       },
+       scales: {
+        x: { ticks: { autoSkip: true, maxTicksLimit: 8, maxRotation: 0, minRotation: 0 } },
+        y: { beginAtZero: false }
+       }
+      }
+     });
+
+     const abnormalCount = xs.filter(v => (iUcl != null && v > iUcl) || (iLcl != null && v < iLcl)).length;
+     $('#iSummary').text(`I: 중심=${this._fmt(center)} / UCL=${iUcl != null ? this._fmt(iUcl) : '-'} / LCL=${iLcl != null ? this._fmt(iLcl) : '-'} / 이상=${abnormalCount}건`);
+    }
+
+    _drawMRChart(values, labels, { mean } = {}) {
+     const ctx = document.getElementById('mrChart');
+     if (!ctx) return;
+
+     if (this._mrChart) { this._mrChart.destroy(); this._mrChart = null; }
+     if (!values || !values.length) return;
+
+     const cleaned = [];
+     for (let i = 0; i < values.length; i++) {
+      const v = Number(values[i]);
+      if (Number.isFinite(v)) cleaned.push({ v, l: labels?.[i] ?? String(i + 1) });
+     }
+     const xs = cleaned.map(x => x.v);
+     const ls = cleaned.map(x => x.l);
+     if (xs.length < 2) return;
+
+     const imr = this._calcIMRParams(xs, mean);
+     const mr = imr.mr;
+     const mrBar = imr.mrBar;
+     const mrUcl = imr.mrUcl;
+
+     const mrSeries = [null, ...mr];
+
+     const pointBg = mrSeries.map(v => {
+      if (v == null) return 'rgba(0,0,0,0)';
+      return (mrUcl != null && v > mrUcl) ? 'red' : 'rgba(153, 102, 255, 1)';
+     });
+
+     const datasets = [
+      { label: 'MR', data: mrSeries, pointRadius: 3, tension: 0,
+       pointBackgroundColor: pointBg, pointBorderColor: pointBg },
+      { label: 'MR-CL', data: ls.map((_, i) => (i === 0 ? null : mrBar)), pointRadius: 0, borderDash: [6, 4] },
+      { label: 'MR-UCL', data: ls.map((_, i) => (i === 0 ? null : mrUcl)), pointRadius: 0, borderDash: [6, 4] },
+     ];
+
+     this._mrChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: ls, datasets },
+      options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       plugins: {
+        legend: { display: true },
+        tooltip: {
+         callbacks: {
+          afterBody: (items) => {
+           const v = items?.[0]?.parsed?.y;
+           if (!Number.isFinite(v)) return '';
+           if (mrUcl != null && v > mrUcl) return `🔴 MR-UCL(${mrUcl.toFixed(2)}) 초과`;
+           return '';
+          }
+         }
+        }
+       },
+       scales: {
+        x: { ticks: { autoSkip: true, maxTicksLimit: 8, maxRotation: 0, minRotation: 0 } },
+        y: { beginAtZero: true }
+       }
+      }
+     });
+
+     const abnormalCount = mr.filter(v => mrUcl != null && v > mrUcl).length;
+     $('#mrSummary').text(`MR: MRbar=${this._fmt(mrBar)} / MR-UCL=${this._fmt(mrUcl)} / 이상=${abnormalCount}건`);
+    }
+
+    /*_drawIMR(values, labels, { mean, usl = null, lsl = null, unit } = {}) {
+     const ctx = document.getElementById('imrChart');
+     if (!ctx) return;
+
+     if (this._imrChart) { this._imrChart.destroy(); this._imrChart = null; }
+     if (!values || !values.length) return;
+
+     // 0) 숫자 보정 (NaN 제거) + labels 동기화
+     const cleaned = [];
+     for (let i = 0; i < values.length; i++) {
+      const v = Number(values[i]);
+      if (Number.isFinite(v)) cleaned.push({ v, l: labels?.[i] ?? String(i + 1) });
+     }
+     const xs = cleaned.map(x => x.v);
+     const ls = cleaned.map(x => x.l);
+     if (xs.length < 2) return;
+
+     // 1) MR 계산
+     const mr = [];
+     for (let i = 1; i < xs.length; i++) mr.push(Math.abs(xs[i] - xs[i - 1]));
+     const mrBar = mr.length ? mr.reduce((a, b) => a + b, 0) / mr.length : null;
+
+     // 2) I 차트 관리한계(정통 I-MR)
+     //    I_UCL/LCL = mean ± 2.66 * MRbar  (moving range size = 2 기준)
+     const iUcl = (mrBar != null) ? (mean + 2.66 * mrBar) : null;
+     const iLcl = (mrBar != null) ? (mean - 2.66 * mrBar) : null;
+
+     // 3) MR 차트 한계
+     const mrUcl = (mrBar != null) ? (3.268 * mrBar) : null; // D4=3.268 (n=2)
+
+     // 라인 시리즈
+     const lineMean = xs.map(() => mean);
+     const lineIUcl = xs.map(() => iUcl);
+     const lineILcl = xs.map(() => iLcl);
+
+     // MR은 첫 점이 없으니 null로 패딩
+     const mrSeries = [null, ...mr];
+     const mrCL = ls.map((_, i) => (i === 0 ? null : mrBar));
+     const mrUCLSeries = ls.map((_, i) => (i === 0 ? null : mrUcl));
+
+     // 4) 이상점 색상(선택) - I 차트에서 한계 초과 점 표시
+     const pointBg = xs.map(v => {
+      if (iUcl != null && v > iUcl) return 'red';
+      if (iLcl != null && v < iLcl) return 'red';
+      return 'rgba(54, 162, 235, 1)'; // 기본색 (원하면 제거 가능)
+     });
+
+     // 5) datasets 구성
+     const datasets = [
+      {
+       label: unit ? `I(${unit})` : 'I',
+       data: xs,
+       pointRadius: 3,
+       tension: 0,
+       pointBackgroundColor: pointBg,
+       pointBorderColor: pointBg,
+      },
+      { label: 'I-Mean', data: lineMean, pointRadius: 0, borderDash: [6, 4] },
+      { label: 'I-UCL', data: lineIUcl, pointRadius: 0, borderDash: [6, 4] },
+      { label: 'I-LCL', data: lineILcl, pointRadius: 0, borderDash: [6, 4] },
+
+      // (선택) 규격선: USL/LSL
+      ...(usl != null ? [{ label: 'USL', data: xs.map(() => usl), pointRadius: 0, borderDash: [2, 2] }] : []),
+      ...(lsl != null ? [{ label: 'LSL', data: xs.map(() => lsl), pointRadius: 0, borderDash: [2, 2] }] : []),
+
+      // MR
+      { label: 'MR', data: mrSeries, yAxisID: 'y1', pointRadius: 2, tension: 0 },
+      { label: 'MR-CL', data: mrCL, yAxisID: 'y1', pointRadius: 0, borderDash: [6, 4] },
+      { label: 'MR-UCL', data: mrUCLSeries, yAxisID: 'y1', pointRadius: 0, borderDash: [6, 4] },
+     ];
+
+     this._imrChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: ls, datasets },
+      options: {
+       responsive: true,
+       maintainAspectRatio: false,
+       plugins: {
+        legend: { display: true },
+        tooltip: {
+         callbacks: {
+          afterBody: (items) => {
+           // I 차트 이상 여부 툴팁(선택)
+           const v = items?.[0]?.parsed?.y;
+           if (!Number.isFinite(v) || iUcl == null || iLcl == null) return '';
+           if (v > iUcl) return `⚠ 이상: I-UCL(${iUcl.toFixed(2)}) 초과`;
+           if (v < iLcl) return `⚠ 이상: I-LCL(${iLcl.toFixed(2)}) 미만`;
+           return '';
+          }
+         }
+        }
+       },
+       scales: {
+        y: { position: 'left', beginAtZero: false },
+        y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false } }
+       }
+      }
+     });
+    }*/
+
+    // ---------- RIGHT: Box Plot ----------
+    _drawBoxPlot(values, { unit }) {
+     const ctx = document.getElementById('boxChart');
+     if (!ctx) return;
+
+     if (this._boxChart) { this._boxChart.destroy(); this._boxChart = null; }
+     if (!values.length) return;
+
+     try {
+      this._boxChart = new Chart(ctx, {
+       type: 'boxplot',
+       data: {
+        labels: ['분포'],
+        datasets: [{ label: unit ? `Box(${unit})` : 'Box', data: [values] }]
+       },
+       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+     } catch (e) {
+      $('#boxSummary').text('Box Plot 플러그인 로딩 실패(콘솔 확인 필요)');
+     }
+    }
+
+    _destroyCharts() {
+     if (this._histChart) { this._histChart.destroy(); this._histChart = null; }
+     // if (this._imrChart) { this._imrChart.destroy(); this._imrChart = null; }
+     if (this._iChart)   { this._iChart.destroy(); this._iChart = null; }
+     if (this._mrChart)  { this._mrChart.destroy(); this._mrChart = null; }
+     if (this._boxChart) { this._boxChart.destroy(); this._boxChart = null; }
+    }
+
+    _toNum(v) {
+     if (v === undefined || v === null || v === '') return null;
+     const n = Number(String(v).replaceAll(',', '').trim());
+     return Number.isFinite(n) ? n : null;
+    }
+    _fmt(n, digits = 2) { return n == null ? '-' : Number(n).toFixed(digits); }
+    _fmtTime(s) { return s ? String(s).trim() : '-'; }
+    _escapeHtml(str) {
+     return String(str ?? '')
+     .replaceAll('&', '&amp;')
+     .replaceAll('<', '&lt;')
+     .replaceAll('>', '&gt;')
+     .replaceAll('"', '&quot;')
+     .replaceAll("'", '&#039;');
+    }
+   }
+
+   function fillMeasureByProcess(procCode, selectedValue) {
+    const $m = $('#measure_code').empty();
+    //$m.append($('<option>').val('').text(i18n.getCommonText('선택')));
+
+    // console.log('[fillMeasureByProcess] procCode=', procCode);
+
+    const res = AjaxUtil.getSyncData('/api/spc/SPCStatistics/measureCodes', { process_code: procCode });
+    console.log('[measureCodes res]=', res);
+
+    // ✅ 가능한 형태를 전부 커버
+    const rows =
+     res?.data?.rows
+     || res?.data
+     || res?.rows
+     || [];
+
+    console.log('[measureCodes rows]=', rows);
+
+    rows.forEach(r => {
+     $m.append($('<option>').val(r.value).text(r.text));
+    });
+
+    if (selectedValue && $m.find(`option[value="${selectedValue}"]`).length) {
+     $m.val(selectedValue).change();
+    } else if (rows.length > 0) {
+     $m.val(rows[0].value).change(); // 원하면 choose 유지로 변경 가능
+    } else {
+     $m.val('').change();
+    }
+   }
+
+   // ✅ date 기본값(오늘 00:00 ~ 현재), 그리고 조회 순서 중요
+   function pad2(n){ return String(n).padStart(2,'0'); }
+   function toDatetimeLocalValue(d){
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+   }
+   function setTodayRangeDefault(){
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0,0,0,0);
+    if (!$('#date_from').val()) $('#date_from').val(toDatetimeLocalValue(start));
+    if (!$('#date_to').val())   $('#date_to').val(toDatetimeLocalValue(now));
+   }
+
+   function activateTab($wrap, sel) {
+    // 탭 버튼 active
+    $wrap.find('.tab-links li').removeClass('active');
+    $wrap.find(`.tab-links a[href="${sel}"]`).parent('li').addClass('active');
+
+    // 탭 내용 active
+    $wrap.find('.tab-item').removeClass('active');
+    $wrap.find(sel).addClass('active');
+   }
+
+   // ✅ leftWrap/rightWrap 전용 탭 바인딩 (capture로 전역 탭핸들러 차단)
+   function bindSpcTabs() {
+    ['leftWrap', 'rightWrap'].forEach((id) => {
+     const wrapEl = document.getElementById(id);
+     if (!wrapEl) return;
+
+     // 중복 바인딩 방지
+     if (wrapEl.__spcTabsBound) return;
+     wrapEl.__spcTabsBound = true;
+
+     wrapEl.addEventListener('click', function (e) {
+      const a = e.target.closest('.tab-links a');
+      if (!a) return;
+
+      // ✅ 여기서 막아야 전역(document) 탭핸들러가 못 받음
+      e.preventDefault();
+      e.stopPropagation();
+
+      const sel = a.getAttribute('href');
+      const $wrap = $(wrapEl);
+
+      // 안전장치
+      if ($wrap.find(sel).length === 0) return;
+
+      activateTab($wrap, sel);
+
+      // (선택) 오른쪽 탭일 때만 차트 draw/resize
+      if (id === 'rightWrap' && window.page?.drawRightTab) {
+       requestAnimationFrame(() => window.page.drawRightTab(sel));
+      }
+     }, true); // ✅ capture = true (핵심!)
+    });
+   }
+
+   $(document).ready(function () {
+    bindSpcTabs();
+   });
+
+   let page = null;
+
+   $(document).ready(function () {
+    setTodayRangeDefault();
+    page = new SPCStatisticsPage();
+    window.page = page;
+    page.searchMainData();
+
+    $('#btnMainSearch').on('click', function () {
+     page.searchMainData();
+    });
+   });
+
+  </script>
+</th:block>
+</html>
