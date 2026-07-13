@@ -1,0 +1,442 @@
+<html layout:decorate="~{layout_page}">
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>계측기기준정보</h2>
+        <a title="북마크" class="bookmark toggle">
+          내 메뉴
+        </a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>품질관리</li>
+        <li>계측기기준정보</li>
+      </ul>
+    </div>
+
+    <section class="section">
+      <div class="section-top">
+        <div class="search-wrap">
+          <input type="hidden" id="spjangcdHidden" name="spjangcd"/>
+          <dl>
+            <dt><label for="cboAutoLevel">자동화수준</label></dt>
+            <dd>
+              <div class="srch-box">
+                <select class="form-control2" id="cboAutoLevel" name="cboAutoLevel">
+                  <option value="">전체</option>
+                  <option value="manual">수동</option>
+                  <option value="semi">반자동</option>
+                  <option value="auto">자동</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="cboState">상태</label></dt>
+            <dd>
+              <div class="srch-box">
+                <select class="form-control2" id="cboState" name="cboState">
+                  <option value="">전체</option>
+                  <option value="use">사용</option>
+                  <option value="calib">검정중</option>
+                  <option value="scrap">폐기</option>
+                </select>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt><label for="txtKeyword">계측기명/코드</label></dt>
+            <dd>
+              <div class="srch-box">
+                <input class="form-control2" id="txtKeyword" name="txtKeyword"/>
+              </div>
+            </dd>
+          </dl>
+          <dl>
+            <dt>&nbsp;</dt>
+            <dd>
+              <li>
+                <a class="btn btn-delete" title="검색" id="btnSearch">
+                  <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                  검색
+                </a>
+              </li>
+            </dd>
+          </dl>
+        </div>
+
+        <div class="button-wrap">
+          <ul>
+            <li>
+              <a class="btn btn-excell" title="등록" id="btnAddNew">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                등록
+              </a>
+            </li>
+            <li>
+              <a class="btn btn-edit" title="수정" id="btnEdit">
+                <img th:src="@{/images/icon/ico-edit.svg}" alt="수정 아이콘">
+                수정
+              </a>
+            </li>
+            <li>
+              <a class="btn btn-delete" title="삭제" id="btnDelete">
+                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                삭제
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <div id="instrument-grid" style="height: 730px;"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===================== 계측기 등록/수정 팝업 템플릿 ===================== -->
+  <script type="text/x-tmpl" id="instrumentTemplate">
+    <style>
+        .content_wrap.popup { display: flex; flex-direction: column; height: 100%; }
+        .table-wrap { flex: 1; overflow-y: auto; padding-right: 5px; }
+        .popup-button { flex-shrink: 0; padding: 10px; background: #fff; border-top: 1px solid #ddd; }
+        #instrumentForm textarea { height: 56px; }
+    </style>
+
+    <div class="content_wrap popup" id="div_instrument">
+        <div class="table-wrap">
+            <form id="instrumentForm">
+                <input type="hidden" id="inst_id" name="inst_id">
+                <input type="hidden" id="spjangcdHidden" name="spjangcd"/>
+                <table class="write-table">
+                    <caption>계측기 기준정보</caption>
+                    <tbody>
+                    <tr>
+                        <th style="text-align:center"><label for="Code">계측기코드*</label></th>
+                        <td><input type="text" id="Code" name="code" placeholder="예: INST-001"></td>
+                        <th style="text-align:center"><label for="Name">계측기명*</label></th>
+                        <td><input type="text" id="Name" name="name" placeholder="예: 3차원 측정기"></td>
+                    </tr>
+                    <tr>
+                        <th style="text-align:center"><label for="Model">규격/모델</label></th>
+                        <td><input type="text" id="Model" name="model"></td>
+                        <th style="text-align:center"><label for="ManageNo">관리번호</label></th>
+                        <td><input type="text" id="ManageNo" name="manage_no"></td>
+                    </tr>
+                    <tr>
+                        <th style="text-align:center"><label for="AutoLevel">자동화수준</label></th>
+                        <td>
+                            <select id="AutoLevel" name="auto_level">
+                                <option value="manual">수동</option>
+                                <option value="semi">반자동</option>
+                                <option value="auto">자동</option>
+                            </select>
+                        </td>
+                        <th style="text-align:center"><label for="Scope">적용범위</label></th>
+                        <td>
+                            <select id="Scope" name="scope">
+                                <option value="all">전체</option>
+                                <option value="part">부분</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="text-align:center"><label for="CertAuto">성적서 자동발행</label></th>
+                        <td>
+                            <select id="CertAuto" name="cert_auto">
+                                <option value="O">지원(O)</option>
+                                <option value="X">미지원(X)</option>
+                            </select>
+                        </td>
+                        <th style="text-align:center"><label for="CalibCycle">교정주기(개월)</label></th>
+                        <td><input type="number" id="CalibCycle" name="calib_cycle" placeholder="예: 12"></td>
+                    </tr>
+                    <tr>
+                        <th style="text-align:center"><label for="State">상태</label></th>
+                        <td>
+                            <select id="State" name="state">
+                                <option value="use">사용</option>
+                                <option value="calib">검정중</option>
+                                <option value="scrap">폐기</option>
+                            </select>
+                        </td>
+                        <th style="text-align:center"><label for="Dept">사용부서</label></th>
+                        <td><input type="text" id="Dept" name="dept"></td>
+                    </tr>
+                    <tr>
+                        <th style="text-align:center"><label for="InspectItems">관리/검사항목</label></th>
+                        <td colspan="3">
+                            <textarea id="InspectItems" name="inspect_items"
+                                      placeholder="예: 치수값/합불 DB화, 성적서 표준, 부적합 조치(재가공/재검정) 이력"></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="text-align:center"><label for="FunctionDesc">기능</label></th>
+                        <td colspan="3">
+                            <textarea id="FunctionDesc" name="function_desc"
+                                      placeholder="예: 자동 합격 판정 및 품질 이력"></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="text-align:center"><label for="DbItems">검사 DB 항목</label></th>
+                        <td colspan="3">
+                            <textarea id="DbItems" name="db_items"
+                                      placeholder="예: 측정값, 공차, 합불, 성적서, 조치 이력"></textarea>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th style="text-align:center"><label for="Description">비고</label></th>
+                        <td colspan="3"><textarea id="Description" name="description"></textarea></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+        <div class="popup-button">
+            <button type="button" class="btn-popup y_write_auth" id="btnPopInstrumentSave">저장(Ctrl + S)</button>
+            <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+        </div>
+    </div>
+  </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+   let gUrl = "/api/quality/instrument";   // ★ 실제 CRUD 엔드포인트 (연결 시 사용)
+
+   // ===================== 목업 데이터 =====================
+   // 업로드하신 표의 3차원 측정기 데이터를 첫 행에 반영
+   let MOCK_DATA = [
+    {
+     inst_id: 1, code: 'INST-001', name: '3차원 측정기', model: 'CMM-700',
+     manage_no: 'QC-3D-01', auto_level: 'semi', auto_level_name: '반자동',
+     scope: 'all', scope_name: '전체', cert_auto: 'X',
+     calib_cycle: 12, state: 'use', state_name: '사용', dept: '품질보증팀',
+     inspect_items: '치수값/합불 DB화, 성적서 표준, 부적합 조치(재가공/재검정) 이력',
+     function_desc: '자동 합격 판정 및 품질 이력',
+     db_items: '측정값, 공차, 합불, 성적서, 조치 이력',
+     description: ''
+    },
+    {
+     inst_id: 2, code: 'INST-002', name: '버니어 캘리퍼스', model: 'CD-15CPX',
+     manage_no: 'QC-CAL-05', auto_level: 'manual', auto_level_name: '수동',
+     scope: 'part', scope_name: '부분', cert_auto: 'X',
+     calib_cycle: 6, state: 'use', state_name: '사용', dept: '가공1팀',
+     inspect_items: '외경/내경/깊이 측정',
+     function_desc: '수기 측정값 기록',
+     db_items: '측정값, 합불',
+     description: ''
+    },
+    {
+     inst_id: 3, code: 'INST-003', name: '표면조도 측정기', model: 'SJ-210',
+     manage_no: 'QC-RA-02', auto_level: 'auto', auto_level_name: '자동',
+     scope: 'all', scope_name: '전체', cert_auto: 'O',
+     calib_cycle: 12, state: 'calib', state_name: '검정중', dept: '품질보증팀',
+     inspect_items: '표면조도(Ra/Rz) DB화, 성적서 자동생성',
+     function_desc: '자동 판정 및 성적서 자동발행',
+     db_items: '측정값, 공차, 합불, 성적서',
+     description: '검정 의뢰중(2026-08)'
+    }
+   ];
+   let MOCK_SEQ = 4;
+
+   const AUTO_MAP  = { manual:'수동', semi:'반자동', auto:'자동' };
+   const SCOPE_MAP = { all:'전체', part:'부분' };
+   const STATE_MAP = { use:'사용', calib:'검정중', scrap:'폐기' };
+
+   class InstrumentPage {
+    constructor() {
+     this.grid = null;
+     this.$btnAddNew = $('#btnAddNew');
+     this.$btnEdit   = $('#btnEdit');
+     this.spjangcd   = $('#spjangcdHidden');
+     this.viewData   = new wijmo.collections.CollectionView([]);
+     this.init();
+    }
+
+    init() {
+     let _this = this;
+     this.grid = new wijmo.grid.FlexGrid('#instrument-grid', {
+      autoGenerateColumns: false,
+      allowSorting: true,
+      frozenColumns: 3,
+      selectionMode: wijmo.grid.SelectionMode.Row,
+      headersVisibility: wijmo.grid.HeadersVisibility.All,
+      isReadOnly: true,
+      itemsSource: this.viewData,
+      formatItem: (s, e) => {
+       if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+        e.cell.textContent = (e.row + 1).toString();
+       }
+       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+        e.cell.style.textAlign = 'center';
+       }
+      },
+      columns: [
+       { binding: 'code',           header: '계측기코드', width: 110, align: 'center' },
+       { binding: 'name',           header: '계측기명',   width: 150 },
+       { binding: 'model',          header: '규격/모델',  width: 120, align: 'center' },
+       { binding: 'manage_no',      header: '관리번호',   width: 110, align: 'center' },
+       { binding: 'auto_level_name',header: '자동화수준', width: 90,  align: 'center' },
+       { binding: 'scope_name',     header: '적용범위',   width: 80,  align: 'center' },
+       { binding: 'cert_auto',      header: '성적서자동', width: 90,  align: 'center' },
+       { binding: 'calib_cycle',    header: '교정주기(월)', width: 100, align: 'right', format: 'n0' },
+       { binding: 'inspect_items',  header: '관리/검사항목', width: 300 },
+       { binding: 'function_desc',  header: '기능',       width: 220 },
+       { binding: 'db_items',       header: '검사 DB',    width: 240 },
+       { binding: 'dept',           header: '사용부서',   width: 110, align: 'center' },
+       { binding: 'state_name',     header: '상태',       width: 80,  align: 'center' }
+      ]
+     });
+     new FlexGridContextMenu(this.grid);
+     this.grid.downloadFileName = '계측기 기준정보';
+
+     this.grid.hostElement.addEventListener('dblclick', function () {
+      if (_this.grid.selectedItems.length === 0) return false;
+      _this.$btnEdit.trigger('click');
+     });
+
+     // ===== 등록 =====
+     this.$btnAddNew.click(function () {
+      _this.showInstrumentForm({
+       mode: 'new',
+       auto_level: 'semi', scope: 'all', cert_auto: 'O', state: 'use',
+       spjangcd: _this.spjangcd.val()
+      });
+     });
+
+     // ===== 수정 =====
+     this.$btnEdit.click(function () {
+      let items = _this.grid.selectedItems;
+      if (items.length !== 1) { Alert.alert('', '하나의 계측기만 선택해주세요.'); return; }
+      let d = Object.assign({}, items[0]);
+      d.mode = 'edit';
+      _this.showInstrumentForm(d);
+     });
+
+     // ===== 삭제 =====
+     $('#btnDelete').click(function () {
+      let items = _this.grid.selectedItems;
+      if (items.length === 0) { Alert.alert('', '삭제할 계측기를 선택해주세요.'); return; }
+      let target = items[0];
+      Alert.confirm('', '삭제하시겠습니까?', function () {
+       // ── 실제 API 연결 시 ──
+       // AjaxUtil.postAsyncData(gUrl + '/delete', { id: target.inst_id }, ...)
+       MOCK_DATA = MOCK_DATA.filter(x => x.inst_id !== target.inst_id);
+       Notify.success('삭제되었습니다.');
+       _this.searchMainData();
+      });
+     });
+
+     $('#txtKeyword').keypress(function (e) {
+      if (e.keyCode === 13) _this.searchMainData();
+     });
+    } // init
+
+    // ===================== 등록/수정 팝업 =====================
+    showInstrumentForm(data) {
+     let _this = this;
+     let content = tmpl('instrumentTemplate', data);
+     let $content = $(content);
+     let title = data.mode === 'new' ? '계측기 등록' : '계측기 수정';
+     let modalContainer = new PopupDraggable(title);
+     modalContainer.open({ width: 900, height: 640, $content });
+
+     $content.find('#spjangcdHidden').val(data.spjangcd || sessionStorage.getItem('spjangcd') || '');
+     FormUtil.BindDataForm(data, $content.find('#instrumentForm'));
+     $content.find('#inst_id').val(data.inst_id || '');
+     // select 기본값 반영
+     $content.find('#AutoLevel').val(data.auto_level || 'semi');
+     $content.find('#Scope').val(data.scope || 'all');
+     $content.find('#CertAuto').val(data.cert_auto || 'O');
+     $content.find('#State').val(data.state || 'use');
+
+     let doSave = function () {
+      let form = FormUtil.extractForm($content.find('#instrumentForm'));
+      if (!form.code) { Alert.alert('', '계측기코드를 입력하세요.'); return; }
+      if (!form.name) { Alert.alert('', '계측기명을 입력하세요.'); return; }
+
+      let record = {
+       inst_id: Number($content.find('#inst_id').val()) || null,
+       code: form.code,
+       name: form.name,
+       model: form.model || '',
+       manage_no: form.manage_no || '',
+       auto_level: form.auto_level,
+       auto_level_name: AUTO_MAP[form.auto_level] || '',
+       scope: form.scope,
+       scope_name: SCOPE_MAP[form.scope] || '',
+       cert_auto: form.cert_auto,
+       calib_cycle: Number(form.calib_cycle || 0),
+       state: form.state,
+       state_name: STATE_MAP[form.state] || '',
+       dept: form.dept || '',
+       inspect_items: form.inspect_items || '',
+       function_desc: form.function_desc || '',
+       db_items: form.db_items || '',
+       description: form.description || ''
+      };
+
+      Alert.confirm('', '저장하시겠습니까?', function () {
+       // ── 실제 API 연결 시 ──
+       // AjaxUtil.postSyncData(gUrl + '/save', record) 등으로 교체
+       if (record.inst_id) {
+        let idx = MOCK_DATA.findIndex(x => x.inst_id === record.inst_id);
+        if (idx > -1) MOCK_DATA[idx] = record;
+       } else {
+        record.inst_id = MOCK_SEQ++;
+        MOCK_DATA.push(record);
+       }
+       Notify.success('저장되었습니다.');
+       _this.searchMainData();
+       modalContainer.close();
+      });
+     };
+
+     $content.find('#btnPopInstrumentSave').click(doSave);
+     $content.on('keydown', function (e) {
+      if (e.ctrlKey && e.key.toLowerCase() === 's') { e.preventDefault(); doSave(); }
+     });
+    } // showInstrumentForm
+
+    // ===================== 조회 (목업 필터) =====================
+    searchMainData() {
+     let _this = this;
+     let autoLevel = $('#cboAutoLevel').val();
+     let state     = $('#cboState').val();
+     let keyword   = ($('#txtKeyword').val() || '').trim();
+
+     // ── 실제 API 연결 시 ──
+     // AjaxUtil.getAsyncData(gUrl + '/read', {...}, function(result){ _this.viewData.sourceCollection = result.data; });
+
+     let rows = MOCK_DATA.filter(x => {
+      if (autoLevel && x.auto_level !== autoLevel) return false;
+      if (state && x.state !== state) return false;
+      if (keyword && !(x.name.includes(keyword) || x.code.includes(keyword))) return false;
+      return true;
+     }).map(x => Object.assign({}, x));
+
+     _this.viewData.sourceCollection = rows;
+    }
+   }
+
+   let page = null;
+
+   $(document).ready(function (e) {
+    const spjangcd = sessionStorage.getItem('spjangcd');
+    if (spjangcd) $('#spjangcdHidden').val(spjangcd);
+
+    page = new InstrumentPage();
+
+    $('#btnSearch').click(function () { page.searchMainData(); });
+    $('#cboAutoLevel').change(function () { page.searchMainData(); });
+    $('#cboState').change(function () { page.searchMainData(); });
+
+    page.searchMainData();
+   });
+  </script>
+</th:block>
+
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>
