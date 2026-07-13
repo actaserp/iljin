@@ -8,7 +8,7 @@
 
         /* ===== 키오스크 전용 ===== */
         /* 외부(layout_page) CSS의 button{height:30px} 무력화 */
-        .kiosk button{height:auto !important;min-height:0;}
+        .kiosk button{height:auto !important;min-height:0;min-width: 50px;}
         .kiosk{display:flex;flex-direction:column;height:100vh;padding:12px;gap:10px;}
 
         /* --- 상단 컨텍스트 바 (세션: 작업자·설비·작업중) --- */
@@ -17,10 +17,10 @@
         .ctx-title h1{margin:0;font-size:18px;font-weight:800;letter-spacing:-.3px;}
         .ctx-title span{font-size:11.5px;color:#9fb0d4;margin-top:2px;}
         .ctx-slots{display:flex;gap:10px;flex:1 1 auto;}
-        .ctx-slot{flex:1;background:#2c3a5e;border:1px solid #3c4d77;border-radius:10px;padding:9px 13px;display:flex;flex-direction:column;justify-content:center;min-width:0;}
+        .ctx-slot{flex:1;background:#2c3a5e;border:1px solid #3c4d77;border-radius:10px;padding:8px 11px;display:flex;flex-direction:column;justify-content:center;min-width:0;}
         .ctx-slot .lab{font-size:11px;color:#9fb0d4;font-weight:700;letter-spacing:.3px;}
-        .ctx-slot .val{font-size:18px;font-weight:800;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-        .ctx-slot .val.empty{color:#6f80a8;font-weight:600;font-size:15px;}
+        .ctx-slot .val{font-size:16px;font-weight:800;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .ctx-slot .val.empty{color:#6f80a8;font-weight:600;font-size:14px;}
         .ctx-slot .sub{font-size:11.5px;color:#b9c6e4;margin-top:1px;}
         .ctx-right{display:flex;align-items:center;gap:12px;padding-left:4px;}
         .ctx-date{display:flex;flex-direction:column;justify-content:center;}
@@ -34,13 +34,13 @@
         /* 외부 input[type=date] 규칙(달력 배경아이콘 + min-width:160px) 무력화 */
         input[type=date].date-input{height:38px;border:1px solid #3c4d77;background:#2c3a5e !important;color:#fff;border-radius:8px;padding:0 10px;font-size:15px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums;min-width:0 !important;width:140px;z-index:auto;}
         input[type=date].date-input::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85;cursor:pointer;}
-        .work-toggle{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:#2c3a5e;border:1px solid #3c4d77;border-radius:10px;padding:7px 14px;cursor:pointer;user-select:none;min-width:96px;}
-        .work-toggle .lab{font-size:11px;color:#9fb0d4;font-weight:700;}
-        .work-toggle .sw{width:46px;height:24px;border-radius:14px;background:#46577f;position:relative;transition:.15s;}
-        .work-toggle .sw::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.15s;}
-        .work-toggle.on .sw{background:#ffb020;}
-        .work-toggle.on .sw::after{left:24px;}
-        .work-toggle.disabled{opacity:.4;pointer-events:none;}
+        .work-area{display:flex;align-items:stretch;min-width:160px;height: 100%}
+        .work-btns{display:flex;gap:6px;flex:1;}
+        .wbtn{flex:1;border:none;border-radius:10px;padding:0 14px;font-size:18px;font-weight:800;cursor:pointer;color:#fff;white-space:nowrap;}
+        .wbtn.start{background:#2e9e5b;} .wbtn.start:hover{background:#34b366;}
+        .wbtn.pause{background:#d9a23a;} .wbtn.pause:hover{background:#e6b04a;}
+        .wbtn.done{background:#3565c4;} .wbtn.done:hover{background:#3f74d8;}
+        .work-area.disabled{opacity:.4;pointer-events:none;}
 
         /* --- 본문: 좌(선택+로그) / 우(수량·등록 패드) --- */
         .kiosk-main{display:flex;gap:10px;flex:1 1 auto;min-height:0;}
@@ -136,6 +136,9 @@
         .work-row td.k{color:#7a5d12;}
         .badge-work{display:inline-block;font-size:11px;font-weight:800;color:#8a6d1b;background:#ffeebc;border:1px solid #f0dca0;border-radius:8px;padding:2px 8px;font-variant-numeric:tabular-nums;}
         .x-btn.stop{border-color:#f0c98a;color:#a6791b;}
+        .work-acts{white-space:nowrap;}
+        .x-btn.pause{border-color:#f0c98a;color:#a6791b;margin-right:5px;}
+        .x-btn.done{border-color:#9ab8e6;color:#2f5fb0;}
         .log-empty{color:#99a;text-align:center;padding:22px 0;font-size:13.5px;}
 
         .flash{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#1ca36b;color:#fff;font-weight:800;padding:11px 22px;border-radius:30px;font-size:15px;box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.2s;z-index:50;}
@@ -167,9 +170,8 @@
                 </div>
             </div>
             <div class="ctx-right">
-                <div class="work-toggle disabled" id="workToggle">
-                    <span class="lab">작업중</span>
-                    <span class="sw"></span>
+                <div class="work-area disabled" id="workArea">
+                    <div class="work-btns" id="workBtns"></div>
                 </div>
                 <div class="ctx-date">
                     <div class="clock" id="clock">--:--:--</div>
@@ -353,7 +355,7 @@
             return `${z(d.getHours())}:${z(d.getMinutes())}`;
         };
         let working = {};
-        working[wKey('WC-01', 0, 0)] = {machine: 'WC-01', proj: 0, item: 0, kind: '', worker: '이종길', t: '09:12'};   // 예시 작업중
+        // (예시 작업중 없음 — 시작은 작업현황 비어있는 상태)
 
         /* ===== 상태 ===== */
         const st = {
@@ -379,8 +381,8 @@
         }
 
         const STEPS = [
-            {key: 'machine', t: '설비'},
             {key: 'worker', t: '작업자'},
+            {key: 'machine', t: '설비'},
             {key: 'proj', t: '프로젝트'},
             {key: 'item', t: '공정'},
             {key: 'kind', t: '유형'}
@@ -581,24 +583,34 @@
             pj.textContent = st.proj >= 0 ? `${PROJECTS[st.proj].code}${PROJECTS[st.proj].name ? ' ' + PROJECTS[st.proj].name : ''}` : '선택하세요';
             pj.classList.toggle('empty', st.proj < 0);
             $('#cxItem').textContent = (st.proj >= 0 && st.item >= 0) ? PROJECTS[st.proj].items[st.item].code : '';
-            // 작업중 토글 (설비 + 프로젝트 + 공정 기준)
-            const wt = $('#workToggle');
-            const can = !!(st.machine && st.proj >= 0 && st.item >= 0);
-            wt.classList.toggle('disabled', !can);
-            wt.classList.toggle('on', can && !!working[wKey(st.machine, st.proj, st.item)]);
+            // 작업 버튼 (작업자+설비+프로젝트+공정 선택 시 활성)
+            const wa = $('#workArea');
+            const can = !!(st.worker && st.machine && st.proj >= 0 && st.item >= 0);
+            wa.classList.toggle('disabled', !can);
+            const isWorking = can && !!working[wKey(st.machine, st.proj, st.item)];
+            $('#workBtns').innerHTML = isWorking
+                ? '<button class="wbtn pause" data-act="pause">일시정지</button><button class="wbtn done" data-act="done">완료</button>'
+                : '<button class="wbtn start" data-act="start">작업 시작</button>';
+            $('#workBtns').querySelectorAll('[data-act]').forEach(b => b.onclick = () => workAct(b.dataset.act));
         }
 
-        $('#workToggle').onclick = () => {
-            if (!(st.machine && st.proj >= 0 && st.item >= 0)) return;
+        function workAct(act) {
+            if (!(st.worker && st.machine && st.proj >= 0 && st.item >= 0)) return;
             const key = wKey(st.machine, st.proj, st.item);
-            if (working[key]) delete working[key];
-            else working[key] = {
-                machine: st.machine, proj: st.proj, item: st.item,
-                kind: st.kind || '', worker: st.worker || '미지정', t: nowHM()
-            };
+            if (act === 'start') {
+                working[key] = {machine: st.machine, proj: st.proj, item: st.item,
+                    kind: st.kind || '', worker: st.worker || '미지정', t: nowHM()};
+                flash('작업 시작');
+            } else if (act === 'pause') {
+                delete working[key];
+                flash('일시정지');
+            } else if (act === 'done') {
+                delete working[key];
+                flash('작업 완료');
+            }
             renderCtx();
             renderLog();
-        };
+        }
 
         /* ===== 우측 등록 패널 ===== */
         function renderQty() {
@@ -671,7 +683,7 @@
                 return `<tr class="work-row" data-wkey="${key}" title="클릭하면 이 작업을 불러와 유니트 수량을 입력합니다">
                     <td class="k">${code}</td><td>${w.kind || '-'}</td><td>${w.machine}</td><td>${w.worker}</td>
                     <td><span class="badge-work">작업중 ${w.t}</span></td>
-                    <td><button class="x-btn stop" data-wstop="${key}">해제</button></td></tr>`;
+                    <td><button class="x-btn stop" data-wstop="${key}">취소</button></td></tr>`;
             }).join('');
 
             html += logRows.map(({l, idx}) => `<tr>
@@ -797,9 +809,9 @@
 
         $('#areaSel').onchange = () => {
             CURRENT_AREA = $('#areaSel').value;
-            st.machine = areaDefaultMachine(CURRENT_AREA);  // 새 구역 기본 설비로
-            st.worker = null;                                // 담당팀이 바뀌므로 작업자 초기화
-            st.step = STEPS.findIndex(s => s.key === 'worker');
+            st.machine = null;                               // 설비 자동선택 안 함 (작업자부터 직접 선택)
+            st.worker = null;
+            st.step = 0;                                     // 작업자 단계부터
             renderAll();
             renderLog();
         };
@@ -817,9 +829,9 @@
         ];
 
         buildAreaSelect();
-        st.machine = areaDefaultMachine(CURRENT_AREA);
-        st.step = STEPS.findIndex(s => s.key === 'worker');
-        setDate(ymd(0));   // 생산일 표시 + 해당일 로그 렌더
+        st.machine = null;                 // 설비 자동선택 안 함
+        st.step = 0;                       // 작업자 단계부터
+        setDate(ymd(0));
         renderAll();
     </script>
 </th:block>
