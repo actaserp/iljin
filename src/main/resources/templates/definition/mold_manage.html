@@ -1,0 +1,271 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+    /* =========================================================
+       [미리보기용] layout_page 공통 스타일 (실서버 적용 시 이 블록 삭제)
+       ========================================================= */
+    body { margin: 0; font-family: 'Malgun Gothic', 'Pretendard', sans-serif; background: #eef1f6; color: #222; font-size: 13px; }
+    .layout-contents { padding: 14px 18px; }
+    .page-title-wrap { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .page-title-wrap .left { display: flex; align-items: center; gap: 10px; }
+    .page-title-wrap h2 { font-size: 19px; font-weight: 700; margin: 0; }
+    .page-navi { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; color: #8a93a3; font-size: 12px; align-items: center; }
+    .page-navi li { display: flex; align-items: center; }
+    .bookmark { font-size: 12px; color: #5b6b86; border: 1px solid #cfd6e2; background: #fff; border-radius: 16px; padding: 4px 11px; cursor: pointer; }
+    .section { background: #fff; border: 1px solid #d7dde7; border-radius: 6px; }
+    .section-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 13px; border-bottom: 1px solid #e9edf3; background: #f7f9fc; gap: 10px; flex-wrap: wrap; }
+    .section-top h3 { margin: 0; font-size: 14px; font-weight: 700; }
+    .btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #cfd6e2; background: #fff; border-radius: 5px; padding: 6px 11px; font-size: 12px; font-weight: 600; cursor: pointer; color: #333; text-decoration: none; }
+    .btn.primary { background: #2b5fc4; border-color: #2b5fc4; color: #fff; }
+    .btn.primary:hover { background: #3570d8; }
+    .container-fluid { padding: 12px 13px; }
+    table.work-table { width: 100%; border-collapse: collapse; }
+    table.work-table th, table.work-table td { border: 1px solid #d7dde7; padding: 6px 7px; font-size: 12.5px; text-align: center; }
+    table.work-table th { background: #eef2f8; color: #445; font-weight: 700; }
+    table.work-table td.l { text-align: left; }
+    table.work-table input, table.work-table select, table.work-table textarea { border: 1px solid #cfd6e2; border-radius: 4px; padding: 4px 6px; font-size: 12px; width: 100%; box-sizing: border-box; font-family: inherit; }
+
+    /* =========================================================
+       [이 페이지 전용]
+       ========================================================= */
+    .proj-bar { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid #d7dde7; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; flex-wrap: wrap; }
+    .proj-bar .fld { display: flex; align-items: center; gap: 8px; }
+    .proj-bar label { font-weight: 700; color: #445; font-size: 12.5px; }
+    .proj-bar select { border: 1px solid #cfd6e2; border-radius: 5px; font-size: 12.5px; padding: 5px 8px; min-width: 200px; }
+
+    .row2 { display: flex; gap: 8px; align-items: flex-start; }
+    .row2 > .section.left { flex: 0 0 380px; }
+    .row2 > .section.right { flex: 1 1 auto; min-width: 0; }
+
+    /* 유니트 목록 (선택) */
+    .unit-row { cursor: pointer; }
+    .unit-row.on { background: #eaf1ff; }
+    .unit-row.on td { font-weight: 700; }
+    .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+    .badge.has { background: #e3f3ea; color: #1f8f53; }
+    .badge.none { background: #eef0f3; color: #888; }
+
+    /* 첨부 폼 */
+    .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: 10px 12px; align-items: center; }
+    .form-grid label { font-weight: 700; color: #445; font-size: 12.5px; }
+    .form-grid input, .form-grid textarea, .form-grid select { border: 1px solid #cfd6e2; border-radius: 5px; padding: 7px 9px; font-size: 12.5px; width: 100%; box-sizing: border-box; font-family: inherit; }
+    .form-grid textarea { resize: vertical; min-height: 60px; }
+    .form-grid .full { grid-column: 1 / -1; }
+    .file-drop { border: 1.5px dashed #b9c4d6; border-radius: 8px; padding: 18px; text-align: center; color: #6f7d92; background: #f8fafd; cursor: pointer; }
+    .file-drop.has { border-color: #2b5fc4; background: #eef4ff; color: #2b5fc4; font-weight: 700; }
+    .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+    .target-tag { font-size: 12.5px; color: #445; }
+    .target-tag b { color: #2b5fc4; }
+    .pick-empty { color: #99a2b2; font-size: 12.5px; padding: 30px 10px; text-align: center; }
+    .hint { font-size: 11.5px; color: #8a93a3; margin-top: 2px; }
+
+    /* 토스트 */
+    .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); background: #222b3a; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; transition: .2s; pointer-events: none; }
+    .toast.on { opacity: 1; }
+  </style>
+</head>
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>도면 관리</h2>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+      </div>
+      <ul class="page-navi">
+        <li>생산 관리</li>
+        <li>도면 관리</li>
+      </ul>
+    </div>
+
+    <div class="proj-bar">
+      <div class="fld">
+        <label>프로젝트</label>
+        <select id="projSel" onchange="dm.selectProject(+this.value)"></select>
+      </div>
+      <div class="fld">
+        <label>라인</label>
+        <select id="lineSel" onchange="dm.selectLine(this.value)"></select>
+      </div>
+    </div>
+
+    <div class="row2">
+      <!-- 좌: 유니트 목록 (선택) -->
+      <section class="section left">
+        <div class="section-top"><h3>유니트(공정) 선택</h3></div>
+        <div class="container-fluid" style="padding:0;">
+          <table class="work-table">
+            <colgroup>
+              <col style="width:22%"><col style="width:40%"><col style="width:18%"><col style="width:20%">
+            </colgroup>
+            <thead><tr><th>라인</th><th>유니트</th><th>설비</th><th>최신도면</th></tr></thead>
+            <tbody id="unitBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 우: 도면 첨부 폼 -->
+      <section class="section right">
+        <div class="section-top">
+          <h3>도면 첨부 / 등록</h3>
+          <span class="target-tag" id="targetTag">유니트를 선택하세요</span>
+        </div>
+        <div class="container-fluid">
+          <div id="formArea">
+            <p class="pick-empty">왼쪽에서 유니트(공정)를 선택하면 도면을 첨부할 수 있습니다.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript" th:inline="none">
+    const dm = {
+      selProj: 0, selLine: 'ALL', selUnit: -1,
+      file: null,
+
+      PROJECTS: [
+        {
+          nm: 'A9-760', lines: ['MAIN', 'HOOD'],
+          units: [
+            {line: 'MAIN', code: 'S10', equ: '고정지그', ver: 2},
+            {line: 'MAIN', code: 'S11', equ: '클램프', ver: 0},
+            {line: 'HOOD', code: 'S25', equ: '슬라이더', ver: 1}
+          ]
+        },
+        {
+          nm: 'A9-820', lines: ['SUB1'],
+          units: [
+            {line: 'SUB1', code: 'SI01', equ: '턴테이블', ver: 0}
+          ]
+        }
+      ],
+      // 도면 저장소 (key: proj|line|code) → [{ver, file, date, memo}]
+      store: {},
+
+      key(u) { return this.selProj + '|' + u.line + '|' + u.code; },
+      nowYMD() { const d = new Date(), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; },
+
+      init() {
+        // 예시 이력 1건
+        this.store['0|MAIN|S10'] = [
+          {ver: 1, file: 'S10_지그_rev1.pdf', date: '2026-06-10', memo: '초기 출도'},
+          {ver: 2, file: 'S10_지그_rev2.pdf', date: '2026-06-22', memo: '클램프 위치 수정'}
+        ];
+        this.store['0|HOOD|S25'] = [{ver: 1, file: 'S25_슬라이더.pdf', date: '2026-06-18', memo: ''}];
+        this.buildProjectSelect();
+        this.buildLineSelect();
+        this.renderUnits();
+      },
+
+      buildProjectSelect() {
+        document.getElementById('projSel').innerHTML =
+                this.PROJECTS.map((p, i) => `<option value="${i}">${p.nm}</option>`).join('');
+      },
+      buildLineSelect() {
+        const ls = this.PROJECTS[this.selProj].lines;
+        document.getElementById('lineSel').innerHTML =
+                `<option value="ALL">전체</option>` + ls.map(l => `<option value="${l}">${l}</option>`).join('');
+      },
+      selectProject(i) { this.selProj = i; this.selLine = 'ALL'; this.selUnit = -1; this.buildLineSelect(); this.renderUnits(); this.renderForm(); },
+      selectLine(l) { this.selLine = l; this.selUnit = -1; this.renderUnits(); this.renderForm(); },
+
+      units() {
+        const us = this.PROJECTS[this.selProj].units;
+        return this.selLine === 'ALL' ? us : us.filter(u => u.line === this.selLine);
+      },
+
+      renderUnits() {
+        const us = this.units();
+        const body = document.getElementById('unitBody');
+        if (!us.length) { body.innerHTML = `<tr><td colspan="4" class="pick-empty">유니트가 없습니다.</td></tr>`; return; }
+        body.innerHTML = us.map((u) => {
+          const k = this.key(u);
+          const list = this.store[k] || [];
+          const latest = list.length ? `<span class="badge has">v${list[list.length - 1].ver}</span>` : `<span class="badge none">없음</span>`;
+          const realIdx = this.PROJECTS[this.selProj].units.indexOf(u);
+          return `<tr class="unit-row ${this.selUnit === realIdx ? 'on' : ''}" onclick="dm.selectUnit(${realIdx})">
+                        <td>${u.line}</td><td class="l">${u.code}</td><td>${u.equ}</td><td>${latest}</td></tr>`;
+        }).join('');
+      },
+
+      selectUnit(i) { this.selUnit = i; this.file = null; this.renderUnits(); this.renderForm(); },
+
+      renderForm() {
+        const area = document.getElementById('formArea');
+        const tag = document.getElementById('targetTag');
+        if (this.selUnit < 0) {
+          tag.textContent = '유니트를 선택하세요';
+          area.innerHTML = `<p class="pick-empty">왼쪽에서 유니트(공정)를 선택하면 도면을 첨부할 수 있습니다.</p>`;
+          return;
+        }
+        const u = this.PROJECTS[this.selProj].units[this.selUnit];
+        const k = this.key(u);
+        const list = this.store[k] || [];
+        const nextVer = (list.length ? list[list.length - 1].ver : 0) + 1;
+        tag.innerHTML = `<b>${this.PROJECTS[this.selProj].nm}</b> · ${u.line} · ${u.code} (${u.equ})`;
+
+        area.innerHTML = `
+                    <div class="form-grid">
+                        <label>대상 유니트</label>
+                        <div>${u.line} · <b>${u.code}</b> · ${u.equ}</div>
+
+                        <label>버전</label>
+                        <div><input id="fVer" type="text" value="v${nextVer}" style="max-width:120px;display:inline-block">
+                            <span class="hint">자동 제안값 (직접 수정 가능)</span></div>
+
+                        <label>등록일</label>
+                        <div><input id="fDate" type="date" value="${this.nowYMD()}" style="max-width:170px"></div>
+
+                        <label class="full">도면 파일</label>
+                        <div class="full">
+                            <div class="file-drop" id="fileDrop" onclick="document.getElementById('fileInput').click()">
+                                📎 클릭하여 도면 파일 첨부 (PDF, DWG, 이미지)
+                            </div>
+                            <input id="fileInput" type="file" style="display:none" onchange="dm.onFile(this)">
+                        </div>
+
+                        <label class="full">비고 (메모)</label>
+                        <div class="full"><textarea id="fMemo" placeholder="변경 사유, 특이사항 등"></textarea></div>
+                    </div>
+                    <div class="form-actions">
+                        <a class="btn" onclick="dm.selectUnit(-1)">취소</a>
+                        <a class="btn primary" onclick="dm.save()">도면 등록</a>
+                    </div>`;
+      },
+
+      onFile(input) {
+        const f = input.files && input.files[0];
+        this.file = f ? f.name : null;
+        const drop = document.getElementById('fileDrop');
+        if (this.file) { drop.classList.add('has'); drop.textContent = '📄 ' + this.file; }
+      },
+
+      save() {
+        const u = this.PROJECTS[this.selProj].units[this.selUnit];
+        const k = this.key(u);
+        if (!this.file) { this.toast('도면 파일을 첨부하세요'); return; }
+        const ver = document.getElementById('fVer').value.trim() || ('v' + (((this.store[k] || []).length) + 1));
+        const date = document.getElementById('fDate').value || this.nowYMD();
+        const memo = document.getElementById('fMemo').value.trim();
+        const verNum = parseInt(String(ver).replace(/[^0-9]/g, ''), 10) || ((this.store[k] || []).length + 1);
+        (this.store[k] = this.store[k] || []).push({ver: verNum, file: this.file, date, memo});
+        u.ver = verNum;
+        this.file = null;
+        this.toast(`도면 등록 완료 · ${u.code} ${ver}`);
+        this.renderUnits();
+        this.renderForm();
+      },
+
+      toast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.classList.add('on');
+        clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.remove('on'), 1800);
+      }
+    };
+    dm.init();
+  </script>
+</th:block>
+</html>
