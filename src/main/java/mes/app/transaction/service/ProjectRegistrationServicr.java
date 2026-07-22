@@ -47,4 +47,36 @@ public class ProjectRegistrationServicr {
 
     return itmes;
   }
+
+  // 진행단계 조회 (프로젝트 단위, 순번 오름차순)
+  public List<Map<String, Object>> getStageList(String spjangcd, String projno) {
+    MapSqlParameterSource dicParam = new MapSqlParameterSource();
+    dicParam.addValue("spjangcd", spjangcd);
+    dicParam.addValue("projno", projno);
+
+    String sql = """
+        SELECT seq, stagenm, pldate, cpdate, endflag, remark
+        FROM tb_da003_stage
+        WHERE spjangcd = :spjangcd
+          AND projno = :projno
+        ORDER BY seq ASC
+    """;
+
+    return this.sqlRunner.getRows(sql, dicParam);
+  }
+
+  // 진행단계 전체 삭제 (프로젝트 단위)
+  public void deleteByProject(String spjangcd, String projno) {
+    MapSqlParameterSource dicParam = new MapSqlParameterSource();
+    dicParam.addValue("spjangcd", spjangcd);
+    dicParam.addValue("projno", projno);
+
+    String sql = """
+        DELETE FROM tb_da003_stage
+        WHERE spjangcd = :spjangcd
+          AND projno = :projno
+    """;
+
+    this.sqlRunner.execute(sql, dicParam);
+  }
 }

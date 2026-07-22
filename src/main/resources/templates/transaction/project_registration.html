@@ -221,6 +221,7 @@
      this.$btnDelete = $('#btnDelete'); //삭제
      this.viewData = new wijmo.collections.CollectionView();
      this.spjangcd = $('#spjangcdHidden');
+     this.url= '/api/transaction/projectRegistration'
      this.init();
     }
 
@@ -262,8 +263,7 @@
        $('#contdate').val(this.formatDateDash(selectedItem.contdate));
        $('#remark').val(selectedItem.remark);
 
-       // ✅ 진행단계 로딩 (서버에서 stages 배열을 함께 내려줄 경우)
-       this.renderStages(selectedItem.stages || []);
+       this.loadStages(selectedItem.projno);
       }
      });
 
@@ -274,6 +274,21 @@
       }
      });
 
+    }
+
+    // ✅ 진행단계 서버 조회 후 렌더링
+    loadStages(projno) {
+     const _this = this;
+     const data = {
+      projno: projno,
+      spjangcd: this.spjangcd.val()
+     };
+
+     AjaxUtil.getAsyncData(this.url + '/readStages', data, function (result) {
+      if (result != null) {
+       _this.renderStages(result.data || []);
+      }
+     });
     }
 
     formatDateDash(yyyymmdd) {
@@ -371,8 +386,6 @@
 
     searchMainData() {
      let _this = this;
-     let url = '/api/transaction/projectRegistration/read'
-
      let data = {
       'srchStartDt': $("#srchStartDt").val(),
       'srchEndDt': $("#srchEndDt").val(),
@@ -387,7 +400,7 @@
       }
      };
 
-     AjaxUtil.getAsyncData(url, data, fnsuccess);
+     AjaxUtil.getAsyncData(this.url +'/read', data, fnsuccess);
     }
 
     //저장
@@ -405,19 +418,18 @@
       contdate: $('#contdate').val(),
       remark: $('#remark').val(),
       spjangcd: this.spjangcd.val(),
-      // ✅ 진행단계 N개 전송 (서버에서 List 로 받으면 됨)
       stages: this.collectStages()
      };
 
-     // ✅ 콜백 기반 confirm 사용
      Alert.confirm('', '저장하시겠습니까?', function () {
-      AjaxUtil.postAsyncData(url, data, function (result) {
+      // ✅ postAsyncData → postJsonData 로 변경
+      AjaxUtil.postJsonData(this.url+'/save', data, function (result) {
        if (result && result.success) {
         Alert.alert('', '저장되었습니다.');
         _this.searchMainData();
         $('#CategoryForm')[0].reset();
         $('#balcltcd').val('');
-        _this.clearStages(); // ✅ 진행단계도 초기화
+        _this.clearStages();
        } else {
         Alert.alert('', '저장에 실패했습니다.');
        }
@@ -428,21 +440,20 @@
     // 삭제
     DeleteMainData() {
      const _this = this;
-     const url = '/api/transaction/projectRegistration/delete';
      const data = {
       projno: $('#projno').val(),
       spjangcd: this.spjangcd.val()
      };
 
-     // ✅ 콜백 기반 confirm 사용
      Alert.confirm('', '삭제하시겠습니까?', function () {
-      AjaxUtil.postAsyncData(url, data, function (result) {
+      // ✅ postAsyncData → postJsonData 로 변경
+      AjaxUtil.postJsonData(this.url + '/delete', data, function (result) {
        if (result && result.success) {
         Alert.alert('', '삭제되었습니다.');
         _this.searchMainData();
         $('#CategoryForm')[0].reset();
         $('#balcltcd').val('');
-        _this.clearStages(); // ✅ 진행단계도 초기화
+        _this.clearStages();
        } else {
         Alert.alert('', '삭제에 실패했습니다.');
        }
