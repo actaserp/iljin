@@ -1,37 +1,19 @@
 <html layout:decorate="~{layout_page}">
 <head>
     <style>
-        /* =========================================================
-           [미리보기용] layout_page 공통 스타일 (실서버 적용 시 이 블록 삭제)
-           ========================================================= */
-        body { margin: 0; font-family: 'Malgun Gothic', 'Pretendard', sans-serif; background: #eef1f6; color: #222; font-size: 13px; }
-        .layout-contents { padding: 14px 18px; }
-        .page-title-wrap { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        .page-title-wrap .left { display: flex; align-items: center; gap: 10px; }
-        .page-title-wrap h2 { font-size: 19px; font-weight: 700; margin: 0; }
-        .page-navi { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; color: #8a93a3; font-size: 12px; align-items: center; }
-        .bookmark { font-size: 12px; color: #5b6b86; border: 1px solid #cfd6e2; background: #fff; border-radius: 16px; padding: 4px 11px; cursor: pointer; }
-        .section { background: #fff; border: 1px solid #d7dde7; border-radius: 6px; }
-        .section-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 13px; border-bottom: 1px solid #e9edf3; background: #f7f9fc; gap: 10px; flex-wrap: wrap; }
-        .section-top h3 { margin: 0; font-size: 14px; font-weight: 700; }
-        .btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #cfd6e2; background: #fff; border-radius: 5px; padding: 6px 11px; font-size: 12px; font-weight: 600; cursor: pointer; color: #333; text-decoration: none; }
-        .container-fluid { padding: 12px 13px; }
-        table.work-table { width: 100%; border-collapse: collapse; }
-        table.work-table th, table.work-table td { border: 1px solid #d7dde7; padding: 6px 7px; font-size: 12.5px; text-align: center; }
-        table.work-table th { background: #eef2f8; color: #445; font-weight: 700; }
-        table.work-table td.l { text-align: left; }
-
-        /* =========================================================
-           [이 페이지 전용]
-           ========================================================= */
         .proj-bar { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid #d7dde7; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; flex-wrap: wrap; }
         .proj-bar .fld { display: flex; align-items: center; gap: 8px; }
         .proj-bar label { font-weight: 700; color: #445; font-size: 12.5px; }
         .proj-bar select { border: 1px solid #cfd6e2; border-radius: 5px; font-size: 12.5px; padding: 5px 8px; min-width: 180px; }
 
         .row2 { display: flex; gap: 8px; align-items: flex-start; }
-        .row2 > .section.left { flex: 0 0 380px; }
+        .row2 > .section.left { flex: 0 0 460px; }
         .row2 > .section.right { flex: 1 1 auto; min-width: 0; }
+
+        table.work-table { width: 100%; border-collapse: collapse; }
+        table.work-table th, table.work-table td { border: 1px solid #d7dde7; padding: 6px 7px; font-size: 12.5px; text-align: center; }
+        table.work-table th { background: #eef2f8; color: #445; font-weight: 700; }
+        table.work-table td.l { text-align: left; }
 
         .unit-row { cursor: pointer; }
         .unit-row.on { background: #eaf1ff; }
@@ -39,7 +21,7 @@
         .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
         .badge.has { background: #e3f3ea; color: #1f8f53; }
         .badge.none { background: #eef0f3; color: #888; }
-        .badge.latest { background: #2b5fc4; color: #fff; }
+        .badge.latest { background: #2b5fc4; color: #fff; margin-left: 4px; }
 
         .hist-file { color: #2b5fc4; font-weight: 600; cursor: pointer; text-decoration: underline; }
         .memo-cell { text-align: left; color: #555; }
@@ -56,30 +38,35 @@
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
-                <li>생산 관리</li>
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
                 <li>도면 이력 관리</li>
             </ul>
         </div>
 
         <div class="proj-bar">
             <div class="fld">
-                <label>프로젝트</label>
-                <select id="projSel" onchange="dh.selectProject(+this.value)"></select>
+                <label for="projSel">프로젝트</label>
+                <select id="projSel"></select>
             </div>
             <div class="fld">
-                <label>라인</label>
-                <select id="lineSel" onchange="dh.selectLine(this.value)"></select>
+                <label for="lineSel">라인</label>
+                <select id="lineSel"><option value="">전체</option></select>
             </div>
         </div>
 
         <div class="row2">
-            <!-- 좌: 유니트 목록 -->
+            <!-- 좌: 유니트(공정) 목록 -->
             <section class="section left">
                 <div class="section-top"><h3>유니트(공정)</h3></div>
                 <div class="container-fluid" style="padding:0;">
                     <table class="work-table">
-                        <colgroup><col style="width:22%"><col style="width:40%"><col style="width:18%"><col style="width:20%"></colgroup>
-                        <thead><tr><th>라인</th><th>유니트</th><th>설비</th><th>버전</th></tr></thead>
+                        <colgroup>
+                            <col style="width:18%"><col style="width:38%"><col style="width:14%"><col style="width:14%"><col style="width:16%">
+                        </colgroup>
+                        <thead>
+                        <tr><th>라인</th><th>공정명</th><th>유니트</th><th>설비타입</th><th>최신버전</th></tr>
+                        </thead>
                         <tbody id="unitBody"></tbody>
                     </table>
                 </div>
@@ -93,10 +80,14 @@
                 </div>
                 <div class="container-fluid" style="padding:0;">
                     <table class="work-table">
-                        <colgroup><col style="width:10%"><col style="width:34%"><col style="width:16%"><col style="width:40%"></colgroup>
-                        <thead><tr><th>버전</th><th>도면 파일</th><th>등록일</th><th>비고</th></tr></thead>
+                        <colgroup>
+                            <col style="width:12%"><col style="width:16%"><col style="width:30%"><col style="width:14%"><col style="width:28%">
+                        </colgroup>
+                        <thead>
+                        <tr><th>버전</th><th>도면번호</th><th>도면 파일</th><th>등록일</th><th>비고</th></tr>
+                        </thead>
                         <tbody id="histBody">
-                            <tr><td colspan="4" class="pick-empty">왼쪽에서 유니트를 선택하면 버전 이력이 표시됩니다.</td></tr>
+                        <tr><td colspan="5" class="pick-empty">왼쪽에서 유니트를 선택하면 버전 이력이 표시됩니다.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -106,101 +97,197 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
-    <script type="text/javascript" th:inline="none">
-        const dh = {
-            selProj: 0, selLine: 'ALL', selUnit: -1,
+    <script type="text/javascript">
 
-            PROJECTS: [
-                {
-                    nm: 'A9-760', lines: ['MAIN', 'HOOD'],
-                    units: [
-                        {line: 'MAIN', code: 'S10', equ: '고정지그'},
-                        {line: 'MAIN', code: 'S11', equ: '클램프'},
-                        {line: 'HOOD', code: 'S25', equ: '슬라이더'}
-                    ]
-                },
-                {
-                    nm: 'A9-820', lines: ['SUB1'],
-                    units: [{line: 'SUB1', code: 'SI01', equ: '턴테이블'}]
-                }
-            ],
-            // 도면관리에서 등록된 이력 (실서버에서는 동일 저장소 공유)
-            store: {
-                '0|MAIN|S10': [
-                    {ver: 1, file: 'S10_지그_rev1.pdf', date: '2026-06-10', memo: '초기 출도'},
-                    {ver: 2, file: 'S10_지그_rev2.pdf', date: '2026-06-22', memo: '클램프 위치 수정'},
-                    {ver: 3, file: 'S10_지그_rev3.pdf', date: '2026-06-28', memo: '핀 블록 공차 변경'}
-                ],
-                '0|HOOD|S25': [{ver: 1, file: 'S25_슬라이더.pdf', date: '2026-06-18', memo: ''}]
+        var dh = {
+            spjangcd: null,
+            projNo: '',
+            lineName: '',
+            units: [],
+            selUnit: null,
+
+            init: function () {
+                var _this = this;
+                this.spjangcd = sessionStorage.getItem('spjangcd');
+                this.loadProjects();
+
+                $('#projSel').on('change', function () {
+                    _this.projNo = $(this).val();
+                    _this.lineName = '';
+                    _this.loadUnits(true);
+                });
+                $('#lineSel').on('change', function () {
+                    _this.lineName = $(this).val();
+                    _this.selUnit = null;
+                    _this.renderUnits();
+                    _this.renderHist();
+                });
             },
 
-            key(u) { return this.selProj + '|' + u.line + '|' + u.code; },
-
-            init() {
-                this.buildProjectSelect();
-                this.buildLineSelect();
-                this.renderUnits();
-            },
-            buildProjectSelect() {
-                document.getElementById('projSel').innerHTML =
-                    this.PROJECTS.map((p, i) => `<option value="${i}">${p.nm}</option>`).join('');
-            },
-            buildLineSelect() {
-                const ls = this.PROJECTS[this.selProj].lines;
-                document.getElementById('lineSel').innerHTML =
-                    `<option value="ALL">전체</option>` + ls.map(l => `<option value="${l}">${l}</option>`).join('');
-            },
-            selectProject(i) { this.selProj = i; this.selLine = 'ALL'; this.selUnit = -1; this.buildLineSelect(); this.renderUnits(); this.renderHist(); },
-            selectLine(l) { this.selLine = l; this.selUnit = -1; this.renderUnits(); this.renderHist(); },
-
-            units() {
-                const us = this.PROJECTS[this.selProj].units;
-                return this.selLine === 'ALL' ? us : us.filter(u => u.line === this.selLine);
+            esc: function (s) {
+                if (s === null || s === undefined) return '';
+                return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             },
 
-            renderUnits() {
-                const us = this.units();
-                const body = document.getElementById('unitBody');
-                if (!us.length) { body.innerHTML = `<tr><td colspan="4" class="pick-empty">유니트가 없습니다.</td></tr>`; return; }
-                body.innerHTML = us.map((u) => {
-                    const list = this.store[this.key(u)] || [];
-                    const ver = list.length ? `<span class="badge has">v${list[list.length - 1].ver}</span>` : `<span class="badge none">없음</span>`;
-                    const realIdx = this.PROJECTS[this.selProj].units.indexOf(u);
-                    return `<tr class="unit-row ${this.selUnit === realIdx ? 'on' : ''}" onclick="dh.selectUnit(${realIdx})">
-                        <td>${u.line}</td><td class="l">${u.code}</td><td>${u.equ}</td><td>${ver}</td></tr>`;
-                }).join('');
+            /* ---------- 프로젝트 ---------- */
+            loadProjects: function () {
+                var _this = this;
+                AjaxUtil.getAsyncData('/api/transaction/projectRegistration/read',
+                    {
+                        spjangcd: this.spjangcd,
+                        srchStartDt: '2000-01-01',
+                        srchEndDt: '2999-12-31',
+                        txtDescription: ''
+                    },
+                    function (result) {
+                        var list = (result && result.data) || [];
+                        var html = '<option value="">프로젝트 선택</option>';
+                        list.forEach(function (p) {
+                            var no = _this.esc(p.projno);
+                            var nm = _this.esc(p.projnm);
+                            html += '<option value="' + no + '">' + no + ' / ' + nm + '</option>';
+                        });
+                        $('#projSel').html(html);
+                    });
             },
 
-            selectUnit(i) { this.selUnit = i; this.renderUnits(); this.renderHist(); },
+            /* ---------- 유니트(공정) ---------- */
+            loadUnits: function (rebuildLine) {
+                var _this = this;
+                this.selUnit = null;
 
-            renderHist() {
-                const body = document.getElementById('histBody');
-                const head = document.getElementById('histHead');
-                if (this.selUnit < 0) {
-                    head.textContent = '유니트를 선택하세요';
-                    body.innerHTML = `<tr><td colspan="4" class="pick-empty">왼쪽에서 유니트를 선택하면 버전 이력이 표시됩니다.</td></tr>`;
+                if (!this.projNo) {
+                    this.units = [];
+                    if (rebuildLine) $('#lineSel').html('<option value="">전체</option>');
+                    this.renderUnits();
+                    this.renderHist();
                     return;
                 }
-                const u = this.PROJECTS[this.selProj].units[this.selUnit];
-                head.innerHTML = `<b>${this.PROJECTS[this.selProj].nm}</b> · ${u.line} · ${u.code} (${u.equ})`;
-                const list = (this.store[this.key(u)] || []).slice().sort((a, b) => b.ver - a.ver);  // 최신 버전 위로
+
+                AjaxUtil.getAsyncData('/api/drawing-manage/units',
+                    {spjangcd: this.spjangcd, project_no: this.projNo, line_name: ''},
+                    function (result) {
+                        _this.units = (result && result.data) || [];
+
+                        if (rebuildLine) {
+                            var lines = [];
+                            _this.units.forEach(function (u) {
+                                if (u.line_name && lines.indexOf(u.line_name) < 0) lines.push(u.line_name);
+                            });
+                            var h = '<option value="">전체</option>';
+                            lines.forEach(function (l) {
+                                h += '<option value="' + _this.esc(l) + '">' + _this.esc(l) + '</option>';
+                            });
+                            $('#lineSel').html(h);
+                        }
+
+                        _this.renderUnits();
+                        _this.renderHist();
+                    });
+            },
+
+            filteredUnits: function () {
+                var _this = this;
+                if (!this.lineName) return this.units;
+                return this.units.filter(function (u) { return u.line_name === _this.lineName; });
+            },
+
+            renderUnits: function () {
+                var _this = this;
+                var list = this.filteredUnits();
+                var $body = $('#unitBody');
+
                 if (!list.length) {
-                    body.innerHTML = `<tr><td colspan="4" class="pick-empty">등록된 도면 이력이 없습니다.</td></tr>`;
+                    $body.html('<tr><td colspan="5" class="pick-empty">유니트(공정)가 없습니다.</td></tr>');
                     return;
                 }
-                const maxVer = Math.max.apply(null, list.map(x => x.ver));
-                body.innerHTML = list.map(h => `
-                    <tr>
-                        <td>v${h.ver} ${h.ver === maxVer ? '<span class="badge latest">최신</span>' : ''}</td>
-                        <td class="l"><span class="hist-file" onclick="dh.open('${h.file}')">📄 ${h.file}</span></td>
-                        <td>${h.date}</td>
-                        <td class="memo-cell">${h.memo || '-'}</td>
-                    </tr>`).join('');
+
+                var html = '';
+                list.forEach(function (u) {
+                    var on = (_this.selUnit && _this.selUnit.suju_id === u.suju_id) ? ' on' : '';
+                    var ver = u.latest_version
+                        ? '<span class="badge has">' + _this.esc(u.latest_version) + '</span>'
+                        : '<span class="badge none">없음</span>';
+                    html += '<tr class="unit-row' + on + '" data-suju="' + u.suju_id + '">'
+                        + '<td>' + _this.esc(u.line_name) + '</td>'
+                        + '<td class="l">' + _this.esc(u.proc_name) + '</td>'
+                        + '<td>' + _this.esc(u.unit_qty) + '</td>'
+                        + '<td>' + _this.esc(u.equip_type) + '</td>'
+                        + '<td>' + ver + '</td>'
+                        + '</tr>';
+                });
+                $body.html(html);
             },
 
-            open(file) { alert('도면 미리보기/다운로드: ' + file + '\n(실서버에서 파일 연결)'); }
+            selectUnit: function (sujuId) {
+                this.selUnit = this.units.filter(function (u) {
+                    return String(u.suju_id) === String(sujuId);
+                })[0] || null;
+                this.renderUnits();
+                this.renderHist();
+            },
+
+            /* ---------- 버전 이력 ---------- */
+            renderHist: function () {
+                var _this = this;
+                var u = this.selUnit;
+
+                if (!u) {
+                    $('#histHead').text('유니트를 선택하세요');
+                    $('#histBody').html('<tr><td colspan="5" class="pick-empty">왼쪽에서 유니트를 선택하면 버전 이력이 표시됩니다.</td></tr>');
+                    return;
+                }
+
+                $('#histHead').html('<b>' + this.esc(this.projNo) + '</b> · '
+                    + this.esc(u.line_name) + ' · ' + this.esc(u.proc_name));
+                $('#histBody').html('<tr><td colspan="5" class="pick-empty">조회 중...</td></tr>');
+
+                AjaxUtil.getAsyncData('/api/drawing-manage/history', {suju_id: u.suju_id},
+                    function (result) {
+                        var rows = (result && result.data) || [];
+                        if (!rows.length) {
+                            $('#histBody').html('<tr><td colspan="5" class="pick-empty">등록된 도면 이력이 없습니다.</td></tr>');
+                            return;
+                        }
+                        var html = '';
+                        rows.forEach(function (r) {
+                            var latest = (r.latest_yn === 'Y') ? '<span class="badge latest">최신</span>' : '';
+                            var fileCell = r.file_data_pk
+                                ? '<span class="hist-file" data-file="' + r.file_data_pk + '">'
+                                    + _this.esc(r.file_name) + '</span>'
+                                : (_this.esc(r.file_name) || '-');
+                            html += '<tr>'
+                                + '<td>' + _this.esc(r.version) + latest + '</td>'
+                                + '<td>' + (_this.esc(r.drawing_no) || '-') + '</td>'
+                                + '<td class="l">' + fileCell + '</td>'
+                                + '<td>' + _this.esc(r.reg_date) + '</td>'
+                                + '<td class="memo-cell">' + (_this.esc(r.remark) || '-') + '</td>'
+                                + '</tr>';
+                        });
+                        $('#histBody').html(html);
+                    });
+            },
+
+            download: function (fileId) {
+                var a = document.createElement('a');
+                a.href = '/api/files/download?file_id=' + fileId;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
         };
-        dh.init();
+
+        $(document).ready(function () {
+            dh.init();
+
+            $(document).on('click', '.unit-row', function () {
+                dh.selectUnit($(this).data('suju'));
+            });
+            $(document).on('click', '.hist-file', function () {
+                dh.download($(this).data('file'));
+            });
+        });
     </script>
 </th:block>
 </html>
