@@ -18,7 +18,7 @@
           flex-direction: column;
       }
       .ps-right {                      /* 하단: 수주 상세 (비율 7) */
-          flex: 7 1 0;
+          flex: 5 1 0;
           min-width: 0;
           min-height: 0;
           display: flex;
@@ -250,13 +250,13 @@
   <div class="layout-contents">
     <div class="page-title-wrap">
       <div class="left">
-        <h2>수주 등록</h2>
+        <h2>수주 관리</h2>
         <a title="북마크" class="bookmark toggle">내 메뉴</a>
       </div>
       <ul class="page-navi">
         <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
         <li>영업 관리</li>
-        <li>수주 등록</li>
+        <li>수주 관리</li>
       </ul>
     </div>
 
@@ -323,14 +323,14 @@
                   <col>
                 </colgroup>
                 <tbody>
-                <!--<tr>
+                <tr>
                   <th><label for="sujuProjSel">프로젝트<span class="eq">*</span></label></th>
                   <td colspan="3">
                     <select id="sujuProjSel" name="projno" style="width:100%;">
                       <option value="">프로젝트를 선택하세요</option>
                     </select>
                   </td>
-                </tr>-->
+                </tr>
                 <tr>
                   <th><label for="cboSujuType">수주구분</label></th>
                   <td><select id="cboSujuType" name="SujuType"></select></td>
@@ -849,6 +849,29 @@
      });
     }
 
+    /* ---------- 값 선택 / 세팅 헬퍼 ---------- */
+    pick(...vals) {
+     for (const v of vals) {
+      if (v !== null && v !== undefined && String(v) !== '') return v;
+     }
+     return '';
+    }
+
+    setCell($row, prefix, val) {
+     const $el = $row.find(`[name^="${prefix}"]`).filter('input, select, textarea').first();
+     if (!$el.length) return $el;
+     $el.val(val ?? '');
+     return $el;
+    }
+
+    toDateStr(v) {
+     if (!v) return '';
+     const s = String(v);
+     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+     const m = s.match(/^(\d{4})[-/.]?(\d{2})[-/.]?(\d{2})/);
+     return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+    }
+
     bindForm(d, row) {
      const _this = this;
      this.suppressDirty = true;
@@ -857,7 +880,6 @@
 
      $('#sujuModeBadge').text('수정 - ' + (d.JumunNumber || row.JumunNumber || '')).addClass('edit');
      $('#sujuId').val(d.id || row.id || '');
-     // 수주에 연결된 프로젝트 선택
      $('#sujuProjSel').val(d.projno || row.projno || '');
      $('#sujuProjnm').val(d.projnm || row.projnm || '');
      $('#JumunDate').val(d.JumunDate || '');
@@ -870,36 +892,41 @@
      $('#cboSujuType').val(d.SujuType || '');
      $('#SujuDescription').val(d.Description || '');
 
-     // 품목 행 바인딩 (detail 응답의 sujuList 기준)
+     // 품목 행 바인딩 (detail 응답의 sujuList 기준) — 한 번만!
      const list = d.sujuList || d.items || [];
      if (list.length === 0) {
       this.addItemRows(3);
      } else {
       list.forEach(it => {
        const $row = _this.addItemRows(1);
-       $row.find('input[name^="suju_id_"]').val(it.suju_id || it.id || '');
-       $row.find('input[name^="product_code_"]').val(it.product_code || '');
-       $row.find('input[name^="Material_id_"]').val(it.Material_id || '');
-       $row.find('input[name^="txtProductName_"]').val(it.txtProductName || it.product_name || '');
-       $row.find('input[name^="setCnt_"]').val(it.setCnt || it.Standard || '');
-       $row.find('input[name^="unit_"]').val(it.unit || it.UnitName || '');
-       $row.find('input[name^="pinShiftUnit_"]').val(it.pinShiftUnit || '');
-       // 라인
-       if (it.line || it.lineId) $row.find('select[name^="line_"]').val(it.line || it.lineId);
-       // 설비타입 (proc 옵션이 이미 채워진 상태)
-       if (it.equiptype) $row.find('select[name^="equiptype_"]').val(it.equiptype);
-       // 제작구분
-       $row.find('select[name^="makeType_"]').val(it.makeType || '');
-       // 설계 업체
-       $row.find('input[name^="designCompId_"]').val(it.designCompId || '');
-       $row.find('input[name^="designCompName_"]').val(it.designCompName || '');
-       // 도면출도일
-       $row.find('input[name^="drawDate_"]').val(it.drawDate || '');
-       // 제작 업체
-       $row.find('input[name^="makeCompId_"]').val(it.makeCompId || '');
-       $row.find('input[name^="makeCompName_"]').val(it.makeCompName || '');
-       // 비고
-       $row.find('input[name^="itemRemark_"]').val(it.itemRemark || '');
+
+       // --- 식별자 / 공정명 ---
+       _this.setCell($row, 'suju_id_',        _this.pick(it.suju_id, it.id));
+       _this.setCell($row, 'Material_id_',    _this.pick(it.Material_id));
+       _this.setCell($row, 'product_code_',   _this.pick(it.product_code));
+       _this.setCell($row, 'txtProductName_', _this.pick(it.txtProductName, it.product_name));
+
+       // --- JIG SET / 유니트 ---
+       _this.setCell($row, 'setCnt_', _this.pick(it.setCnt, it.standard, it.Standard));
+       _this.setCell($row, 'unit_',   _this.pick(it.unitQty, it.quantity, it.SujuQty));
+
+       // ================= 추가 컬럼 =================
+       _this.setCell($row, 'line_',           _this.pick(it.line, it.lineId));
+       _this.setCell($row, 'equiptype_',      _this.pick(it.equip_type, it.equiptype));
+       _this.setCell($row, 'pinShiftUnit_',   _this.pick(it.pin_shift_unit, it.pinShiftUnit));
+       _this.setCell($row, 'legSpec_',        _this.pick(it.leg_spec, it.legSpec));
+       _this.setCell($row, 'legCnt_',         _this.pick(it.leg_cnt, it.legCnt));
+
+       const mkType = _this.pick(it.make_type, it.makeType);
+       if (mkType) _this.setCell($row, 'makeType_', mkType);
+
+       _this.setCell($row, 'designCompId_',   _this.pick(it.design_comp_id, it.designCompId));
+       _this.setCell($row, 'designCompName_', _this.pick(it.design_comp_name, it.designCompName));
+       _this.setCell($row, 'drawDate_',       _this.toDateStr(_this.pick(it.draw_date, it.drawDate)));
+       _this.setCell($row, 'makeCompId_',     _this.pick(it.make_comp_id, it.makeCompId));
+       _this.setCell($row, 'makeCompName_',   _this.pick(it.make_comp_name, it.makeCompName));
+       _this.setCell($row, 'itemRemark_',     _this.pick(it.item_remark, it.itemRemark));
+       // ===========================================
       });
       this.addItemRows(1); // 추가 입력용 빈 행
      }
@@ -1327,10 +1354,10 @@
       if (!productName) return;   // 공정명 없는 빈 행 스킵
 
       const group = String($row.find('[name^="MaterialGroupName_"]').val() || 'proc');
-      const equip = $row.find('select[name^="equiptype_"]').val() || '';
+      const equip = $row.find('input[name^="equiptype_"]').val() || '';
 
       // 라인 + factory_id 추출 (라인 option의 data에 Factory_id가 실려 있어야 함)
-      const $line = $row.find('select[name^="line_"]');
+      const $line = $row.find('input[name^="line_"]');
       const lineVal = $line.val() || '';
       const $opt = $line.find('option:selected');
       const factoryId = $opt.data('Factory_id') ?? $opt.data('factory_id') ?? null;
@@ -1353,6 +1380,8 @@
        setCnt: ($row.find('input[name^="setCnt_"]').val() || '').trim(),         // JIG SET → Standard
        unit: ($row.find('input[name^="unit_"]').val() || '').trim(),             // 유니트 → SujuQty
        pinShiftUnit: ($row.find('input[name^="pinShiftUnit_"]').val() || '').trim(), // PIN SHIFT UNIT
+       legSpec: ($row.find('input[name^="legSpec_"]').val() || '').trim(),
+       legCnt:  ($row.find('input[name^="legCnt_"]').val()  || '').trim(),
        equiptype: equip,                                  // 설비타입
 
        makeType: $row.find('select[name^="makeType_"]').val() || '',             // 제작구분

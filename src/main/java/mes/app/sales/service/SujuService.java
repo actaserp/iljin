@@ -234,6 +234,18 @@ public class SujuService {
 				     s."State"    AS "original_state",
 				     COALESCE(sh.shipped_qty, -1) AS "shipped_qty",
 				     s."Standard" AS standard,
+				     s."line"            AS "line",
+			           s.equip_type        AS "equip_type",
+			           s.pin_shift_unit    AS "pin_shift_unit",
+			           s.leg_spec          AS "leg_spec",
+			           s.leg_cnt           AS "leg_cnt",
+			           s.make_type         AS "make_type",
+			           s.design_comp_id    AS "design_comp_id",
+			           s.design_comp_name  AS "design_comp_name",
+			           to_char(s.draw_date, 'yyyy-mm-dd') AS "draw_date",
+			           s.make_comp_id      AS "make_comp_id",
+			           s.make_comp_name    AS "make_comp_name",
+			           s.item_remark       AS "item_remark",
 				
 				     -- 마스터 규격 문자열(없으면 NULL)
 				     NULLIF(btrim(COALESCE(m."Standard1",'') || ' ' || COALESCE(m."Standard2",'')),'') AS spec_master,
@@ -290,13 +302,25 @@ public class SujuService {
 				   s."description",
 				   s.standard,
 				   s.spec_master,
-				   s.standard_locked
+				   s.standard_locked,
+				   s."line",
+			       s."equip_type",
+			       s."pin_shift_unit",
+			       s."leg_spec",
+			       s."leg_cnt",
+			       s."make_type",
+			       s."design_comp_id",
+			       s."design_comp_name",
+			       s."draw_date",
+			       s."make_comp_id",
+			       s."make_comp_name",
+			       s."item_remark"
 				 FROM suju_with_state s
 				 LEFT JOIN sys_code sc_ship
 				   ON sc_ship."Code" = s.final_state AND sc_ship."CodeType" = 'shipment_state'
 				 LEFT JOIN sys_code sc_suju
 				   ON sc_suju."Code" = s.final_state AND sc_suju."CodeType" = 'suju_state'
-				 ORDER BY s."JumunDate", s.suju_id;			 
+				 ORDER BY s."JumunDate", s.suju_id
 		""";
 
 		Map<String, Object> sujuHead = this.sqlRunner.getRow(sql, paramMap);

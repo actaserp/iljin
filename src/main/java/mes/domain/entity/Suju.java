@@ -120,4 +120,34 @@ public class Suju extends AbstractAuditModel {
 	@Column(name = "equip_type")
 	String equipType;
 
+	@Column(name = "pin_shift_unit")
+	String pinShiftUnit;
+
+	@Column(name = "leg_spec")
+	String legSpec;
+
+	@Column(name = "leg_cnt")
+	String legCnt;
+
+	@Column(name = "make_type")
+	String makeType;
+
+	@Column(name = "design_comp_id")
+	Integer designCompId;
+
+	@Column(name = "design_comp_name")
+	String designCompName;
+
+	@Column(name = "draw_date")
+	Date drawDate;
+
+	@Column(name = "make_comp_id")
+	Integer makeCompId;
+
+	@Column(name = "make_comp_name")
+	String makeCompName;
+
+	@Column(name = "item_remark")
+	String itemRemark;
+
 }

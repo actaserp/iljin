@@ -1477,6 +1477,17 @@ public class SujuController {
       suju.setConfirm("0");
       suju.set_audit(user);
 
+      suju.setPinShiftUnit(str(item.get("pinShiftUnit")));
+      suju.setLegSpec(str(item.get("legSpec")));
+      suju.setLegCnt(str(item.get("legCnt")));
+      suju.setMakeType(str(item.get("makeType")));
+      suju.setDesignCompId(toIntegerOrNull(item.get("designCompId")));
+      suju.setDesignCompName(str(item.get("designCompName")));
+      suju.setDrawDate(CommonUtil.trySqlDate(str(item.get("drawDate"))));
+      suju.setMakeCompId(toIntegerOrNull(item.get("makeCompId")));
+      suju.setMakeCompName(str(item.get("makeCompName")));
+      suju.setItemRemark(str(item.get("itemRemark")));
+
       suju.setMaterialId(materialId);
       suju.setMaterial_Name(productName);
       suju.setProject_id(projno);
