@@ -1,0 +1,344 @@
+<html layout:decorate="~{layout_page}">
+<head></head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>거래처별 단가</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>거래처별 단가</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <!-- 좌: 거래처 목록 -->
+            <section class="section" style="width: 35%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt><label>업체구분</label></dt>
+                            <dd><select class="form-control2" id="cboCompanyType"></select></dd>
+                        </dl>
+                        <dl>
+                            <dt><label>업체명</label></dt>
+                            <dd><input type="text" class="form-control2" id="txtCompany"></dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <!-- 우: 단가 입력폼 + 목록 -->
+            <section class="section" style="width: 65%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <span id="selCompany" style="font-weight:700; color:#2b5fc4; align-self:center;">거래처를 선택하세요</span>
+                        <div class="button-wrap" style="margin-left:auto;">
+                            <ul class="button-list" style="display:flex; gap:8px; list-style:none; margin:0; padding:0;">
+                                <li><button type="button" class="btn-default" id="btnNewPrice">신규</button></li>
+                                <li><button type="button" class="btn-default y_write_auth" id="btnSavePrice" disabled>단가등록/변경</button></li>
+                                <li><button type="button" class="btn-default y_write_auth" id="btnUpdatePrice" disabled>단가수정</button></li>
+                                <li><button type="button" class="btn-danger y_write_auth" id="btnDeletePrice" disabled>단가삭제</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section" style="margin-bottom:5px;">
+                    <form id="priceForm">
+                        <input type="hidden" id="price_id" name="price_id"/>
+                        <table class="write-table">
+                            <colgroup><col style="width:15%"><col style="width:35%"><col style="width:15%"><col style="width:35%"></colgroup>
+                            <tbody>
+                            <tr>
+                                <th><label for="type">구분</label></th>
+                                <td>
+                                    <select id="type" name="type" class="wp100">
+                                        <option value="01">매입</option>
+                                        <option value="02">매출</option>
+                                    </select>
+                                </td>
+                                <th><label for="MaterialGroup_id">품목그룹</label></th>
+                                <td><select id="MaterialGroup_id" name="MaterialGroup_id" class="wp100"></select></td>
+                            </tr>
+                            <tr>
+                                <th><label for="Material_id">품목명</label></th>
+                                <td><select id="Material_id" name="Material_id" class="wp100"></select></td>
+                                <th><label for="UnitPrice">변경단가</label></th>
+                                <td><input type="number" id="UnitPrice" name="UnitPrice" class="wp100"></td>
+                            </tr>
+                            <tr>
+                                <th><label for="ApplyStartDate">적용시작일</label></th>
+                                <td colspan="3"><input type="date" id="ApplyStartDate" name="ApplyStartDate" style="width:35%;"></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+
+                <div class="container-fluid">
+                    <div id="priceGrid"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+
+        var page = {
+            grid: null,
+            priceGrid: null,
+            viewData: new wijmo.collections.CollectionView(),
+            priceData: new wijmo.collections.CollectionView(),
+
+            init: function () {
+                var _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    showMarquee: true,
+                    columns: [
+                        {binding: 'comp_code', header: '업체코드', width: 100, align: 'center'},
+                        {binding: 'name', header: '업체명', width: '*', align: 'left'},
+                        {binding: 'company_type_name', header: '업체구분', width: 90, align: 'center'}
+                    ],
+                    itemsSource: this.viewData
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '거래처 목록';
+
+                this.grid.selectionChanged.addHandler(function (s) {
+                    var item = s.collectionView.currentItem;
+                    if (item) _this.selectCompany(item);
+                });
+
+                this.priceGrid = new wijmo.grid.FlexGrid('#priceGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    showMarquee: true,
+                    formatItem: function (s, e) {
+                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+                            var col = s.columns[e.col];
+                            var item = s.rows[e.row].dataItem;
+                            if (col.binding === 'type') {
+                                e.cell.textContent = (item.type === '01') ? '매입' : '매출';
+                            }
+                        }
+                    },
+                    columns: [
+                        {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center'},
+                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
+                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
+                        {binding: 'unit_name', header: '단위', width: 60, align: 'center'},
+                        {binding: 'type', header: '구분', width: 60, align: 'center'},
+                        {binding: 'unit_price', header: '단가', width: 100, align: 'right', format: 'n0'},
+                        {binding: 'former_unit_price', header: '이전단가', width: 100, align: 'right', format: 'n0'},
+                        {binding: 'apply_start_date', header: '적용시작일', width: 100, align: 'center'},
+                        {binding: 'apply_end_date', header: '적용종료일', width: 100, align: 'center'}
+                    ],
+                    itemsSource: this.priceData
+                });
+                new FlexGridContextMenu(this.priceGrid);
+                this.priceGrid.downloadFileName = '거래처별 단가';
+
+                // 단가 행 더블클릭 → 상세 로드(수정 모드)
+                this.priceGrid.hostElement.addEventListener('dblclick', function (e) {
+                    var ht = _this.priceGrid.hitTest(e);
+                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                        var item = _this.priceGrid.rows[ht.row].dataItem;
+                        _this.loadPriceDetail(item.mcu_id);
+                    }
+                });
+            },
+
+            compId: function () { return $('#theGrid').length ? this.selCompanyId : null; },
+
+            selectCompany: function (item) {
+                this.selCompanyId = item.id;
+                $('#selCompany').text(item.name || '');
+                // 거래처 구분에 따라 매입/매출 기본값
+                if (item.company_type_name === '매출처') $('#type').val('02');
+                else if (item.company_type_name === '매입처') $('#type').val('01');
+                this.loadPriceList();
+                this.newPrice();
+            },
+
+            search: function () {
+                var _this = this;
+                var data = {
+                    comp_type: $('#cboCompanyType').val(),
+                    ourManager: '',
+                    keyword: $('#txtCompany').val(),
+                    spjangcd: sessionStorage.getItem('spjangcd')
+                };
+                var res = AjaxUtil.getSyncData('/api/definition/company/read', data);
+                if (res != null) _this.viewData.sourceCollection = res.data;
+                $('#selCompany').text('거래처를 선택하세요');
+                _this.selCompanyId = null;
+                _this.priceData.sourceCollection = [];
+                _this.setButtonState();
+            },
+
+            loadPriceList: function () {
+                var _this = this;
+                if (!this.selCompanyId) { this.priceData.sourceCollection = []; return; }
+                var res = AjaxUtil.getSyncData('/api/definition/company/mat_price_list', {company_id: this.selCompanyId});
+                this.priceData.sourceCollection = (res != null && res.data) ? res.data : [];
+            },
+
+            setButtonState: function () {
+                var comp = !!this.selCompanyId;
+                var pk = !!$('#price_id').val();
+                $('#btnNewPrice').prop('disabled', !comp);
+                $('#btnSavePrice').prop('disabled', !comp);
+                $('#btnUpdatePrice').prop('disabled', !(comp && pk));
+                $('#btnDeletePrice').prop('disabled', !(comp && pk));
+            },
+
+            newPrice: function () {
+                $('#priceForm')[0].reset();
+                $('#price_id').val('');
+                $('#ApplyStartDate').val(CommonUtil.getYYYYMMDD());
+                this.setButtonState();
+            },
+
+            loadPriceDetail: function (mcuId) {
+                var _this = this;
+                var res = AjaxUtil.getSyncData('/api/definition/company/detail_price', {id: mcuId});
+                if (res == null || res.data == null) return;
+                var d = res.data;
+
+                $('#price_id').val(d.id || '');
+                $('#type').val(d.Type || d.type || '01');
+                $('#MaterialGroup_id').val(d.MaterialGroup_id).trigger('change');
+                setTimeout(function () {
+                    $('#Material_id').val(d.Material_id);
+                }, 200);
+                $('#UnitPrice').val(d.UnitPrice);
+                if (d.ApplyStartDate) {
+                    $('#ApplyStartDate').val(String(d.ApplyStartDate).substring(0, 10));
+                }
+                _this.setButtonState();
+            },
+
+            savePrice: function () {
+                var _this = this;
+                if (!this.selCompanyId) { Alert.alert('', '거래처를 선택하세요.'); return; }
+                if (!$('#Material_id').val()) { Alert.alert('', '품목을 선택하세요.'); return; }
+                if (!$('#UnitPrice').val()) { Alert.alert('', '단가를 입력하세요.'); return; }
+                if (!$('#ApplyStartDate').val()) { Alert.alert('', '적용시작일을 입력하세요.'); return; }
+
+                Alert.confirm('', '저장하시겠습니까?', function () {
+                    var now = new Date();
+                    var hh = String(now.getHours()).padStart(2, '0');
+                    var mm = String(now.getMinutes()).padStart(2, '0');
+                    var ss = String(now.getSeconds()).padStart(2, '0');
+
+                    var data = {
+                        Company_id: _this.selCompanyId,
+                        Material_id: $('#Material_id').val(),
+                        UnitPrice: $('#UnitPrice').val(),
+                        type: $('#type').val(),
+                        ApplyStartDate: $('#ApplyStartDate').val() + 'T' + hh + ':' + mm + ':' + ss,
+                        ChangerName: (typeof userinfo !== 'undefined' ? userinfo.username : '')
+                    };
+                    AjaxUtil.postAsyncData('/api/definition/company/save_price', data, function (res) {
+                        if (res && res.success !== false) {
+                            Alert.alert('', '저장되었습니다.');
+                            _this.loadPriceList();
+                            _this.newPrice();
+                        } else {
+                            Alert.alert('저장 실패', (res && res.message) || '알 수 없는 오류');
+                        }
+                    });
+                });
+            },
+
+            updatePrice: function () {
+                var _this = this;
+                if (!$('#price_id').val()) { Alert.alert('', '수정할 단가를 목록에서 더블클릭해 선택하세요.'); return; }
+
+                Alert.confirm('', '수정하시겠습니까?', function () {
+                    var data = {
+                        price_id: $('#price_id').val(),
+                        Company_id: _this.selCompanyId,
+                        UnitPrice: $('#UnitPrice').val(),
+                        ApplyStartDate: $('#ApplyStartDate').val(),
+                        ChangerName: (typeof userinfo !== 'undefined' ? userinfo.username : '')
+                    };
+                    AjaxUtil.postAsyncData('/api/definition/company/update_price', data, function (res) {
+                        if (res && res.success !== false) {
+                            Alert.alert('', '수정되었습니다.');
+                            _this.loadPriceList();
+                            _this.newPrice();
+                        } else {
+                            Alert.alert('수정 실패', (res && res.message) || '알 수 없는 오류');
+                        }
+                    });
+                });
+            },
+
+            deletePrice: function () {
+                var _this = this;
+                var id = $('#price_id').val();
+                if (!id) { Alert.alert('', '삭제할 단가를 목록에서 더블클릭해 선택하세요.'); return; }
+                Alert.confirm('', '삭제하시겠습니까?', function () {
+                    AjaxUtil.postAsyncData('/api/definition/company/delete_price', {id: id}, function (res) {
+                        if (res && res.success !== false) {
+                            Alert.alert('', '삭제되었습니다.');
+                            _this.loadPriceList();
+                            _this.newPrice();
+                        } else {
+                            Alert.alert('삭제 실패', (res && res.message) || '알 수 없는 오류');
+                        }
+                    });
+                });
+            }
+        };
+
+        $(document).ready(function () {
+            page.init();
+            AjaxUtil.fillSelectOptions($('#cboCompanyType'), 'system_code', 'choose', false, 'company_type');
+            AjaxUtil.fillSelectOptions($('#MaterialGroup_id'), 'material_group', 'choose', false);
+            $('#MaterialGroup_id').change(function () {
+                AjaxUtil.fillSelectOptions($('#Material_id'), 'material', 'choose', false, $('#MaterialGroup_id').val());
+            });
+
+            $('#btnSearch').click(function () { page.search(); });
+            $('#txtCompany').on('keypress', function (e) {
+                if (e.keyCode === 13) page.search();
+            });
+
+            $('#btnNewPrice').click(function () { page.newPrice(); });
+            $('#btnSavePrice').click(function () { page.savePrice(); });
+            $('#btnUpdatePrice').click(function () { page.updatePrice(); });
+            $('#btnDeletePrice').click(function () { page.deletePrice(); });
+
+            page.search();
+        });
+    </script>
+</th:block>
+</html>

@@ -308,4 +308,38 @@ public class CompanyController {
 
 		return result;
 	}
+
+	// 거래처 담당자 정보만 부분 수정
+	@PostMapping("/save_manager")
+	public AjaxResult saveManager(
+			@RequestParam("id") Integer id,
+			@RequestParam(value = "our_manager", required = false) String ourManager,
+			@RequestParam(value = "sales_manager", required = false) String salesManager,
+			@RequestParam(value = "account_manager", required = false) String accountManager,
+			@RequestParam(value = "account_manager_phone", required = false) String accountManagerPhone,
+			@RequestParam(value = "invoiceEmail", required = false) String invoiceEmail,
+			Authentication auth) {
+
+		User user = (User) auth.getPrincipal();
+		AjaxResult result = new AjaxResult();
+
+		Company company = this.companyRepository.getCompnayById(id);
+		if (company == null) {
+			result.success = false;
+			result.message = "거래처가 존재하지 않습니다.";
+			return result;
+		}
+
+		company.setOurManager(ourManager);
+		company.setSalesManager(salesManager);
+		company.setAccountManager(accountManager);
+		company.setAccountManagerPhone(accountManagerPhone);
+		company.setInvoiceEmail(invoiceEmail);
+		company.set_audit(user);
+
+		this.companyRepository.save(company);
+
+		result.data = company;
+		return result;
+	}
 }

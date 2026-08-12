@@ -1,0 +1,320 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        #getPersonId { color: #fff !important; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>거래처별 담당자</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>기준정보</li>
+                <li>거래처별 담당자</li>
+            </ul>
+        </div>
+
+        <div style="display: flex; gap: 5px">
+            <!-- 좌: 거래처 목록 -->
+            <section class="section" style="width: 55%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl>
+                            <dt><label>업체구분</label></dt>
+                            <dd><select class="form-control2" id="cboCompanyType"></select></dd>
+                        </dl>
+                        <dl>
+                            <dt><label>업체명</label></dt>
+                            <dd><input type="text" class="form-control2" id="txtCompany"></dd>
+                        </dl>
+                        <dl>
+                            <dt><span class="eq"></span></dt>
+                            <dd>
+                                <li>
+                                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                                    </a>
+                                </li>
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <div id="theGrid"></div>
+                </div>
+            </section>
+
+            <!-- 우: 담당자 정보 -->
+            <section style="width: 45%;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <span id="selCompany" style="font-weight:700; color:#2b5fc4; align-self:center;">거래처를 선택하세요</span>
+                        <div class="button-wrap" style="margin-left:auto;">
+                            <ul style="display:flex; gap:8px; list-style:none; margin:0; padding:0;">
+                                <li>
+                                    <button type="button" class="btn-excellt btn-default y_write_auth" id="btnSave" disabled>
+                                        <i class="fas fa-save"></i>저장
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <form id="mgrForm">
+                        <input type="hidden" id="id" name="id">
+                        <table class="write-table">
+                            <caption style="text-align: left; margin-bottom: 8px;">담당자 정보</caption>
+                            <colgroup>
+                                <col style="width:30%"><col style="width:70%">
+                            </colgroup>
+                            <tbody>
+                            <tr>
+                                <th><label for="our_manager">자사담당자</label></th>
+                                <td>
+                                    <input type="text" id="our_manager" name="our_manager" style="width:60%;">
+                                    <a class="btn btn-navy" title="직원등록" id="getPersonId">직원등록</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="sales_manager">영업담당자</label></th>
+                                <td><input type="text" id="sales_manager" name="sales_manager" style="width:100%;"></td>
+                            </tr>
+                            <tr>
+                                <th><label for="account_manager">계산서담당자</label></th>
+                                <td><input type="text" id="account_manager" name="account_manager" style="width:100%;"></td>
+                            </tr>
+                            <tr>
+                                <th><label for="account_manager_phone">계산서담당자<br>연락처</label></th>
+                                <td><input type="text" id="account_manager_phone" name="account_manager_phone" class="phone-format" style="width:100%;"></td>
+                            </tr>
+                            <tr>
+                                <th><label for="invoiceEmail">계산서담당자<br>이메일</label></th>
+                                <td><input type="text" id="invoiceEmail" name="invoiceEmail" style="width:100%;"></td>
+                            </tr>
+                            <tr>
+                                <th>대표자 / 연락처</th>
+                                <td><span id="ceo_name"></span> <span id="tel_number" style="color:#777;"></span></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </form>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script type="text/x-tmpl" id="getPersonTemplate">
+        <div class="content_wrap popup">
+            <div class="table-wrap">
+                <table class="write-table">
+                    <caption>직원 검색</caption>
+                    <tbody>
+                    <tr>
+                        <th style="text-align:center"><label for="searchCode">사번</label></th>
+                        <td><input id="searchCode" type="text" style="width:180px;"/></td>
+                        <th style="text-align:center"><label for="searchName">사원명</label></th>
+                        <td><input id="searchName" type="text" style="width:180px;"/></td>
+                        <td style="text-align:center;">
+                            <button type="button" class="btn-default" id="btnSubjectSearch"><i class="fas fa-search"></i>검색</button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <div class="grid_box" style="margin-top:10px;">
+                    <div id="person-grid" style="height:300px; max-height:300px;"></div>
+                </div>
+            </div>
+            <div class="popup-button">
+                <button type="button" class="btn-popup" id="btnAccountSave">선택</button>
+                <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+            </div>
+        </div>
+    </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script th:src="@{/js/InputFormat.js}"></script>
+    <script type="text/javascript">
+        attachTelFormatterAll('.phone-format');
+
+        var page = {
+            grid: null,
+            viewData: new wijmo.collections.CollectionView(),
+
+            init: function () {
+                var _this = this;
+
+                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    showMarquee: true,
+                    columns: [
+                        {binding: 'comp_code', header: '업체코드', width: 100, align: 'center'},
+                        {binding: 'name', header: '업체명', width: '*', align: 'left'},
+                        {binding: 'company_type_name', header: '업체구분', width: 90, align: 'center'},
+                        {binding: 'our_manager', header: '자사담당자', width: 110, align: 'center'}
+                    ],
+                    itemsSource: this.viewData
+                });
+                new FlexGridContextMenu(this.grid);
+                this.grid.downloadFileName = '거래처별 담당자';
+
+                this.grid.selectionChanged.addHandler(function (s) {
+                    var item = s.collectionView.currentItem;
+                    if (item) _this.bind(item);
+                });
+            },
+
+            search: function () {
+                var _this = this;
+                var data = {
+                    comp_type: $('#cboCompanyType').val(),
+                    ourManager: '',
+                    keyword: $('#txtCompany').val(),
+                    spjangcd: sessionStorage.getItem('spjangcd')
+                };
+                var res = AjaxUtil.getSyncData('/api/definition/company/read', data);
+                if (res != null) _this.viewData.sourceCollection = res.data;
+                _this.clear();
+            },
+
+            clear: function () {
+                $('#selCompany').text('거래처를 선택하세요');
+                $('#mgrForm')[0].reset();
+                $('#id').val('');
+                $('#ceo_name').text('');
+                $('#tel_number').text('');
+                $('#btnSave').prop('disabled', true);
+            },
+
+            bind: function (item) {
+                $('#selCompany').text(item.name || '');
+                var res = AjaxUtil.getSyncData('/api/definition/company/detail', {company_id: item.id});
+                if (res == null || res.data == null) return;
+                var d = res.data;
+
+                $('#id').val(d.id);
+                $('#our_manager').val(d.our_manager || '');
+                $('#sales_manager').val(d.sales_manager || '');
+                $('#account_manager').val(d.account_manager || '');
+                $('#account_manager_phone').val(d.account_manager_phone || '');
+                $('#invoiceEmail').val(d.invoiceEmail || '');
+                $('#ceo_name').text(d.ceo_name || '-');
+                $('#tel_number').text(d.tel_number ? '(' + d.tel_number + ')' : '');
+
+                $('#btnSave').prop('disabled', false);
+            },
+
+            save: function () {
+                var _this = this;
+                var id = $('#id').val();
+                if (!id) {
+                    Alert.alert('', '거래처를 먼저 선택하세요.');
+                    return;
+                }
+                Alert.confirm('', '저장하시겠습니까?', function () {
+                    var data = {
+                        id: id,
+                        our_manager: $('#our_manager').val(),
+                        sales_manager: $('#sales_manager').val(),
+                        account_manager: $('#account_manager').val(),
+                        account_manager_phone: $('#account_manager_phone').val(),
+                        invoiceEmail: $('#invoiceEmail').val()
+                    };
+                    AjaxUtil.postAsyncData('/api/definition/company/save_manager', data, function (res) {
+                        if (res && res.success !== false) {
+                            Alert.alert('', '저장되었습니다.');
+                            _this.search();
+                        } else {
+                            Alert.alert('저장 실패', (res && res.message) || '알 수 없는 오류');
+                        }
+                    });
+                });
+            },
+
+            // 직원 선택 팝업
+            showGetPerson: function () {
+                var content = tmpl('getPersonTemplate', {});
+                var $content = $(content);
+                var popContainer = new PopupDraggable('직원등록');
+                popContainer.open({width: 800, height: 500, $content: $content});
+
+                var theGrid4, selectedItem = null;
+
+                function fetchPersonList() {
+                    $.ajax({
+                        url: '/api/system/user/getPerson',
+                        type: 'GET',
+                        data: {
+                            searchCode: $content.find('#searchCode').val(),
+                            searchName: $content.find('#searchName').val(),
+                            spjangcd: sessionStorage.getItem('spjangcd')
+                        },
+                        async: false,
+                        success: function (res) {
+                            var data2 = res.data || [];
+                            if (theGrid4) theGrid4.itemsSource = new wijmo.collections.CollectionView(data2);
+                        }
+                    });
+                }
+
+                theGrid4 = new wijmo.grid.FlexGrid('#person-grid', {
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    columns: [
+                        {binding: 'id', header: '사번', width: 100, align: 'center'},
+                        {binding: 'name', header: '이름', width: 150, align: 'center'},
+                        {binding: 'dept_name', header: '부서', width: 150, align: 'center'},
+                        {binding: '', header: '', width: '*'}
+                    ],
+                    itemsSource: null
+                });
+                theGrid4.rowHeaders.columns.splice(0, 1);
+                fetchPersonList();
+
+                $content.find('#btnSubjectSearch').click(fetchPersonList);
+                $content.find('#searchCode, #searchName').on('keydown', function (e) {
+                    if (e.keyCode === 13) fetchPersonList();
+                });
+                theGrid4.selectionChanged.addHandler(function (s) {
+                    selectedItem = s.collectionView.currentItem;
+                });
+                $content.find('#btnAccountSave').click(function () {
+                    if (selectedItem) {
+                        $('#our_manager').val(selectedItem.name);
+                        popContainer.close();
+                    }
+                });
+                theGrid4.hostElement.addEventListener('dblclick', function () {
+                    var items = theGrid4.selectedItems;
+                    if (items.length === 0) return;
+                    $('#our_manager').val(items[0].name);
+                    popContainer.close();
+                });
+            }
+        };
+
+        $(document).ready(function () {
+            page.init();
+            AjaxUtil.fillSelectOptions($('#cboCompanyType'), 'system_code', 'choose', false, 'company_type');
+
+            $('#btnSearch').click(function () { page.search(); });
+            $('#txtCompany').on('keypress', function (e) {
+                if (e.keyCode === 13) page.search();
+            });
+            $('#btnSave').click(function () { page.save(); });
+            $('#getPersonId').click(function () { page.showGetPerson(); });
+
+            page.search();
+        });
+    </script>
+</th:block>
+</html>
