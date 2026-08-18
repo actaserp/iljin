@@ -19,6 +19,11 @@ public class MaterialInoutService {
 	
 	public List<Map<String, Object>> getMaterialInout(String srchStartDt, String srchEndDt, String housePk,
 			String matType, String matGrpPk, String keyword, String spjangcd) {
+		return getMaterialInout(srchStartDt, srchEndDt, housePk, matType, matGrpPk, keyword, spjangcd, null);
+	}
+
+	public List<Map<String, Object>> getMaterialInout(String srchStartDt, String srchEndDt, String housePk,
+			String matType, String matGrpPk, String keyword, String spjangcd, String inTestYn) {
 		
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -93,6 +98,7 @@ public class MaterialInoutService {
 		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
+		if ("Y".equals(inTestYn)) sql +=" and m.\"InTestYN\" = 'Y' ";
 		
 		sql += " order by \"InoutDate\" desc, \"InoutTime\" desc, mi.id desc ";
 		
@@ -345,6 +351,322 @@ public class MaterialInoutService {
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
 
 		return items;
+	}
+
+	/**
+	 * 제품 반입전표 - 수동 등록 반품만 조회 (InOut='return', SourceTableName IS NULL)
+	 */
+	public List<Map<String, Object>> getProductReceiptSlipList(
+			String srchStartDt, String srchEndDt, String housePk,
+			String matType, String matGrpPk, String keyword, String spjangcd) {
+
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue("srchStartDt", srchStartDt);
+		param.addValue("srchEndDt", srchEndDt);
+		param.addValue("housePk", housePk);
+		param.addValue("matType", matType);
+		param.addValue("matGrpPk", matGrpPk);
+		param.addValue("keyword", keyword);
+		param.addValue("spjangcd", spjangcd);
+
+		String sql = """
+			select mi.id as mio_pk
+			     , to_char(mi."InoutDate", 'yyyy-mm-dd') as "InoutDate"
+			     , to_char(mi."InoutTime", 'hh24:mi') as "InoutTime"
+			     , fn_code_name('return_type', mi."InputType") as inout_type
+			     , sh."Name" as store_house_name
+			     , fn_code_name('mat_type', mg."MaterialType") as material_type
+			     , m."Code" as material_code
+			     , m."Name" as material_name
+			     , u."Name" as unit_name
+			     , coalesce(mi."InputQty", 0) as "InputQty"
+			     , mih."CurrentStock" as "HouseStock"
+			     , mi."Description"
+			from mat_inout mi
+			inner join material m on m.id = mi."Material_id"
+			left join mat_grp mg on mg.id = m."MaterialGroup_id"
+			left join store_house sh on sh.id = mi."StoreHouse_id"
+			left join unit u on u.id = m."Unit_id"
+			left join mat_in_house mih on mih."Material_id" = m.id and mih."StoreHouse_id" = mi."StoreHouse_id"
+			where 1 = 1
+			  and m."Useyn" = '0'
+			  and mi."InOut" = 'return'
+			  and mi."SourceTableName" is null
+			  and mi."InoutDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
+			  and mi.spjangcd = :spjangcd
+			""";
+
+		if (StringUtils.isEmpty(housePk)==false)  sql += " and sh.id = cast(:housePk as Integer) ";
+		if (StringUtils.isEmpty(matType)==false)   sql += " and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matGrpPk)==false)  sql += " and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
+		if (StringUtils.isEmpty(keyword)==false)   sql += " and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
+
+		sql += " order by mi.\"InoutDate\" desc, mi.\"InoutTime\" desc, mi.id desc ";
+
+		return this.sqlRunner.getRows(sql, param);
+	}
+
+	/**
+	 * 반출전표 - 수동 등록 반출만 조회 (SourceTableName is null)
+	 * 출하/생산 자동 차감분 제외
+	 */
+	public List<Map<String, Object>> getOutboundSlipList(
+			String srchStartDt, String srchEndDt, String housePk,
+			String matType, String matGrpPk, String keyword, String spjangcd) {
+
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue("srchStartDt", srchStartDt);
+		param.addValue("srchEndDt", srchEndDt);
+		param.addValue("housePk", housePk);
+		param.addValue("matType", matType);
+		param.addValue("matGrpPk", matGrpPk);
+		param.addValue("keyword", keyword);
+		param.addValue("spjangcd", spjangcd);
+
+		String sql = """
+			select mi.id as mio_pk
+			     , to_char(mi."InoutDate", 'yyyy-mm-dd') as "InoutDate"
+			     , to_char(mi."InoutTime", 'hh24:mi') as "InoutTime"
+			     , fn_code_name('output_type', mi."OutputType") as inout_type
+			     , sh."Name" as store_house_name
+			     , fn_code_name('mat_type', mg."MaterialType") as material_type
+			     , m."Code" as material_code
+			     , m."Name" as material_name
+			     , u."Name" as unit_name
+			     , coalesce(mi."OutputQty", 0) as "OutputQty"
+			     , mih."CurrentStock" as "HouseStock"
+			     , mi."Description"
+			from mat_inout mi
+			inner join material m on m.id = mi."Material_id"
+			left join mat_grp mg on mg.id = m."MaterialGroup_id"
+			left join store_house sh on sh.id = mi."StoreHouse_id"
+			left join unit u on u.id = m."Unit_id"
+			left join mat_in_house mih on mih."Material_id" = m.id and mih."StoreHouse_id" = mi."StoreHouse_id"
+			where 1 = 1
+			  and m."Useyn" = '0'
+			  and mi."InOut" = 'out'
+			  and mi."SourceTableName" is null
+			  and mi."InoutDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
+			  and mi.spjangcd = :spjangcd
+			""";
+
+		if (StringUtils.isEmpty(housePk)==false)  sql += " and sh.id = cast(:housePk as Integer) ";
+		if (StringUtils.isEmpty(matType)==false)   sql += " and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matGrpPk)==false)  sql += " and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
+		if (StringUtils.isEmpty(keyword)==false)   sql += " and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
+
+		sql += " order by mi.\"InoutDate\" desc, mi.\"InoutTime\" desc, mi.id desc ";
+
+		return this.sqlRunner.getRows(sql, param);
+	}
+
+	/**
+	 * 자재LOT현황 - material+mat_in_house 기준
+	 * lot_only='Y': mat_lot에 등록된 품목만
+	 * remain_only='Y': 현재고 > 0 인 것만
+	 */
+	public List<Map<String, Object>> getLotStatus(
+			String matType, String matGrpPk, String housePk,
+			String keyword, String remainOnly, String lotOnly, String spjangcd) {
+
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue("matType", matType);
+		param.addValue("matGrpPk", matGrpPk);
+		param.addValue("housePk", housePk);
+		param.addValue("keyword", keyword);
+		param.addValue("spjangcd", spjangcd);
+
+		String sql = """
+			select m.id as material_id
+			     , m."Code" as material_code
+			     , m."Name" as material_name
+			     , fn_code_name('mat_type', mg."MaterialType") as material_type
+			     , mg."Name" as mat_grp_name
+			     , u."Name" as unit_name
+			     , sh."Name" as store_house_name
+			     , ml."LotNumber" as lot_number
+			     , coalesce(ml."InputQty", 0) as input_qty
+			     , coalesce(ml."CurrentStock", 0) as lot_stock
+			     , coalesce(mh."CurrentStock", 0) as current_stock
+			     , to_char(ml."InputDateTime", 'yyyy-mm-dd') as input_date
+			     , to_char(ml."EffectiveDate", 'yyyy-mm-dd') as effective_date
+			     , ml."Description" as description
+			     , m."LotUseYN" as lot_use_yn
+			from material m
+			inner join mat_grp mg on mg.id = m."MaterialGroup_id"
+			left join unit u on u.id = m."Unit_id"
+			left join mat_in_house mh on mh."Material_id" = m.id
+			left join store_house sh on sh.id = mh."StoreHouse_id"
+			left join mat_lot ml on ml."Material_id" = m.id
+			    and ml."StoreHouse_id" = mh."StoreHouse_id"
+			where 1 = 1
+			  and m."Useyn" = '0'
+			  and m."spjangcd" = :spjangcd
+			""";
+
+		if (StringUtils.isEmpty(matType)==false)  sql += " and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matGrpPk)==false) sql += " and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
+		if (StringUtils.isEmpty(housePk)==false)  sql += " and mh.\"StoreHouse_id\" = cast(:housePk as Integer) ";
+		if (StringUtils.isEmpty(keyword)==false)  sql += " and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
+		if ("Y".equals(lotOnly))                  sql += " and exists (select 1 from mat_lot ml2 where ml2.\"Material_id\" = m.id) ";
+		if ("Y".equals(remainOnly))               sql += " and coalesce(mh.\"CurrentStock\", 0) > 0 ";
+
+		sql += " order by mg.\"MaterialType\", mg.\"Name\", m.\"Code\", ml.\"InputDateTime\" desc nulls last ";
+
+		return this.sqlRunner.getRows(sql, param);
+	}
+
+	/**
+	 * 수입검사현황 - test_result 기준 검사 이력 조회
+	 * 검사일 기준, 판정/품목그룹/품명 필터
+	 */
+	public List<Map<String, Object>> getInspectionHistory(
+			String srchStartDt, String srchEndDt, String matGrpPk,
+			String keyword, String judge, String spjangcd) {
+
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue("srchStartDt", srchStartDt);
+		param.addValue("srchEndDt", srchEndDt);
+		param.addValue("matGrpPk", matGrpPk);
+		param.addValue("keyword", keyword);
+		param.addValue("judge", judge);
+		param.addValue("spjangcd", spjangcd);
+
+		String sql = """
+			select tr.id as test_result_id
+			     , to_char(tr."TestDateTime", 'yyyy-mm-dd') as test_date
+			     , up."Name" as checker_name
+			     , tir."JudgeCode" as judge_code
+			     , tir."CharResult" as test_remark
+			     , m.id as "Material_id"
+			     , m."Code" as material_code
+			     , m."Name" as material_name
+			     , fn_code_name('mat_type', mg."MaterialType") as material_type
+			     , u."Name" as unit_name
+			     , coalesce(mi."InputQty", 0) as "InputQty"
+			     , to_char(mi."InoutDate", 'yyyy-mm-dd') as "InoutDate"
+			     , sh."Name" as store_house_name
+			     , b."CompanyName" as company_name
+			     , to_char(b."JumunDate", 'yyyy-mm-dd') as balju_date
+			from test_result tr
+			inner join mat_inout mi on tr."SourceDataPk" = mi.id and tr."SourceTableName" = 'mat_inout'
+			inner join material m on m.id = mi."Material_id"
+			left join mat_grp mg on mg.id = m."MaterialGroup_id"
+			left join unit u on u.id = m."Unit_id"
+			left join store_house sh on sh.id = mi."StoreHouse_id"
+			left join balju b on b.id = mi."SourceDataPk" and mi."SourceTableName" = 'balju'
+			left join user_profile up on up."User_id" = tr."_creater_id"
+			left join test_item_result tir on tir."TestResult_id" = tr.id
+			where 1 = 1
+			  and m."Useyn" = '0'
+			  and tr.spjangcd = :spjangcd
+			  and tr."TestDateTime" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
+			""";
+
+		if (StringUtils.isEmpty(matGrpPk)==false) sql += " and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
+		if (StringUtils.isEmpty(keyword)==false)  sql += " and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
+		if (StringUtils.isEmpty(judge)==false)    sql += " and tir.\"JudgeCode\" = :judge ";
+
+		sql += " order by tr.\"TestDateTime\" desc, tr.id desc ";
+
+		return this.sqlRunner.getRows(sql, param);
+	}
+
+	/**
+	 * 수입검사 대상 목록 (발주 기준 - 미입고 품목도 표시)
+	 * - 발주(balju) 드라이빙, mat_inout LEFT JOIN → 입고 전이어도 표시
+	 * - inTestYn='Y': InTestYN='Y' 품목만, 그 외: 전체 발주
+	 * - status: ''=전체, 'waiting'=검사대기(미입고 포함), 'done'=검사완료
+	 */
+	public List<Map<String, Object>> getReceivingInspectionList(
+			String srchStartDt, String srchEndDt, String housePk,
+			String matGrpPk, String keyword, String status, String inTestYn, String spjangcd) {
+		return getReceivingInspectionList(srchStartDt, srchEndDt, housePk, matGrpPk, keyword, status, inTestYn, spjangcd, null);
+	}
+
+	public List<Map<String, Object>> getReceivingInspectionList(
+			String srchStartDt, String srchEndDt, String housePk,
+			String matGrpPk, String keyword, String status, String inTestYn, String spjangcd, String judge) {
+
+		MapSqlParameterSource param = new MapSqlParameterSource();
+		param.addValue("srchStartDt", srchStartDt);
+		param.addValue("srchEndDt", srchEndDt);
+		param.addValue("housePk", housePk);
+		param.addValue("matGrpPk", matGrpPk);
+		param.addValue("keyword", keyword);
+		param.addValue("spjangcd", spjangcd);
+		param.addValue("judge", judge);
+
+		String sql = """
+			select b.id as balju_id
+			     , mi.id as mio_pk
+			     , b."Material_id"
+			     , m."Code" as material_code
+			     , m."Name" as material_name
+			     , u2."Name" as unit_name
+			     , fn_code_name('mat_type', mg."MaterialType") as material_type
+			     , mg."Name" as mat_grp_name
+			     , b."CompanyName" as company_name
+			     , to_char(b."JumunDate", 'yyyy-mm-dd') as balju_date
+			     , to_char(b."DueDate", 'yyyy-mm-dd') as due_date
+			     , b."SujuQty" as balju_qty
+			     , coalesce(mi."PotentialInputQty", 0) as "potentialInputQty"
+			     , coalesce(mi."InputQty", 0) as "InputQty"
+			     , (b."SujuQty" - coalesce(mi_sum."total_input", 0)) as remain_qty
+			     , to_char(mi."InoutDate", 'yyyy-mm-dd') as "InoutDate"
+			     , to_char(mi."InoutTime", 'hh24:mi') as "InoutTime"
+			     , sh."Name" as store_house_name
+			     , coalesce(fn_code_name('inout_state', mi."State"), '미입고') as inout_state
+			     , mi."State" as state_code
+			     , m."ValidDays"
+			     , m."InTestYN" as in_test_yn
+			     , tir."JudgeCode" as judge_code
+			     , case when mi.id is null then '미입고'
+			            when tr.id is not null then '검사완료'
+			            else '검사대기' end as test_state
+			     , to_char(tr."TestDateTime", 'yyyy-mm-dd') as test_date
+			from balju b
+			inner join material m on m.id = b."Material_id"
+			left join mat_grp mg on mg.id = m."MaterialGroup_id"
+			left join unit u2 on m."Unit_id" = u2.id
+			left join mat_inout mi on mi."SourceDataPk" = b.id
+			    and mi."SourceTableName" = 'balju'
+			    and mi."InOut" = 'in'
+			    and coalesce(mi."_status", 'a') = 'a'
+			left join store_house sh on sh.id = mi."StoreHouse_id"
+			left join test_result tr on tr."SourceDataPk" = mi.id and tr."SourceTableName" = 'mat_inout'
+			left join test_item_result tir on tr.id = tir."TestResult_id"
+			left join (
+			    select "SourceDataPk", sum("InputQty") as total_input
+			    from mat_inout
+			    where "SourceTableName" = 'balju' and "InOut" = 'in' and coalesce("_status",'a') = 'a'
+			    group by "SourceDataPk"
+			) mi_sum on mi_sum."SourceDataPk" = b.id
+			where 1 = 1
+			  and m."Useyn" = '0'
+			  and b."JumunDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
+			  and b.spjangcd = :spjangcd
+			""";
+
+		if ("Y".equals(inTestYn)) sql += " and m.\"InTestYN\" = 'Y' ";
+		if (StringUtils.isEmpty(housePk)==false)  sql += " and sh.id = cast(:housePk as Integer) ";
+		if (StringUtils.isEmpty(matGrpPk)==false) sql += " and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
+		if (StringUtils.isEmpty(keyword)==false)  sql += " and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
+		if (StringUtils.isEmpty(judge)==false)    sql += " and tir.\"JudgeCode\" = :judge ";
+
+		if ("waiting".equals(status)) {
+			// 검사대기: 입고됐으나 검사결과 없음
+			sql += " and mi.id is not null and tr.id is null ";
+		} else if ("done".equals(status)) {
+			sql += " and tr.id is not null ";
+		} else if ("not_received".equals(status)) {
+			// 미입고: 아직 입고 자체가 없는 발주
+			sql += " and mi.id is null ";
+		}
+
+		sql += " order by b.\"JumunDate\" desc, mi.\"InoutDate\" desc nulls last, b.id desc ";
+
+		return this.sqlRunner.getRows(sql, param);
 	}
 
 	public List<Map<String, Object>> getMaterialInoutDetail(Integer mio_pk) {

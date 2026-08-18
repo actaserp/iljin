@@ -464,7 +464,14 @@ public class ShipmentOrderController {
 
 			this.transactionTemplate.executeWithoutResult(status->{			
 				try {
-					
+
+					// 출하지시 취소 시 수주-출하 연결데이터(rela_data)도 함께 정리
+					// 이걸 지우지 않으면 출하등록 화면에서 지시수량이 남은 것으로 오인되어
+					// 해당 수주가 '미출하만 보기' 목록에서 빠짐
+					if (!shipment_ids.isEmpty()) {
+						this.relationDataRepository.deleteByTableName2AndDataPk2In("shipment", shipment_ids);
+					}
+
 					this.shipmentRepository.deleteByShipmentHeadId(head_id);
 					this.shipmentHeadRepository.deleteById(head_id);
 				}

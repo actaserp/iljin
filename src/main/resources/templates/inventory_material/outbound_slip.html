@@ -1,0 +1,373 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+    .greenText { color: #1f8f53; }
+    .redText   { color: #FF0000; }
+    .blueText  { color: #4374D9; }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>반출전표</h2>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>자재 관리</li>
+        <li>반출전표</li>
+      </ul>
+    </div>
+    <section class="section">
+      <div class="section-top">
+        <form id="searchForm" autocomplete="off" style="width:100%;">
+          <div class="search-flex-row" style="display:flex; justify-content:space-between; align-items:flex-end; width:100%; gap:16px;">
+            <div class="search-wrap">
+              <dl>
+                <dt>반출일</dt>
+                <dd>
+                  <ul class="date-box">
+                    <li><input type="date" id="srchStartDt" name="srchStartDt"><label for="srchStartDt" class="hide">시작일</label></li>
+                    <li><input type="date" id="srchEndDt" name="srchEndDt"><label for="srchEndDt" class="hide">종료일</label></li>
+                  </ul>
+                </dd>
+              </dl>
+              <dl>
+                <dt><label for="cboHouse">창고</label></dt>
+                <dd><div class="srch-box"><select id="cboHouse" name="cboHouse"></select></div></dd>
+              </dl>
+              <dl>
+                <dt><label for="cboMatType">품목유형</label></dt>
+                <dd><div class="srch-box"><select id="cboMatType" name="cboMatType"></select></div></dd>
+              </dl>
+              <dl>
+                <dt><label for="cboMatGroup">품목그룹</label></dt>
+                <dd><div class="srch-box"><select id="cboMatGroup" name="cboMatGroup"></select></div></dd>
+              </dl>
+              <dl>
+                <dt><label for="txtMatName">품명</label></dt>
+                <dd><div class="srch-box"><input id="txtMatName" name="txtMatName"/></div></dd>
+              </dl>
+              <dl>
+                <dt>&nbsp;</dt>
+                <dd>
+                  <li>
+                    <a class="btn btn-delete" title="검색" id="btnSearch">
+                      <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                    </a>
+                  </li>
+                </dd>
+              </dl>
+            </div>
+            <div class="button-wrap" style="white-space:nowrap;">
+              <ul>
+                <li>
+                  <a class="btn y_write_auth" title="반출 등록" id="btnAdd" style="background-color:#03428E; color:white;">
+                    반출 등록
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="container-fluid">
+        <div id="outbound-grid" style="height: 680px;"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 반출 등록/수정 팝업 -->
+  <script type="text/x-tmpl" id="outboundPopup">
+    <div class="content_wrap popup">
+      <div class="table-wrap">
+        <form id="outboundForm">
+          <input type="hidden" id="mio_pk" name="mio_pk">
+          <table class="write-table">
+            <tbody>
+              <tr>
+                <th style="text-align:center"><label for="inoutDate">반출일시</label></th>
+                <td>
+                  <input class="form-control2" id="inoutDate" name="inoutDate" type="datetime-local">
+                </td>
+                <th style="text-align:center"><label for="InoutType">반출유형</label></th>
+                <td>
+                  <select class="select_input" id="InoutType" name="InoutType"></select>
+                  <input id="InoutType_hidden" name="InoutType_hidden" type="hidden">
+                </td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label for="cboMaterialType">품목유형</label></th>
+                <td>
+                  <input class="form-control2" id="cboMaterialType" name="cboMaterialType" type="hidden" readonly/>
+                  <input class="form-control2" id="cboMaterialTypeName" name="cboMaterialTypeName" readonly/>
+                </td>
+                <th style="text-align:center"><label for="cboMaterialGroup">품목그룹</label></th>
+                <td>
+                  <input id="cboMaterialGroup" name="cboMaterialGroup" type="hidden" readonly/>
+                  <input id="cboMaterialGroupName" name="cboMaterialGroupName" readonly/>
+                </td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label for="Material_id">품목</label></th>
+                <td colspan="3">
+                  <input id="Material_id" name="Material_id" type="hidden" readonly/>
+                  <input id="Material_name" name="Material_name" readonly placeholder="품목 조회 버튼을 클릭하여 선택하세요."/>
+                  &nbsp;
+                  <a class="btn" title="품목 조회" id="btnMaterial">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">품목조회
+                  </a>
+                </td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label for="InoutQty">수량</label></th>
+                <td>
+                  <input id="InoutQty" name="InoutQty"/>
+                </td>
+                <th style="text-align:center"><label for="StoreHouse_id">창고</label></th>
+                <td>
+                  <select id="StoreHouse_id" name="StoreHouse_id"></select>
+                </td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label for="Description">비고</label></th>
+                <td colspan="3">
+                  <textarea style="height:80px;" id="Description" name="Description"></textarea>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </form>
+      </div>
+      <div class="popup-button">
+        <button type="button" class="btn-popup y_write_auth" id="btnSave"><span>저장</span></button>
+        <button type="button" class="btn-popup" id="btnDelete" style="display:none;"><span>삭제</span></button>
+        <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+      </div>
+    </div>
+  </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <th:block th:replace="/common/popup_material :: popup_material"></th:block>
+
+  <script type="text/javascript">
+    class outboundSlip {
+      constructor() {
+        this.url = '/api/inventory/material_inout';
+        this.grid = null;
+        this.init();
+      }
+
+      init() {
+        const _this = this;
+        this.grid = new wijmo.grid.FlexGrid('#outbound-grid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.All,
+          isReadOnly: true,
+          showMarquee: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+              e.cell.textContent = (e.row + 1).toString();
+            }
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'mio_pk',           header: 'ID',        width: 60,  align: 'center', visible: false},
+            {binding: 'InoutDate',         header: '반출일',    width: 100, align: 'center'},
+            {binding: 'InoutTime',         header: '시간',      width: 65,  align: 'center'},
+            {binding: 'inout_type',        header: '반출유형',  width: 90,  align: 'center'},
+            {binding: 'store_house_name',  header: '창고',      width: 90,  align: 'center'},
+            {binding: 'material_type',     header: '품목유형',  width: 80,  align: 'center'},
+            {binding: 'material_code',     header: '품목코드',  width: 110, align: 'center'},
+            {binding: 'material_name',     header: '품목명',    width: '*', align: 'left'},
+            {binding: 'unit_name',         header: '단위',      width: 50,  align: 'center'},
+            {binding: 'OutputQty',         header: '반출수량',  width: 85,  align: 'right', format: 'n0'},
+            {binding: 'HouseStock',        header: '창고재고',  width: 85,  align: 'right', format: 'n0'},
+            {binding: 'Description',       header: '비고',      width: 150, align: 'left'}
+          ],
+          itemsSource: new wijmo.collections.CollectionView([]),
+          itemFormatter: (panel, row, col, cell) => {
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              const item = panel.rows[row].dataItem;
+              const column = panel.columns[col];
+              if (column.binding === 'HouseStock' && item.HouseStock < 0) {
+                cell.classList.add('redText');
+              }
+            }
+          }
+        });
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '반출전표';
+
+        // 더블클릭 → 수정 팝업
+        this.grid.hostElement.addEventListener('dblclick', (e) => {
+          const ht = _this.grid.hitTest(e);
+          if (ht.cellType === wijmo.grid.CellType.Cell) {
+            const item = _this.grid.rows[ht.row].dataItem;
+            window.selectedGridId = item.mio_pk;
+            AjaxUtil.getAsyncData(_this.url + '/matinout_detail', {mio_pk: item.mio_pk}, function (res) {
+              res.data[0]['mode'] = 'edit';
+              _this.showPopup(res.data[0]);
+            });
+          }
+        });
+      }
+
+      searchDataBind() {
+        let data = {
+          srchStartDt: $('#searchForm').find('#srchStartDt').val(),
+          srchEndDt:   $('#searchForm').find('#srchEndDt').val(),
+          house_pk:    $('#searchForm').find('#cboHouse').val(),
+          mat_type:    $('#searchForm').find('#cboMatType').val(),
+          mat_grp_pk:  $('#searchForm').find('#cboMatGroup').val(),
+          keyword:     $('#searchForm').find('#txtMatName').val(),
+          spjangcd:    sessionStorage.getItem('spjangcd') || 'ZZ'
+        };
+        // etc_out만 (수동 반출) - SourceTableName이 없는 것
+        let result = AjaxUtil.getSyncData(this.url + '/read_outbound_slip', data);
+        if (result && result.data != null) {
+          this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+          if (window.selectedGridId) {
+            GridUtil.selectRowById(this.grid, window.selectedGridId, {idField: 'mio_pk'});
+            window.selectedGridId = null;
+          }
+        }
+      }
+
+      showPopup(data) {
+        const _this = this;
+        const isEdit = data && data.mode === 'edit';
+        const content = tmpl('outboundPopup', {});
+        const $content = $(content);
+        const modalContainer = new PopupDraggable(isEdit ? '반출 수정' : '반출 등록');
+        modalContainer.open({width: 900, height: 420, $content});
+
+        // 셀렉트 초기화
+        AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', '');
+        AjaxUtil.fillSelectOptions($content.find('#InoutType'), 'system_code', '', 'etc_out', 'output_type');
+
+        // 반출일시 기본값
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        $content.find('#inoutDate').val(now.toISOString().slice(0, 16));
+
+        // InoutType 변경 시 hidden 동기화
+        $content.find('#InoutType').on('change', function () {
+          $content.find('#InoutType_hidden').val($(this).val());
+        });
+        $content.find('#InoutType').trigger('change');
+
+        // 품목 조회 팝업
+        $content.find('#btnMaterial').click(function () {
+          new PopupMaterialPage('single').show(function (item) {
+            $content.find('#cboMaterialType').val(item.MaterialTypeCode);
+            $content.find('#cboMaterialTypeName').val(item.MaterialTypeName);
+            $content.find('#cboMaterialGroup').val(item.MaterialGroup_id);
+            $content.find('#cboMaterialGroupName').val(item.group_name);
+            $content.find('#Material_id').val(item.id);
+            $content.find('#Material_name').val(item.Name);
+          });
+        });
+
+        // 수정 모드
+        if (isEdit) {
+          FormUtil.BindDataForm(data, $content.find('#outboundForm'));
+          $content.find('#InoutType').prop('disabled', true);
+          $content.find('#btnDelete').show();
+          $content.find('#btnSave span').text('수정');
+        }
+
+        // 저장
+        $content.find('#btnSave').on('click', function () {
+          if (!$content.find('#Material_id').val()) {
+            Alert.alert('', '품목을 선택하세요.'); return;
+          }
+          if (!$content.find('#StoreHouse_id').val()) {
+            Alert.alert('', '창고를 지정하세요.'); return;
+          }
+          if (!$content.find('#InoutQty').val()) {
+            Alert.alert('', '수량을 입력하세요.'); return;
+          }
+
+          let sendData = FormUtil.extractForm($content.find('#outboundForm'));
+          sendData['type'] = 'out';
+          sendData['cboMaterialGroup'] = $content.find('#cboMaterialGroup').val();
+          sendData['cboMaterialType']  = $content.find('#cboMaterialType').val();
+          sendData['spjangcd'] = sessionStorage.getItem('spjangcd') || 'ZZ';
+
+          AjaxUtil.postAsyncData(_this.url + '/save_nocomp', sendData, function (res) {
+            if (res.success) {
+              Notify.success('저장되었습니다.');
+              modalContainer.close();
+              _this.searchDataBind();
+            } else {
+              Alert.alert('', res.message || '오류가 발생했습니다.');
+            }
+          });
+        });
+
+        // 삭제
+        $content.find('#btnDelete').on('click', function () {
+          Alert.confirm('', '삭제하시겠습니까?', function () {
+            AjaxUtil.postJsonData(_this.url + '/delete',
+              {mio_pk: $content.find('#mio_pk').val()},
+              function (res) {
+                if (res.success) {
+                  Notify.success('삭제되었습니다.');
+                  modalContainer.close();
+                  _this.searchDataBind();
+                } else {
+                  Alert.alert('', res.message || '삭제 중 오류가 발생했습니다.');
+                }
+              });
+          });
+        });
+      }
+    }
+
+    let page = null;
+
+    $(document).ready(function () {
+      $('#searchForm').find('#srchStartDt').val(CommonUtil.getYYYYMMDD(-30));
+      $('#searchForm').find('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+      AjaxUtil.fillSelectOptions($('#cboHouse'), 'store_house', 'all');
+      // 자재 유형만 세팅
+      (function() {
+        let opts = AjaxUtil.getSelectDataWithNull('system_code', 'all', 'mat_type');
+        let filtered = opts.filter(o => o.value === '' || ['raw_mat','sub_mat','jajae'].includes(o.value));
+        $('#cboMatType').empty();
+        filtered.forEach(o => $('#cboMatType').append($('<option>').val(o.value).text(o.text)));
+        $('#cboMatType').val('raw_mat');
+      })();
+      AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false);
+
+      $('#cboMatType').on('change', function () {
+        AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $(this).val());
+        page.searchDataBind();
+      });
+
+      $('#cboMatType').on('change', function () {
+        AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $(this).val());
+        page.searchDataBind();
+      });
+
+      page = new outboundSlip();
+
+      $('#btnAdd').on('click',    function () { page.showPopup(null); });
+      $('#btnSearch').on('click', function () { page.searchDataBind(); });
+      $('#cboHouse').on('change',    function () { page.searchDataBind(); });
+      $('#cboMatGroup').on('change', function () { page.searchDataBind(); });
+      $('#searchForm').on('submit',  function (e) { e.preventDefault(); page.searchDataBind(); });
+
+      page.searchDataBind();
+    });
+  </script>
+</th:block>
+</html>

@@ -1,0 +1,196 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+    .redText    { color: #FF0000; }
+    .orangeText { color: #e07b00; }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>자재LOT현황</h2>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>자재 관리</li>
+        <li>자재LOT현황</li>
+      </ul>
+    </div>
+    <section class="section">
+      <div class="section-top">
+        <form id="searchForm" autocomplete="off">
+          <div class="search-wrap">
+            <dl>
+              <dt><label for="cboMatType">품목유형</label></dt>
+              <dd><div class="srch-box"><select id="cboMatType" name="cboMatType"></select></div></dd>
+            </dl>
+            <dl>
+              <dt><label for="cboMatGroup">품목그룹</label></dt>
+              <dd><div class="srch-box"><select id="cboMatGroup" name="cboMatGroup"></select></div></dd>
+            </dl>
+            <dl>
+              <dt><label for="cboHouse">창고</label></dt>
+              <dd><div class="srch-box"><select id="cboHouse" name="cboHouse"></select></div></dd>
+            </dl>
+            <dl>
+              <dt><label for="txtMatName">품명</label></dt>
+              <dd><div class="srch-box"><input id="txtMatName" name="txtMatName"/></div></dd>
+            </dl>
+            <dl>
+              <dt>&nbsp;</dt>
+              <dd>
+                <div class="srch-box" style="display:flex; align-items:center; height:100%;">
+                  <label style="display:flex; align-items:center; gap:5px; white-space:nowrap; cursor:pointer;">
+                    <input type="checkbox" id="chkLotOnly" name="chkLotOnly" checked style="width:16px; height:16px;">
+                    LOT관리품목만
+                  </label>
+                </div>
+              </dd>
+            </dl>
+            <dl>
+              <dt>&nbsp;</dt>
+              <dd>
+                <div class="srch-box" style="display:flex; align-items:center; height:100%;">
+                  <label style="display:flex; align-items:center; gap:5px; white-space:nowrap; cursor:pointer;">
+                    <input type="checkbox" id="chkRemainOnly" name="chkRemainOnly" checked style="width:16px; height:16px;">
+                    잔여재고만
+                  </label>
+                </div>
+              </dd>
+            </dl>
+            <dl>
+              <dt>&nbsp;</dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+        </form>
+      </div>
+      <div class="container-fluid">
+        <div id="lot-status-grid" style="height: 720px;"></div>
+      </div>
+    </section>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+    class materialLotStatus {
+      constructor() {
+        this.url = '/api/inventory/material_inout';
+        this.grid = null;
+        this.init();
+      }
+
+      init() {
+        this.grid = new wijmo.grid.FlexGrid('#lot-status-grid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.All,
+          isReadOnly: true,
+          showMarquee: true,
+          allowSorting: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+              e.cell.textContent = (e.row + 1).toString();
+            }
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'lot_use_yn',       header: 'LOT관리', width: 70,  align: 'center'},
+            {binding: 'material_type',    header: '품목유형',  width: 80,  align: 'center'},
+            {binding: 'mat_grp_name',     header: '품목그룹',  width: 100, align: 'center'},
+            {binding: 'material_code',    header: '품목코드',  width: 110, align: 'center'},
+            {binding: 'material_name',    header: '품목명',    width: '*', align: 'left'},
+            {binding: 'unit_name',        header: '단위',      width: 50,  align: 'center'},
+            {binding: 'store_house_name', header: '창고',      width: 90,  align: 'center'},
+            {binding: 'current_stock',    header: '창고재고',  width: 85,  align: 'right', format: 'n0'},
+            {binding: 'lot_number',       header: 'LOT번호',   width: 150, align: 'center'},
+            {binding: 'input_qty',        header: '입고량',    width: 85,  align: 'right', format: 'n0'},
+            {binding: 'lot_stock',        header: 'LOT재고',   width: 85,  align: 'right', format: 'n0'},
+            {binding: 'input_date',       header: '입고일',    width: 100, align: 'center'},
+            {binding: 'effective_date',   header: '유효기간',  width: 100, align: 'center'},
+            {binding: 'description',      header: '비고',      width: 150, align: 'left'}
+          ],
+          itemsSource: new wijmo.collections.CollectionView([]),
+          itemFormatter: (panel, row, col, cell) => {
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              const item = panel.rows[row].dataItem;
+              const column = panel.columns[col];
+              // 현재고 0이면 회색
+              if (column.binding === 'current_stock') {
+                if (item.current_stock <= 0) cell.style.color = '#aaa';
+              }
+              // 유효기간 만료 임박(30일 이내) 주황, 초과 빨강
+              if (column.binding === 'effective_date' && item.effective_date) {
+                const diff = (new Date(item.effective_date) - new Date()) / (1000 * 60 * 60 * 24);
+                if (diff < 0)  cell.classList.add('redText');
+                else if (diff < 30) cell.classList.add('orangeText');
+              }
+            }
+          }
+        });
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '자재LOT현황';
+      }
+
+      searchDataBind() {
+        let data = {
+          mat_type:    $('#searchForm').find('#cboMatType').val(),
+          mat_grp_pk:  $('#searchForm').find('#cboMatGroup').val(),
+          house_pk:    $('#searchForm').find('#cboHouse').val(),
+          keyword:     $('#searchForm').find('#txtMatName').val(),
+          lot_only:    $('#searchForm').find('#chkLotOnly').is(':checked') ? 'Y' : '',
+          remain_only: $('#searchForm').find('#chkRemainOnly').is(':checked') ? 'Y' : '',
+          spjangcd:    sessionStorage.getItem('spjangcd') || 'ZZ'
+        };
+        let result = AjaxUtil.getSyncData(this.url + '/read_lot_status', data);
+        if (result && result.data != null) {
+          this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+        }
+      }
+    }
+
+    let page = null;
+
+    $(document).ready(function () {
+      // 자재 유형만 세팅 (원재료, 부재료, 자재)
+      (function() {
+        let opts = AjaxUtil.getSelectDataWithNull('system_code', 'all', 'mat_type');
+        let filtered = opts.filter(o => o.value === '' || ['raw_mat','sub_mat','jajae'].includes(o.value));
+        $('#cboMatType').empty();
+        filtered.forEach(o => $('#cboMatType').append($('<option>').val(o.value).text(o.text)));
+        $('#cboMatType').val('raw_mat');
+      })();
+      AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false);
+      AjaxUtil.fillSelectOptions($('#cboHouse'),    'store_house',    'all');
+
+      $('#cboMatType').on('change', function () {
+        AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $(this).val());
+        page.searchDataBind();
+      });
+
+      page = new materialLotStatus();
+
+      $('#btnSearch').click(function () { page.searchDataBind(); });
+      $('#cboMatGroup').on('change',  function () { page.searchDataBind(); });
+      $('#cboHouse').on('change',     function () { page.searchDataBind(); });
+      $('#chkLotOnly').on('change',   function () { page.searchDataBind(); });
+      $('#chkRemainOnly').on('change', function () { page.searchDataBind(); });
+      $('#searchForm').on('submit',   function (e) { e.preventDefault(); page.searchDataBind(); });
+
+      page.searchDataBind();
+    });
+  </script>
+</th:block>
+</html>

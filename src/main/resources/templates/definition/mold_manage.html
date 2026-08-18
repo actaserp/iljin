@@ -18,6 +18,7 @@
     .mold-row { cursor: pointer; }
     .mold-row.on { background: #eaf1ff; }
     .mold-row.on td { font-weight: 700; }
+    .empty-row td { color: #c9cfd8; height: 30px; }
 
     .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
     .badge.using { background: #e3f3ea; color: #1f8f53; }
@@ -183,11 +184,6 @@
         var _this = this;
         var $body = $('#moldBody');
 
-        if (!this.list.length) {
-          $body.html('<tr><td colspan="4" class="pick-empty">등록된 금형이 없습니다.</td></tr>');
-          return;
-        }
-
         var html = '';
         this.list.forEach(function (m) {
           var on = (String(_this.selId) === String(m.id)) ? ' on' : '';
@@ -199,6 +195,13 @@
                   + '<td><span class="badge ' + cls + '">' + _this.esc(m.status_name) + '</span></td>'
                   + '</tr>';
         });
+
+        // 데이터가 없더라도 화면이 비지 않도록 빈 행으로 채움 (최소 10행)
+        var fillCount = Math.max(10 - this.list.length, 0);
+        for (var i = 0; i < fillCount; i++) {
+          html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td><td></td></tr>';
+        }
+
         $body.html(html);
       },
 

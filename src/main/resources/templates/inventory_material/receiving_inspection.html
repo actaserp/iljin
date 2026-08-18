@@ -1,0 +1,430 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+    .greenText { color: #1f8f53; }
+    .redText { color: #FF0000; }
+    .blueText { color: #4374D9; }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>수입검사</h2>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>자재 관리</li>
+        <li>수입검사</li>
+      </ul>
+    </div>
+    <section class="section">
+      <div class="section-top">
+        <form id="searchForm" autocomplete="off">
+          <div class="search-wrap">
+            <dl>
+              <dt>발주일</dt>
+              <dd>
+                <ul class="date-box">
+                  <li><input type="date" id="srchStartDt" name="srchStartDt"><label for="srchStartDt" class="hide">시작일</label></li>
+                  <li><input type="date" id="srchEndDt" name="srchEndDt"><label for="srchEndDt" class="hide">종료일</label></li>
+                </ul>
+              </dd>
+            </dl>
+            <dl>
+              <dt><label for="cboMatGroup">품목그룹</label></dt>
+              <dd><div class="srch-box"><select id="cboMatGroup" name="cboMatGroup"></select></div></dd>
+            </dl>
+            <dl>
+              <dt><label for="txtMatName">품명</label></dt>
+              <dd><div class="srch-box"><input id="txtMatName" name="txtMatName"/></div></dd>
+            </dl>
+            <dl>
+              <dt><label for="cboStatus">검사상태</label></dt>
+              <dd>
+                <div class="srch-box">
+                  <select id="cboStatus" name="cboStatus">
+                    <option value="" selected>전체</option>
+                    <option value="not_received">미입고</option>
+                    <option value="waiting">검사대기</option>
+                    <option value="done">검사완료</option>
+                  </select>
+                </div>
+              </dd>
+            </dl>
+            <dl>
+              <dt>&nbsp;</dt>
+              <dd>
+                <div class="srch-box" style="display:flex; align-items:center; height:100%;">
+                  <label style="display:flex; align-items:center; gap:5px; white-space:nowrap; cursor:pointer;">
+                    <input type="checkbox" id="chkInTestOnly" name="chkInTestOnly" checked style="width:16px; height:16px;">
+                    수입검사항목만
+                  </label>
+                </div>
+              </dd>
+            </dl>
+            <dl>
+              <dt>&nbsp;</dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+        </form>
+        <div class="button-wrap">
+          <ul>
+            <li><a class="btn y_write_auth" title="검사" id="btnInspect">검사 진행</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="container-fluid">
+        <div id="inspection-grid" style="height: 680px;"></div>
+      </div>
+    </section>
+  </div>
+
+  <script type="text/x-tmpl" id="inputTestPopup">
+    <div class="content_wrap popup">
+        <div class="table-wrap">
+            <form id="lotInputForm">
+                <table class="write-table">
+                    <tbody>
+                    <input type="hidden" id="testResultId" name="testResultId">
+                        <tr>
+                            <th style="text-align: center"><label for="cboTestMaster">검사유형</label></th>
+                            <td colspan="3"><select class="form-control2 tac" id="cboTestMaster" name="cboTestMaster"></select></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center"><label for="MaterialTypeName">품목유형</label></th>
+                            <td><input type="text" class="form-control2" id="MaterialTypeName" name="MaterialTypeName" readonly /></td>
+                            <th style="text-align: center"><label for="MaterialCode">품목코드</label></th>
+                            <td><input type="text" class="form-control2" id="MaterialCode" name="MaterialCode" readonly /></td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center"><label for="MaterialName">품목명</label></th>
+                            <td><input type="text" class="form-control2" id="MaterialName" name="MaterialName" readonly /></td>
+                            <th style="text-align: center"><label for="InoutDate">입고일시</label></th>
+                            <td>
+                                <input style="width:150px" id="InoutDate" name="InoutDate" readonly />
+                                <input style="width:120px" id="InoutTime" name="InoutTime" readonly />
+                            </td>
+                        </tr>
+                        <tr>
+                            <th style="text-align: center"><label for="EffectiveDate">유효기간</label></th>
+                            <td><input type="date" id="EffectiveDate" name="EffectiveDate" /></td>
+                            <th style="text-align: center"><label for="inputQty">가입고량</label></th>
+                            <td><input type="text" class="form-control2 text-center" id="inputQty" name="inputQty" readonly /></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </form>
+        </div>
+        <div class="table-wrap" style="margin-top:5px;">
+            <table class="write-table">
+                <colgroup><col class="wp18"><col class="wp32"><col class="wp18"><col class="wp32"></colgroup>
+                <tbody>
+                    <tr>
+                        <th style="text-align: center"><label for="TestDate">검사일</label></th>
+                        <td><input style="width:200px" type="date" id="TestDate" name="testDate" /></td>
+                        <th style="text-align: center"><label for="TestName">검사자</label></th>
+                        <td>
+                            <input style="width:150px" id="TestName" name="testName" />
+                            <a class="btn" title="전체적합" id="btnAllItem">전체적합</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="container-fluid" style="margin-top:5px;">
+            <div id="mat-input-test-grid" style="height: 200px;"></div>
+        </div>
+        <div class="table-wrap" style="margin-top:5px;">
+            <table class="write-table">
+                <tbody>
+                    <tr>
+                        <th style="text-align: center"><label for="judgGroup">종합 판정*</label></th>
+                        <td colspan="3"><select class="form-control2" id="judgGroup" name="judgGroup"></select></td>
+                    </tr>
+                    <tr>
+                        <th style="text-align: center"><label for="testRemark">부적합 시 조치내용</label></th>
+                        <td colspan="3"><textarea style="height:36px" id="testRemark" name="testRemark"></textarea></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="popup-button">
+            <button type="button" class="btn-popup y_write_auth" id="btnTestSave"><span>저장</span></button>
+            <button type="button" class="btn-popup" id="modal-close-button"><span>닫기</span></button>
+        </div>
+    </div>
+  </script>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+    class receivingInspection {
+      constructor() {
+        this.url = '/api/inventory/material_inout';
+        this.grid = null;
+        this.init();
+      }
+
+      init() {
+        this.grid = new wijmo.grid.FlexGrid('#inspection-grid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.All,
+          isReadOnly: true,
+          showMarquee: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+              e.cell.textContent = (e.row + 1).toString();
+            }
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'test_state',        header: '검사상태',   width: 90,  align: 'center'},
+            {binding: 'judge_code',        header: '판정',       width: 75,  align: 'center'},
+            {binding: 'company_name',      header: '거래처',     width: 130, align: 'left'},
+            {binding: 'balju_date',        header: '발주일',     width: 100, align: 'center'},
+            {binding: 'due_date',          header: '납기예정일', width: 100, align: 'center'},
+            {binding: 'material_type',     header: '품목유형',   width: 80,  align: 'center'},
+            {binding: 'material_code',     header: '품목코드',   width: 110, align: 'center'},
+            {binding: 'material_name',     header: '품목명',     width: '*', align: 'left'},
+            {binding: 'unit_name',         header: '단위',       width: 50,  align: 'center'},
+            {binding: 'balju_qty',         header: '발주수량',   width: 85,  align: 'right', format: 'n0'},
+            {binding: 'remain_qty',        header: '미입고수량', width: 85,  align: 'right', format: 'n0'},
+            {binding: 'InoutDate',         header: '입고일',     width: 100, align: 'center'},
+            {binding: 'potentialInputQty', header: '가입고량',   width: 85,  align: 'right', format: 'n0'},
+            {binding: 'InputQty',          header: '입고량',     width: 85,  align: 'right', format: 'n0'},
+            {binding: 'store_house_name',  header: '창고',       width: 90,  align: 'center'},
+            {binding: 'inout_state',       header: '입고상태',   width: 85,  align: 'center'},
+            {binding: 'test_date',         header: '검사일',     width: 100, align: 'center'}
+          ],
+          itemsSource: new wijmo.collections.CollectionView([]),
+          itemFormatter: (panel, row, col, cell) => {
+            if (panel.cellType === wijmo.grid.CellType.Cell) {
+              const item = panel.rows[row].dataItem;
+              const column = panel.columns[col];
+              if (column.binding === 'test_state') {
+                if (item.test_state === '검사완료') cell.classList.add('greenText');
+                else if (item.test_state === '검사대기') cell.classList.add('redText');
+                // 미입고는 기본색 유지
+              }
+              if (column.binding === 'judge_code' && item.judge_code) {
+                cell.classList.add(item.judge_code === '부적합' ? 'redText' : 'greenText');
+              }
+            }
+          }
+        });
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '수입검사 목록';
+
+        this.grid.hostElement.addEventListener('dblclick', () => this.showInputTestPopup());
+        document.getElementById('btnInspect').addEventListener('click', () => this.showInputTestPopup());
+      }
+
+      searchDataBind() {
+        let _this = this;
+        let data = {
+          srchStartDt: $('#searchForm').find('#srchStartDt').val(),
+          srchEndDt:   $('#searchForm').find('#srchEndDt').val(),
+          mat_grp_pk:  $('#searchForm').find('#cboMatGroup').val(),
+          keyword:     $('#searchForm').find('#txtMatName').val(),
+          status:      $('#searchForm').find('#cboStatus').val(),
+          in_test_yn:  $('#searchForm').find('#chkInTestOnly').is(':checked') ? 'Y' : '',
+          spjangcd:    sessionStorage.getItem('spjangcd') || 'ZZ'
+        };
+        let result = AjaxUtil.getSyncData(this.url + '/read_receiving_inspection', data);
+        if (result && result.data != null) {
+          _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+        }
+      }
+
+      // 수입검사 팝업
+      showInputTestPopup() {
+        let _this = this;
+        let items = _this.grid.selectedItems;
+        if (items.length === 0) {
+          Alert.alert('수입검사', '검사할 항목을 선택하세요.', function () {});
+          return;
+        }
+        let item = items[0];
+        if (!item.mio_pk) {
+          Alert.alert('수입검사', '아직 입고되지 않은 품목입니다.\n입고 처리 후 검사를 진행하세요.', function () {});
+          return;
+        }
+        if (item.in_test_yn !== 'Y') {
+          Alert.alert('수입검사', '수입검사 대상 품목이 아닙니다.', function () {});
+          return;
+        }
+
+        let content = tmpl('inputTestPopup', {});
+        let $content = $(content);
+        let modalContainer = new PopupDraggable('수입검사');
+        modalContainer.open({width: 1000, height: 670, $content});
+
+        // 검사항목 그리드
+        this.matTestGrid = new wijmo.grid.FlexGrid('#mat-input-test-grid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.Column,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+              if (sender.columns[e.col].binding === 'result1') e.cell.style.color = '#5567ff';
+            }
+          },
+          columns: [
+            {binding: 'name',    header: '검사항목',   width: 200, align: 'left',   isReadOnly: true},
+            {binding: 'result1', header: '결과값(입력)', width: '*', align: 'center', isReadOnly: false}
+          ],
+          itemsSource: new wijmo.collections.CollectionView([]),
+        });
+
+        // O/X 토글 (resultType='S' 인 셀 클릭 시)
+        this.matTestGrid.addEventListener(this.matTestGrid.hostElement, 'click', (e) => {
+          const ht = this.matTestGrid.hitTest(e);
+          if (ht.cellType !== wijmo.grid.CellType.Cell) return;
+          const col = this.matTestGrid.columns[ht.col];
+          const gItem = this.matTestGrid.rows[ht.row]?.dataItem;
+          if (gItem && col.binding === 'result1' && gItem.resultType === 'S') {
+            col.isReadOnly = true;
+            gItem.result1 = gItem.result1 === 'O' ? 'X' : 'O';
+            this.matTestGrid.collectionView.refresh();
+          } else {
+            col.isReadOnly = false;
+          }
+        });
+        new FlexGridContextMenu(this.matTestGrid);
+
+        // 폼 필드 참조
+        let $cboTestMaster = $content.find('#cboTestMaster');
+        let $testResultId  = $content.find('#testResultId');
+        let $EffectiveDate = $content.find('#EffectiveDate');
+        let $TestDate      = $content.find('#TestDate');
+        let $TestName      = $content.find('#TestName');
+        let $judgGroup     = $content.find('#judgGroup');
+        let $testRemark    = $content.find('#testRemark');
+
+        // 기본값 세팅
+        $content.find('#MaterialTypeName').val(item.material_type  || '');
+        $content.find('#MaterialName').val(item.material_name || '');
+        $content.find('#MaterialCode').val(item.material_code || '');
+        $content.find('#InoutDate').val(item.InoutDate || '');
+        $content.find('#InoutTime').val(item.InoutTime || '');
+        $content.find('#inputQty').val(item.potentialInputQty || item.InputQty || '');
+        if (item.ValidDays) $EffectiveDate.val(CommonUtil.getYYYYMMDD(item.ValidDays));
+        $TestDate.val(CommonUtil.getYYYYMMDD());
+        $TestName.val(userinfo.username);
+
+        // 셀렉트 초기화
+        AjaxUtil.fillSelectOptions($cboTestMaster, 'test_master', 'choose', false, '', '', 'import');
+        AjaxUtil.fillSelectOptions($judgGroup, 'system_code', 'choose', false, 'judg_code');
+
+        // 기존 검사결과 로드
+        AjaxUtil.getAsyncData(_this.url + '/mio_test_list',
+          {mio_id: item.mio_pk, test_result_id: '', action: 'mio_test_list'},
+          function (result) {
+            if (!result || !result.data) return;
+            const d = result.data;
+
+            _this.matTestGrid.itemsSource.sourceCollection = d.mioList || [];
+            _this.matTestGrid.collectionView.refresh();
+
+            if (d.testDate)      $TestDate.val(d.testDate);
+            if (d.CheckName)     $TestName.val(d.CheckName);
+            if (d.EffectiveDate) $EffectiveDate.val(d.EffectiveDate);
+            if (d.testResultId)  $testResultId.val(d.testResultId);
+
+            if (d.testMasterId) {
+              // 기존 검사결과 있음 → 검사유형 고정
+              $cboTestMaster.val(d.testMasterId).prop('disabled', true);
+            } else {
+              // 신규 → 검사유형 선택 가능
+              $cboTestMaster.prop('disabled', false);
+            }
+
+            if (d.JudgeCode) $judgGroup.val(d.JudgeCode);
+            if (d.CharResult) $testRemark.val(d.CharResult);
+          }
+        );
+
+        // 전체적합 버튼
+        $content.find('#btnAllItem').click(function () {
+          _this.matTestGrid.itemsSource.sourceCollection.forEach(function (it) {
+            if (it.resultType === 'S') it.result1 = 'O';
+          });
+          _this.matTestGrid.collectionView.refresh();
+        });
+
+        // 저장 버튼
+        $content.find('#btnTestSave').click(function () {
+          let testItems = _this.matTestGrid.itemsSource.sourceCollection;
+          if (testItems.length === 0) {
+            Alert.alert('검사저장', '저장할 검사항목이 없습니다.'); return;
+          }
+          if (!$cboTestMaster.val()) {
+            Alert.alert('검사저장', '검사유형을 선택하세요.'); return;
+          }
+          if (!$judgGroup.val()) {
+            Alert.alert('검사저장', '종합 판정을 선택하세요.'); return;
+          }
+
+          let sendData = {
+            mio_id:         item.mio_pk,
+            test_mast_id:   $cboTestMaster.val(),
+            test_result_id: $testResultId.val(),
+            test_date:      $TestDate.val(),
+            judg_grp:       $judgGroup.val(),
+            material_id:    item['Material_id'],
+            testRemark:     $testRemark.val(),
+            effective_date: $EffectiveDate.val(),
+            spjangcd:       sessionStorage.getItem('spjangcd') || 'ZZ',
+            Q:              JSON.stringify(testItems)
+          };
+
+          AjaxUtil.postAsyncData(_this.url + '/test_save', sendData, function (res) {
+            if (res.success) {
+              Notify.success('검사 결과가 저장되었습니다.');
+              modalContainer.close();
+              _this.searchDataBind();
+            } else {
+              Alert.alert('저장 실패', res.message || '오류가 발생했습니다.');
+            }
+          });
+        });
+      }
+    }
+
+    let page = null;
+
+    $(document).ready(function () {
+      // 1. 검색 필터 초기값 세팅
+      $('#searchForm').find('#srchStartDt').val(CommonUtil.getYYYYMMDD(-90));
+      $('#searchForm').find('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+      AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false);
+
+      // 2. 페이지 객체 생성 (그리드 init)
+      page = new receivingInspection();
+
+      // 3. 이벤트 바인딩
+      $('#btnSearch').click(function () { page.searchDataBind(); });
+      $('#cboStatus').on('change', function () { page.searchDataBind(); });
+      $('#chkInTestOnly').on('change', function () { page.searchDataBind(); });
+      $('#searchForm').on('submit', function (e) { e.preventDefault(); page.searchDataBind(); });
+
+      // 4. 초기 조회
+      page.searchDataBind();
+    });
+  </script>
+</th:block>
+</html>

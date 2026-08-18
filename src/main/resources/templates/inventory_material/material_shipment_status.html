@@ -1,0 +1,165 @@
+<html layout:decorate="~{layout_page}">
+<head>
+  <style>
+    .greenText { color: #1f8f53; }
+    .redText   { color: #FF0000; }
+  </style>
+</head>
+
+<th:block layout:fragment="content">
+  <div class="layout-contents">
+    <div class="page-title-wrap">
+      <div class="left">
+        <h2>자재출고현황</h2>
+        <a title="북마크" class="bookmark toggle">내 메뉴</a>
+      </div>
+      <ul class="page-navi">
+        <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+        <li>자재 관리</li>
+        <li>자재출고현황</li>
+      </ul>
+    </div>
+    <section class="section">
+      <div class="section-top">
+        <form id="searchForm" autocomplete="off">
+          <div class="search-wrap">
+            <dl>
+              <dt>출고일</dt>
+              <dd>
+                <ul class="date-box">
+                  <li><input type="date" id="srchStartDt" name="srchStartDt"><label for="srchStartDt" class="hide">시작일</label></li>
+                  <li><input type="date" id="srchEndDt" name="srchEndDt"><label for="srchEndDt" class="hide">종료일</label></li>
+                </ul>
+              </dd>
+            </dl>
+            <dl>
+              <dt><label for="cboHouse">창고</label></dt>
+              <dd><div class="srch-box"><select id="cboHouse" name="cboHouse"></select></div></dd>
+            </dl>
+            <dl>
+              <dt><label for="cboMatType">품목유형</label></dt>
+              <dd><div class="srch-box"><select id="cboMatType" name="cboMatType"></select></div></dd>
+            </dl>
+            <dl>
+              <dt><label for="cboMatGroup">품목그룹</label></dt>
+              <dd><div class="srch-box"><select id="cboMatGroup" name="cboMatGroup"></select></div></dd>
+            </dl>
+            <dl>
+              <dt><label for="txtMatName">품명</label></dt>
+              <dd><div class="srch-box"><input id="txtMatName" name="txtMatName"/></div></dd>
+            </dl>
+            <dl>
+              <dt>&nbsp;</dt>
+              <dd>
+                <li>
+                  <a class="btn btn-delete" title="검색" id="btnSearch">
+                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
+                  </a>
+                </li>
+              </dd>
+            </dl>
+          </div>
+        </form>
+      </div>
+      <div class="container-fluid">
+        <div id="shipment-status-grid" style="height: 720px;"></div>
+      </div>
+    </section>
+  </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+  <script type="text/javascript">
+    class materialShipmentStatus {
+      constructor() {
+        this.url = '/api/inventory/material_inout';
+        this.grid = null;
+        this.init();
+      }
+
+      init() {
+        this.grid = new wijmo.grid.FlexGrid('#shipment-status-grid', {
+          autoGenerateColumns: false,
+          selectionMode: wijmo.grid.SelectionMode.Row,
+          headersVisibility: wijmo.grid.HeadersVisibility.All,
+          isReadOnly: true,
+          showMarquee: true,
+          formatItem: (sender, e) => {
+            if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
+              e.cell.textContent = (e.row + 1).toString();
+            }
+            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+              e.cell.style.textAlign = 'center';
+            }
+          },
+          columns: [
+            {binding: 'InoutDate',        header: '출고일',    width: 100, align: 'center'},
+            {binding: 'InoutTime',        header: '시간',      width: 65,  align: 'center'},
+            {binding: 'inout_type',       header: '출고유형',  width: 90,  align: 'center'},
+            {binding: 'store_house_name', header: '창고',      width: 90,  align: 'center'},
+            {binding: 'material_type',    header: '품목유형',  width: 80,  align: 'center'},
+            {binding: 'material_code',    header: '품목코드',  width: 110, align: 'center'},
+            {binding: 'material_name',    header: '품목명',    width: '*', align: 'left'},
+            {binding: 'unit_name',        header: '단위',      width: 50,  align: 'center'},
+            {binding: 'OutputQty',        header: '출고수량',  width: 85,  align: 'right', format: 'n0'},
+            {binding: 'inout_state',      header: '상태',      width: 80,  align: 'center'},
+            {binding: 'Description',      header: '비고',      width: 150, align: 'left'}
+          ],
+          itemsSource: new wijmo.collections.CollectionView([]),
+        });
+        new FlexGridContextMenu(this.grid);
+        this.grid.downloadFileName = '자재출고현황';
+      }
+
+      searchDataBind() {
+        let data = {
+          srchStartDt: $('#searchForm').find('#srchStartDt').val(),
+          srchEndDt:   $('#searchForm').find('#srchEndDt').val(),
+          house_pk:    $('#searchForm').find('#cboHouse').val(),
+          mat_type:    $('#searchForm').find('#cboMatType').val(),
+          mat_grp_pk:  $('#searchForm').find('#cboMatGroup').val(),
+          keyword:     $('#searchForm').find('#txtMatName').val(),
+          spjangcd:    sessionStorage.getItem('spjangcd') || 'ZZ'
+        };
+        let result = AjaxUtil.getSyncData(this.url + '/read_issue', data);
+        if (result && result.data != null) {
+          this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+        }
+      }
+    }
+
+    let page = null;
+
+    $(document).ready(function () {
+      $('#searchForm').find('#srchStartDt').val(CommonUtil.getYYYYMMDD(-30));
+      $('#searchForm').find('#srchEndDt').val(CommonUtil.getYYYYMMDD());
+
+      AjaxUtil.fillSelectOptions($('#cboHouse'), 'store_house', 'all');
+      // 자재 유형만 세팅
+      (function() {
+        let opts = AjaxUtil.getSelectDataWithNull('system_code', 'all', 'mat_type');
+        let filtered = opts.filter(o => o.value === '' || ['raw_mat','sub_mat','jajae'].includes(o.value));
+        $('#cboMatType').empty();
+        filtered.forEach(o => $('#cboMatType').append($('<option>').val(o.value).text(o.text)));
+        $('#cboMatType').val('raw_mat');
+      })();
+      AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false);
+
+      $('#cboMatType').on('change', function () {
+        AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $(this).val());
+        page.searchDataBind();
+      });
+
+      page = new materialShipmentStatus();
+
+      $('#btnSearch').click(function () { page.searchDataBind(); });
+      $('#cboHouse').on('change',    function () { page.searchDataBind(); });
+      $('#cboMatType').on('change',  function () { page.searchDataBind(); });
+      $('#cboMatGroup').on('change', function () { page.searchDataBind(); });
+      $('#searchForm').on('submit',  function (e) { e.preventDefault(); page.searchDataBind(); });
+
+      page.searchDataBind();
+    });
+  </script>
+</th:block>
+</html>

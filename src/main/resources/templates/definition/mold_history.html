@@ -18,6 +18,7 @@
     .mold-row { cursor: pointer; }
     .mold-row.on { background: #eaf1ff; }
     .mold-row.on td { font-weight: 700; }
+    .empty-row td { color: #c9cfd8; height: 30px; }
 
     .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
     .badge.using { background: #e3f3ea; color: #1f8f53; }
@@ -140,11 +141,6 @@
         var _this = this;
         var $body = $('#moldBody');
 
-        if (!this.list.length) {
-          $body.html('<tr><td colspan="4" class="pick-empty">등록된 금형이 없습니다.</td></tr>');
-          return;
-        }
-
         var html = '';
         this.list.forEach(function (m) {
           var on = (_this.selMold && String(_this.selMold.id) === String(m.id)) ? ' on' : '';
@@ -156,6 +152,13 @@
                   + '<td><span class="badge ' + cls + '">' + _this.esc(m.status_name) + '</span></td>'
                   + '</tr>';
         });
+
+        // 데이터가 없더라도 화면이 비지 않도록 빈 행으로 채움 (최소 10행)
+        var fillCount = Math.max(10 - this.list.length, 0);
+        for (var i = 0; i < fillCount; i++) {
+          html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td><td></td></tr>';
+        }
+
         $body.html(html);
       },
 
@@ -172,20 +175,30 @@
         var _this = this;
         var m = this.selMold;
 
+        var fillEmpty = function (msg) {
+          var html = '';
+          if (msg) html += '<tr><td colspan="3" class="pick-empty">' + msg + '</td></tr>';
+          var start = msg ? 1 : 0;
+          for (var i = start; i < 10; i++) {
+            html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td></tr>';
+          }
+          $('#histBody').html(html);
+        };
+
         if (!m) {
-          $('#histHead').text('금형을 선택하세요');
-          $('#histBody').html('<tr><td colspan="3" class="pick-empty">왼쪽에서 금형을 선택하면 버전 이력이 표시됩니다.</td></tr>');
+          $('#histHead').text('좌측에서 금형을 선택하세요');
+          fillEmpty('왼쪽에서 금형을 선택하면 버전 이력이 표시됩니다.');
           return;
         }
 
         $('#histHead').html('<b>' + this.esc(m.mold_code) + '</b> · ' + this.esc(m.mold_name));
-        $('#histBody').html('<tr><td colspan="3" class="pick-empty">조회 중...</td></tr>');
+        fillEmpty('조회 중...');
 
         AjaxUtil.getAsyncData('/api/mold-manage/history', {mold_id: m.id},
                 function (result) {
                   var rows = (result && result.data) || [];
                   if (!rows.length) {
-                    $('#histBody').html('<tr><td colspan="3" class="pick-empty">등록된 이력이 없습니다.</td></tr>');
+                    fillEmpty('등록된 이력이 없습니다.');
                     return;
                   }
                   var html = '';
@@ -201,6 +214,9 @@
                             + '<td>' + _this.esc(r.reg_date) + '</td>'
                             + '</tr>';
                   });
+                  for (var i = rows.length; i < 10; i++) {
+                    html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td></tr>';
+                  }
                   $('#histBody').html(html);
                 });
       },

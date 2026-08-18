@@ -79,9 +79,10 @@ public class MaterialInoutController {
 			@RequestParam(value = "mat_type", required=false) String matType,
 			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
 			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			@RequestParam(value = "in_test_yn", required=false) String inTestYn,
 			@RequestParam(value = "keyword", required=false) String keyword) {
 		
-        List<Map<String, Object>> items = this.materialInoutService.getMaterialInout(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd);
+        List<Map<String, Object>> items = this.materialInoutService.getMaterialInout(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd,inTestYn);
    		
         AjaxResult result = new AjaxResult();
         result.data = items;        				
@@ -120,6 +121,103 @@ public class MaterialInoutController {
 			@RequestParam(value = "keyword", required=false) String keyword) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutIssue(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd);
+
+		AjaxResult result = new AjaxResult();
+		result.data = items;
+
+		return result;
+	}
+
+	// 제품 반입전표 (InOut=return, SourceTableName IS NULL)
+	@GetMapping("/read_product_receipt_slip")
+	public AjaxResult getProductReceiptSlipList(
+		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+		@RequestParam(value = "srchEndDt",   required=false) String srchEndDt,
+		@RequestParam(value = "house_pk",    required=false) String housePk,
+		@RequestParam(value = "mat_type",    required=false) String matType,
+		@RequestParam(value = "mat_grp_pk",  required=false) String matGrpPk,
+		@RequestParam(value = "keyword",     required=false) String keyword,
+		@RequestParam(value = "spjangcd",    required=false) String spjangcd) {
+
+		List<Map<String, Object>> items = this.materialInoutService.getProductReceiptSlipList(
+			srchStartDt, srchEndDt, housePk, matType, matGrpPk, keyword, spjangcd);
+
+		AjaxResult result = new AjaxResult();
+		result.data = items;
+		return result;
+	}
+
+	// 반출전표 목록 (수동 반출만)
+	@GetMapping("/read_outbound_slip")
+	public AjaxResult getOutboundSlipList(
+		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+		@RequestParam(value = "srchEndDt",   required=false) String srchEndDt,
+		@RequestParam(value = "house_pk",    required=false) String housePk,
+		@RequestParam(value = "mat_type",    required=false) String matType,
+		@RequestParam(value = "mat_grp_pk",  required=false) String matGrpPk,
+		@RequestParam(value = "keyword",     required=false) String keyword,
+		@RequestParam(value = "spjangcd",    required=false) String spjangcd) {
+
+		List<Map<String, Object>> items = this.materialInoutService.getOutboundSlipList(
+			srchStartDt, srchEndDt, housePk, matType, matGrpPk, keyword, spjangcd);
+
+		AjaxResult result = new AjaxResult();
+		result.data = items;
+		return result;
+	}
+
+	// 자재LOT현황
+	@GetMapping("/read_lot_status")
+	public AjaxResult getLotStatus(
+		@RequestParam(value = "mat_type",    required=false) String matType,
+		@RequestParam(value = "mat_grp_pk",  required=false) String matGrpPk,
+		@RequestParam(value = "house_pk",    required=false) String housePk,
+		@RequestParam(value = "keyword",     required=false) String keyword,
+		@RequestParam(value = "remain_only", required=false) String remainOnly,
+		@RequestParam(value = "lot_only",    required=false) String lotOnly,
+		@RequestParam(value = "spjangcd",    required=false) String spjangcd) {
+
+		List<Map<String, Object>> items = this.materialInoutService.getLotStatus(
+			matType, matGrpPk, housePk, keyword, remainOnly, lotOnly, spjangcd);
+
+		AjaxResult result = new AjaxResult();
+		result.data = items;
+		return result;
+	}
+
+	// 수입검사현황 (test_result 기준 이력 조회)
+	@GetMapping("/read_inspection_history")
+	public AjaxResult getInspectionHistory(
+		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+		@RequestParam(value = "keyword", required=false) String keyword,
+		@RequestParam(value = "judge", required=false) String judge,
+		@RequestParam(value = "spjangcd", required=false) String spjangcd) {
+
+		List<Map<String, Object>> items = this.materialInoutService.getInspectionHistory(
+			srchStartDt, srchEndDt, matGrpPk, keyword, judge, spjangcd);
+
+		AjaxResult result = new AjaxResult();
+		result.data = items;
+		return result;
+	}
+
+	// 수입검사 대상 리스트
+	@GetMapping("/read_receiving_inspection")
+	public AjaxResult getReceivingInspectionList(
+		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+		@RequestParam(value = "house_pk", required=false) String housePk,
+		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+		@RequestParam(value = "status", required=false) String status,
+		@RequestParam(value = "in_test_yn", required=false) String inTestYn,
+		@RequestParam(value = "judge", required=false) String judge,
+		@RequestParam(value = "spjangcd", required=false) String spjangcd,
+		@RequestParam(value = "keyword", required=false) String keyword) {
+
+		List<Map<String, Object>> items = this.materialInoutService.getReceivingInspectionList(
+			srchStartDt, srchEndDt, housePk, matGrpPk, keyword, status, inTestYn, spjangcd, judge);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
