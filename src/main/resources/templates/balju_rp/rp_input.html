@@ -300,24 +300,24 @@
                                 </dd>
                             </dl>
                         </div>
-<!--                        <div class="button-wrap" style="white-space: nowrap;">-->
-<!--                            <ul>-->
-<!--                                <li>-->
-<!--                                    <a class="btn" title="품목 입고" id="btnInput" style="background-color: #03428E; color: white;">-->
-<!--                                        입출고 등록-->
-<!--                                    </a>-->
-<!--                                </li>-->
-<!--                            </ul>-->
-<!--                        </div>-->
+                        <!--                        <div class="button-wrap" style="white-space: nowrap;">-->
+                        <!--                            <ul>-->
+                        <!--                                <li>-->
+                        <!--                                    <a class="btn" title="품목 입고" id="btnInput" style="background-color: #03428E; color: white;">-->
+                        <!--                                        입출고 등록-->
+                        <!--                                    </a>-->
+                        <!--                                </li>-->
+                        <!--                            </ul>-->
+                        <!--                        </div>-->
                     </div>
                 </form>
                 <div class="button-wrap">
                     <ul>
-<!--                        <li>-->
-<!--                            <a class="btn" title="등록" id="btnShowMovePopup">-->
-<!--                                창고 이동-->
-<!--                            </a>-->
-<!--                        </li>-->
+                        <!--                        <li>-->
+                        <!--                            <a class="btn" title="등록" id="btnShowMovePopup">-->
+                        <!--                                창고 이동-->
+                        <!--                            </a>-->
+                        <!--                        </li>-->
                         <li>
                             <a class="btn" title="입고검사" id="btnInputTest">
                                 입고검사
@@ -1279,9 +1279,9 @@
                 let form = $content.find('#materialInoutForm');
 
                 let modalContainer = null;
-                if(!data){
+                if (!data) {
                     modalContainer = new PopupDraggable('미발주 입고');
-                } else{
+                } else {
                     modalContainer = new PopupDraggable('수정');
                 }
 
@@ -1512,7 +1512,6 @@
                 });
 
 
-
                 modalContainer.open({width: 1100, height: 570, $content});
                 popup = new materialInoutPopup();
                 //AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', 3);    // 3:자재창고
@@ -1693,16 +1692,30 @@
                     },
                     columns: [
                         {binding: 'CompanyName', header: '구매처', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'Company_id', visible:false},
+                        {binding: 'Company_id', visible: false},
                         {binding: 'JumunDate', header: '발주일', width: 110, align: 'center', isReadOnly: true},
                         {binding: 'JumunNumber', header: '발주번호', width: 130, align: 'center', isReadOnly: true},
                         {binding: 'product_code', header: '제품코드', width: 90, align: 'left', isReadOnly: true},
                         {binding: 'product_name', header: '제품명', width: 150, align: 'left', isReadOnly: true},
                         {binding: 'unit', header: '단위', width: 80, align: 'center', isReadOnly: true},
-                        {binding: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', isReadOnly: true},
+                        {
+                            binding: 'SujuQty',
+                            header: '발주 수량',
+                            width: 80,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
                         {binding: 'SujuQty2', header: '입고 수량', width: 90, align: 'right', isReadOnly: true},
                         {binding: 'ReturnQty', header: '반품된 수량', width: 90, align: 'right', isReadOnly: true},
-                        {binding: 'StoreHouse_id', header: '반품 창고', width: 90, align: 'center',dataMap: storeHouseMap, isReadOnly: false},
+                        {
+                            binding: 'StoreHouse_id',
+                            header: '반품 창고',
+                            width: 90,
+                            align: 'center',
+                            dataMap: storeHouseMap,
+                            isReadOnly: false
+                        },
                         {
                             binding: 'returnQty',
                             header: '반품 수량',
@@ -1829,8 +1842,8 @@
 
                     let url = _this.url + '/save_balju_return';
                     let items = _this.baljuReturnGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -1913,18 +1926,41 @@
                     },
                     columns: [
                         {binding: 'CompanyName', header: '구매처', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'Company_id', visible:false, isReadOnly: true},
+                        {binding: 'Company_id', visible: false, isReadOnly: true},
                         {binding: 'JumunDate', header: '발주일', width: 110, align: 'center', isReadOnly: true},
                         {binding: 'JumunNumber', header: '발주번호', width: 140, align: 'center', isReadOnly: true},
                         {binding: 'product_code', header: '제품코드', width: 80, align: 'left', isReadOnly: true},
                         {binding: 'product_name', header: '제품명', width: 150, align: 'left', isReadOnly: true},
                         {binding: 'unit', header: '단위', width: 70, align: 'center', isReadOnly: true},
                         {binding: 'standard', header: '규격', width: 90, align: 'center', isReadOnly: true},
-                        {binding: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', isReadOnly: true},
+                        {
+                            binding: 'SujuQty',
+                            header: '발주 수량',
+                            width: 80,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
                         {binding: 'SujuQty2', header: '기입고 수량', width: 90, align: 'right', isReadOnly: true},
+                        {
+                            binding: 'PreInputQty',
+                            header: '가입고 수량',
+                            width: 90,
+                            align: 'right',
+                            format: 'n0',
+                            isReadOnly: true
+                        },
                         {binding: 'DueDate', header: '납기예정일', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'StoreHouse_id', header: '납품 창고', width: 110, align: 'center',dataMap: storeHouseMap, isReadOnly: false},
-                        {binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
+                        {
+                            binding: 'StoreHouse_id',
+                            header: '납품 창고',
+                            width: 110,
+                            align: 'center',
+                            dataMap: storeHouseMap,
+                            isReadOnly: false
+                        },
+                        {
+                            binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
                             editor: new wijmo.input.InputNumber(document.createElement('div'), {
                                 format: 'n0', // 정수 형식
                                 min: 0,       // 최소값 설정
@@ -1949,11 +1985,14 @@
                         if (currentValue === null || currentValue === undefined || currentValue === '') {
                             let sujuQty = s.getCellData(row, s.columns.getColumn('SujuQty').index, false);
                             let sujuQty2 = s.getCellData(row, s.columns.getColumn('SujuQty2').index, false);
+                            let preQty = s.getCellData(row, s.columns.getColumn('PreInputQty').index, false);
 
                             sujuQty = parseFloat(sujuQty) || 0;
                             sujuQty2 = parseFloat(sujuQty2) || 0;
+                            preQty = parseFloat(preQty) || 0;
 
-                            s.setCellData(row, col.index, sujuQty - sujuQty2);
+                            // 잔량 = 발주수량 - 확정입고 - 가입고
+                            s.setCellData(row, col.index, sujuQty - sujuQty2 - preQty);
                         }
                     }
                 });
@@ -1962,14 +2001,16 @@
                     if (e.target?.type === 'checkbox') {
                         setTimeout(() => {
                             let items = _this.baljuInputGrid.rows
-                                .filter(row => row.isSelected)
-                                .map(row => row.dataItem);
+                            .filter(row => row.isSelected)
+                            .map(row => row.dataItem);
 
                             items.forEach(item => {
                                 if ((!item.inputQty || item.inputQty === '') && item.SujuQty) {
                                     let sujuQty = parseFloat(item.SujuQty) || 0;
                                     let sujuQty2 = parseFloat(item.SujuQty2) || 0;
-                                    item.inputQty = sujuQty - sujuQty2;
+                                    let preQty = parseFloat(item.PreInputQty) || 0;
+                                    // 잔량 = 발주수량 - 확정입고 - 가입고
+                                    item.inputQty = sujuQty - sujuQty2 - preQty;
                                 }
                             });
 
@@ -2027,8 +2068,8 @@
 
                     let url = _this.url + '/save_balju';
                     let items = _this.baljuInputGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2074,8 +2115,8 @@
                 $content.find('#btnCompletionMat').on('click', function () {
                     let url = _this.url + '/force-complete';
                     let items = _this.baljuInputGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    .filter(row => row.isSelected)
+                    .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2095,7 +2136,7 @@
                         }
                     };
 
-                    AjaxUtil.postJsonData(url, { baljuPkList }, fnSuccess);
+                    AjaxUtil.postJsonData(url, {baljuPkList}, fnSuccess);
                 });
 
             }
@@ -2337,7 +2378,7 @@
             showInputTestPopup() {
                 let _this = this;
                 let items = _this.grid.selectedItems;
-                console.log('items',items);
+                console.log('items', items);
                 if (items.length === 0) {
                     Alert.alert('입고검사', '선택된 입고 데이터가 없습니다. ', function () {
                     });
@@ -2502,7 +2543,7 @@
                         return;
                     }
 
-                    if(!$judgGroup.val()){
+                    if (!$judgGroup.val()) {
                         Alert.alert('검사저장', '종합 판정을 선택하세요.', function () {
                         });
                         return;
@@ -3007,7 +3048,7 @@
         $(document).ready(function (e) {
             page = new materialStorehouse();
 
-            const now  = new Date();
+            const now = new Date();
             const jan1 = new Date(now.getFullYear(), 0, 1);           // 올해 1월 1일
             const nextMonthLast = new Date(now.getFullYear(), now.getMonth() + 2, 0); // 다음달 마지막날
 

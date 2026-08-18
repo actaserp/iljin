@@ -16,15 +16,15 @@ public class MaterialInoutService {
 
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	public List<Map<String, Object>> getMaterialInout(String srchStartDt, String srchEndDt, String housePk,
-			String matType, String matGrpPk, String keyword, String spjangcd) {
+																										String matType, String matGrpPk, String keyword, String spjangcd) {
 		return getMaterialInout(srchStartDt, srchEndDt, housePk, matType, matGrpPk, keyword, spjangcd, null);
 	}
 
 	public List<Map<String, Object>> getMaterialInout(String srchStartDt, String srchEndDt, String housePk,
-			String matType, String matGrpPk, String keyword, String spjangcd, String inTestYn) {
-		
+																										String matType, String matGrpPk, String keyword, String spjangcd, String inTestYn) {
+
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
 		param.addValue("srchEndDt", srchEndDt);
@@ -33,7 +33,7 @@ public class MaterialInoutService {
 		param.addValue("matGrpPk", matGrpPk);
 		param.addValue("keyword", keyword);
 		param.addValue("spjangcd", spjangcd);
-		
+
 		String sql = """
 					select distinct mi.id as mio_pk
                     , fn_code_name('inout_type', mi."InOut") as inout
@@ -93,22 +93,22 @@ public class MaterialInoutService {
                     and mi."InoutDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
                     and mi.spjangcd = :spjangcd
 				""";
-		
+
 		if (StringUtils.isEmpty(housePk)==false) sql +=" and sh.id = cast(:housePk as Integer) ";
 		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
 		if ("Y".equals(inTestYn)) sql +=" and m.\"InTestYN\" = 'Y' ";
-		
+
 		sql += " order by \"InoutDate\" desc, \"InoutTime\" desc, mi.id desc ";
-		
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
-        
-        return items;
+
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
+
+		return items;
 	}
 
 	public List<Map<String, Object>> getMaterialInoutReceipt(String srchStartDt, String srchEndDt, String housePk,
-													  String matType, String matGrpPk, String keyword, String spjangcd) {
+																													 String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -191,7 +191,7 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> getMaterialInoutIssue(String srchStartDt, String srchEndDt, String housePk,
-															  String matType, String matGrpPk, String keyword, String spjangcd) {
+																												 String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -272,7 +272,7 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> getMaterialInoutDisposal(String srchStartDt, String srchEndDt, String housePk,
-													  String matType, String matGrpPk, String keyword, String spjangcd) {
+																														String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -357,8 +357,8 @@ public class MaterialInoutService {
 	 * 제품 반입전표 - 수동 등록 반품만 조회 (InOut='return', SourceTableName IS NULL)
 	 */
 	public List<Map<String, Object>> getProductReceiptSlipList(
-			String srchStartDt, String srchEndDt, String housePk,
-			String matType, String matGrpPk, String keyword, String spjangcd) {
+		String srchStartDt, String srchEndDt, String housePk,
+		String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -411,8 +411,8 @@ public class MaterialInoutService {
 	 * 출하/생산 자동 차감분 제외
 	 */
 	public List<Map<String, Object>> getOutboundSlipList(
-			String srchStartDt, String srchEndDt, String housePk,
-			String matType, String matGrpPk, String keyword, String spjangcd) {
+		String srchStartDt, String srchEndDt, String housePk,
+		String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -466,8 +466,8 @@ public class MaterialInoutService {
 	 * remain_only='Y': 현재고 > 0 인 것만
 	 */
 	public List<Map<String, Object>> getLotStatus(
-			String matType, String matGrpPk, String housePk,
-			String keyword, String remainOnly, String lotOnly, String spjangcd) {
+		String matType, String matGrpPk, String housePk,
+		String keyword, String remainOnly, String lotOnly, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("matType", matType);
@@ -521,8 +521,8 @@ public class MaterialInoutService {
 	 * 검사일 기준, 판정/품목그룹/품명 필터
 	 */
 	public List<Map<String, Object>> getInspectionHistory(
-			String srchStartDt, String srchEndDt, String matGrpPk,
-			String keyword, String judge, String spjangcd) {
+		String srchStartDt, String srchEndDt, String matGrpPk,
+		String keyword, String judge, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -579,14 +579,14 @@ public class MaterialInoutService {
 	 * - status: ''=전체, 'waiting'=검사대기(미입고 포함), 'done'=검사완료
 	 */
 	public List<Map<String, Object>> getReceivingInspectionList(
-			String srchStartDt, String srchEndDt, String housePk,
-			String matGrpPk, String keyword, String status, String inTestYn, String spjangcd) {
+		String srchStartDt, String srchEndDt, String housePk,
+		String matGrpPk, String keyword, String status, String inTestYn, String spjangcd) {
 		return getReceivingInspectionList(srchStartDt, srchEndDt, housePk, matGrpPk, keyword, status, inTestYn, spjangcd, null);
 	}
 
 	public List<Map<String, Object>> getReceivingInspectionList(
-			String srchStartDt, String srchEndDt, String housePk,
-			String matGrpPk, String keyword, String status, String inTestYn, String spjangcd, String judge) {
+		String srchStartDt, String srchEndDt, String housePk,
+		String matGrpPk, String keyword, String status, String inTestYn, String spjangcd, String judge) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -744,10 +744,10 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> mioLotList(String mioId) {
-		
+
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("mioId", mioId);
-		
+
 		String sql = """
             select 
             mi.id as mio_id
@@ -775,17 +775,17 @@ public class MaterialInoutService {
                 left join mat_inout mi on ml."SourceDataPk" = mi.id and ml."SourceTableName" ='mat_inout'
             where mi.id = cast(:mioId as Integer) 
 			""";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
 		return items;
 	}
 
 	public List<Map<String, Object>> mioTestList(Integer mioId, Integer testResultId) {
-		
+
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("mioId", mioId);
 		param.addValue("testResultId", testResultId);
-		
+
 		String sql = """
 				select ti.id, up."Name" as "CheckName", ti."ResultType" as "resultType", to_char(tir."TestDateTime", 'YYYY-MM-DD') as "testDate"
 				, tir."JudgeCode", tir."CharResult" , ti."Name" as name ,tir."Char1" as result1
@@ -798,11 +798,11 @@ public class MaterialInoutService {
 				and tr.id= :testResultId
 				order by ti.id
 				""";
-		
-		
-		
+
+
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
-		
+
 		return items;
 	}
 
@@ -839,7 +839,7 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> mioTestDefaultList() {
-		
+
 		String sql = """
 				select ti.id,ti."Name" as name, ti."ResultType" as "resultType", '' as result1
 				from test_item ti
@@ -847,26 +847,26 @@ public class MaterialInoutService {
 				where tm."Code"  = 'inout_test'
 				order by ti.id
 			    """;
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, null);
-		
+
 		return items;
 	}
 
 	public Map<String, Object> getEffectDate(Integer mioId) {
-		
+
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("mioId", mioId);
-		
+
 		String sql = """
 				select (case when mi."EffectiveDate" = null then null else to_char(mi."EffectiveDate", 'YYYY-MM-DD') end)  as "EffectiveDate"
 				from mat_inout mi 
 				inner join material m on m.id = mi."Material_id"
 				where mi.id = :mioId
 				""";
-		
+
 		Map<String,Object> items = this.sqlRunner.getRow(sql, param);
-		
+
 		return items;
 	}
 
@@ -902,6 +902,7 @@ public class MaterialInoutService {
           , b."AvailableStock" as "AvailableStock"
           , b."ReservationStock" as "ReservationStock"
           , COALESCE(mi."SujuQty2", 0) AS "SujuQty2"
+          , COALESCE(mi."PreInputQty", 0) AS "PreInputQty"
           , fn_code_name('balju_state', b."State") as "StateName"
           , fn_code_name('shipment_state', b."ShipmentState") as "ShipmentStateName"
           , b."State"
@@ -915,16 +916,22 @@ public class MaterialInoutService {
           LEFT JOIN (
 			   SELECT
 				   "SourceDataPk",
-				   SUM("InputQty") AS "SujuQty2"
+				   -- 확정 입고 수량 (_status = 'a')
+				   SUM(CASE WHEN COALESCE("_status", 'a') = 'a'
+							THEN COALESCE("InputQty", 0) ELSE 0 END) AS "SujuQty2",
+				   -- 가입고 수량 (입고검사 대기, _status = 't')
+				   SUM(CASE WHEN COALESCE("_status", 'a') = 't'
+							THEN COALESCE("PotentialInputQty", 0) ELSE 0 END) AS "PreInputQty"
 			   FROM mat_inout
 			   WHERE "SourceTableName" = 'balju'
-				 AND COALESCE("_status", 'a') = 'a'
+				 AND COALESCE("_status", 'a') IN ('a', 't')
 				 AND "InOut" = 'in'
 			   GROUP BY "SourceDataPk"
 		   ) mi ON mi."SourceDataPk" = b.id
           where 1 = 1
           and b."JumunDate" between :start and :end 
-          AND COALESCE(mi."SujuQty2", 0) < b."SujuQty"
+          -- 확정 입고 + 가입고 합계가 발주수량 이상이면 목록에서 제외
+          AND COALESCE(mi."SujuQty2", 0) + COALESCE(mi."PreInputQty", 0) < b."SujuQty"
           and b.spjangcd = :spjangcd
           and "State" != 'force_completion'
 			order by b."JumunDate" desc,  m."Name"

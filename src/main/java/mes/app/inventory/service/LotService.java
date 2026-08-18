@@ -30,13 +30,13 @@ public class LotService {
 
 	@Autowired
 	SeqMakerRepository seqMakerRepository;
-	
+
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	@Autowired
 	MatProduceRepository matProduceRepository;
-	
+
 	@Autowired
 	JobResRepository jobResRepository;
 
@@ -48,13 +48,13 @@ public class LotService {
 
 	@Autowired
 	CompanyRepository companyRepository;
-		
-		
+
+
 	public List<Map<String, Object>> mioLotList(String mioId) {
-		
+
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("mioId", mioId);
-		
+
 		String sql = """
             select 
             mi.id as mio_id
@@ -82,25 +82,25 @@ public class LotService {
                 left join mat_inout mi on ml."SourceDataPk" = mi.id and ml."SourceTableName" ='mat_inout'
             where mi.id = cast(:mioId as Integer) 
 			""";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
 		return items;
 	}
-	
+
 	// Lot 번호 만들기
 	public String make_lot_in_number() {
-		
+
 		// 현재 날,시간
 		Timestamp today = new Timestamp(System.currentTimeMillis());
-		
+
 		// 현재 일자
 		LocalDate date = LocalDate.now();
 		DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
-		
+
 		List<SeqMaker> sm = this.seqMakerRepository.findByCodeAndBaseDate("LOT_IN",date.format(dateFormat));
-		
+
 		SeqMaker s = new SeqMaker();
-		
+
 		if (sm.size() > 0) {
 			s = sm.get(0);
 		} else {
@@ -111,26 +111,26 @@ public class LotService {
 		}
 		s.setCurrVal(s.getCurrVal() + 1);
 		this.seqMakerRepository.save(s);
-		
+
 		String lotNumber = "LI-" + date.format(dateFormat) + "-" +String.format("%04d", s.getCurrVal());
-		
+
 		return lotNumber;
 	}
-	
+
 	// Lot 번호 만들기
 	public String make_production_lot_in_number(String type) {
-		
+
 		// 현재 날,시간
 		Timestamp today = new Timestamp(System.currentTimeMillis());
-		
+
 		// 현재 일자
 		LocalDate date = LocalDate.now();
 		DateTimeFormatter dateFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
-		
+
 		List<SeqMaker> sm = this.seqMakerRepository.findByCodeAndBaseDate("PROD_LOT_IN",date.format(dateFormat));
-		
+
 		SeqMaker s = new SeqMaker();
-		
+
 		if (sm.size() > 0) {
 			s = sm.get(0);
 		} else {
@@ -141,17 +141,17 @@ public class LotService {
 		}
 		s.setCurrVal(s.getCurrVal() + 1);
 		this.seqMakerRepository.save(s);
-		
+
 		String lotNumber = type + "-" + date.format(dateFormat) + "-" +String.format("%04d", s.getCurrVal());
-		
+
 		return lotNumber;
 	}
-	
+
 	public List<Map<String, Object>> lotDetail(String lotNumber) {
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("lotNumber", lotNumber);
-		
+
 		String sql = """
 		        select
 			      ml.id as ml_id
@@ -173,7 +173,7 @@ public class LotService {
 		        left join unit u on u.id = m."Unit_id" 
 		        where ml."LotNumber" = :lotNumber
 				""";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
 		return items;
 	}
@@ -181,7 +181,7 @@ public class LotService {
 	public List<Map<String, Object>> getMaterialTracking(String lotNumber) {
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("lotNumber", lotNumber);
-		
+
 		String sql = """
 with recursive T as (    
          with P as(
@@ -274,7 +274,7 @@ with recursive T as (
         left join unit u on u.id = m2."Unit_id"
         order by lvl
 				""";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
 		return items;
 	}
@@ -282,7 +282,7 @@ with recursive T as (
 	public List<Map<String, Object>> getProductTracking(String lotNumber) {
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("lotNumber", lotNumber);
-		
+
 		String sql = """
 		  with recursive T as(
             select 
@@ -331,7 +331,7 @@ with recursive T as (
           left join unit u on u.id=m."Unit_id"
           order by lvl
 				""";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
 		return items;
 	}
@@ -339,7 +339,7 @@ with recursive T as (
 	public List<Map<String, Object>> getMaterialInoutTracking(String lotNumber) {
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("lotNumber", lotNumber);
-		
+
 		String sql = """
 	  with recursive T as (
          with P as(
@@ -380,10 +380,18 @@ with recursive T as (
           inner join B on B.p_lot_number  = T.lot_number 
         ), LL as
         ( 
+        -- (1) 생산품 LOT 에서 역추적된 재료 LOT 들
         select T.lot_number from T 
         inner join material m2 on m2.id = T.mat_pk 
         left join mat_grp mg on mg.id = m2."MaterialGroup_id" 
         group by T.lot_number
+        union
+        -- (2) 조회한 LOT 자체가 입고(발주입고/미발주입고)로 생성된 원재료 LOT 인 경우
+        --     생산 이력이 없어도 자기 입고정보는 보여야 한다
+        select ml."LotNumber" as lot_number
+        from mat_lot ml
+        where ml."LotNumber" = :lotNumber
+          and ml."SourceTableName" = 'mat_inout'
         )
         select 
         LL.lot_number
@@ -401,11 +409,11 @@ with recursive T as (
         left join company c on c.id = mi."Company_id"
         order by m."Name", lot_number
 				""";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
 		return items;
 	}
-	
+
 	public List<Map<String, Object>> getProductShipmentTracking(String lotNumber) {
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("lotNumber", lotNumber);
@@ -448,32 +456,32 @@ with recursive T as (
 	        inner join shipment_head sh on sh.id = s."ShipmentHead_id" 
 	        left join company c on c.id = sh."Company_id"
 				""";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
 		return items;
 	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	public List<Map<String, Object>> getMatLotList(String mat_type, Integer mat_group, Integer material, String lot_num, String date_from, String date_to, String cond) {
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("mat_type", mat_type);
 		dicParam.addValue("mat_group", mat_group);
@@ -484,8 +492,8 @@ with recursive T as (
 			dicParam.addValue("date_from", Timestamp.valueOf(date_from + " 00:00:00"));
 			dicParam.addValue("date_to", Timestamp.valueOf(date_to + " 23:59:59"));
 		}
-		
-        String sql = """
+
+		String sql = """
         		select ml.id
                 , to_char(ml."InputDateTime", 'yyyy-mm-dd hh24:mi') as prod_date
                 , ml."LotNumber" as lot_num
@@ -505,68 +513,68 @@ with recursive T as (
                 where 1=1
             """;
 
-        if (StringUtils.isEmpty(mat_type)==false) {
-        	sql += " and mg.\"MaterialType\" = :mat_type ";
-        }
+		if (StringUtils.isEmpty(mat_type)==false) {
+			sql += " and mg.\"MaterialType\" = :mat_type ";
+		}
 
-        if (mat_group != null) {
-        	sql += " and mg.id = :mat_group ";
-        }
+		if (mat_group != null) {
+			sql += " and mg.id = :mat_group ";
+		}
 
-        if (material != null) {
-        	sql += " and m.id = :material ";
-        }
+		if (material != null) {
+			sql += " and m.id = :material ";
+		}
 
-        if (StringUtils.isEmpty(lot_num) == false) {
-        	sql += " and ml.\"LotNumber\" ilike concat('%%',:lot_num,'%%') ";
-        }
-        
-        if (StringUtils.isEmpty(date_from) == false && StringUtils.isEmpty(date_to) == false) {
-        	sql += " and ml.\"InputDateTime\" between :date_from and :date_to ";
-        }
+		if (StringUtils.isEmpty(lot_num) == false) {
+			sql += " and ml.\"LotNumber\" ilike concat('%%',:lot_num,'%%') ";
+		}
 
-        if ("remain".equals(cond)) {
-        	sql += " and ml.\"CurrentStock\" > 0 ";
-        }    
-        
-        sql += " order by prod_date desc ";
-        		
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
+		if (StringUtils.isEmpty(date_from) == false && StringUtils.isEmpty(date_to) == false) {
+			sql += " and ml.\"InputDateTime\" between :date_from and :date_to ";
+		}
 
-        for (int i = 0; i < items.size(); i++) {
-        	
-        	if ("mat_produce".equals((String) items.get(i).get("source_table"))) {
-        		
-        		Integer source_id = (Integer) items.get(i).get("source_id");
-        		MaterialProduce mpList = this.matProduceRepository.getMatProduceById(source_id);
-        		
-        		if (mpList != null) {
-        			
-        			Integer jobres_id = mpList.getJobResponseId();
-        			JobRes jr = this.jobResRepository.getJobResById(jobres_id);
-        			
-        			if (jr != null) {
-        				
-        				String work_order_num = jr.getWorkOrderNumber();
-        				
-        				if (work_order_num != null) {        					
-        					items.get(i).put("reg_history", "생산 (작지번호: " + work_order_num + ")");
-        				}
-        			}
-        		}        		
-        	}
-        }
-    	
-        return items;
+		if ("remain".equals(cond)) {
+			sql += " and ml.\"CurrentStock\" > 0 ";
+		}
+
+		sql += " order by prod_date desc ";
+
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
+
+		for (int i = 0; i < items.size(); i++) {
+
+			if ("mat_produce".equals((String) items.get(i).get("source_table"))) {
+
+				Integer source_id = (Integer) items.get(i).get("source_id");
+				MaterialProduce mpList = this.matProduceRepository.getMatProduceById(source_id);
+
+				if (mpList != null) {
+
+					Integer jobres_id = mpList.getJobResponseId();
+					JobRes jr = this.jobResRepository.getJobResById(jobres_id);
+
+					if (jr != null) {
+
+						String work_order_num = jr.getWorkOrderNumber();
+
+						if (work_order_num != null) {
+							items.get(i).put("reg_history", "생산 (작지번호: " + work_order_num + ")");
+						}
+					}
+				}
+			}
+		}
+
+		return items;
 	}
-	
+
 	// LOT 소비내역 조회
 	public List<Map<String, Object>> getConsumedList(Integer matlot_id) {
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("matlot_id", matlot_id);
-		
-        String sql = """
+
+		String sql = """
         		select mlc.id 
                 , ml."LotNumber" as lot_num
                 , to_char(mlc."OutputDateTime", 'yyyy-mm-dd hh24:mi') as consumed_date
@@ -578,42 +586,42 @@ with recursive T as (
                 inner join mat_lot ml on ml.id = mlc."MaterialLot_id"
                 where mlc."MaterialLot_id" = :matlot_id
             """;
-        		
-        List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
 
-        for (int i = 0; i < items.size(); i++) {
-        	
-        	if ("shipment".equals((String) items.get(i).get("source_table"))) {
-        		
-        		Integer source_id = (Integer) items.get(i).get("source_id");
-        		Shipment spList = this.shipmentRepository.getShipmentById(source_id);
-        		
-        		if (spList != null) {        			
-        			Integer shipment_head_id = spList.getShipmentHeadId();
-        			
-        			if (shipment_head_id != null) {        				
-        				ShipmentHead sh =  this.shipmentHeadRepository.getShipmentHeadById(shipment_head_id);
-        				
-        				if (sh != null) {        					
-        					Integer company_id = sh.getCompanyId();
-        					
-        					if (company_id != null) {        						
-        						Company company = this.companyRepository.getCompanyById(company_id);
-        						
-        						if (company != null) {
-        							String company_name = company.getName();
-        							
-        							items.get(i).put("consumed_history", "출하 (고객사: " + company_name + ")");
-        						}        								
-        					}
-        				}
-        			}
-        		}
-        	}
-        }
-        
-        return items;
+		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, dicParam);
+
+		for (int i = 0; i < items.size(); i++) {
+
+			if ("shipment".equals((String) items.get(i).get("source_table"))) {
+
+				Integer source_id = (Integer) items.get(i).get("source_id");
+				Shipment spList = this.shipmentRepository.getShipmentById(source_id);
+
+				if (spList != null) {
+					Integer shipment_head_id = spList.getShipmentHeadId();
+
+					if (shipment_head_id != null) {
+						ShipmentHead sh =  this.shipmentHeadRepository.getShipmentHeadById(shipment_head_id);
+
+						if (sh != null) {
+							Integer company_id = sh.getCompanyId();
+
+							if (company_id != null) {
+								Company company = this.companyRepository.getCompanyById(company_id);
+
+								if (company != null) {
+									String company_name = company.getName();
+
+									items.get(i).put("consumed_history", "출하 (고객사: " + company_name + ")");
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return items;
 	}
-		
+
 
 }

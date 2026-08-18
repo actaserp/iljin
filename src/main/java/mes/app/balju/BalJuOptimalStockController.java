@@ -21,15 +21,24 @@ public class BalJuOptimalStockController {
   @Autowired
   BalJuOptimalStockService optimalStockService;
 
+  /** 검색조건용 품목그룹 목록 */
+  @GetMapping("/mat_grp_list")
+  public AjaxResult getMatGrpList(@RequestParam(value = "spjangcd") String spjangcd) {
+    AjaxResult result = new AjaxResult();
+    result.data = optimalStockService.getMatGrpList(spjangcd);
+    return result;
+  }
+
   @GetMapping("/read")
   public AjaxResult getList(@RequestParam(value = "mat_name", required = false) String mat_name,
                             @RequestParam(value = "Inventory_status", required = false) String status,
+                            @RequestParam(value = "matGrp", required = false) String matGrp,
                             @RequestParam(value="srchStartDt") String  startDt,
                             @RequestParam(value="srchEndDt") String endDt,
                             @RequestParam(value = "spjangcd")String spjangcd) {
     AjaxResult result = new AjaxResult();
-    /*log.info("자재 적정재고 현황 mat_name:{}, Inventory_status:{}, srchStartDt:{}, srchEndDt:{}, spjangcd:{}"
-        , mat_name, status, startDt,endDt, spjangcd );*/
+    /*log.info("자재 적정재고 현황 mat_name:{}, Inventory_status:{}, matGrp:{}, srchStartDt:{}, srchEndDt:{}, spjangcd:{}"
+        , mat_name, status, matGrp, startDt,endDt, spjangcd );*/
 
     startDt = startDt + " 00:00:00";
     endDt = endDt + " 23:59:59";
@@ -37,7 +46,7 @@ public class BalJuOptimalStockController {
     Timestamp start = Timestamp.valueOf(startDt);
     Timestamp end = Timestamp.valueOf(endDt);
 
-    List<Map<String,Object>> items = optimalStockService.getList(mat_name,status ,start,end, spjangcd);
+    List<Map<String,Object>> items = optimalStockService.getList(mat_name, status, matGrp, start, end, spjangcd);
     result.data = items;
     return result;
   }

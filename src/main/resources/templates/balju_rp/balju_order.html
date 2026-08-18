@@ -84,6 +84,12 @@
               </a>
             </li>
             <li>
+              <a class="btn btn-excell" title="부족재고" id="btnNeedStock">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="부족재고 아이콘">
+                부족재고 발주
+              </a>
+            </li>
+            <li>
               <a class="btn btn-excell" title="등록" id="btnAddNew">
                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
                 등록
@@ -388,6 +394,159 @@
     </div>
   </script>
 
+  <!-- ================= 부족재고 선택 팝업 ================= -->
+  <!-- ================= 부족 재고 목록 팝업 ================= -->
+  <script type="text/x-tmpl" id="needStockTemplate">
+    <style>
+    #needStockPopup { display:flex; flex-direction:column; height:100%; }
+
+    #needStockPopup .need-search {
+      display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px;
+      padding:10px 12px; margin-bottom:8px;
+      background:#f7f9fc; border:1px solid #dfe3e8; border-radius:6px;
+    }
+    #needStockPopup .need-field { display:flex; flex-direction:column; gap:4px; }
+    #needStockPopup .need-field > label {
+      font-size:12px; font-weight:600; color:#55617a; white-space:nowrap;
+    }
+    #needStockPopup .need-field .need-inputs {
+      display:flex; align-items:center; gap:6px;
+    }
+    #needStockPopup .need-field.grow { flex:1 1 220px; min-width:180px; }
+    #needStockPopup .need-field.grow input { width:100%; }
+
+    #needStockPopup .need-search input[type="text"],
+    #needStockPopup .need-search input[type="date"],
+    #needStockPopup .need-search select {
+      height:30px; line-height:30px; box-sizing:border-box;
+      padding:0 8px; font-size:13px;
+      border:1px solid #d8dde5; border-radius:4px; background:#fff;
+    }
+    #needStockPopup .need-search input[type="date"] { width:140px; }
+    #needStockPopup .need-search select { min-width:150px; padding-right:24px; }
+    #needStockPopup .need-search .date-sep { color:#999; }
+
+    #needStockPopup .need-search .need-btn-wrap { margin-left:auto; }
+    #needStockPopup .need-search .btn {
+      display:inline-flex; align-items:center; gap:4px; height:30px;
+    }
+
+    #needStockPopup .need-table-wrap {
+      flex:1 1 auto; min-height:0; overflow:auto;
+      border:1px solid #dfe3e8; border-radius:6px;
+    }
+    #needStockPopup .need-table {
+      width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0;
+    }
+    #needStockPopup .need-table th {
+      position:sticky; top:0; z-index:2;
+      background:#EDEFF5; color:#3a4557;
+      font-size:12px; font-weight:700; height:32px;
+      padding:0 6px; text-align:center; white-space:nowrap;
+      border-bottom:1px solid #d5dbe4;
+    }
+    #needStockPopup .need-table td {
+      height:32px; padding:2px 6px; font-size:13px; text-align:center;
+      border-bottom:1px solid #eef0f4;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    #needStockPopup .need-table tbody tr:nth-child(even) { background:#fbfcfe; }
+    #needStockPopup .need-table tbody tr:hover { background:#eef5ff; }
+    #needStockPopup .need-table td.al_l { text-align:left; }
+    #needStockPopup .need-table td.al_r { text-align:right; }
+    #needStockPopup .need-table .redText { color:#c0392b; font-weight:600; }
+    #needStockPopup .need-table input.needQty {
+      width:100%; height:26px; line-height:26px; box-sizing:border-box;
+      padding:0 6px; text-align:right; font-size:13px;
+      border:1px solid #d8dde5; border-radius:4px;
+    }
+    </style>
+
+    <div class="content_wrap popup" id="needStockPopup">
+      <div class="need-search">
+      <div class="need-field grow">
+        <label for="needKeyword">자재코드 / 자재명</label>
+        <div class="need-inputs">
+          <input type="text" id="needKeyword" placeholder="검색 후 Enter" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="need-field">
+        <label for="needStartDt">기준일자</label>
+        <div class="need-inputs">
+          <input type="date" id="needStartDt">
+          <span class="date-sep">~</span>
+          <input type="date" id="needEndDt">
+        </div>
+      </div>
+
+      <div class="need-field">
+        <label for="needMatType">품목구분</label>
+        <div class="need-inputs">
+          <select id="needMatType">
+            <option value="">전체(제품 제외)</option>
+            <option value="semi">반제품</option>
+            <option value="raw_mat" selected>원재료</option>
+            <option value="sub_mat">부재료</option>
+            <option value="sangpum">상품</option>
+            <option value="jajae">자재</option>
+            <option value="commodity">상품(commodity)</option>
+            <option value="product">제품</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="need-field">
+        <label for="needBasis">소요량 기준</label>
+        <div class="need-inputs">
+          <select id="needBasis">
+            <option value="max" selected>수주·계획 중 큰 값</option>
+            <option value="suju">수주량</option>
+            <option value="plan">생산계획</option>
+            <option value="sum">수주 + 생산계획</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="need-field need-btn-wrap">
+        <div class="need-inputs">
+          <a class="btn btn-delete" id="btnNeedSearch">
+            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘"> 검색
+          </a>
+        </div>
+      </div>
+    </div>
+
+      <div class="need-table-wrap">
+        <table class="need-table">
+          <colgroup>
+            <col style="width:40px"><col style="width:100px"><col style="width:*">
+            <col style="width:55px"><col style="width:90px"><col style="width:90px">
+            <col style="width:90px"><col style="width:90px"><col style="width:90px">
+            <col style="width:90px"><col style="width:70px"><col style="width:100px">
+          </colgroup>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="chkAllNeed"></th>
+              <th>자재코드</th><th>자재명</th><th>단위</th>
+              <th>수주소요량</th><th>계획소요량</th><th>적용소요량</th>
+              <th>현재고</th><th>적정재고</th><th>필요수량</th>
+              <th>상태</th><th>발주수량</th>
+            </tr>
+          </thead>
+          <tbody id="needStockBody">
+            <tr><td colspan="12">조회 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="popup-button">
+        <button type="button" class="btn-popup y_write_auth" id="btnNeedApply">선택 항목 담기</button>
+        <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+      </div>
+    </div>
+  </script>
+
   <script type="text/x-tmpl" id="BalJuMailTemplate">
     <style>
     /* + 아이콘 버튼 (추가용) */
@@ -519,6 +678,153 @@
   <th:block th:replace="/common/popup_company_purchase :: popup_company_Purchase"></th:block>
   <th:block th:replace="/balju_rp/popup_balju_material_save :: popup_balju_material_new_save"></th:block>
   <script type="text/javascript">
+   class NeedStockPopup {
+    constructor() { this.rows = []; this.callback = null; }
+
+    show(callback) {
+     const _this = this;
+     this.callback = callback;
+
+     const $content = $(tmpl('needStockTemplate', {}));
+     const modal = new PopupDraggable('부족 재고 목록 (수주량대비 적정재고)');
+     modal.open({ width: 1250, height: 640, $content });
+
+     $content.css({ height: '100%', maxHeight: '100%' });
+     if ($content.height() < 100) $content.css({ height: '595px' });
+
+     this.$content = $content;
+     this.modal = modal;
+
+     // 기준일자 기본값: 당월 1일 ~ 말일 (적정재고현황 화면과 동일)
+     const today = new Date();
+     const yyyy = today.getFullYear();
+     const mmNum = today.getMonth() + 1;
+     const mm = String(mmNum).padStart(2, '0');
+     const lastDay = String(new Date(yyyy, mmNum, 0).getDate()).padStart(2, '0');
+     $content.find('#needStartDt').val(`${yyyy}-${mm}-01`);
+     $content.find('#needEndDt').val(`${yyyy}-${mm}-${lastDay}`);
+
+     $content.on('change', '#chkAllNeed', function () {
+      $content.find('#needStockBody input.chkNeed').prop('checked', $(this).prop('checked'));
+     });
+
+     $content.on('click', '#btnNeedSearch', () => _this.load());
+     $content.on('change', '#needMatType, #needBasis', () => _this.load());
+     $content.on('keydown', '#needKeyword', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); _this.load(); }
+     });
+     $content.on('input', 'input.needQty', function () { formatNumberInput($(this).val(), this); });
+     $content.on('click', '#btnNeedApply', () => _this.apply());
+
+     this.load();
+    }
+
+    load() {
+     const _this = this;
+     const $c = this.$content;
+
+     const param = {
+      'mat_name'        : $c.find('#needKeyword').val(),
+      'Inventory_status': 'shortage',                 // 부족만
+      'srchStartDt'     : $c.find('#needStartDt').val(),
+      'srchEndDt'       : $c.find('#needEndDt').val(),
+      'basis'           : $c.find('#needBasis').val(),
+      'mat_type'        : $c.find('#needMatType').val(),
+      'spjangcd'        : sessionStorage.getItem('spjangcd')
+     };
+
+     $c.find('#needStockBody').html('<tr><td colspan="12">조회 중...</td></tr>');
+
+     AjaxUtil.getAsyncData('/api/balju/optimal_stock/read', param, function (res) {
+      _this.rows = (res && res.data) ? res.data : [];
+      _this.render();
+     });
+    }
+
+    render() {
+     const list = this.rows.filter(r => Number(r.need_more_qty || 0) > 0);
+     const $body = this.$content.find('#needStockBody').empty();
+     this.$content.find('#chkAllNeed').prop('checked', false);
+
+     if (!list.length) {
+      $body.append('<tr><td colspan="12">부족 재고가 없습니다.</td></tr>');
+      return;
+     }
+
+     const n = v => Number(v || 0).toLocaleString();
+
+     list.forEach(r => {
+      const idx = this.rows.indexOf(r);
+      $body.append(`
+        <tr>
+          <td><input type="checkbox" class="chkNeed" data-idx="${idx}"></td>
+          <td>${r.material_code || ''}</td>
+          <td class="al_l">${r.material_name || ''}</td>
+          <td>${r.unit_name || ''}</td>
+          <td class="al_r">${n(r.order_qty)}</td>
+          <td class="al_r">${n(r.plan_qty)}</td>
+          <td class="al_r">${n(r.demand_qty)}</td>
+          <td class="al_r">${n(r.current_stock)}</td>
+          <td class="al_r">${n(r.optimal_stock)}</td>
+          <td class="al_r redText">${n(r.need_more_qty)}</td>
+          <td>${r.state || ''}</td>
+          <td><input type="text" class="needQty" value="${n(r.need_more_qty)}"></td>
+        </tr>`);
+     });
+    }
+
+    apply() {
+     const _this = this;
+     const items = [];
+
+     this.$content.find('#needStockBody input.chkNeed:checked').each(function () {
+      const row = _this.rows[$(this).data('idx')];
+      const qty = ($(this).closest('tr').find('input.needQty').val() || '').replace(/,/g, '');
+      if (!qty || Number(qty) <= 0) return;
+      items.push({
+       Material_id : row.Material_id || row.material_id || row.mat_pk || '',
+       product_code: row.material_code,
+       product_name: row.material_name,
+       standard    : row.standard || '',
+       quantity    : qty
+      });
+     });
+
+     if (!items.length) { Alert.alert('', '발주할 항목을 선택하세요.'); return; }
+
+     // 조회 결과에 Material_id 가 없으면 자재코드로 보정 조회
+     const needFix = items.filter(it => !it.Material_id);
+     if (!needFix.length) { this.done(items); return; }
+
+     const jobs = needFix.map(it => $.get('/api/popup/search_material', {
+      keyword : it.product_code,
+      spjangcd: sessionStorage.getItem('spjangcd')
+     }).then(res => {
+      const hit = (res.data || []).find(d => d.Code === it.product_code) || (res.data || [])[0];
+      if (hit) {
+       it.Material_id = hit.id;
+       it.product_name = hit.Name;
+       it.product_code = hit.Code;
+       if (!it.standard) it.standard = hit.Spec || '';
+      }
+     }));
+
+     Promise.all(jobs).then(() => {
+      const bad = items.filter(it => !it.Material_id);
+      if (bad.length) {
+       Alert.alert('', `품목 정보를 찾을 수 없습니다.\n(${bad.map(b => b.product_code).join(', ')})`);
+       return;
+      }
+      _this.done(items);
+     });
+    }
+
+    done(items) {
+     this.modal.close();
+     if (typeof this.callback === 'function') this.callback(items);
+    }
+   }
+
    const ProductInputHandler = {
     bind: function ({rowSelector, $content, tryShowBaljuPrice}) {
      const $row = $(rowSelector);
@@ -589,22 +895,6 @@
      const $next = $row.find('input[name^="quantity_"]');
      const $standard = $row.find('input[name^="Standard_"]');
 
-     function applyItemTo3Rows(item) {
-      const $tbody = $content.find('.item-table tbody');
-      const $rows = $tbody.find('tr:visible').not('.item-template-row');
-
-      const startIndex = $rows.index($row); // 현재 행 인덱스
-      const count = 3; // 몇 줄 채울지 (3줄)
-
-      for (let i = 0; i < count; i++) {
-       const idx = startIndex + i;
-       if (idx >= 0 && idx < $rows.length) {
-        const $targetRow = $rows.eq(idx);
-        fillProductRow({ $row: $targetRow, item, tryShowBaljuPrice });
-       }
-      }
-     }
-
      $input.on('input', function () {
       const value = $(this).val().trim();
 
@@ -612,26 +902,14 @@
        $id.val('');
        $code.val('');
        $group.val('');
+       $standard.val('');   // 품목을 지우면 규격도 초기화
       }
      });
 
+     // ✅ 선택한 품목은 "현재 행 하나에만" 채운다
      function set(item) {
-      // fillProductRow({ $row, item, tryShowBaljuPrice });
-      applyItemTo3Rows(item);
+      fillProductRow({ $row, item, tryShowBaljuPrice });
      }
-
-     /*function set(item) {
-       $input.val(item.Name);
-       $id.val(item.id);
-       $code.val(item.Code);
-       $group.val(item.group_name);
-       $standard.val(item.Spec);
-       tryShowBaljuPrice($row);
-
-       setTimeout(() => {
-         $next.focus().select();
-       }, 10);
-     }*/
 
      $input.off('keydown').on('keydown', function (e) {
       if (e.key === 'Enter') {
@@ -673,6 +951,7 @@
      this.grid = null;
      this.$btnEdit = $('#btnEdit');
      this.$btnAddNew = $('#btnAddNew');
+     this.$btnNeedStock = $('#btnNeedStock');
      this.$btnMail = $('#btnMail');
      this.spjangcd = $('#spjangcdHidden');
      this.viewData = new wijmo.collections.CollectionView();
@@ -741,6 +1020,20 @@
        spjangcd: _this.spjangcd.val()
       };
       _this.showBaljuForm(defaultData);
+     });
+
+     // 부족재고 발주 : 부족재고 팝업 → 선택 항목을 담아 발주 등록 폼을 연다
+     this.$btnNeedStock.click(function () {
+      const pop = new NeedStockPopup();
+      pop.show(function (items) {
+       _this.showBaljuForm({
+        id: '', mode: 'new',
+        JumunDate: nowDate, DueDate: dueDate,
+        State: 'draft',
+        spjangcd: _this.spjangcd.val(),
+        presetItems: items
+       });
+      });
      });
 
      // 메일 팝업
@@ -1430,28 +1723,13 @@
       updateBaljuTotalPrice($content);
      }
 
-     // 행 추가
-     $content.find('#addRemark').click(function () {
+     // 품목 행 n개 추가 (버튼 / 기본행 / 자동추가 공용)
+     const addItemRows = function (count) {
       const $tbody    = $content.find('.item-table tbody');
       const $template = $tbody.find('.item-template-row');
+      let $last = null;
 
-      // 🔍 현재까지 존재하는 실제 행들
-      const $rows    = $tbody.find('tr:visible').not('.item-template-row');
-      const $lastRow = $rows.last();
-
-      // 🔁 마지막 행의 품목 정보 추출
-      let lastItem = null;
-      if ($lastRow.length) {
-       lastItem = {
-        Name:       $lastRow.find('input[name^="txtProductName_"]').val(),
-        id:         $lastRow.find('input[name^="Material_id_"]').val(),
-        Code:       $lastRow.find('input[name^="product_code_"]').val(),
-        group_name: $lastRow.find('input[name^="MaterialGroupName_"]').val(),
-        //Spec:       $lastRow.find('input[name^="Standard_"]').val()
-       };
-      }
-
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < count; i++) {
        const $newRow = $template.clone().removeClass('item-template-row').show();
 
        // name 인덱스 부여
@@ -1465,14 +1743,58 @@
        $tbody.append($newRow);
        ProductInputHandler.bind({ rowSelector: $newRow, $content, tryShowBaljuPrice });
 
-       // ✅ 마지막 행에 품목이 있으면 그대로 복사해서 채워 넣기
-       if (lastItem && lastItem.id) {
-        fillProductRow({ $row: $newRow, item: lastItem, tryShowBaljuPrice });
+       itemIndex++;
+       $last = $newRow;
+      }
+      return $last;
+     };
+
+     // 행 추가 버튼 (빈 행 3개)
+     $content.find('#addRemark').click(function () {
+      addItemRows(3);
+     });
+
+     /* =========================================================
+      *  부족재고 팝업에서 담아온 품목을 품목표에 채운다
+      * ========================================================= */
+     function fillPresetItems(items) {
+      const $itemTbody = $content.find('.item-table tbody');
+
+      items.forEach(item => {
+       // 동일 품목이면 수량 합산
+       let $dup = null;
+       $itemTbody.find('tr:not(.item-template-row)').each(function () {
+        if ($(this).find('input[name^="Material_id_"]').val() === String(item.Material_id)) $dup = $(this);
+       });
+       if ($dup) {
+        const $q = $dup.find('input[name^="quantity_"]');
+        const merged = Number(($q.val() || '0').replace(/,/g, '')) + Number(item.quantity);
+        $q.val(merged);
+        formatNumberInput($q.val(), $q[0]);
+        calculateAmount({ row: $dup, $content });
+        return;
        }
 
-       itemIndex++;
-      }
-     });
+       // 빈 행 재사용, 없으면 새로 생성
+       let $row = $itemTbody.find('tr:not(.item-template-row)').filter(function () {
+        return !$(this).find('input[name^="Material_id_"]').val();
+       }).first();
+       if (!$row.length) $row = addItemRows(1);
+
+       $row.find('input[name^="txtProductName_"]').val(item.product_name);
+       $row.find('input[name^="Material_id_"]').val(item.Material_id);
+       $row.find('input[name^="product_code_"]').val(item.product_code);
+       $row.find('input[name^="Standard_"]').val(item.standard || '');
+       const $qty = $row.find('input[name^="quantity_"]');
+       $qty.val(item.quantity);
+       formatNumberInput($qty.val(), $qty[0]);
+
+       tryShowBaljuPrice($row);   // 구매처가 선택돼 있으면 단가 자동 조회
+       calculateAmount({ row: $row, $content });
+      });
+      updateBaljuTotalPrice($content);
+     }
+     _this.fillPresetItems = fillPresetItems;
 
      // 품목 신규등록 버튼 클릭
      $content.on('click', 'a[title="품목 신규등록"]', function () {
@@ -1654,9 +1976,18 @@
       updateBaljuTotalPrice($content);
      });
 
+     // ✅ 신규 등록 시 기본 3행 표시 + 부족재고에서 담아온 품목 채우기
      if (data.mode === 'new') {
       setTimeout(() => {
-       $content.find('#addRemark').trigger('click');
+       const $tbody = $content.find('.item-table tbody');
+       const existing = $tbody.find('tr:visible').not('.item-template-row').length;
+       if (existing < 3) addItemRows(3 - existing);
+
+       if (Array.isArray(data.presetItems) && data.presetItems.length) {
+        fillPresetItems(data.presetItems);
+        Notify.success(`${data.presetItems.length}건이 담겼습니다. 구매처를 선택하세요.`);
+        $content.find('#btnCompanySearch').focus();
+       }
       }, 10);
      }
     }
@@ -1718,7 +2049,13 @@
     $productId.val(item.id);
     $productCode.val(item.Code);
     $materialGroup.val(item.group_name);
-    //$standard.val(item.Spec);
+
+    // ✅ 품목에 규격이 등록돼 있으면 규격도 함께 바인딩
+    //    (검색 결과의 필드명이 Spec / standard 등으로 갈리므로 순서대로 확인)
+    const spec = item.Spec ?? item.spec ?? item.Standard ?? item.standard ?? '';
+    if ($standard.length) {
+     $standard.val(String(spec).trim());
+    }
 
     if (typeof tryShowBaljuPrice === 'function') {
      tryShowBaljuPrice($row);
