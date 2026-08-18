@@ -1,183 +1,175 @@
 <html layout:decorate="~{layout_page}">
 <head>
   <style>
-      /* ===== 통합 화면 레이아웃 (위: 수주목록 / 아래: 수주상세, 3:7) ===== */
+      /* ===================================================================
+         레이아웃 : 위 수주목록 / 아래 수주상세
+         - 화면 높이를 꽉 채우고, 남는 공간은 품목표가 흡수한다(여백 최소화)
+         - 스크롤은 품목표 안에서만 발생
+         =================================================================== */
+      .ps-tight .page-title-wrap { margin-bottom: 6px; }
+      .ps-section { padding: 6px 8px !important; }
+
       .ps-wrap {
           display: flex;
-          flex-direction: column;     /* 위/아래 배치 */
-          gap: 12px;
+          flex-direction: column;
+          gap: 8px;
           align-items: stretch;
-          height: calc(100vh - 210px);
-          min-height: 600px;
+          height: calc(100vh - 148px);
+          min-height: 520px;
       }
-      .ps-left {                       /* 상단: 수주 목록 (비율 3) */
-          flex: 3 1 0;
-          min-width: 0;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-      }
-      .ps-right {                      /* 하단: 수주 상세 (비율 7) */
-          flex: 5 1 0;
-          min-width: 0;
-          min-height: 0;
-          display: flex;
-          flex-direction: column;
-      }
+      .ps-left  { flex: 3 1 0; min-width: 0; min-height: 150px; display: flex; flex-direction: column; }
+      .ps-right { flex: 7 1 0; min-width: 0; min-height: 0;     display: flex; flex-direction: column; }
+
       .ps-left > .ps-panel,
       .ps-right > .ps-panel {
           flex: 1 1 auto;
           min-height: 0;
           display: flex;
           flex-direction: column;
-      }
-      /* 하단 패널: 내용이 길면 패널 내부에서 스크롤 */
-      .ps-right > .ps-panel {
-          overflow-y: auto;
+          overflow: hidden;            /* 패널 자체는 스크롤 없음 */
       }
       .ps-panel {
           background: #fff;
           border: 1px solid #d9dde3;
           border-radius: 6px;
-          padding: 10px 12px;
+          padding: 7px 10px;
       }
       .ps-panel-head {
+          flex: 0 0 auto;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 8px;
+          margin-bottom: 5px;
       }
-      .ps-panel-head h3 {
-          font-size: 15px;
-          font-weight: 700;
-          margin: 0;
-      }
+      .ps-panel-head h3 { font-size: 14px; font-weight: 700; margin: 0; }
       .ps-panel-head .mode-badge {
-          font-size: 12px;
-          padding: 2px 10px;
-          border-radius: 10px;
-          background: #EDEFF5;
-          color: #333;
-          margin-left: 8px;
-          vertical-align: middle;
+          font-size: 12px; padding: 2px 10px; border-radius: 10px;
+          background: #EDEFF5; color: #333; margin-left: 8px; vertical-align: middle;
       }
-      .ps-panel-head .mode-badge.edit {
-          background: #1d5d90;
-          color: #fff;
+      .ps-panel-head .mode-badge.edit { background: #1d5d90; color: #fff; }
+      .ps-panel-head ul { display: flex; gap: 6px; margin: 0; }
+
+      /* 키보드 안내 */
+      .ps-keyhint {
+          font-size: 11px; color: #8a94a6; font-weight: 400;
+          margin-left: 10px; white-space: nowrap;
       }
-      .ps-panel-head ul {
-          display: flex;
-          gap: 6px;
-          margin: 0;
+      .ps-keyhint b {
+          display: inline-block; padding: 0 4px; margin: 0 1px;
+          border: 1px solid #ccd3dd; border-radius: 3px;
+          background: #f5f7fa; color: #55617a; font-weight: 600;
       }
-      .ps-guide {
-          padding: 30px 0;
-          text-align: center;
-          color: #888;
-          font-size: 14px;
-      }
+
+      .ps-guide { padding: 30px 0; text-align: center; color: #888; font-size: 14px; }
+
       .ps-search {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          align-items: center;
-          margin-bottom: 8px;
+          flex: 0 0 auto;
+          display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+          margin-bottom: 6px;
       }
-      .ps-search dl {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          margin: 0;
-      }
+      .ps-search dl { display: flex; align-items: center; gap: 4px; margin: 0; }
       .ps-search dt { font-size: 13px; white-space: nowrap; }
 
-      /* 수주상세 헤더 폼 */
-      #sujuForm .write-table { table-layout: fixed; width: 100%; }
-      #sujuForm .write-table th {
-          width: 70px;
-          min-width: 70px;
-          text-align: center;
-          white-space: nowrap;
-          padding: 4px 6px;
-          font-size: 13px;
+      #sujuGrid { flex: 1 1 auto; min-height: 90px; }
+
+      /* ===== 수주상세 : 폼이 남은 높이를 전부 차지 ===== */
+      #sujuForm {
+          display: flex; flex-direction: column;
+          flex: 1 1 auto; min-height: 0;
       }
-      #sujuForm .write-table td { padding: 4px 6px; }
+      #sujuForm .write-table { table-layout: fixed; width: 100%; flex: 0 0 auto; }
+      #sujuForm .write-table th {
+          width: 78px; min-width: 78px; text-align: center; white-space: nowrap;
+          padding: 4px 6px; font-size: 13px;
+      }
+      #sujuForm .write-table td { padding: 4px 6px; width: auto !important; }
       #sujuForm .write-table input[type="text"],
       #sujuForm .write-table input[type="date"],
-      #sujuForm .write-table select { width: 100%; box-sizing: border-box; }
-      #sujuForm input[type="date"] { height: 36px; }
-      #sujuForm textarea { height: 50px; width: 100%; box-sizing: border-box; }
+      #sujuForm .write-table select {
+          width: 100% !important;
+          max-width: none !important;
+          box-sizing: border-box;
+      }
+      #sujuForm input[type="date"] { height: 32px; }
+      #sujuForm textarea { height: 38px; width: 100%; box-sizing: border-box; resize: none; }
+      /* 셀 안의 입력+버튼 묶음이 칸 전체를 쓰도록 */
+      #sujuForm .write-table td > .input-with-button {
+          width: 100% !important;
+          max-width: none !important;
+          display: flex !important;
+      }
+      #sujuForm .write-table td > .input-with-button > input[type="text"],
+      #sujuForm .write-table td > .input-with-button > .input-clear {
+          flex: 1 1 auto !important;
+          width: 100% !important;
+          max-width: none !important;
+          min-width: 0;
+      }
 
-      /* ===== 품목 테이블 (기존 수주 화면 스타일 이식) ===== */
+      /* ===== 품목 테이블 : 남은 공간을 채우고 내부에서만 스크롤 ===== */
       .item-scroll {
+          flex: 1 1 auto;
+          min-height: 110px;
           width: 100%;
-          overflow-x: auto;
-          margin-top: 8px;
+          overflow: auto;
+          margin-top: 6px;
+          border: 1px solid #d9dde3;
+          border-radius: 4px;
       }
       .item-table {
           width: 100%;
-          border-collapse: collapse;
+          border-collapse: separate;
+          border-spacing: 0;
           table-layout: fixed;
           margin-top: 0;
       }
       .item-table th {
+          position: sticky; top: 0; z-index: 2;      /* 스크롤해도 헤더 고정 */
           background-color: #EDEFF5;
           text-align: center;
           font-weight: bold;
-          padding: 0.125rem 0.25rem;   /* 2px 4px */
+          padding: 0.125rem 0.25rem;
           border: 1px solid #ccc;
-          font-size: 0.8125rem;        /* 13px */
-          min-height: 1.75rem;         /* 28px — 고정 대신 최소값만 */
+          font-size: 0.8125rem;
+          min-height: 1.75rem;
           line-height: 1.2;
       }
-
       .item-table td {
           padding: 4px;
           text-align: center;
           border: 1px solid #ccc;
       }
+      .item-table tbody tr:hover { background: #f3f8ff; }
+      .item-table tbody tr.row-focus { background: #eaf3ff; }
       .item-table input {
-          width: 100%;
-          box-sizing: border-box;
-          padding: 4px;
-          height: 32px;
+          width: 100%; box-sizing: border-box; padding: 4px; height: 32px;
       }
-
-      /* select를 input과 동일한 크기·외형으로 (ui.css min-width:140px 및
-         .ps-wrap height:30px !important 를 이 스코프에서만 덮어씀) */
       #sujuForm .item-table select {
-          width: 100%;
-          box-sizing: border-box;
-          min-width: 0;
-          padding: 4px;
-          height: 32px !important;
-          line-height: 32px !important;
-          border: 1px solid #D5D7DC;
-          border-radius: 5px;
-          background-color: #fff;
-          font-size: 13px;
+          width: 100%; box-sizing: border-box; min-width: 0; padding: 4px;
+          height: 32px !important; line-height: 32px !important;
+          border: 1px solid #D5D7DC; border-radius: 5px;
+          background-color: #fff; font-size: 13px;
       }
-
-      /* .ps-wrap input[type] { height:30px !important } 를 item-table 안에서만 32px로 재확정 */
       #sujuForm .item-table input:not([type="hidden"]) {
-          height: 32px !important;
-          line-height: 32px !important;
+          height: 32px !important; line-height: 32px !important;
       }
-
-      /* 비활성(설비타입 hanger 선택 시) 회색 배경 */
       #sujuForm .item-table select:disabled {
-          background-color: #EDEFF5;
-          border: 1px solid #D5D7DC !important;
-          color: #333333;
+          background-color: #EDEFF5; border: 1px solid #D5D7DC !important; color: #333333;
       }
       #sujuForm .item-table input[type="date"] {
-          min-width: 0;
-          width: 100%;
-          box-sizing: border-box;
-          padding: 4px 2px;
+          min-width: 0; width: 100%; box-sizing: border-box; padding: 4px 2px;
+      }
+      /* 포커스 강조 (마우스 없이 위치 파악) */
+      #sujuForm .item-table input:focus,
+      #sujuForm .item-table select:focus,
+      #sujuForm .write-table input:focus,
+      #sujuForm .write-table select:focus,
+      #sujuForm .write-table textarea:focus {
+          border-color: #2f6fed !important;
+          box-shadow: 0 0 0 2px rgba(47,111,237,.18);
+          outline: none;
       }
 
-      /* 반응형에서 셀이 display:block으로 깨지지 않도록 이 테이블만 보호 */
       @media (max-width: 1200px) {
           #sujuForm .item-table           { display: table !important; table-layout: fixed !important; }
           #sujuForm .item-table thead     { display: table-header-group !important; }
@@ -188,40 +180,75 @@
       }
       .item-table td:first-child { text-align: left; }
 
-      .item-table .btn.in_btn, .ps-inbtn {
-          display: inline-flex;
-          justify-content: center;
-          align-items: center;
-          width: 24px;
-          height: 24px;
-          border-radius: 4px;
-          padding: 0;
-          border: 1px solid #B3B3B3;
-          background-color: #fff;
-          cursor: pointer;
-          line-height: 0;
+      /* 인라인 아이콘 버튼 : 입력칸(30px) 과 높이를 맞춘다 */
+      .ps-inbtn {
+          display: inline-flex; justify-content: center; align-items: center;
+          flex: 0 0 auto;
+          width: 30px; height: 30px;
+          box-sizing: border-box;
+          border-radius: 4px; padding: 0; margin: 0;
+          border: 1px solid #c9ced6; background-color: #fff;
+          cursor: pointer; line-height: 1; color: #55617a;
       }
-      .item-table .btn.in_btn img, .ps-inbtn img {
-          width: 11px;
-          height: 11px;
-          display: block;
+      .ps-inbtn:hover { background: #eef5ff; border-color: #2f6fed; color: #2f6fed; }
+      .ps-inbtn img { width: 12px; height: 12px; display: block; }
+      .ps-inbtn.txt { font-size: 12px; font-weight: 600; }
+
+      /* 표 안의 버튼은 셀에 맞춰 조금 작게 */
+      .item-table .btn.in_btn {
+          display: inline-flex; justify-content: center; align-items: center;
+          width: 26px; height: 26px; box-sizing: border-box;
+          border-radius: 4px; padding: 0;
+          border: 1px solid #c9ced6; background-color: #fff;
+          cursor: pointer; line-height: 1;
       }
-      .input-with-button {
-          display: flex;
-          gap: 4px;
-          align-items: center;
+      .item-table .btn.in_btn img { width: 11px; height: 11px; display: block; }
+      .item-table .ps-inbtn { width: 26px; height: 26px; }
+      .item-table th .btn.in_btn { border-color: #b3b3b3; }
+
+      /* 검색줄 : 버튼 높이/간격 정리 */
+      .ps-search .btn {
+          display: inline-flex; align-items: center; gap: 4px;
+          height: 30px; box-sizing: border-box; margin-left: 4px;
       }
-      .input-with-button input {
-          flex: 1;
+      .ps-search .btn img { width: 13px; height: 13px; }
+      .ps-search .input-with-button { width: 270px; }
+
+      .input-with-button { display: flex; gap: 4px; align-items: center; }
+      .input-with-button input { flex: 1 1 auto; min-width: 0; }
+      .input-with-button .btn.in_btn,
+      .input-with-button .ps-inbtn { flex: 0 0 auto; }
+      /* 레이아웃이 입력칸을 .input-clear 로 감싸므로 그 래퍼가 늘어나야 한다.
+         flex-grow 만으로는 래퍼가 콘텐츠 폭에 머무는 경우가 있어 width 도 함께 준다 */
+      .input-with-button > .input-clear {
+          flex: 1 1 auto;
+          width: 100%;
+          max-width: none !important;
           min-width: 0;
+          position: relative;
       }
-      .input-with-button .btn.in_btn { flex-shrink: 0; }
+      /* 레이아웃 CSS 의 max-width 상한 때문에 입력칸이 래퍼를 못 채우는 것을 해제 */
+      .input-with-button > .input-clear > input,
+      .input-with-button > input[type="text"] {
+          width: 100% !important;
+          max-width: none !important;
+          box-sizing: border-box;
+      }
+
+      /* 프로젝트 진행상태 뱃지 */
+      .proj-state {
+          flex-shrink: 0; display: none;
+          padding: 2px 10px; border-radius: 11px;
+          font-size: 11px; font-weight: 700; white-space: nowrap;
+          border: 1px solid transparent;
+      }
+      .proj-state.ing  { background: #eaf3ff; color: #1d5d90; border-color: #bcd8f5; }
+      .proj-state.done { background: #ffecec; color: #c0392b; border-color: #f3c2c2; }
+      .proj-state.none { background: #f2f4f7; color: #7d8798; border-color: #dfe3e8; }
 
       .ps-form-foot {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-top: 8px;
+          flex: 0 0 auto;
+          display: flex; justify-content: space-between; align-items: center; margin-top: 6px;
       }
       .ps-form-foot .warn { color: #c0392b; font-size: 13px; }
 
@@ -240,14 +267,12 @@
           height: auto !important;
           padding: 2px 6px;
       }
-      #sujuForm .write-table th {
-          font-size: 13px;
-      }
+      #sujuForm .write-table th { font-size: 13px; }
   </style>
 </head>
 <th:block layout:fragment="content">
 
-  <div class="layout-contents">
+  <div class="layout-contents ps-tight">
     <div class="page-title-wrap">
       <div class="left">
         <h2>수주 관리</h2>
@@ -262,14 +287,18 @@
 
     <input type="hidden" id="spjangcdHidden">
 
-    <section class="section">
+    <section class="section ps-section">
       <div class="ps-wrap">
 
         <!-- ===================== 상단 : 수주 목록 ===================== -->
         <div class="ps-left">
           <div class="ps-panel">
             <div class="ps-panel-head">
-              <h3>수주 목록</h3>
+              <h3>수주 목록
+                <span class="ps-keyhint">
+                  <b>&uarr;&darr;</b> 행이동 · <b>Enter</b> 상세로 · <b>Alt+F</b> 검색
+                </span>
+              </h3>
               <ul></ul>
             </div>
             <div class="ps-search">
@@ -284,9 +313,13 @@
               <dl>
                 <dt>프로젝트</dt>
                 <dd>
-                  <select id="sujuSrchProjno" style="min-width:200px;">
-                    <option value="">전체 프로젝트</option>
-                  </select>
+                  <div class="input-with-button" style="width:270px;">
+                    <input type="hidden" id="sujuSrchProjno">
+                    <input type="text" id="sujuSrchProjnm" autocomplete="off"
+                           placeholder="전체 (이름 입력 후 Enter)">
+                    <a class="ps-inbtn" id="btnSrchProjPop" title="프로젝트 검색 (F2)">
+                      <img th:src="@{/images/icon/btn-srch.svg}" alt="검색"></a>
+                  </div>
                 </dd>
               </dl>
               <a class="btn btn-delete" title="검색" id="btnSujuSearch">
@@ -301,7 +334,12 @@
         <div class="ps-right">
           <div class="ps-panel">
             <div class="ps-panel-head">
-              <h3>수주상세 <span class="mode-badge" id="sujuModeBadge">신규</span></h3>
+              <h3>수주상세 <span class="mode-badge" id="sujuModeBadge">신규</span>
+                <span class="ps-keyhint">
+                  <b>Enter</b> 다음칸 · <b>&larr;&uarr;&darr;&rarr;</b> 이동 · <b>F2</b> 검색 ·
+                  <b>Alt+S</b> 저장 · <b>Alt+N</b> 신규 · <b>Alt+A</b> 행추가 · <b>Esc</b> 목록
+                </span>
+              </h3>
               <ul>
                 <li><a class="btn btn-excell" id="btnExcelNew" title="엑셀업로드"><img th:src="@{/images/icon/ico-plus.svg}" alt="신규">엑셀 업로드</a></li>
                 <li><a class="btn btn-excell" id="btnSujuNew" title="신규"><img th:src="@{/images/icon/ico-plus.svg}" alt="신규">신규</a></li>
@@ -317,44 +355,48 @@
               <table class="write-table">
                 <caption>수주 등록</caption>
                 <colgroup>
-                  <col style="width:70px">
-                  <col>
-                  <col style="width:70px">
-                  <col>
+                  <col style="width:78px">
+                  <col style="width:calc(50% - 78px)">
+                  <col style="width:78px">
+                  <col style="width:auto">
                 </colgroup>
                 <tbody>
                 <tr>
-                  <th><label for="sujuProjSel">프로젝트<span class="eq">*</span></label></th>
-                  <td colspan="3">
-                    <select id="sujuProjSel" name="projno" style="width:100%;">
-                      <option value="">프로젝트를 선택하세요</option>
-                    </select>
+                  <th><label for="sujuProjName">프로젝트<span class="eq">*</span></label></th>
+                  <td>
+                    <div class="input-with-button">
+                      <input type="hidden" id="sujuProjSel" name="projno">
+                      <input type="text" id="sujuProjName" autocomplete="off"
+                             placeholder="프로젝트명 입력 후 Enter (F2 검색)">
+                      <a class="ps-inbtn" id="btnProjSearch" title="프로젝트 검색 (F2)">
+                        <img th:src="@{/images/icon/btn-srch.svg}" alt="검색"></a>
+                      <span class="proj-state" id="sujuProjState"></span>
+                    </div>
                   </td>
-                </tr>
-                <tr>
                   <th><label for="cboSujuType">수주구분</label></th>
                   <td><select id="cboSujuType" name="SujuType"></select></td>
-                  <th><label for="JumunDate">수주일<span class="eq">*</span></label></th>
-                  <td><input type="date" id="JumunDate" name="JumunDate"></td>
                 </tr>
                 <tr>
+                  <th><label for="JumunDate">수주일<span class="eq">*</span></label></th>
+                  <td><input type="date" id="JumunDate" name="JumunDate"></td>
                   <th><label for="DueDate">납기일<span class="eq">*</span></label></th>
                   <td><input type="date" id="DueDate" name="DueDate"></td>
+                </tr>
+                <tr>
                   <th><label>수주처<span class="eq">*</span></label></th>
                   <td>
                     <div class="input-with-button">
                       <input id="SuJuOrderId" name="SuJuOrderId" type="hidden">
-                      <input type="text" id="SuJuOrderName" name="SuJuOrderName" placeholder="검색 버튼으로 수주처 선택" readonly/>
-                      <a class="btn in_btn ps-inbtn" title="수주처 검색" id="btnOrderSearch">
+                      <input type="text" id="SuJuOrderName" name="SuJuOrderName"
+                             placeholder="Enter 또는 F2 로 선택" readonly/>
+                      <a class="ps-inbtn" title="수주처 검색 (F2)" id="btnOrderSearch">
                         <img th:src="@{/images/icon/btn-srch.svg}" alt="검색"></a>
-                      <a class="btn in_btn ps-inbtn" title="거래처 신규등록" id="btnPlusCompany">
+                      <a class="ps-inbtn" title="거래처 신규등록" id="btnPlusCompany">
                         <img th:src="@{/images/icon/ico-plus.svg}" alt="등록"></a>
                     </div>
                   </td>
-                </tr>
-                <tr>
                   <th><label for="SujuDescription">비고</label></th>
-                  <td colspan="3"><textarea id="SujuDescription" name="Description"></textarea></td>
+                  <td><textarea id="SujuDescription" name="Description"></textarea></td>
                 </tr>
                 </tbody>
               </table>
@@ -510,9 +552,13 @@
               <tr>
                 <th style="text-align:center"><label>프로젝트</label></th>
                 <td>
-                  <select id="up_projno" name="projno" style="width:100%;">
-                    <option value="">프로젝트 선택(선택)</option>
-                  </select>
+                  <div class="input-with-button">
+                    <input type="hidden" id="up_projno" name="projno"/>
+                    <input type="text" id="up_projnm" autocomplete="off"
+                           placeholder="프로젝트명 입력 후 Enter (선택)"/>
+                    <a class="btn in_btn ps-inbtn" id="btnUpProjSearch" title="프로젝트 검색">
+                      <img th:src="@{/images/icon/btn-srch.svg}" alt="검색"/></a>
+                  </div>
                 </td>
               </tr>
               <tr>
@@ -550,6 +596,8 @@
   <th:block th:replace="/common/popup_company :: popup_company"></th:block>
   <th:block th:replace="/sales/popup_suju_company :: popup_suju_company"></th:block>
   <th:block th:replace="/sales/popup_company_new_save :: popup_company_new_save"></th:block>
+  <!-- 프로젝트 선택 팝업 : 파일 위치에 맞게 경로 확인 필요 (/common/ 또는 /sales/) -->
+  <th:block th:replace="/common/popup_project :: popup_project"></th:block>
 
   <script type="text/javascript">
    /* =========================================================
@@ -576,6 +624,8 @@
      this.dirty = false;        // 미저장 변경 여부
      this.suppressDirty = false;
      this.suppressSelection = false;  // 데이터 로드 시 자동 선택 무시
+     this.projStateCache = {};  // projno → 진행단계 요약 (완료 판정 캐시)
+     this._selTimer = null;     // 그리드 방향키 이동 시 상세조회 디바운스
      this.init();
     }
 
@@ -589,6 +639,7 @@
       headersVisibility: wijmo.grid.HeadersVisibility.Column,
       isReadOnly: true,
       showMarquee: true,
+      keyActionEnter: wijmo.grid.KeyAction.None,   // Enter 는 상세 폼으로 이동
       formatItem: (s, e) => {
        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
         e.cell.style.textAlign = 'center';
@@ -616,20 +667,80 @@
       const item = s.selectedItems[0];
       if (!item) return;
 
-      const doLoad = () => _this.loadDetail(item);
-      if (_this.isDirty()) {
-       Alert.confirm('', '저장하지 않은 수주 내용이 있습니다. 이동하시겠습니까?',
-        doLoad, function () {
-        });
-      } else {
-       doLoad();
+      // 방향키로 행을 훑을 때 매 행마다 조회하지 않도록 지연
+      clearTimeout(_this._selTimer);
+      _this._selTimer = setTimeout(function () {
+       const doLoad = () => _this.loadDetail(item);
+       if (_this.isDirty()) {
+        Alert.confirm('', '저장하지 않은 수주 내용이 있습니다. 이동하시겠습니까?',
+         doLoad, function () {
+         });
+       } else {
+        doLoad();
+       }
+      }, 220);
+     });
+
+     // 그리드에서 Enter → 상세 폼 첫 칸으로 포커스 이동
+     this.grid.hostElement.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.keyCode === 13) {
+       e.preventDefault();
+       setTimeout(() => $('#sujuProjName').focus(), 260);
       }
      });
 
      // 검색
-     $('#btnSujuSearch').click(() => _this.search());
-     $('#sujuSrchProjno').on('change', function () {
-      _this.search();
+     $('#btnSujuSearch').click(() => _this.search(true));
+
+     // 검색조건 프로젝트 : 이름 입력 후 Enter → 1건이면 자동 선택, 아니면 팝업
+     $('#sujuSrchProjnm').on('keydown', function (e) {
+      if (e.key === 'F2') {
+       e.preventDefault();
+       _this.openProjectPopup('', (it) => _this.setSearchProject(it), this);
+       return;
+      }
+      if (e.key !== 'Enter' && e.keyCode !== 13) return;
+      e.preventDefault();
+      const kw = ($(this).val() || '').trim();
+      if (!kw) {                       // 비우고 Enter → 전체 조회
+       _this.setSearchProject(null);
+       _this.search(true);
+       return;
+      }
+      const el = this;
+      _this.resolveProject(kw, function (it) {
+       _this.setSearchProject(it);
+       _this.search(true);
+      }, el);
+     });
+     $('#btnSrchProjPop').click(function () {
+      _this.openProjectPopup($('#sujuSrchProjnm').val(), function (it) {
+       _this.setSearchProject(it);
+       _this.search(true);
+      }, document.getElementById('sujuSrchProjnm'));
+     });
+
+     // 레이아웃이 붙여주는 지우기(×) 버튼 / 직접 지우기 → 프로젝트 조건 해제
+     $(document).on('click', '#sujuSrchProjnm', function () {
+     });
+     $('#sujuSrchProjnm').closest('.input-clear, .input-with-button')
+     .on('click', '.btn-clear', function () {
+      setTimeout(function () {
+       $('#sujuSrchProjno').val('');
+       $('#sujuSrchProjnm').val('');
+       _this.search(true);
+      }, 0);
+     });
+     $('#sujuSrchProjnm').on('input', function () {
+      if (($(this).val() || '').trim() === '') $('#sujuSrchProjno').val('');
+     });
+
+     // 조회기간에서 Enter → 바로 검색
+     $('#sujuSrchStartDt, #sujuSrchEndDt').on('keydown', function (e) {
+      if (e.key === 'Enter' || e.keyCode === 13) {
+       e.preventDefault();
+       _this.search(true);
+      }
      });
 
      // 신규 / 저장 / 삭제
@@ -656,30 +767,47 @@
      AjaxUtil.fillSelectOptions($('#cboSujuType'), 'system_code', 'choose', 'plan', 'suju_type');
 
      this.bindFormEvents();
+     this.bindKeyboardNav();
     }
 
     /* ---------- 엑셀 업로드 팝업 ---------- */
     openExcelUpload() {
      const _this = this;
-     if (_this.excelPopup) { _this.excelPopup.close(); _this.excelPopup = null; }
+     if (_this.excelPopup) {
+      _this.excelPopup.close();
+      _this.excelPopup = null;
+     }
 
      const content = tmpl('excelUploadTemplate', {});
      _this.excelPopup = new PopupDraggable('수주 엑셀 업로드');
-     _this.excelPopup.open({ width: 560, height: 420, $content: $(content) });
+     _this.excelPopup.open({width: 560, height: 420, $content: $(content)});
 
      // 기본 일자
      $('#up_jumun_date').val(CommonUtil.getYYYYMMDD());
      $('#up_due_date').val(CommonUtil.getYYYYMMDD(10));
 
-     // 프로젝트 옵션 복사 (이미 로드된 상단 검색 콤보 재사용)
-     const $src = $('#sujuSrchProjno');
-     const $tgt = $('#up_projno');
-     $src.find('option').each(function () {
-      if (!$(this).val()) return; // '전체 프로젝트' 스킵
-      $tgt.append(`<option value="${$(this).val()}">${$(this).text()}</option>`);
+     // 상단 검색에서 선택된 프로젝트를 기본값으로
+     $('#up_projno').val($('#sujuSrchProjno').val() || '');
+     $('#up_projnm').val($('#sujuSrchProjnm').val() || '');
+
+     // 프로젝트 선택 (Enter / 검색버튼)
+     const setUpProj = function (it) {
+      $('#up_projno').val(it ? (it.projno || '') : '');
+      $('#up_projnm').val(it ? _this.projLabel(it) : '');
+     };
+     $(document).off('keydown', '#up_projnm').on('keydown', '#up_projnm', function (e) {
+      if (e.key !== 'Enter' && e.keyCode !== 13) return;
+      e.preventDefault();
+      const kw = ($(this).val() || '').trim();
+      if (!kw) {
+       setUpProj(null);
+       return;
+      }
+      _this.resolveProject(kw, setUpProj, this);
      });
-     // 상단에서 선택된 프로젝트가 있으면 기본값
-     if ($('#sujuSrchProjno').val()) $tgt.val($('#sujuSrchProjno').val());
+     $(document).off('click', '#btnUpProjSearch').on('click', '#btnUpProjSearch', function () {
+      _this.openProjectPopup($('#up_projnm').val(), setUpProj, document.getElementById('up_projnm'));
+     });
 
      // 수주처 검색
      $(document).off('click', '#btnUpOrderSearch').on('click', '#btnUpOrderSearch', function () {
@@ -696,7 +824,10 @@
      });
      // 닫기
      $(document).off('click', '#modal-close-button').on('click', '#modal-close-button', function () {
-      if (_this.excelPopup) { _this.excelPopup.close(); _this.excelPopup = null; }
+      if (_this.excelPopup) {
+       _this.excelPopup.close();
+       _this.excelPopup = null;
+      }
      });
     }
 
@@ -705,16 +836,20 @@
 
      const fileInput = document.getElementById('upload_file');
      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-      Alert.alert('', '엑셀 파일을 선택하세요.'); return;
+      Alert.alert('', '엑셀 파일을 선택하세요.');
+      return;
      }
      if (!$('#up_order_id').val()) {
-      Alert.alert('', '수주처를 선택하세요.'); return;
+      Alert.alert('', '수주처를 선택하세요.');
+      return;
      }
      if (!$('#up_jumun_date').val()) {
-      Alert.alert('', '수주일을 입력하세요.'); return;
+      Alert.alert('', '수주일을 입력하세요.');
+      return;
      }
      if (!$('#up_due_date').val()) {
-      Alert.alert('', '납기일을 입력하세요.'); return;
+      Alert.alert('', '납기일을 입력하세요.');
+      return;
      }
 
      const formData = new FormData(document.getElementById('excelUploadForm'));
@@ -722,7 +857,10 @@
 
      Alert.confirm('', '업로드한 내용으로 수주를 저장하시겠습니까?', function () {
       const res = AjaxUtil.postFileSyncData(_this.url + '/excel_save', formData);
-      if (!res) { Alert.alert('업로드 실패', '서버 응답이 없습니다.'); return; }
+      if (!res) {
+       Alert.alert('업로드 실패', '서버 응답이 없습니다.');
+       return;
+      }
       if (!res.success) {
        const msg = res.message || '엑셀 저장에 실패했습니다.';
        $('#upload_message').show().val(msg);
@@ -736,7 +874,10 @@
 
       if (res.data && res.data.headId) window.selectedSujuId = res.data.headId;
 
-      if (_this.excelPopup) { _this.excelPopup.close(); _this.excelPopup = null; }
+      if (_this.excelPopup) {
+       _this.excelPopup.close();
+       _this.excelPopup = null;
+      }
       _this.search();
       _this.resetForm('new');
      });
@@ -770,7 +911,9 @@
      this.suppressDirty = false;
     }
 
-    /* ---------- 프로젝트 목록 로딩 ---------- */
+    /* =========================================================
+     *  프로젝트 선택 (드롭다운 대신 팝업 + 이름입력 자동검색)
+     * ========================================================= */
     escapeHtml(str) {
      if (str === null || str === undefined) return '';
      return String(str)
@@ -780,42 +923,176 @@
      .replace(/>/g, '&gt;');
     }
 
-    loadProjectOptions() {
+    // 화면에 표시할 이름 (번호는 hidden 에만 보관)
+    projLabel(it) {
+     if (!it) return '';
+     const nm = String(it.projnm || '').trim();
+     const no = String(it.projno || '').trim();
+     return nm || no;      // 이름이 없을 때만 번호로 대체
+    }
+
+    // 번호만 아는 경우 이름을 찾아온다 (projno → projnm 캐시)
+    resolveProjectName(projno, cb) {
      const _this = this;
-     AjaxUtil.getAsyncData('/api/transaction/projectRegistration/read',
-      {
-       spjangcd: $('#spjangcdHidden').val(),
-       srchStartDt: $("#sujuSrchStartDt").val(),
-       srchEndDt: $("#sujuSrchEndDt").val(),
-       txtDescription: ''
-      },
-      function (result) {
-       const list = (result && result.data) || [];
-       _this.projectList = list;
+     const no = String(projno || '').trim();
+     if (!no) {
+      cb('');
+      return;
+     }
 
-       const $srch = $('#sujuSrchProjno');
-       const $detail = $('#sujuProjSel');
-       const srchVal = $srch.val();
-       const detailVal = $detail.val();
+     this.projNameCache = this.projNameCache || {};
+     if (this.projNameCache[no] !== undefined) {
+      cb(this.projNameCache[no]);
+      return;
+     }
 
-       $srch.empty().append('<option value="">전체 프로젝트</option>');
-       $detail.empty().append('<option value="">프로젝트를 선택하세요</option>');
+     AjaxUtil.getAsyncData('/api/popup/search_project', {
+      srchCode: no,
+      srchName: '',
+      spjangcd: $('#spjangcdHidden').val() || sessionStorage.getItem('spjangcd')
+     }, function (res) {
+      const rows = (res && res.data) || [];
+      const hit = rows.find(r => String(r.projno || '').trim() === no);
+      const nm = hit ? String(hit.projnm || '').trim() : '';
+      _this.projNameCache[no] = nm;
+      cb(nm);
+     });
+    }
 
-       list.forEach(function (p) {
-        const no = _this.escapeHtml(p.projno);
-        const nm = _this.escapeHtml(p.projnm);
-        const label = (p.projno ? no + ' / ' : '') + nm;
-        $srch.append(`<option value="${no}">${label}</option>`);
-        $detail.append(`<option value="${no}" data-projnm="${nm}">${label}</option>`);
-       });
+    // 이름/코드로 동기 검색 (팝업과 동일한 엔드포인트)
+    searchProjectSync(keyword) {
+     const res = AjaxUtil.getSyncData('/api/popup/search_project', {
+      srchCode: '',
+      srchName: keyword || '',
+      spjangcd: $('#spjangcdHidden').val() || sessionStorage.getItem('spjangcd')
+     });
+     return (res && res.data) || [];
+    }
 
-       if (srchVal) $srch.val(srchVal);
-       if (detailVal) $detail.val(detailVal);
+    // 프로젝트 선택 팝업 열기 (keyword 가 있으면 그 조건으로 미리 검색된 상태)
+    openProjectPopup(keyword, onPick, focusEl) {
+     const pop = new PopProjectComponent((keyword || '').trim());
+     if (focusEl) pop.focusAfterClose = focusEl;
+     pop.show(function (item) {
+      if (item) onPick(item);
+     });
+    }
+
+    // 입력값 → 1건이면 자동 선택, 0건·다건이면 팝업
+    resolveProject(keyword, onPick, focusEl) {
+     const kw = (keyword || '').trim();
+     if (!kw) {
+      this.openProjectPopup('', onPick, focusEl);
+      return;
+     }
+
+     const rows = this.searchProjectSync(kw);
+     if (rows.length === 1) {
+      onPick(rows[0]);
+      return;
+     }
+     this.openProjectPopup(kw, onPick, focusEl);
+    }
+
+    /* ---------- 검색조건의 프로젝트 ---------- */
+    setSearchProject(it) {
+     const no = it ? (it.projno || '') : '';
+     $('#sujuSrchProjno').val(no);
+     $('#sujuSrchProjnm').val(it ? this.projLabel(it) : '').attr('title', no);
+
+     // 이름을 못 받았으면 번호로 조회해서 채운다
+     if (no && !(it && String(it.projnm || '').trim())) {
+      this.resolveProjectName(no, function (nm) {
+       if (nm && $('#sujuSrchProjno').val() === no) $('#sujuSrchProjnm').val(nm);
+      });
+     }
+    }
+
+    /* ---------- 상세의 프로젝트 ---------- */
+    setDetailProject(it, opt) {
+     const o = opt || {};
+     const no = it ? (it.projno || '') : '';
+     const nm = it ? String(it.projnm || '').trim() : '';
+
+     $('#sujuProjSel').val(no);
+     $('#sujuProjnm').val(nm);
+     $('#sujuProjName').val(it ? this.projLabel(it) : '').attr('title', no);
+
+     // 이름을 못 받았으면 번호로 조회해서 채운다
+     if (no && !nm) {
+      this.resolveProjectName(no, function (found) {
+       if (found && $('#sujuProjSel').val() === no) {
+        $('#sujuProjnm').val(found);
+        $('#sujuProjName').val(found);
+       }
+      });
+     }
+
+     if (!o.silent) this.dirty = true;
+     this.refreshProjectState(no);
+    }
+
+    /* =========================================================
+     *  프로젝트 진행상태 (완료된 프로젝트 구분)
+     *  - tb_da003 에 완료 컬럼이 없으므로 진행단계로 판정한다
+     *  - 단계가 1건 이상이고 전부 완료면 '완료'
+     * ========================================================= */
+    refreshProjectState(projno) {
+     const _this = this;
+     const $b = $('#sujuProjState');
+
+     if (!projno) {
+      $b.hide().text('');
+      return;
+     }
+
+     const cached = this.projStateCache[projno];
+     if (cached) {
+      this.renderProjectState(cached);
+      return;
+     }
+
+     AjaxUtil.getAsyncData('/api/transaction/projectRegistration/readStages',
+      {projno: projno, spjangcd: $('#spjangcdHidden').val()},
+      function (res) {
+       const list = (res && res.data) || [];
+       const total = list.length;
+       const done = list.filter(function (st) {
+        const flag = String(st.endflag ?? '').trim();
+        const cp = String(st.cpdate ?? '').trim();
+        return flag === '1' || cp !== '';
+       }).length;
+
+       const state = {
+        projno: projno, total: total, done: done,
+        finished: total > 0 && done === total
+       };
+       _this.projStateCache[projno] = state;
+       _this.renderProjectState(state);
       });
     }
 
+    renderProjectState(st) {
+     const $b = $('#sujuProjState');
+     if (!st || st.total === 0) {
+      $b.attr('class', 'proj-state none').text('진행단계 미등록').show();
+      return;
+     }
+     if (st.finished) {
+      $b.attr('class', 'proj-state done').text(`완료 (${st.done}/${st.total}단계)`).show();
+     } else {
+      $b.attr('class', 'proj-state ing').text(`진행중 (${st.done}/${st.total}단계)`).show();
+     }
+    }
+
+    isSelectedProjectFinished() {
+     const p = $('#sujuProjSel').val();
+     const st = p ? this.projStateCache[p] : null;
+     return !!(st && st.finished);
+    }
+
     /* ---------- 조회 ---------- */
-    search() {
+    search(focusGrid) {
      const _this = this;
      const data = {
       start: $('#sujuSrchStartDt').val(),
@@ -831,6 +1108,12 @@
        if (window.selectedSujuId) {
         GridUtil.selectRowById(_this.grid, window.selectedSujuId);
         window.selectedSujuId = null;
+       }
+       // 검색 직후 그리드로 포커스 → 방향키로 바로 행 이동
+       if (focusGrid) {
+        setTimeout(() => {
+         if (_this.grid && _this.grid.rows.length > 0) _this.grid.focus();
+        }, 0);
        }
       }
      });
@@ -880,8 +1163,10 @@
 
      $('#sujuModeBadge').text('수정 - ' + (d.JumunNumber || row.JumunNumber || '')).addClass('edit');
      $('#sujuId').val(d.id || row.id || '');
-     $('#sujuProjSel').val(d.projno || row.projno || '');
-     $('#sujuProjnm').val(d.projnm || row.projnm || '');
+     this.setDetailProject({
+      projno: d.projno || row.projno || '',
+      projnm: d.projnm || row.projnm || ''
+     }, {silent: true});
      $('#JumunDate').val(d.JumunDate || '');
      $('#DueDate').val(d.DueDate || '');
      $('#SuJuOrderId').val(d.order_id || d.SuJuOrderId || '');
@@ -901,31 +1186,31 @@
        const $row = _this.addItemRows(1);
 
        // --- 식별자 / 공정명 ---
-       _this.setCell($row, 'suju_id_',        _this.pick(it.suju_id, it.id));
-       _this.setCell($row, 'Material_id_',    _this.pick(it.Material_id));
-       _this.setCell($row, 'product_code_',   _this.pick(it.product_code));
+       _this.setCell($row, 'suju_id_', _this.pick(it.suju_id, it.id));
+       _this.setCell($row, 'Material_id_', _this.pick(it.Material_id));
+       _this.setCell($row, 'product_code_', _this.pick(it.product_code));
        _this.setCell($row, 'txtProductName_', _this.pick(it.txtProductName, it.product_name));
 
        // --- JIG SET / 유니트 ---
        _this.setCell($row, 'setCnt_', _this.pick(it.setCnt, it.standard, it.Standard));
-       _this.setCell($row, 'unit_',   _this.pick(it.unitQty, it.quantity, it.SujuQty));
+       _this.setCell($row, 'unit_', _this.pick(it.unitQty, it.quantity, it.SujuQty));
 
        // ================= 추가 컬럼 =================
-       _this.setCell($row, 'line_',           _this.pick(it.line, it.lineId));
-       _this.setCell($row, 'equiptype_',      _this.pick(it.equip_type, it.equiptype));
-       _this.setCell($row, 'pinShiftUnit_',   _this.pick(it.pin_shift_unit, it.pinShiftUnit));
-       _this.setCell($row, 'legSpec_',        _this.pick(it.leg_spec, it.legSpec));
-       _this.setCell($row, 'legCnt_',         _this.pick(it.leg_cnt, it.legCnt));
+       _this.setCell($row, 'line_', _this.pick(it.line, it.lineId));
+       _this.setCell($row, 'equiptype_', _this.pick(it.equip_type, it.equiptype));
+       _this.setCell($row, 'pinShiftUnit_', _this.pick(it.pin_shift_unit, it.pinShiftUnit));
+       _this.setCell($row, 'legSpec_', _this.pick(it.leg_spec, it.legSpec));
+       _this.setCell($row, 'legCnt_', _this.pick(it.leg_cnt, it.legCnt));
 
        const mkType = _this.pick(it.make_type, it.makeType);
        if (mkType) _this.setCell($row, 'makeType_', mkType);
 
-       _this.setCell($row, 'designCompId_',   _this.pick(it.design_comp_id, it.designCompId));
+       _this.setCell($row, 'designCompId_', _this.pick(it.design_comp_id, it.designCompId));
        _this.setCell($row, 'designCompName_', _this.pick(it.design_comp_name, it.designCompName));
-       _this.setCell($row, 'drawDate_',       _this.toDateStr(_this.pick(it.draw_date, it.drawDate)));
-       _this.setCell($row, 'makeCompId_',     _this.pick(it.make_comp_id, it.makeCompId));
-       _this.setCell($row, 'makeCompName_',   _this.pick(it.make_comp_name, it.makeCompName));
-       _this.setCell($row, 'itemRemark_',     _this.pick(it.item_remark, it.itemRemark));
+       _this.setCell($row, 'drawDate_', _this.toDateStr(_this.pick(it.draw_date, it.drawDate)));
+       _this.setCell($row, 'makeCompId_', _this.pick(it.make_comp_id, it.makeCompId));
+       _this.setCell($row, 'makeCompName_', _this.pick(it.make_comp_name, it.makeCompName));
+       _this.setCell($row, 'itemRemark_', _this.pick(it.item_remark, it.itemRemark));
        // ===========================================
       });
       this.addItemRows(1); // 추가 입력용 빈 행
@@ -949,7 +1234,16 @@
      $('#sujuForm')[0].reset();
      $('#sujuId').val('');
      // 신규 시 목록에서 선택된 프로젝트가 있으면 기본값으로 연결
-     $('#sujuProjSel').val($('#sujuSrchProjno').val() || '');
+     const srchNo = $('#sujuSrchProjno').val() || '';
+     if (srchNo) {
+      $('#sujuProjSel').val(srchNo);
+      $('#sujuProjName').val($('#sujuSrchProjnm').val() || srchNo);
+      this.refreshProjectState(srchNo);
+     } else {
+      $('#sujuProjSel').val('');
+      $('#sujuProjName').val('');
+      $('#sujuProjState').hide().text('');
+     }
      $('#sujuProjnm').val('');
      $('#SuJuOrderId').val('');
      $('#cboCompany').val('');
@@ -1013,7 +1307,7 @@
        if (baseName) $(this).attr('name', `${baseName}_${index}`);
       });
       // 라인 콤보
-      AjaxUtil.fillSelectOptions($newRow.find('select[name^="line_"]'), 'workcenter', 'choose','58'); // dash 를 가본으로
+      AjaxUtil.fillSelectOptions($newRow.find('select[name^="line_"]'), 'workcenter', 'choose', '58'); // dash 를 가본으로
 
       // 설비타입: 품목그룹 기본값 기준으로 토글이 채움 (여기서 user_code_id 직접 호출 X)
       this.applyEquipState($newRow);
@@ -1032,7 +1326,7 @@
 
      if (group === 'proc') {
       // proc 하위 설비타입만 채움 (4번째 인자 = 부모코드)
-      AjaxUtil.fillSelectOptions($equip, 'user_code_id', '','', 'proc');
+      AjaxUtil.fillSelectOptions($equip, 'user_code_id', '', '', 'proc');
       $equip.prop('disabled', false);
       if (cur) $equip.val(cur);
      } else {
@@ -1136,6 +1430,33 @@
       _this.addItemRows(3);
      });
 
+     // 상세 프로젝트 검색 버튼
+     $('#btnProjSearch').click(function () {
+      _this.openProjectPopup($('#sujuProjName').val(), function (it) {
+       _this.setDetailProject(it);
+       setTimeout(() => $('#cboSujuType').focus(), 60);
+      }, document.getElementById('sujuProjName'));
+     });
+
+     // 프로젝트 입력을 지우면 선택도 해제 (레이아웃의 × 버튼 포함)
+     $form.on('input', '#sujuProjName', function () {
+      if (($(this).val() || '').trim() === '') {
+       $('#sujuProjSel').val('');
+       $('#sujuProjnm').val('');
+       $('#sujuProjState').hide().text('');
+      }
+     });
+     $form.on('click', '.btn-clear', function () {
+      const $inp = $(this).closest('.input-clear').find('input').first();
+      if ($inp.attr('id') !== 'sujuProjName') return;
+      setTimeout(function () {
+       $('#sujuProjSel').val('');
+       $('#sujuProjnm').val('');
+       $('#sujuProjName').val('');
+       $('#sujuProjState').hide().text('');
+      }, 0);
+     });
+
      // 설계 업체 검색 (행별)
      $form.on('click', '.btn-design-comp', function () {
       const $row = $(this).closest('tr');
@@ -1207,15 +1528,7 @@
 
      // 수주처 검색
      $('#btnOrderSearch').click(function () {
-      const pop = new PopCompSuJuComponent();
-      pop.show(function (items) {
-       $('#SuJuOrderId').val(items.id);
-       $('#SuJuOrderName').val(items.compname);
-       $('#cboCompany').val(items.id);
-       $('#CompanyName').val(items.compname);
-       _this.dirty = true;
-       setTimeout(() => $('#DeliveryName').focus(), 100);
-      });
+      _this.openOrderPopup();
      });
 
      // 판매처 검색
@@ -1239,24 +1552,160 @@
          $('#cboCompany').val(saved.id);
          $('#CompanyName').val(saved.name);
          _this.dirty = true;
-         setTimeout(() => $('#DeliveryName').focus(), 100);
+         setTimeout(() => $('#SujuDescription').focus(), 100);
         }
        },
        focusAfterClose: this
       });
      });
 
-     // 키보드 네비게이션 (Enter/방향키) — input + select + date 포함
+     // 품목 행 포커스 강조
+     $form.on('focusin', '.item-table input, .item-table select', function () {
+      $('#itemTbody tr').removeClass('row-focus');
+      $(this).closest('tr').addClass('row-focus');
+     });
+    }
+
+    /* =========================================================
+     *  수주처 팝업 (버튼 / Enter 공용)
+     * ========================================================= */
+    openOrderPopup() {
+     const _this = this;
+     const pop = new PopCompSuJuComponent();
+     pop.focusAfterClose = document.getElementById('SuJuOrderName');
+     pop.show(function (items) {
+      $('#SuJuOrderId').val(items.id);
+      $('#SuJuOrderName').val(items.compname);
+      $('#cboCompany').val(items.id);
+      $('#CompanyName').val(items.compname);
+      _this.dirty = true;
+      setTimeout(() => $('#SujuDescription').focus(), 100);
+     });
+    }
+
+    /* =========================================================
+     *  키보드 네비게이션 (마우스 사용 최소화)
+     * ========================================================= */
+    bindKeyboardNav() {
+     const _this = this;
+     const $form = $('#sujuForm');
+
+     /* ---------- (1) 상세 헤더 폼 : Enter / 위·아래 ---------- */
+     const headOrder = ['#sujuProjName', '#cboSujuType', '#JumunDate',
+      '#DueDate', '#SuJuOrderName', '#SujuDescription'];
+
+     const focusHead = (idx) => {
+      if (idx < 0 || idx >= headOrder.length) return false;
+      const $t = $(headOrder[idx]);
+      if (!$t.length) return false;
+      $t.focus();
+      if ($t.is('input:not([type="date"]), textarea')) $t.select();
+      return true;
+     };
+
+     const firstItemCell = () => {
+      const $row = $('#itemTbody tr:visible').first();
+      return $row.find('[name^="line_"]').filter('input, select').first();
+     };
+
+     $form.on('keydown', headOrder.join(', '), function (e) {
+      const key = e.key;
+      const id = '#' + this.id;
+      const cur = headOrder.indexOf(id);
+      if (cur === -1) return;
+
+      const tag = this.tagName.toLowerCase();
+      const isDate = (this.type === 'date');
+
+      // F2 : 프로젝트 / 수주처 검색 팝업
+      if (key === 'F2') {
+       if (id === '#sujuProjName') {
+        e.preventDefault();
+        _this.openProjectPopup($(this).val(), (it) => {
+         _this.setDetailProject(it);
+         setTimeout(() => focusHead(cur + 1), 60);
+        }, this);
+        return;
+       }
+       if (id === '#SuJuOrderName') {
+        e.preventDefault();
+        _this.openOrderPopup();
+        return;
+       }
+      }
+
+      if (!['Enter', 'ArrowUp', 'ArrowDown'].includes(key)) return;
+
+      // 프로젝트 : Enter 는 검색 (이동 아님)
+      if (id === '#sujuProjName' && key === 'Enter') {
+       e.preventDefault();
+       const kw = ($(this).val() || '').trim();
+       const el = this;
+       if (!kw) {
+        _this.openProjectPopup('', (it) => {
+         _this.setDetailProject(it);
+         setTimeout(() => focusHead(cur + 1), 60);
+        }, el);
+        return;
+       }
+       _this.resolveProject(kw, function (it) {
+        _this.setDetailProject(it);
+        setTimeout(() => focusHead(cur + 1), 60);
+       }, el);
+       return;
+      }
+
+      // 수주처 : Enter 는 팝업
+      if (id === '#SuJuOrderName' && key === 'Enter') {
+       e.preventDefault();
+       _this.openOrderPopup();
+       return;
+      }
+
+      // select / date 의 위아래는 값 변경에 양보
+      if ((tag === 'select' || isDate) && (key === 'ArrowUp' || key === 'ArrowDown')) return;
+
+      // 비고(textarea) : Shift+Enter 는 줄바꿈
+      if (id === '#SujuDescription' && key === 'Enter' && e.shiftKey) return;
+
+      e.preventDefault();
+
+      if (key === 'ArrowUp') {
+       focusHead(cur - 1);
+       return;
+      }
+
+      // Enter / ArrowDown → 다음 칸, 마지막이면 품목 첫 칸
+      if (cur === headOrder.length - 1) {
+       const $c = firstItemCell();
+       if ($c.length) {
+        $c.focus();
+        if ($c.is('input')) $c.select();
+       }
+      } else {
+       focusHead(cur + 1);
+      }
+     });
+
+     /* ---------- (2) 품목 테이블 : Enter / 방향키 ---------- */
      const focusOrder = [
-      'line_',            // select
+      'line_',            // 라인
       'txtProductName_',  // 공정명 (Enter는 검색)
       'setCnt_', 'unit_', 'pinShiftUnit_',
-      'equiptype_',       // select
+      'equiptype_',       // 설비타입
       'legSpec_', 'legCnt_',
       'makeType_',        // select
       'drawDate_',        // date
       'itemRemark_'
      ];
+
+     // 캐럿이 문자열 끝/처음일 때만 좌우 이동 (텍스트 편집 방해 방지)
+     const atStart = (el) => !el.setSelectionRange || (el.selectionStart === 0 && el.selectionEnd === 0);
+     const atEnd = (el) => {
+      if (!el.setSelectionRange) return true;
+      const len = (el.value || '').length;
+      return el.selectionStart === len && el.selectionEnd === len;
+     };
 
      $form.on('keydown', '.item-table input, .item-table select', function (e) {
       const key = e.key;
@@ -1267,22 +1716,25 @@
       const cur = focusOrder.findIndex(p => name.startsWith(p));
       if (cur === -1) return;
 
-      // 품목명 엔터는 검색 동작이므로 네비게이션에서 제외
+      // 공정명 엔터는 검색 동작이므로 네비게이션에서 제외
       if (name.startsWith('txtProductName_') && key === 'Enter') return;
 
       const tag = this.tagName.toLowerCase();
       const isDate = (this.type === 'date');
+      const isText = (tag === 'input' && !isDate);
 
-      // select: 위/아래는 옵션 선택에 양보 (좌우·Enter만 이동)
+      // select : 위/아래는 옵션 선택, 좌우는 이동
       if (tag === 'select' && (key === 'ArrowUp' || key === 'ArrowDown')) return;
-      // date: 위/아래는 날짜 증감에 양보
-      if (isDate && (key === 'ArrowUp' || key === 'ArrowDown')) return;
+      // date : 위/아래는 날짜 증감, 좌우는 년월일 이동
+      if (isDate && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) return;
+      // 텍스트 : 캐럿이 끝에 닿았을 때만 좌우 이동
+      if (isText && key === 'ArrowRight' && !atEnd(this)) return;
+      if (isText && key === 'ArrowLeft' && !atStart(this)) return;
 
       e.preventDefault();
       const $row = $input.closest('tr');
       let $next = null;
 
-      // 다음 칸이 존재하는 셀을 찾는 헬퍼 (input/select 모두 매칭)
       const findCell = ($r, idx) =>
        $r.find(`[name^="${focusOrder[idx]}"]`).filter('input, select').first();
 
@@ -1296,15 +1748,57 @@
         _this.addItemRows(3);
         $t = $row.nextAll('tr:visible').first();
        }
-       const targetIdx = (key === 'Enter') ? focusOrder.indexOf('txtProductName_') : cur;
+       const targetIdx = (key === 'Enter') ? focusOrder.indexOf('line_') : cur;
        $next = findCell($t, targetIdx);
       } else if (key === 'ArrowUp') {
-       $next = findCell($row.prevAll('tr:visible').first(), cur);
+       const $p = $row.prevAll('tr:visible').first();
+       if ($p.length) $next = findCell($p, cur);
+      } else if (key === 'ArrowLeft' && cur === 0) {
+       // 첫 칸에서 왼쪽 → 헤더 폼 마지막 칸으로
+       $('#SujuDescription').focus();
+       return;
       }
 
       if ($next && $next.length) {
        $next.focus();
-       if ($next.is('input')) $next.select();   // select 요소엔 .select() 없음
+       if ($next.is('input')) $next.select();
+       const el = $next[0];
+       if (el && el.scrollIntoView) el.scrollIntoView({block: 'nearest'});
+      }
+     });
+
+     /* ---------- (3) 전역 단축키 ---------- */
+     $(document).on('keydown.sujuShortcut', function (e) {
+      // 팝업이 떠 있으면 페이지 단축키는 동작시키지 않음
+      if ($('.modal-wrap:visible, .popup:visible').length) return;
+
+      if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+       const k = String(e.key || '').toLowerCase();
+       const map = {
+        'n': '#btnSujuNew',
+        's': '#btnSujuSave',
+        'd': '#btnSujuDelete',
+        'f': '#btnSujuSearch'
+       };
+       if (map[k]) {
+        e.preventDefault();
+        $(map[k]).trigger('click');
+        return;
+       }
+       if (k === 'a') {          // 품목 행 추가
+        e.preventDefault();
+        const $r = _this.addItemRows(3);
+        if ($r) $r.find('[name^="line_"]').filter('input, select').first().focus();
+        return;
+       }
+      }
+
+      // Esc : 목록(그리드)으로 복귀
+      if (e.key === 'Escape') {
+       if ($(e.target).closest('#sujuForm').length && _this.grid) {
+        e.preventDefault();
+        _this.grid.focus();
+       }
       }
      });
     }
@@ -1337,6 +1831,7 @@
      // 검증
      if (!$('#sujuProjSel').val()) {
       Alert.alert('', '프로젝트를 선택하세요.');
+      $('#sujuProjName').focus();
       return;
      }
      if (!$('#SuJuOrderName').val()) {
@@ -1381,7 +1876,7 @@
        unit: ($row.find('input[name^="unit_"]').val() || '').trim(),             // 유니트 → SujuQty
        pinShiftUnit: ($row.find('input[name^="pinShiftUnit_"]').val() || '').trim(), // PIN SHIFT UNIT
        legSpec: ($row.find('input[name^="legSpec_"]').val() || '').trim(),
-       legCnt:  ($row.find('input[name^="legCnt_"]').val()  || '').trim(),
+       legCnt: ($row.find('input[name^="legCnt_"]').val() || '').trim(),
        equiptype: equip,                                  // 설비타입
 
        makeType: $row.find('select[name^="makeType_"]').val() || '',             // 제작구분
@@ -1403,33 +1898,44 @@
       return;
      }
 
-     Alert.confirm('', '저장하시겠습니까?', function () {
-      const payload = {
-       id: $('#sujuId').val(),
-       projno: $('#sujuProjSel').val(),    // ★ 선택한 프로젝트와 연결
-       JumunDate: $('#JumunDate').val(),
-       DueDate: $('#DueDate').val(),
-       SujuType: $('#cboSujuType').val(),
-       spjangcd: $('#spjangcdHidden').val(),
-       Description: $('#SujuDescription').val(),
-       order_id: $('#SuJuOrderId').val(),
-       OrderName: $('#SuJuOrderName').val(),
-       items: items
-      };
+     const doSave = function () {
+      Alert.confirm('', '저장하시겠습니까?', function () {
+       const payload = {
+        id: $('#sujuId').val(),
+        projno: $('#sujuProjSel').val(),    // ★ 선택한 프로젝트와 연결
+        JumunDate: $('#JumunDate').val(),
+        DueDate: $('#DueDate').val(),
+        SujuType: $('#cboSujuType').val(),
+        spjangcd: $('#spjangcdHidden').val(),
+        Description: $('#SujuDescription').val(),
+        order_id: $('#SuJuOrderId').val(),
+        OrderName: $('#SuJuOrderName').val(),
+        items: items
+       };
 
-      // ★ 새 화면 전용 엔드포인트 (금액 필드 없는 안전 파싱 버전)
-      AjaxUtil.postJsonData(_this.url + '/manual_save_project', payload, function (res) {
-       if (res.success) {
-        Notify.success('저장되었습니다.');
-        _this.dirty = false;
-        if (res.data && res.data.id) window.selectedSujuId = res.data.id;
-        _this.search();
-        _this.resetForm('new');
-       } else {
-        Alert.alert('저장 실패', res.message || '알 수 없는 오류');
-       }
+       // ★ 새 화면 전용 엔드포인트 (금액 필드 없는 안전 파싱 버전)
+       AjaxUtil.postJsonData(_this.url + '/manual_save_project', payload, function (res) {
+        if (res.success) {
+         Notify.success('저장되었습니다.');
+         _this.dirty = false;
+         if (res.data && res.data.id) window.selectedSujuId = res.data.id;
+         _this.search();
+         _this.resetForm('new');
+        } else {
+         Alert.alert('저장 실패', res.message || '알 수 없는 오류');
+        }
+       });
       });
-     });
+     };
+
+     // ★ 완료된 프로젝트에 수주를 등록하려는 경우 한 번 더 확인
+     if (this.isSelectedProjectFinished()) {
+      Alert.confirm('',
+       '진행단계가 모두 완료된 프로젝트입니다.\n그래도 수주를 등록하시겠습니까?',
+       doSave);
+     } else {
+      doSave();
+     }
     }
 
     /* ---------- 삭제 ---------- */
@@ -1497,9 +2003,13 @@
     $('#sujuSrchStartDt').val(CommonUtil.formatYYYYMMDD(oneYearAgo));
     $('#sujuSrchEndDt').val(CommonUtil.formatYYYYMMDD(oneMonthLater));
 
-    sujuPanel.loadProjectOptions();
     sujuPanel.search();         // 전체 수주 목록 조회
     sujuPanel.resetForm('new'); // 하단에 신규 입력 폼 표시
+
+    // 진입 시 첫 포커스는 목록 → 방향키로 바로 탐색 가능
+    setTimeout(() => {
+     if (sujuPanel.grid) sujuPanel.grid.focus();
+    }, 300);
    });
   </script>
 </th:block>

@@ -1,484 +1,426 @@
 <html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        .wj-header {
+            text-align: center !important;
+        }
+        .lot-info-table th {
+            width: 110px;
+            white-space: nowrap;
+        }
+        .toggle-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+            font-weight: 600;
+        }
+        /* 상단 검색+기본정보 컴팩트화 (스크롤 최소화) */
+        .lot-top.section {
+            padding-top: 8px;
+            padding-bottom: 8px;
+        }
+        .lot-top .section-top {
+            margin-bottom: 6px;
+        }
+        .lot-top caption {
+            display: none;          /* 'LOT 기본정보' 캡션 숨김 */
+        }
+        .lot-top .lot-info-table {
+            margin-bottom: 0;
+        }
+        .lot-top .lot-info-table th,
+        .lot-top .lot-info-table td {
+            padding-top: 3px;
+            padding-bottom: 3px;
+        }
+        .lot-top .lot-info-table .form-control2 {
+            height: 28px;
+        }
+    </style>
+</head>
 
 <th:block layout:fragment="content">
-<div class="content_wrap">
-
-    <section>
-        <div class="title_box ">
-            <div class="left_align">
-                <h3 data-labelCd="LOT 트래킹">LOT 트래킹</h3>
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>LOT 추적관리</h2>
+                <a title="북마크" class="bookmark toggle">
+                    내 메뉴
+                </a>
             </div>
-            <button type="button" class="btn-default pull-right " id="btnHedaerFilter" title="필터 보이기/감추기"><i class="fas fa-filter"></i></button>
-            <button type="button" class="btn-default pull-right mr-1" id="btnHeaderCompress" title="화면 확대/축소"><i class="fas fa-compress" id="iCompress"></i></button>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>재고관리</li>
+                <li>LOT 추적관리</li>
+            </ul>
         </div>
 
-        <div class="table_box search" >
-            <div class="row">
-                <div class="col-6 col-md-3 col-xl-2">
-                    <div class="input-group">
-                        <div class="input-group-prepend">
-                            <span class="input-group-text fit_box_sm" data-labelCd="LOT번호">LOT번호</span>
-                        </div>
-                        <input class="form-control2" type="text" id="LotNumber" name="LotNumber" placeholder="scan or 입력" value='' />
-                    </div>
-                </div>
-                <div class="col-1">
-                    <button type="button" class="btn-default" id="btnMainSearch"><i class="fas fa-search"></i></button>
+        <!-- 검색 + LOT 기본정보 -->
+        <section class="section lot-top">
+            <div class="section-top">
+                <div class="search-wrap">
+                    <dl>
+                        <dt>
+                            <label>LOT번호</label>
+                        </dt>
+                        <dd>
+                            <div class="srch-box">
+                                <input type="text" class="form-control2" id="LotNumber" name="LotNumber"
+                                       placeholder="scan or 입력">
+                            </div>
+                        </dd>
+                    </dl>
+
+                    <dl>
+                        <dt><span class="eq"></span></dt>
+                        <dd>
+                            <li>
+                                <a class="btn btn-delete" title="검색" id="btnMainSearch">
+                                    <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
+                                    검색
+                                </a>
+                            </li>
+                        </dd>
+                    </dl>
+
+                    <dl style="margin-left:auto;">
+                        <dt></dt>
+                        <dd>
+                            <h2 id="spanLotNumber" style="font-size: 15px;"></h2>
+                        </dd>
+                    </dl>
                 </div>
             </div>
-        </div>
-    </section>
-    <section>
-        <div class="title_box">
-            <span class="left_align" id="spanLotNumber"></span>
-        </div>
-        <div class="table_box sub">
-            <form id="lotForm">
-                <div class="row">
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text fit_box_md" data-labelCd="LOT생성일">LOT생성일</span>
-                            </div>
-                            <input type="text" class="form-control2" id="InputDateTime" name="InputDateTime" readonly />
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text fit_box_md" data-labelCd="초기수량">초기수량</span>
-                            </div>
-                            <input type="text" class="form-control2" id="InputQty" name="InputQty" readonly />
-                        </div>
-                    </div>
+            <div>
+                <form id="lotForm">
+                    <table class="write-table lot-info-table"
+                           style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                        <caption style="text-align: left; margin-bottom: 8px;">LOT 기본정보</caption>
+                        <col class="wp10"><col class="wp15"><col class="wp10"><col class="wp15">
+                        <col class="wp10"><col class="wp15"><col class="wp10"><col class="wp15">
+                        <tbody>
+                        <tr>
+                            <th><label for="InputDateTime">LOT생성일</label></th>
+                            <td><input type="text" class="form-control2" id="InputDateTime" name="InputDateTime" readonly style="width:100%;"></td>
+                            <th><label for="InputQty">초기수량</label></th>
+                            <td><input type="text" class="form-control2" id="InputQty" name="InputQty" readonly style="width:100%;"></td>
+                            <th><label for="CurrentStock">현재고량</label></th>
+                            <td><input type="text" class="form-control2" id="CurrentStock" name="CurrentStock" readonly style="width:100%;"></td>
+                            <th><label for="unit_name">단위</label></th>
+                            <td><input type="text" class="form-control2" id="unit_name" name="unit_name" readonly style="width:100%;"></td>
+                        </tr>
+                        <tr>
+                            <th><label for="mat_type_name">품목구분</label></th>
+                            <td>
+                                <input type="hidden" id="mat_type" name="mat_type">
+                                <input type="text" class="form-control2" id="mat_type_name" name="mat_type_name" readonly style="width:100%;">
+                            </td>
+                            <th><label for="mat_group_name">품목그룹</label></th>
+                            <td><input type="text" class="form-control2" id="mat_group_name" name="mat_group_name" readonly style="width:100%;"></td>
+                            <th><label for="mat_name">품목명</label></th>
+                            <td><input type="text" class="form-control2" id="mat_name" name="mat_name" readonly style="width:100%;"></td>
+                            <th><label for="EffectiveDate">유효기간</label></th>
+                            <td><input type="text" class="form-control2" id="EffectiveDate" name="EffectiveDate" readonly style="width:100%;"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </form>
+            </div>
+        </section>
 
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text fit_box_md" data-labelCd="현재고량">현재고량</span>
-                            </div>
-                            <input type="text" class="form-control2" id="CurrentStock" name="CurrentStock" readonly />
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text fit_box_md" data-labelCd="단위">단위</span>
-                            </div>
-                            <input type="text" class="form-control2" id="unit_name" name="unit_name" readonly />
-                        </div>
-                    </div>
-
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text fit_box_md" data-labelCd="품목구분">품목구분</span>
-                            </div>
-                            <input type="hidden" id="mat_type" name="mat_type" />
-                            <input type="text" class="form-control2" id="mat_type_name" name="mat_type_name" readonly />
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text fit_box_md" data-labelCd="품목그룹">품목그룹</span>
-                            </div>
-                            <input type="text" class="form-control2" id="mat_group_name" name="mat_group_name" readonly />
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text fit_box_md" data-labelCd="품목명">품목명</span>
-                            </div>
-                            <input type="text" class="form-control2" id="mat_name" name="mat_name" readonly />
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3 col-xl-2">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text fit_box_md" data-labelCd="유효기간">유효기간</span>
-                            </div>
-                            <input type="text" class="form-control2" id="EffectiveDate" name="EffectiveDate" readonly />
-                        </div>
-                    </div>
-
-                </div>
-            </form>
-        </div>
-    </section>
-    <section>
-        <div class="title_box">
-            <label class="switch">
-                <input type="checkbox" checked id="btnMaterialToggle"><span class="slider round"></span>
-            </label>
-            재료추적 보기/감추기
-        </div>
-        <div class="tabs" data-tab="tabWrap" id="divMaterialTracking">
-            <div class="title_box">
-                <div class="left_align">
-                    <ul class="tab_links">
-                        <li><a href="#" data-tablink="#tab_mat_tracking" name="tab_mat_tracking" class="tab" data-labelCd="재료추적">재료추적</a></li>
-                        <li><a href="#" data-tablink="#tab_mat_inout" name="tab_mat_inout" class="tab" data-labelCd="원재료입고정보">원재료입고정보</a></li>
+        <!-- 재료추적 -->
+        <section class="section">
+            <div class="toggle-bar">
+                <label class="switch">
+                    <input type="checkbox" checked id="btnMaterialToggle"><span class="slider round"></span>
+                </label>
+                재료추적 보기/감추기
+            </div>
+            <div id="divMaterialTracking">
+                <div class="tab-wrap">
+                    <ul class="tab-links">
+                        <li><a href="#tab_mat_tracking">재료추적</a></li>
+                        <li><a href="#tab_mat_inout">원재료입고정보</a></li>
                     </ul>
-                </div>
-            </div>
-            <div class="tab-content">
-                <div class="tab" id="tab_mat_tracking">
-                    <div class="grid_box">
-                        <div class="title_box">
-                            <span class="right_align rpt" data-labelCd="재료추적">재료추적</span>
-                        </div>
-                        <div class="h-300" data-ax5grid="mat-tracking-grid"></div>
-                    </div>
-                </div>
-                <div class="tab" id="tab_mat_inout">
-                    <div class="grid_box">
-                        <div class="title_box">
-                            <span class="right_align rpt" data-labelCd="원재료 입고정보">원재료 입고정보</span>
-                        </div>
-                        <div class="h-300" data-ax5grid="mat-inout-grid"></div>
+                    <div>
+                        <section class="tab-item" id="tab_mat_tracking" style="border-top-left-radius: 0;">
+                            <div class="container-fluid">
+                                <div id="mat-tracking-grid" style="height:200px;"></div>
+                            </div>
+                        </section>
+                        <section class="tab-item" id="tab_mat_inout" style="border-top-left-radius: 0;">
+                            <div class="container-fluid">
+                                <div id="mat-inout-grid" style="height:200px;"></div>
+                            </div>
+                        </section>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="title_box">
-            <label class="switch">
-                <input type="checkbox" checked id="btnProductToggle"><span class="slider round"></span>
-            </label>
-            제품추적 보기/감추기
-        </div>
-        <div class="tabs" data-tab="tabWrap" id="divProductTracking">
-            <div class="title_box">
-                <div class="left_align">
-                    <ul class="tab_links">
-                        <li><a href="#" data-tablink="#tab_product_tracking" name="tab_product_tracking" class="tab" data-labelCd="제품추적">제품추적</a></li>
-                        <li><a href="#" data-tablink="#tab_product_shipment" name="tab_product_shipment" class="tab" data-labelCd="제품출하정보">제품출하정보</a></li>
+        </section>
+
+        <!-- 제품추적 -->
+        <section class="section">
+            <div class="toggle-bar">
+                <label class="switch">
+                    <input type="checkbox" checked id="btnProductToggle"><span class="slider round"></span>
+                </label>
+                제품추적 보기/감추기
+            </div>
+            <div id="divProductTracking">
+                <div class="tab-wrap">
+                    <ul class="tab-links">
+                        <li><a href="#tab_product_tracking">제품추적</a></li>
+                        <li><a href="#tab_product_shipment">제품출하정보</a></li>
                     </ul>
-                </div>
-            </div>
-            <div class="tab-content">
-                <div class="tab" id="tab_product_tracking">
-                    <div class="grid_box">
-                        <div class="title_box">
-                            <span class="right_align rpt" data-labelCd="제품추적">제품추적</span>
-                        </div>
-                        <div class="h-300" data-ax5grid="product-tracking-grid"></div>
-                    </div>
-                </div>
-                <div class="tab" id="tab_product_shipment">
-                    <div class="grid_box">
-                        <div class="title_box">
-                            <span class="right_align rpt" data-labelCd="제품출하정보">제품출하정보</span>
-                        </div>
-                        <div class="h-300" data-ax5grid="product-shipment-grid"></div>
+                    <div>
+                        <section class="tab-item" id="tab_product_tracking" style="border-top-left-radius: 0;">
+                            <div class="container-fluid">
+                                <div id="product-tracking-grid" style="height:200px;"></div>
+                            </div>
+                        </section>
+                        <section class="tab-item" id="tab_product_shipment" style="border-top-left-radius: 0;">
+                            <div class="container-fluid">
+                                <div id="product-shipment-grid" style="height:200px;"></div>
+                            </div>
+                        </section>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
-</div>
+        </section>
+    </div>
 </th:block>
 
 
 <th:block layout:fragment="scripts">
-<script type="text/javascript">
-    class LotTrackingPage {
-        constructor() {
-            this.url = '/api/lot/lot_tracking';
-            this.matTrackingGrid = null;
-            this.inoutGrid = null;
-            this.productTrackingGrid = null;
-            this.shipmentGrid = null;
-        }
-
-        init() {
-            let _this = this;
-
-            this.initMatTracking();
-            this.initProductTracking();
-
-            this.$spanLotNumber = $('#spanLotNumber');
-            this.$LotNumber = $('#LotNumber');
-            this.$lotForm = $('#lotForm');
-
-            // 일반 바코드 스캐너 이벤트
-            this.$LotNumber.keydown(function (e) {
-                if (e.keyCode == 9) {
-                    _this.loadLotDetail();
-                }
-            });
-
-            // 검색버튼
-            $('#btnMainSearch').click(function (e) {
-                let lot_number = _this.$LotNumber.val();
-                if (lot_number != '') {
-                    _this.loadLotDetail();
-                }
-            });
-        }
-
-        // 재료추적, 원재료 입고정보
-        initMatTracking() {
-            let config = {
-                target: $('[data-ax5grid="mat-tracking-grid"]'),
-                frozenColumnIndex: 0, // 열 고정
-                frozenRowIndex: 0,    // 행 고정
-                showLineNumber: false, // 열의 번호 보이기 여부
-                showRowSelector: false,  // checkbox(선택) 보이기 여부
-                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
-                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
-                multiSort: false, // 다중 정렬 여부
-                header: {
-                    align: 'center',  // 헤더의 기본 정렬
-                    columnHeight: 30  // 헤더 높이
-                },
-                body: {
-                    columnHeight: 25, // body의 기본 높이
-                    onClick: function (e) {
-                        //_this.grid.select(this.dindex);
-                        //_this.showDetail(e.item.id);
-                    }
-                },
-                page: {
-                    display: true,  // 페이징 보이기 여부
-                    statusDisplay: true,
-                },
-                columns: [
-                    { key: 'mat_name', label: '품목(재료)', width: 250, align: 'left' },
-                    { key: 'p_mat_name', label: '생산품', width: 250, align: 'left' },
-                    { key: 'lot_number', label: '품목LOT(재료)', width: 250, align: 'left', treeControl: true },
-                    { key: 'p_lot_number', label: '생산품LOT', width: 150, align: 'center' },
-                    
-                    { key: 'unit_name', label: '단위', width: 80, align: 'center' },
-                    { key: 'lot_consume_qty', label: 'LOT투입수량', width: 100, align: 'right', formatter: 'money' },
-                    { key: 'WorkOrderNumber', label: '작업지시번호', width: 120, align: 'center' },
-                ],
-                tree: {
-                    use: true,
-                    indentWidth: 15,
-                    arrowWidth: 15,
-                    iconWidth: 18,
-                    icons: {
-                        openedArrow: '<i class="fa fa-caret-down" aria-hidden="true"></i>',
-                        collapsedArrow: '<i class="fa fa-caret-right" aria-hidden="true"></i>',
-                        groupIcon: '<i class="fa fa-minus-square" aria-hidden="true"></i>',
-                        collapsedGroupIcon: '<i class="fa fa-plus-square" aria-hidden="true"></i>',
-                        itemIcon: '-'
-                    },
-                    columnKeys: {
-                        parentKey: 'p_lot_number',
-                        selfKey: 'lot_number'
-                    }
-                },
-            };
-            this.matTrackingGrid = new ax5.ui.grid(config);
-
-
-            let configMatinout = {
-                target: $('[data-ax5grid="mat-inout-grid"]'),
-                showLineNumber: false, // 열의 번호 보이기 여부
-                showRowSelector: false,  // checkbox(선택) 보이기 여부
-                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
-                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
-                multiSort: false, // 다중 정렬 여부
-                header: {
-                    align: 'center',  // 헤더의 기본 정렬
-                    columnHeight: 30  // 헤더 높이
-                },
-                body: {
-                    columnHeight: 25, // body의 기본 높이
-                    onClick: function (e) {
-                        //_this.grid.select(this.dindex);
-                        //_this.showDetail(e.item.id);
-                    }
-                },
-                page: {
-                    display: true,  // 페이징 보이기 여부
-                    statusDisplay: true,
-                },
-                columns: [                    
-                    { key: 'lot_number', label: '품목LOT', width: 150, align: 'center' },
-                    { key: 'mat_name', label: '품목', width: 250, align: 'left' },
-                    { key: 'InoutDate', label: '입고일', width: 150, align: 'center' },
-                    { key: 'InputQty', label: '입고량', width: 150, align: 'right', formatter:'money' },
-                    { key: 'company_name', label: '매입처', width: 150, align: 'center' },
-                    { key: 'EffectiveDate', label: '유효일자', width: 150, align: 'center' },
-                    { key: 'input_type_name', label: '입고구분', width: 150, align: 'center' },
-                ],
-            };
-
-            this.inoutGrid = new ax5.ui.grid(configMatinout);
-        }
-
-        // 제품추적, 제품출하정보
-        initProductTracking() {
-            let _this = this;
-            let config = {
-                target: $('[data-ax5grid="product-tracking-grid"]'),
-                frozenColumnIndex: 0, // 열 고정
-                frozenRowIndex: 0,    // 행 고정
-                showLineNumber: false, // 열의 번호 보이기 여부
-                showRowSelector: false,  // checkbox(선택) 보이기 여부
-                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
-                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
-                multiSort: false, // 다중 정렬 여부
-                header: {
-                    align: 'center',  // 헤더의 기본 정렬
-                    columnHeight: 30  // 헤더 높이
-                },
-                body: {
-                    columnHeight: 25, // body의 기본 높이
-                    onClick: function (e) {
-                        //_this.grid.select(this.dindex);
-                        //_this.showDetail(e.item.id);
-                    }
-                },
-                page: {
-                    display: true,  // 페이징 보이기 여부
-                    statusDisplay: true,
-                },
-                columns: [
-                    { key: 'mat_name', label: '생산품', width: 250, align: 'left' },
-                    { key: 'p_mat_name', label: '품목(재료)', width: 250, align: 'left' },
-                    { key: 'lot_number', label: '생산품LOT', width: 250, align: 'left', treeControl: true },
-                    { key: 'p_lot_number', label: '재료LOT', width: 150, align: 'center' },
-                    
-                    { key: 'unit_name', label: '단위', width: 80, align: 'center' },
-                    { key: 'lot_consume_qty', label: 'LOT투입수량', width: 100, align: 'right', formatter: 'money' },
-                    { key: 'wo', label: '작업지시번호', width: 120, align: 'center' },
-
-                ],
-                tree: {
-                    use: true,
-                    indentWidth: 15,
-                    arrowWidth: 15,
-                    iconWidth: 18,
-                    icons: {
-                        openedArrow: '<i class="fa fa-caret-down" aria-hidden="true"></i>',
-                        collapsedArrow: '<i class="fa fa-caret-right" aria-hidden="true"></i>',
-                        groupIcon: '<i class="fa fa-minus-square" aria-hidden="true"></i>',
-                        collapsedGroupIcon: '<i class="fa fa-plus-square" aria-hidden="true"></i>',
-                        itemIcon: '-'
-                    },
-                    columnKeys: {
-                        parentKey: 'p_lot_number',
-                        selfKey: 'lot_number'
-                    }
-                },
-            };
-
-            this.productTrackingGrid = new ax5.ui.grid(config);
-
-
-            let configShipment = {
-                target: $('[data-ax5grid="product-shipment-grid"]'),
-                showLineNumber: false, // 열의 번호 보이기 여부
-                showRowSelector: false,  // checkbox(선택) 보이기 여부
-                multipleSelect: false, // 여러행 선택 가능 여부 (false시 단독 선택)
-                sortable: false, // 모든 컬럼에 정렬 아이콘 표시 (columns에서 컬럼별 소팅여부 재설정 가능)
-                multiSort: false, // 다중 정렬 여부
-                header: {
-                    align: 'center',  // 헤더의 기본 정렬
-                    columnHeight: 30  // 헤더 높이
-                },
-                body: {
-                    columnHeight: 25, // body의 기본 높이
-                    onClick: function (e) {
-                        //_this.grid.select(this.dindex);
-                        //_this.showDetail(e.item.id);
-                    }
-                },
-                page: {
-                    display: true,  // 페이징 보이기 여부
-                    statusDisplay: true,
-                },
-                columns: [                    
-                    { key: 'lot_number', label: '품목LOT', width: 150, align: 'center' },
-                    { key: 'mat_name', label: '품목', width: 250, align: 'left' },
-                    { key: 'ShipDate', label: '출하일', width: 150, align: 'center' },
-                    { key: 'company_name', label: '고객사', width: 150, align: 'left' },
-                    { key: 'Qty', label: '출하량', width: 100, align: 'right', formatter:'money' },
-                    { key: 'shipment_state', label: '출하상태', width: 150, align: 'center' },
-                ],
-            };
-
-            this.shipmentGrid = new ax5.ui.grid(configShipment);
-        }
-
-        loadLotDetail() {
-            let _this = this;
-            let lot_number = this.$LotNumber.val();
-            let data = { action: 'lot_detail', lot_number: lot_number };
-
-            this.lot_detail = null;
-            this.$lotForm[0].reset();
-
-            // 그리드 초기화
-            this.matTrackingGrid.setData([]);
-            this.productTrackingGrid.setData([]);
-            this.productTrackingGrid.setData([]);
-            this.shipmentGrid.setData([]);
-
-            let fnsuccess = function (result) {
-                if (result.data.length > 0) {
-                    _this.lot_detail = result.data[0];
-                    FormUtil.BindDataForm(result.data[0], _this.$lotForm);
-                    _this.$spanLotNumber.text("LOT : " + _this.lot_detail.LotNumber);
-                    _this.loadHistory();
-                } else {
-                    Alert.alert('LOT추적오류', '해당 LOT정보가 없습니다.');
-                }
-            };
-            let fnfailure = function (req, status, error) {
-            };
-            AjaxUtil.getAsyncData(this.url + '/lot_detail', data, fnsuccess, fnfailure);
-        }
-
-        loadHistory() {
-            let _this = this;
-            let mat_type = this.lot_detail.mat_type;
-            let lot_number = _this.lot_detail.LotNumber;
-
-            let data = {
-                action: 'lot_history',
-                mat_type: mat_type,
-                lot_number: lot_number
+    <script type="text/javascript">
+        class LotTrackingPage {
+            constructor() {
+                this.url = '/api/lot/lot_tracking';
+                this.matTrackingGrid = null;
+                this.inoutGrid = null;
+                this.productTrackingGrid = null;
+                this.shipmentGrid = null;
+                this.lot_detail = null;
             }
-            let fnsuccess = function (result) {
-                if (result.success) {
-                    _this.matTrackingGrid.setData(result.data.m_item);
-                    _this.productTrackingGrid.setData(result.data.p_item);
 
-                    //추후 개발
-                    //_this.drawLotCavas(result.m_item, result.p_item);
-                    _this.inoutGrid.setData(result.data.inout_list);
-                    _this.shipmentGrid.setData(result.data.shipment_list);
-                }
-            };
+            init() {
+                let _this = this;
 
-            AjaxUtil.getAsyncData(this.url + '/lot_history', data, fnsuccess);
+                this.initMatTracking();
+                this.initProductTracking();
+
+                this.$spanLotNumber = $('#spanLotNumber');
+                this.$LotNumber = $('#LotNumber');
+                this.$lotForm = $('#lotForm');
+
+                // 바코드 스캐너 / Tab 키 입력
+                this.$LotNumber.keydown(function (e) {
+                    if (e.keyCode == 9) {
+                        _this.loadLotDetail();
+                    }
+                });
+
+                // Enter 입력
+                this.$LotNumber.on('keypress', function (e) {
+                    if (e.keyCode === 13) {
+                        if (_this.$LotNumber.val() !== '') {
+                            _this.loadLotDetail();
+                        }
+                    }
+                });
+
+                // 검색버튼
+                $('#btnMainSearch').click(function (e) {
+                    if (_this.$LotNumber.val() !== '') {
+                        _this.loadLotDetail();
+                    }
+                });
+            }
+
+            // 평면 데이터를 Wijmo 트리(childItemsPath)용 계층 구조로 변환
+            buildTree(flatData, parentKey, selfKey) {
+                if (!flatData || flatData.length === 0) return [];
+
+                let map = {};
+                let roots = [];
+
+                // 각 노드 복제 + items 초기화
+                flatData.forEach(function (row) {
+                    let node = Object.assign({}, row);
+                    node.items = [];
+                    map[node[selfKey]] = node;
+                });
+
+                flatData.forEach(function (row) {
+                    let node = map[row[selfKey]];
+                    let pk = row[parentKey];
+                    if (pk && map[pk] && pk !== row[selfKey]) {
+                        map[pk].items.push(node);
+                    } else {
+                        roots.push(node);
+                    }
+                });
+
+                return roots;
+            }
+
+            // 재료추적, 원재료 입고정보
+            initMatTracking() {
+                // 재료추적 (트리)
+                this.matTrackingGrid = new wijmo.grid.FlexGrid('#mat-tracking-grid', {
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    showMarquee: true,
+                    childItemsPath: 'items',
+                    columns: [
+                        { binding: 'mat_name', header: '품목(재료)', width: 250, align: 'left' },
+                        { binding: 'p_mat_name', header: '생산품', width: 250, align: 'left' },
+                        { binding: 'lot_number', header: '품목LOT(재료)', width: 250, align: 'left' },
+                        { binding: 'p_lot_number', header: '생산품LOT', width: 150, align: 'center' },
+                        { binding: 'unit_name', header: '단위', width: 80, align: 'center' },
+                        { binding: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
+                        { binding: 'WorkOrderNumber', header: '작업지시번호', width: 130, align: 'center' }
+                    ]
+                });
+                this.matTrackingGrid.rowHeaders.columns.splice(0, 1);
+
+                // 원재료 입고정보
+                this.inoutGrid = new wijmo.grid.FlexGrid('#mat-inout-grid', {
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    showMarquee: true,
+                    columns: [
+                        { binding: 'lot_number', header: '품목LOT', width: 150, align: 'center' },
+                        { binding: 'mat_name', header: '품목', width: 250, align: 'left' },
+                        { binding: 'InoutDate', header: '입고일', width: 150, align: 'center' },
+                        { binding: 'InputQty', header: '입고량', width: 150, align: 'right', format: 'n0' },
+                        { binding: 'company_name', header: '매입처', width: 150, align: 'center' },
+                        { binding: 'EffectiveDate', header: '유효일자', width: 150, align: 'center' },
+                        { binding: 'input_type_name', header: '입고구분', width: 150, align: 'center' }
+                    ]
+                });
+                this.inoutGrid.rowHeaders.columns.splice(0, 1);
+            }
+
+            // 제품추적, 제품출하정보
+            initProductTracking() {
+                // 제품추적 (트리)
+                this.productTrackingGrid = new wijmo.grid.FlexGrid('#product-tracking-grid', {
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    showMarquee: true,
+                    childItemsPath: 'items',
+                    columns: [
+                        { binding: 'mat_name', header: '생산품', width: 250, align: 'left' },
+                        { binding: 'p_mat_name', header: '품목(재료)', width: 250, align: 'left' },
+                        { binding: 'lot_number', header: '생산품LOT', width: 250, align: 'left' },
+                        { binding: 'p_lot_number', header: '재료LOT', width: 150, align: 'center' },
+                        { binding: 'unit_name', header: '단위', width: 80, align: 'center' },
+                        { binding: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
+                        { binding: 'wo', header: '작업지시번호', width: 130, align: 'center' }
+                    ]
+                });
+                this.productTrackingGrid.rowHeaders.columns.splice(0, 1);
+
+                // 제품출하정보
+                this.shipmentGrid = new wijmo.grid.FlexGrid('#product-shipment-grid', {
+                    autoGenerateColumns: false,
+                    isReadOnly: true,
+                    showMarquee: true,
+                    columns: [
+                        { binding: 'lot_number', header: '품목LOT', width: 150, align: 'center' },
+                        { binding: 'mat_name', header: '품목', width: 250, align: 'left' },
+                        { binding: 'ShipDate', header: '출하일', width: 150, align: 'center' },
+                        { binding: 'company_name', header: '고객사', width: 150, align: 'left' },
+                        { binding: 'Qty', header: '출하량', width: 100, align: 'right', format: 'n0' },
+                        { binding: 'shipment_state', header: '출하상태', width: 150, align: 'center' }
+                    ]
+                });
+                this.shipmentGrid.rowHeaders.columns.splice(0, 1);
+            }
+
+            setGridData(grid, data) {
+                grid.itemsSource = new wijmo.collections.CollectionView(data || []);
+            }
+
+            loadLotDetail() {
+                let _this = this;
+                let lot_number = this.$LotNumber.val();
+                let data = { action: 'lot_detail', lot_number: lot_number };
+
+                this.lot_detail = null;
+                this.$lotForm[0].reset();
+
+                // 그리드 초기화
+                this.setGridData(this.matTrackingGrid, []);
+                this.setGridData(this.inoutGrid, []);
+                this.setGridData(this.productTrackingGrid, []);
+                this.setGridData(this.shipmentGrid, []);
+
+                let fnsuccess = function (result) {
+                    if (result.data.length > 0) {
+                        _this.lot_detail = result.data[0];
+                        FormUtil.BindDataForm(result.data[0], _this.$lotForm);
+                        _this.$spanLotNumber.text("LOT : " + _this.lot_detail.LotNumber);
+                        _this.loadHistory();
+                    } else {
+                        Alert.alert('LOT추적오류', '해당 LOT정보가 없습니다.');
+                    }
+                };
+                let fnfailure = function (req, status, error) {
+                };
+                AjaxUtil.getAsyncData(this.url + '/lot_detail', data, fnsuccess, fnfailure);
+            }
+
+            loadHistory() {
+                let _this = this;
+                let mat_type = this.lot_detail.mat_type;
+                let lot_number = _this.lot_detail.LotNumber;
+
+                let data = {
+                    action: 'lot_history',
+                    mat_type: mat_type,
+                    lot_number: lot_number
+                };
+
+                let fnsuccess = function (result) {
+                    if (result.success) {
+                        // 평면 데이터를 트리로 변환 후 바인딩
+                        let matTree = _this.buildTree(result.data.m_item, 'p_lot_number', 'lot_number');
+                        let prodTree = _this.buildTree(result.data.p_item, 'p_lot_number', 'lot_number');
+
+                        _this.setGridData(_this.matTrackingGrid, matTree);
+                        _this.setGridData(_this.productTrackingGrid, prodTree);
+
+                        _this.setGridData(_this.inoutGrid, result.data.inout_list);
+                        _this.setGridData(_this.shipmentGrid, result.data.shipment_list);
+
+                        // 트리 전체 펼치기
+                        _this.matTrackingGrid.collapseGroupsToLevel(99);
+                        _this.productTrackingGrid.collapseGroupsToLevel(99);
+                    }
+                };
+
+                AjaxUtil.getAsyncData(this.url + '/lot_history', data, fnsuccess);
+            }
         }
 
-        drawLotCavas(leftItems, rightItems) {
-            //_this.lot_detail;
+        document.readyState === 'complete' ? init() : window.onload = init;
+
+        function init() {
+            let page = new LotTrackingPage();
+            page.init();
+
+            // 보기/감추기 토글
+            $('#btnMaterialToggle').click(function (e) {
+                $("#divMaterialTracking").toggle(300);
+            });
+
+            $('#btnProductToggle').click(function (e) {
+                $("#divProductTracking").toggle(300);
+            });
         }
-    }
-
-    $(document.body).ready(function (e) {
-        let page = new LotTrackingPage();
-        page.init();
-
-        // 보기/감추기 버튼
-        $('#btnMaterialToggle').click(function (e) {
-            $("#divMaterialTracking").toggle(300);
-        });
-
-        $('#btnProductToggle').click(function (e) {
-            $("#divProductTracking").toggle(300);
-        });
-    });
-
-</script>
+    </script>
 </th:block>
 </html>

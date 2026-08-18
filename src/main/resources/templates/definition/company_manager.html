@@ -152,8 +152,9 @@
                 var _this = this;
 
                 this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
                     autoGenerateColumns: false,
+                    selectionMode: wijmo.grid.SelectionMode.Row,
+                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
                     isReadOnly: true,
                     showMarquee: true,
                     columns: [

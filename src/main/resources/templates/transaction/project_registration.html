@@ -1,6 +1,211 @@
 <html layout:decorate="~{layout_page}">
 <th:block layout:fragment="content">
 
+  <!-- ============================================================ -->
+  <!-- 진행단계 테이블 전용 스타일 (가독성 + 자체 스크롤)            -->
+  <!-- ============================================================ -->
+  <style>
+      /* 진행단계 영역 박스 */
+      .stage-box {
+          margin-top: 14px;
+          border: 1px solid #dfe3e8;
+          border-radius: 8px;
+          background: #fff;
+          overflow: hidden;
+      }
+
+      /* 상단 헤더 바 (제목 + 건수 + 추가버튼) */
+      .stage-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 8px 12px;
+          background: #f7f9fc;
+          border-bottom: 1px solid #dfe3e8;
+      }
+      .stage-head .title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #2b3648;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+      }
+      .stage-head .count-badge {
+          display: inline-block;
+          min-width: 20px;
+          padding: 1px 7px;
+          border-radius: 10px;
+          background: #2f6fed;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          text-align: center;
+      }
+      .stage-head .hint {
+          font-size: 11px;
+          color: #8a94a6;
+          font-weight: 400;
+      }
+      .stage-head .head-btns { display: flex; gap: 6px; }
+
+      /* ✅ 핵심: 부모가 아니라 이 영역에만 스크롤이 생김 */
+      .stage-scroll {
+          max-height: 330px;          /* 약 7행 정도 보이고 그 이상은 내부 스크롤 */
+          overflow-y: auto;
+          overflow-x: hidden;
+          overscroll-behavior: contain; /* 끝까지 스크롤해도 부모로 전파되지 않음 */
+      }
+      .stage-scroll::-webkit-scrollbar { width: 10px; }
+      .stage-scroll::-webkit-scrollbar-track { background: #f1f3f6; }
+      .stage-scroll::-webkit-scrollbar-thumb { background: #c3cad6; border-radius: 5px; }
+      .stage-scroll::-webkit-scrollbar-thumb:hover { background: #a7b1c2; }
+
+      /* 테이블 기본 */
+      #stageTable {
+          width: 100%;
+          table-layout: fixed;
+          border-collapse: separate;
+          border-spacing: 0;
+      }
+      /* ✅ 스크롤해도 헤더 고정 */
+      #stageTable thead th {
+          position: sticky;
+          top: 0;
+          z-index: 3;
+          background: #eef1f6;
+          color: #3a4557;
+          font-size: 12px;
+          font-weight: 700;
+          height: 34px;
+          padding: 0 6px;
+          border-bottom: 1px solid #d5dbe4;
+          text-align: center;
+          white-space: nowrap;
+      }
+      #stageTable tbody td {
+          padding: 4px 6px;
+          height: 38px;
+          border-bottom: 1px solid #eef0f4;
+          vertical-align: middle;
+          background: transparent;
+      }
+      #stageTable tbody tr:nth-child(even) { background: #fbfcfe; }
+      #stageTable tbody tr:hover { background: #eef5ff; }
+      #stageTable tbody tr.is-done { background: #f1faf3; }
+      #stageTable tbody tr.is-done:hover { background: #e6f6ea; }
+      #stageTable tbody tr.is-empty .stage-seq { color: #c2c9d4; }
+
+      /* 입력요소 */
+      #stageTable tbody input[type="text"],
+      #stageTable tbody input[type="date"] {
+          width: 100%;
+          height: 30px;
+          line-height: 30px;
+          padding: 0 8px;
+          font-size: 13px;
+          border: 1px solid #d8dde5;
+          border-radius: 4px;
+          background: #fff;
+          box-sizing: border-box;
+      }
+      #stageTable tbody input:focus {
+          border-color: #2f6fed;
+          box-shadow: 0 0 0 2px rgba(47,111,237,.15);
+          outline: none;
+      }
+      #stageTable tbody tr.is-done .stage-stagenm { font-weight: 600; color: #1b7a3c; }
+
+      /* 순번 + 드래그 핸들 */
+      .stage-seq-cell { text-align: center; white-space: nowrap; }
+      .drag-handle {
+          display: inline-block;
+          color: #b3bbc8;
+          cursor: grab;
+          font-size: 13px;
+          line-height: 1;
+          padding: 2px 3px;
+          user-select: none;
+      }
+      .drag-handle:active { cursor: grabbing; }
+      tr:hover .drag-handle { color: #2f6fed; }
+      .stage-seq {
+          display: inline-block;
+          min-width: 18px;
+          font-size: 12px;
+          font-weight: 700;
+          color: #55617a;
+      }
+
+      /* 미니 버튼 (순서이동 / 삭제) */
+      .td-center { text-align: center; white-space: nowrap; }
+      .mini-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          padding: 0;
+          margin: 0 1px;
+          font-size: 11px;
+          line-height: 1;
+          color: #55617a;
+          background: #fff;
+          border: 1px solid #d3d9e2;
+          border-radius: 4px;
+          cursor: pointer;
+      }
+      .mini-btn:hover { background: #eef5ff; border-color: #2f6fed; color: #2f6fed; }
+      .mini-btn:disabled { opacity: .35; cursor: default; background: #f5f6f8; }
+      .mini-btn:disabled:hover { border-color: #d3d9e2; color: #55617a; }
+      .mini-btn.danger:hover { background: #fdeeee; border-color: #e05252; color: #e05252; }
+
+      /* 완료 토글 버튼 */
+      .stage-chip {
+          display: inline-block;
+          min-width: 54px;
+          height: 24px;
+          line-height: 22px;
+          padding: 0 8px;
+          font-size: 11px;
+          font-weight: 600;
+          color: #55617a;
+          background: #fff;
+          border: 1px solid #d3d9e2;
+          border-radius: 12px;
+          cursor: pointer;
+      }
+      .stage-chip:hover { border-color: #2f6fed; color: #2f6fed; }
+      .stage-chip.done {
+          color: #fff;
+          background: #2aa25a;
+          border-color: #2aa25a;
+      }
+      .stage-chip.done:hover { background: #23904f; color: #fff; }
+
+      /* 드래그 중 시각 효과 */
+      #stageTableBody tr.dragging { opacity: .45; background: #dbe8ff !important; }
+      #stageTableBody tr.drop-target td { box-shadow: inset 0 2px 0 0 #2f6fed; }
+      #stageTableBody tr.flash { animation: stageFlash .7s ease; }
+      @keyframes stageFlash {
+          0%   { background: #fff3cd; }
+          100% { background: transparent; }
+      }
+
+      /* 우측 입력 폼 가독성 */
+      #selectedData th { background: #f7f9fc; font-size: 13px; color: #3a4557; }
+      #selectedData td input { height: 32px; font-size: 13px; }
+
+      .stage-foot {
+          padding: 6px 12px;
+          font-size: 11px;
+          color: #8a94a6;
+          background: #fafbfd;
+          border-top: 1px solid #eef0f4;
+      }
+  </style>
+
   <div class="layout-contents">
     <div class="page-title-wrap">
       <div class="left">
@@ -96,13 +301,13 @@
       </div>
       <div class="container-fluid">
         <div class="row">
-          <div class="wp50">
+          <div class="wp40">
             <div class="container-fluid col">
               <p id="selectedItem"></p>
               <div id="theGrid" style="height:550px"></div>
             </div>
           </div>
-          <div class="col 50">
+          <div class="col 60">
             <div class="section">
               <form id="CategoryForm">
                 <!-- Hidden Fields -->
@@ -131,7 +336,7 @@
                       </td>
                     </tr>
                     <tr>
-                      <th><label for="remark">공사일자</label></th>
+                      <th><label for="stdate">공사일자</label></th>
                       <td>
                         <input type="Date" id="stdate" name="stdate" class="wp100" placeholder="시작일"/>
                       </td>
@@ -156,43 +361,53 @@
                 </div>
 
                 <!-- ============================================ -->
-                <!-- 진행단계 (N개 동적 추가/삭제) -->
+                <!-- 진행단계 (N개 동적 추가/삭제/순서변경)         -->
                 <!-- ============================================ -->
-                <div class="table-wrap" style="margin-top:14px;">
-                  <div class="button-wrap" style="border-top:none; text-align:right;">
-                    <ul>
-                      <li>
-                        <a class="btn btn-excell" title="단계추가" id="btnAddStage">
-                          <img th:src="@{/images/icon/ico-plus.svg}" alt="추가 아이콘">
-                          단계추가
-                        </a>
-                      </li>
-                    </ul>
+                <div class="stage-box">
+                  <div class="stage-head">
+                    <span class="title">
+                      진행단계
+                      <span class="count-badge" id="stageCount">0</span>
+                      <span class="hint">순번의 ⠿를 끌거나 ▲▼로 순서를 바꿀 수 있습니다.</span>
+                    </span>
+                    <span class="head-btns">
+                      <a class="btn btn-excell" title="단계추가" id="btnAddStage">
+                        <img th:src="@{/images/icon/ico-plus.svg}" alt="추가 아이콘">
+                        단계추가
+                      </a>
+                    </span>
                   </div>
-                  <table class="view-table" id="stageTable">
-                    <caption>진행단계</caption>
-                    <colgroup>
-                      <col style="width:8%">    <!-- 순번 -->
-                      <col style="width:28%">   <!-- 단계명 -->
-                      <col style="width:22%">   <!-- 예정일 -->
-                      <col style="width:22%">   <!-- 완료일 -->
-                      <col style="width:10%">   <!-- 완료 -->
-                      <col style="width:10%">   <!-- 삭제 -->
-                    </colgroup>
-                    <thead>
-                    <tr>
-                      <th>순번</th>
-                      <th>단계명</th>
-                      <th>예정일</th>
-                      <th>완료일</th>
-                      <th>완료</th>
-                      <th>삭제</th>
-                    </tr>
-                    </thead>
-                    <tbody id="stageTableBody">
-                    <!-- 진행단계 행이 동적으로 추가됩니다 -->
-                    </tbody>
-                  </table>
+
+                  <!-- ✅ 스크롤이 부모가 아니라 이 div 안에서만 발생 -->
+                  <div class="stage-scroll" id="stageScroll">
+                    <table id="stageTable">
+                      <caption class="hide">진행단계</caption>
+                      <colgroup>
+                        <col style="width:13%">   <!-- 순번(드래그) -->
+                        <col style="width:27%">   <!-- 단계명 -->
+                        <col style="width:19%">   <!-- 예정일 -->
+                        <col style="width:19%">   <!-- 완료일 -->
+                        <col style="width:12%">   <!-- 완료 -->
+                        <col style="width:10%">   <!-- 순서/삭제 -->
+                      </colgroup>
+                      <thead>
+                      <tr>
+                        <th>순번</th>
+                        <th>단계명</th>
+                        <th>예정일</th>
+                        <th>완료일</th>
+                        <th>완료</th>
+                        <th>순서/삭제</th>
+                      </tr>
+                      </thead>
+                      <tbody id="stageTableBody">
+                      <!-- 진행단계 행이 동적으로 추가됩니다 -->
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="stage-foot">
+                    내용이 하나도 없는 행은 저장되지 않습니다. (기본 3행 표시)
+                  </div>
                 </div>
                 <!-- ============================================ -->
 
@@ -221,7 +436,8 @@
      this.$btnDelete = $('#btnDelete'); //삭제
      this.viewData = new wijmo.collections.CollectionView();
      this.spjangcd = $('#spjangcdHidden');
-     this.url= '/api/transaction/projectRegistration'
+     this.url = '/api/transaction/projectRegistration';
+     this.MIN_STAGE_ROWS = 3;   // ✅ 기본으로 보여줄 빈 행 수
      this.init();
     }
 
@@ -274,6 +490,11 @@
       }
      });
 
+     // ✅ 진행단계 드래그 앤 드롭 순서변경 초기화
+     this.initStageDnD();
+
+     // ✅ 최초 진입 시 빈 행 3개 표시
+     this.clearStages();
     }
 
     // ✅ 진행단계 서버 조회 후 렌더링
@@ -293,14 +514,14 @@
 
     formatDateDash(yyyymmdd) {
      if (!yyyymmdd || yyyymmdd.length !== 8) return '';
-     return `${yyyymmdd.slice(0,4)}-${yyyymmdd.slice(4,6)}-${yyyymmdd.slice(6,8)}`;
+     return `${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`;
     }
 
     // ✅ yyyymmdd / yyyy-mm-dd 둘 다 date input 값(yyyy-mm-dd)으로 변환
     toDateInputValue(v) {
      if (!v) return '';
      v = String(v);
-     if (/^\d{8}$/.test(v)) return `${v.slice(0,4)}-${v.slice(4,6)}-${v.slice(6,8)}`;
+     if (/^\d{8}$/.test(v)) return `${v.slice(0, 4)}-${v.slice(4, 6)}-${v.slice(6, 8)}`;
      if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
      return '';
     }
@@ -319,20 +540,26 @@
     addStageRow(stage = {}) {
      const $tbody = $('#stageTableBody');
      const row = `
-          <tr>
-            <td class="stage-seq" style="text-align:center;"></td>
-            <td><input type="text" class="wp100 stage-stagenm" value="${this.escapeHtml(stage.stagenm)}" placeholder="단계명"/></td>
-            <td><input type="date" class="wp100 stage-pldate" value="${this.toDateInputValue(stage.pldate)}"/></td>
-            <td><input type="date" class="wp100 stage-cpdate" value="${this.toDateInputValue(stage.cpdate)}"/></td>
-            <td style="text-align:center;">
-             <a class="btn btn-edit btn-stage-complete" title="완료">완료</a>
+          <tr draggable="false">
+            <td class="stage-seq-cell">
+              <span class="drag-handle" title="드래그해서 순서 변경">&#10495;</span>
+              <span class="stage-seq"></span>
             </td>
-            <td style="text-align:center;">
-              <a class="btn btn-delete btn-stage-del" title="행 삭제">삭제</a>
+            <td><input type="text" class="stage-stagenm" value="${this.escapeHtml(stage.stagenm)}" placeholder="단계명"/></td>
+            <td><input type="date" class="stage-pldate" value="${this.toDateInputValue(stage.pldate)}"/></td>
+            <td><input type="date" class="stage-cpdate" value="${this.toDateInputValue(stage.cpdate)}"/></td>
+            <td class="td-center">
+              <button type="button" class="stage-chip btn-stage-complete" title="완료일 등록/해제">완료</button>
+            </td>
+            <td class="td-center">
+              <button type="button" class="mini-btn btn-stage-up" title="위로 이동">&#9650;</button>
+              <button type="button" class="mini-btn btn-stage-down" title="아래로 이동">&#9660;</button>
+              <button type="button" class="mini-btn danger btn-stage-del" title="행 삭제">&#10005;</button>
             </td>
           </tr>`;
      $tbody.append(row);
      this.renumberStages();
+     return $tbody.children('tr').last();
     }
 
     // ✅ 진행단계 전체 다시 그리기 (조회 시)
@@ -341,47 +568,206 @@
      if (Array.isArray(stages)) {
       stages.forEach((s) => this.addStageRow(s));
      }
+     this.ensureMinRows();     // ✅ 데이터가 적어도 최소 3행은 보이게
     }
 
-    // ✅ 순번 다시 매기기
+    // ✅ 최소 행 수 보장 (기본 3행)
+    ensureMinRows() {
+     const $tbody = $('#stageTableBody');
+     while ($tbody.children('tr').length < this.MIN_STAGE_ROWS) {
+      this.addStageRow();
+     }
+     this.renumberStages();
+    }
+
+    // ✅ 순번 다시 매기기 + 상태/버튼 갱신
     renumberStages() {
-     $('#stageTableBody tr').each(function (idx) {
-      $(this).find('.stage-seq').text(idx + 1);
+     const $rows = $('#stageTableBody tr');
+     const last = $rows.length - 1;
+     let filled = 0;
+
+     $rows.each(function (idx) {
+      const $tr = $(this);
+      $tr.find('.stage-seq').text(idx + 1);
+
+      // 첫 행은 ▲, 마지막 행은 ▼ 비활성화
+      $tr.find('.btn-stage-up').prop('disabled', idx === 0);
+      $tr.find('.btn-stage-down').prop('disabled', idx === last);
+
+      // 완료 여부 표시
+      const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
+      const $chip = $tr.find('.btn-stage-complete');
+      if (cpdate) {
+       $tr.addClass('is-done');
+       $chip.addClass('done').text('완료됨');
+      } else {
+       $tr.removeClass('is-done');
+       $chip.removeClass('done').text('완료');
+      }
+
+      // 빈 행 표시 (저장 대상 아님)
+      const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
+      const pldate = ($tr.find('.stage-pldate').val() || '').trim();
+      const isEmpty = !stagenm && !pldate && !cpdate;
+      $tr.toggleClass('is-empty', isEmpty);
+      if (!isEmpty) filled++;
+     });
+
+     $('#stageCount').text(filled);
+    }
+
+    // ✅ 진행단계 비우기 (+ 기본 3행 생성)
+    clearStages() {
+     $('#stageTableBody').empty();
+     this.ensureMinRows();
+    }
+
+    // ✅ 완료 토글 : 비어있으면 오늘 날짜, 이미 있으면 해제
+    toggleStageComplete($tr) {
+     const $cp = $tr.find('.stage-cpdate');
+     if (($cp.val() || '').trim()) {
+      $cp.val('');
+     } else {
+      const today = new Date();
+      $cp.val(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
+     }
+     this.renumberStages();
+    }
+
+    // ✅ 순서 이동 (dir : -1 위 / 1 아래)
+    moveStageRow($tr, dir) {
+     if (dir < 0) {
+      const $prev = $tr.prev('tr');
+      if (!$prev.length) return;
+      $tr.insertBefore($prev);
+     } else {
+      const $next = $tr.next('tr');
+      if (!$next.length) return;
+      $tr.insertAfter($next);
+     }
+     this.renumberStages();
+
+     // 이동한 행 강조 + 화면 밖이면 스크롤
+     $tr.removeClass('flash');
+     void $tr[0].offsetWidth;   // 애니메이션 재시작
+     $tr.addClass('flash');
+     this.scrollRowIntoView($tr);
+    }
+
+    scrollRowIntoView($tr) {
+     const box = document.getElementById('stageScroll');
+     const el = $tr[0];
+     if (!box || !el) return;
+     const top = el.offsetTop;
+     const bottom = top + el.offsetHeight;
+     if (top < box.scrollTop) box.scrollTop = top - 4;
+     else if (bottom > box.scrollTop + box.clientHeight) box.scrollTop = bottom - box.clientHeight + 4;
+    }
+
+    // ✅ 드래그 앤 드롭으로 순서 변경
+    initStageDnD() {
+     const _this = this;
+     const tbody = document.getElementById('stageTableBody');
+     if (!tbody) return;
+     let dragRow = null;
+
+     // 핸들을 눌렀을 때만 드래그 가능하게 (입력창 드래그 방지)
+     tbody.addEventListener('mousedown', function (e) {
+      const handle = e.target.closest('.drag-handle');
+      const tr = e.target.closest('tr');
+      if (handle && tr) tr.setAttribute('draggable', 'true');
+     });
+     document.addEventListener('mouseup', function () {
+      tbody.querySelectorAll('tr[draggable="true"]').forEach(function (tr) {
+       if (!tr.classList.contains('dragging')) tr.setAttribute('draggable', 'false');
+      });
+     });
+
+     tbody.addEventListener('dragstart', function (e) {
+      const tr = e.target.closest('tr');
+      if (!tr) return;
+      dragRow = tr;
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try {
+       e.dataTransfer.setData('text/plain', '');
+      } catch (ex) {
+      }
+     });
+
+     tbody.addEventListener('dragover', function (e) {
+      if (!dragRow) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const over = e.target.closest('tr');
+      if (!over || over === dragRow || over.parentNode !== tbody) return;
+
+      tbody.querySelectorAll('tr.drop-target').forEach(t => t.classList.remove('drop-target'));
+      over.classList.add('drop-target');
+
+      const rect = over.getBoundingClientRect();
+      const after = (e.clientY - rect.top) > rect.height / 2;
+      tbody.insertBefore(dragRow, after ? over.nextSibling : over);
+     });
+
+     tbody.addEventListener('drop', function (e) {
+      e.preventDefault();
+     });
+
+     tbody.addEventListener('dragend', function () {
+      tbody.querySelectorAll('tr.drop-target').forEach(t => t.classList.remove('drop-target'));
+      if (dragRow) {
+       dragRow.classList.remove('dragging');
+       dragRow.setAttribute('draggable', 'false');
+      }
+      dragRow = null;
+      _this.renumberStages();
      });
     }
 
-    // ✅ 진행단계 비우기
-    clearStages() {
-     $('#stageTableBody').empty();
-    }
-
-    // ✅ 특정 행의 완료일을 오늘 날짜로 채움
-    completeStageRow($tr) {
-     const today = new Date();
-     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-     $tr.find('.stage-cpdate').val(todayStr);
-    }
-
-    // ✅ 화면의 진행단계 행들을 배열로 수집 (단계명이 빈 행은 제외)
+    // ✅ 화면의 진행단계 행들을 배열로 수집 (데이터 있는 행만)
     collectStages() {
+     const _this = this;
      const stages = [];
      $('#stageTableBody tr').each(function () {
       const $tr = $(this);
       const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
-      const pldate  = ($tr.find('.stage-pldate').val()  || '').trim();
-      const cpdate  = ($tr.find('.stage-cpdate').val()  || '').trim();
+      const pldate = ($tr.find('.stage-pldate').val() || '').trim();
+      const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
 
-      // 완전히 빈 행은 저장하지 않음
+      // ✅ 완전히 빈 행은 저장하지 않음
       if (!stagenm && !pldate && !cpdate) return;
 
       stages.push({
-       seq: stages.length + 1,
+       seq: stages.length + 1,   // 화면에 보이는 순서대로 순번 부여
        stagenm: stagenm,
        pldate: pldate,
        cpdate: cpdate
       });
      });
      return stages;
+    }
+
+    // ✅ 저장 전 검증 : 날짜만 있고 단계명이 없는 행 방지
+    validateStages() {
+     let invalid = null;
+     $('#stageTableBody tr').each(function () {
+      const $tr = $(this);
+      const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
+      const pldate = ($tr.find('.stage-pldate').val() || '').trim();
+      const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
+      if (!stagenm && (pldate || cpdate)) {
+       invalid = $tr;
+       return false; // break
+      }
+     });
+
+     if (invalid) {
+      Alert.alert('', '단계명이 없는 행이 있습니다.\n단계명을 입력하거나 해당 행을 삭제해 주세요.');
+      invalid.find('.stage-stagenm').focus();
+      return false;
+     }
+     return true;
     }
 
     searchMainData() {
@@ -400,13 +786,14 @@
       }
      };
 
-     AjaxUtil.getAsyncData(this.url +'/read', data, fnsuccess);
+     AjaxUtil.getAsyncData(this.url + '/read', data, fnsuccess);
     }
 
     //저장
     saveMainData() {
      const _this = this;
-     const url = '/api/transaction/projectRegistration/save';
+
+     if (!this.validateStages()) return;   // ✅ 단계명 누락 체크
 
      const data = {
       projno: $('#projno').val(),
@@ -418,20 +805,21 @@
       contdate: $('#contdate').val(),
       remark: $('#remark').val(),
       spjangcd: this.spjangcd.val(),
-      stages: this.collectStages()
+      stages: this.collectStages()   // ✅ 데이터 있는 행만, 화면 순서대로
      };
 
      Alert.confirm('', '저장하시겠습니까?', function () {
-      // ✅ postAsyncData → postJsonData 로 변경
-      AjaxUtil.postJsonData(this.url+'/save', data, function (result) {
+      // ⚠️ 콜백 안에서는 this 가 page 인스턴스가 아니므로 _this 사용
+      AjaxUtil.postJsonData(_this.url + '/save', data, function (result) {
        if (result && result.success) {
         Alert.alert('', '저장되었습니다.');
         _this.searchMainData();
         $('#CategoryForm')[0].reset();
         $('#balcltcd').val('');
         _this.clearStages();
+        _this.resetDefaultDates();
        } else {
-        Alert.alert('', '저장에 실패했습니다.');
+        Alert.alert('', (result && result.message) ? result.message : '저장에 실패했습니다.');
        }
       });
      });
@@ -445,20 +833,35 @@
       spjangcd: this.spjangcd.val()
      };
 
+     if (!data.projno) {
+      Alert.alert('', '삭제할 프로젝트를 먼저 선택해 주세요.');
+      return;
+     }
+
      Alert.confirm('', '삭제하시겠습니까?', function () {
-      // ✅ postAsyncData → postJsonData 로 변경
-      AjaxUtil.postJsonData(this.url + '/delete', data, function (result) {
+      AjaxUtil.postJsonData(_this.url + '/delete', data, function (result) {
        if (result && result.success) {
         Alert.alert('', '삭제되었습니다.');
         _this.searchMainData();
         $('#CategoryForm')[0].reset();
         $('#balcltcd').val('');
         _this.clearStages();
+        _this.resetDefaultDates();
        } else {
         Alert.alert('', '삭제에 실패했습니다.');
        }
       });
      });
+    }
+
+    // 공사일자 / 계약일자 오늘 날짜로 초기화
+    resetDefaultDates() {
+     const today = new Date();
+     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+     $('#stdate').val(todayStr);
+     $('#eddate').val(todayStr);
+     $('#contdate').val(todayStr);
     }
 
    }
@@ -478,35 +881,18 @@
     AjaxUtil.fillSelectOptions($('#cboDepositType'), 'system_code', 'all', false, 'deposit_type', '');
 
     let today = new Date();
-    let monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    //let monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);// 이번 달 마지막 날
+    // ✅ 검색 계약일 시작일 : 올해 1월 1일 (종료일은 오늘)
+    let yearStart = new Date(today.getFullYear(), 0, 1);
 
-    $('#srchStartDt').val(CommonUtil.formatYYYYMMDD(monthStart));
+    $('#srchStartDt').val(CommonUtil.formatYYYYMMDD(yearStart));
     $('#srchEndDt').val(CommonUtil.formatYYYYMMDD(today));
 
-    //공사일자 및 계약일자도 오늘 날짜로 설정
-    function formatToDashYMD(date) {
-     const yyyy = date.getFullYear();
-     const mm = String(date.getMonth() + 1).padStart(2, '0');
-     const dd = String(date.getDate()).padStart(2, '0');
-     return `${yyyy}-${mm}-${dd}`;
-    }
-
-    const todayStr = formatToDashYMD(today);
-    $('#stdate').val(todayStr);
-    $('#eddate').val(todayStr);
-    $('#contdate').val(todayStr);
-
+    page.resetDefaultDates();
     page.searchMainData();
 
     // 검색
     $('#btnSearch').click(function (e) {
-     if ($('#cboCompany').val() !== '' && $('#cboCompanyHidden').val() === '') {
-      // 업체명 텍스트는 썼지만, 업체 검색 버튼 안 눌렀을 때
-      page.searchMainData();
-     } else {
-      page.searchMainData();
-     }
+     page.searchMainData();
     });
 
     //저장
@@ -525,33 +911,44 @@
      e.preventDefault();
      $('#CategoryForm')[0].reset();
      $('#balcltcd').val('');
-     page.clearStages(); // ✅ 신규등록 시 진행단계 초기화
-
-     const today = new Date();
-     const todayStr = formatToDashYMD(today);
-
-     $('#stdate').val(todayStr);
-     $('#eddate').val(todayStr);
-     $('#contdate').val(todayStr);
+     page.clearStages();        // ✅ 신규등록 시 진행단계 초기화 (빈 3행)
+     page.resetDefaultDates();
     });
 
     // ✅ 진행단계 추가 버튼
     $('#btnAddStage').click(function (e) {
      e.preventDefault();
-     page.addStageRow();
+     const $row = page.addStageRow();
+     page.scrollRowIntoView($row);
+     $row.find('.stage-stagenm').focus();
     });
 
     // ✅ 진행단계 행 삭제 (이벤트 위임)
     $('#stageTableBody').on('click', '.btn-stage-del', function (e) {
      e.preventDefault();
      $(this).closest('tr').remove();
-     page.renumberStages();
+     page.ensureMinRows();   // 삭제 후에도 최소 3행 유지
     });
 
-    // ✅ 진행단계 행별 완료 버튼 (이벤트 위임)
+    // ✅ 순서 위로 / 아래로
+    $('#stageTableBody').on('click', '.btn-stage-up', function (e) {
+     e.preventDefault();
+     page.moveStageRow($(this).closest('tr'), -1);
+    });
+    $('#stageTableBody').on('click', '.btn-stage-down', function (e) {
+     e.preventDefault();
+     page.moveStageRow($(this).closest('tr'), 1);
+    });
+
+    // ✅ 진행단계 행별 완료 버튼 (토글)
     $('#stageTableBody').on('click', '.btn-stage-complete', function (e) {
      e.preventDefault();
-     page.completeStageRow($(this).closest('tr'));
+     page.toggleStageComplete($(this).closest('tr'));
+    });
+
+    // ✅ 입력값이 바뀌면 상태(완료/빈행/건수) 갱신
+    $('#stageTableBody').on('change input', '.stage-stagenm, .stage-pldate, .stage-cpdate', function () {
+     page.renumberStages();
     });
 
     // 팝업 열기 및 값 세팅
@@ -572,6 +969,7 @@
       $('#cboCompanyHidden').val('');
      }
     });
+
     $('#balcltnm').click(function () {
      const poppage = new PopCompComponent();
      const $poppage = $(poppage);

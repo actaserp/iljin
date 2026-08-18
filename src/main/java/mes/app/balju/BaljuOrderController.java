@@ -2,6 +2,7 @@ package mes.app.balju;
 
 import lombok.extern.slf4j.Slf4j;
 import mes.app.MailService;
+import mes.app.balju.service.BalJuMailService;
 import mes.app.balju.service.BaljuOrderService;
 import mes.app.definition.service.BomService;
 import mes.domain.entity.*;
@@ -45,6 +46,9 @@ public class BaljuOrderController {
   BaljuOrderService baljuOrderService;
 
   @Autowired
+  BalJuMailService balJuMailService;
+
+  @Autowired
   BujuRepository bujuRepository;
 
   @Autowired
@@ -65,12 +69,12 @@ public class BaljuOrderController {
   // 발주 목록 조회
   @GetMapping("/read")
   public AjaxResult getSujuList(
-      @RequestParam(value = "date_kind", required = false) String date_kind,
-      @RequestParam(value = "start", required = false) String start_date,
-      @RequestParam(value = "end", required = false) String end_date,
-      @RequestParam(value = "spjangcd") String spjangcd,
-      @RequestParam(value = "company", required = false) String company,
-      HttpServletRequest request) {
+    @RequestParam(value = "date_kind", required = false) String date_kind,
+    @RequestParam(value = "start", required = false) String start_date,
+    @RequestParam(value = "end", required = false) String end_date,
+    @RequestParam(value = "spjangcd") String spjangcd,
+    @RequestParam(value = "company", required = false) String company,
+    HttpServletRequest request) {
     //log.info("발주 read--- date_kind:{}, start_date:{},end_date:{} , spjangcd:{} " ,date_kind,start_date , end_date, spjangcd);
     start_date = start_date + " 00:00:00";
     end_date = end_date + " 23:59:59";
@@ -117,7 +121,7 @@ public class BaljuOrderController {
     if (headId != null) {
 //      log.info("🔄 기존 발주 수정 - headId: {}", headId);
       head = balJuHeadRepository.findById(headId)
-          .orElseThrow(() -> new RuntimeException("발주 헤더 없음"));
+               .orElseThrow(() -> new RuntimeException("발주 헤더 없음"));
       head.setModified(new Timestamp(System.currentTimeMillis()));
       head.setModifierId(user.getId());
       head.setDeliveryDate(dueDate);
@@ -150,9 +154,9 @@ public class BaljuOrderController {
 
     if (headId != null) {
       Set<Integer> incomingIds = items.stream()
-          .map(i -> CommonUtil.tryIntNull(i.get("baljuId")))
-          .filter(Objects::nonNull)
-          .collect(Collectors.toSet());
+                                   .map(i -> CommonUtil.tryIntNull(i.get("baljuId")))
+                                   .filter(Objects::nonNull)
+                                   .collect(Collectors.toSet());
 
       List<Balju> existingDetails = bujuRepository.findByBaljuHeadId(headId);
       for (Balju detail : existingDetails) {
@@ -172,14 +176,14 @@ public class BaljuOrderController {
       Double supply_price = Double.parseDouble(item.get("supply_price").toString());
       Double vat = Double.parseDouble(item.get("vat").toString());
       String standard = java.util.Objects.toString(
-          item.containsKey("Standard") ? item.get("Standard") : item.get("standard"),
-          ""
+        item.containsKey("Standard") ? item.get("Standard") : item.get("standard"),
+        ""
       );
       Balju detail;
 
       if (baljuId != null) {
         detail = bujuRepository.findById(baljuId)
-            .orElseThrow(() -> new RuntimeException("상세 항목 없음"));
+                   .orElseThrow(() -> new RuntimeException("상세 항목 없음"));
         detail._modified = new Timestamp(System.currentTimeMillis());
         detail._modifier_id = user.getId();
       } else {
@@ -235,8 +239,8 @@ public class BaljuOrderController {
   // 발주 상세정보 조회
   @GetMapping("/detail")
   public AjaxResult getBaljuDetail(
-      @RequestParam("id") int id,
-      HttpServletRequest request) {
+    @RequestParam("id") int id,
+    HttpServletRequest request) {
 //    log.info("상세 정보 들어옴 : id:{}", id);
     Map<String, Object> item = this.baljuOrderService.getBaljuDetail(id);
 
@@ -250,8 +254,8 @@ public class BaljuOrderController {
   @PostMapping("/delete")
   @Transactional
   public AjaxResult deleteSuju(
-      @RequestParam("id") Integer id,
-      @RequestParam("State") String State) {
+    @RequestParam("id") Integer id,
+    @RequestParam("State") String State) {
 
     AjaxResult result = new AjaxResult();
 
@@ -347,19 +351,26 @@ public class BaljuOrderController {
   public AjaxResult getMailData(@RequestBody Map<String, Object> payload, Authentication auth) {
     AjaxResult result = new AjaxResult();
 
+    // 이력 적재에 쓰이므로 catch 블록에서도 보이도록 try 밖에 선언한다
+    List<String> recipients = (List<String>) payload.get("recipients");
+    String title = (String) payload.get("title");
+    String content = (String) payload.get("content");
+    Integer bhId = (Integer) payload.get("bhId");
+    String replyTo = (String) payload.get("replyTo");
+
+    // 1. 로그인 사용자 정보 추출
+    User user = (User) auth.getPrincipal();
+    String userid = user.getUsername();
+
+    String sendState = "success";
+    String errorMsg = null;
+
     try {
-      List<String> recipients = (List<String>) payload.get("recipients");
-      String title = (String) payload.get("title");
-      String content = (String) payload.get("content");
-      Integer bhId = (Integer) payload.get("bhId");
-      String replyTo = (String) payload.get("replyTo");
-      // 1. 로그인 사용자 정보 추출
-      User user = (User) auth.getPrincipal();
-      String userid = user.getUsername();
 
       // 2. 발주서 데이터 및 발신자 정보 조회
       Map<String, Object> baljuData = baljuOrderService.getBaljuDetail(bhId);
       Map<String, Object> senderInfo = baljuOrderService.getSenderInfo(userid);
+      String spjangcd = senderInfo == null ? null : (String) senderInfo.get("spjangcd");
 
       Integer companyId = (Integer) baljuData.get("Company_id");
       Map<String, Object> receiverInfo = baljuOrderService.getReceiverInfo(companyId);
@@ -439,7 +450,7 @@ public class BaljuOrderController {
                   CellStyle style = workbook.createCellStyle();
                   style.cloneStyleFrom(baseStyle);
                   style.setBorderBottom(BorderStyle.THICK); // 굵은 아래 테두리
-                  style.setAlignment(HorizontalAlignment.CENTER); // 가운데 정렬
+                  // 가로 정렬은 템플릿 값을 그대로 쓴다. (자재명은 왼쪽)
                   style.setVerticalAlignment(VerticalAlignment.CENTER);
                   cachedLastRowStyles[col] = style;
                 }
@@ -469,12 +480,11 @@ public class BaljuOrderController {
             sheet.addMergedRegion(mergedRegion);
           }
 
-          // 가운데 정렬 스타일 (자재명 셀에만)
-          CellStyle centerStyle = workbook.createCellStyle();
-          centerStyle.cloneStyleFrom(styleTemplateRow.getCell(2).getCellStyle());
-          centerStyle.setAlignment(HorizontalAlignment.CENTER);
-          centerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
-          row.getCell(2).setCellStyle(centerStyle);
+          // [삭제됨] 자재명 셀 가운데 정렬
+          //   여기서 매 행마다 workbook.createCellStyle() 을 호출해
+          //   (1) 위에서 cachedStyles 로 잡아둔 템플릿 스타일을 덮어쓰고
+          //   (2) 자재 건수만큼 스타일 객체를 만들어냈다. (엑셀 한도 64,000개)
+          //   정렬이 필요하면 cachedStyles 를 만들 때 한 번만 지정할 것.
 
           // 값 설정
           row.getCell(1).setCellValue(i + 1); // NO
@@ -492,10 +502,10 @@ public class BaljuOrderController {
 
         // 2. 병합 범위 계산 (B~G 열, 3행 병합)
         CellRangeAddress specialNoteRegion = new CellRangeAddress(
-            specialNoteStartRow,
-            specialNoteStartRow + 2,
-            1,
-            6
+          specialNoteStartRow,
+          specialNoteStartRow + 2,
+          1,
+          6
         );
 
         // 3. 기존 병합과 충돌하는 것 제거
@@ -509,40 +519,48 @@ public class BaljuOrderController {
         sheet.addMergedRegion(specialNoteRegion);
 
         // 5. 셀 스타일 정의
-        CellStyle borderStyle = workbook.createCellStyle();
-        borderStyle.setWrapText(true);
-        borderStyle.setVerticalAlignment(VerticalAlignment.TOP);
-        borderStyle.setAlignment(HorizontalAlignment.LEFT);
-        borderStyle.setVerticalAlignment(VerticalAlignment.CENTER); // ← 세로 가운데 정렬
+        //
+        // [주의] 예전 코드는 모든 셀에 같은 borderStyle 을 물린 뒤
+        //        topCell.getCellStyle().setBorderTop(...) 으로 테두리를 넣었다.
+        //        POI 의 getCellStyle() 은 공유 스타일 객체를 그대로 돌려주므로
+        //        이 방식은 같은 스타일을 쓰는 셀 전부를 함께 바꿔버린다.
+        //        결과적으로 "바깥쪽만 굵게" 가 아니라 안쪽 칸까지 전부 굵어지고,
+        //        자재 행 등 무관한 셀의 서식까지 오염됐다.
+        //        위치별(모서리/변/안쪽) 스타일을 미리 만들어 배정하는 방식으로 바꾼다.
+        int specialNoteEndRow = specialNoteStartRow + 2;
 
-        // 바깥쪽만 굵은 테두리 → 내부 셀도 같이 반복
-        for (int rowIdx = specialNoteStartRow; rowIdx <= specialNoteStartRow + 2; rowIdx++) {
+        CellStyle noteBaseStyle = workbook.createCellStyle();
+        noteBaseStyle.setWrapText(true);
+        noteBaseStyle.setAlignment(HorizontalAlignment.LEFT);
+        noteBaseStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+
+        // [행 위치][열 위치] 0 = 처음, 1 = 중간, 2 = 마지막
+        CellStyle[][] noteStyles = new CellStyle[3][3];
+
+        for (int rowIdx = specialNoteStartRow; rowIdx <= specialNoteEndRow; rowIdx++) {
           Row row = sheet.getRow(rowIdx);
           if (row == null) row = sheet.createRow(rowIdx);
+
+          int rowPos = (rowIdx == specialNoteStartRow) ? 0
+                         : (rowIdx == specialNoteEndRow) ? 2 : 1;
 
           for (int colIdx = 1; colIdx <= 6; colIdx++) {
             Cell cell = row.getCell(colIdx);
             if (cell == null) cell = row.createCell(colIdx);
-            cell.setCellStyle(borderStyle);
+
+            int colPos = (colIdx == 1) ? 0 : (colIdx == 6) ? 2 : 1;
+
+            if (noteStyles[rowPos][colPos] == null) {
+              CellStyle style = workbook.createCellStyle();
+              style.cloneStyleFrom(noteBaseStyle);
+              if (rowPos == 0) style.setBorderTop(BorderStyle.THICK);
+              if (rowPos == 2) style.setBorderBottom(BorderStyle.THICK);
+              if (colPos == 0) style.setBorderLeft(BorderStyle.THICK);
+              if (colPos == 2) style.setBorderRight(BorderStyle.THICK);
+              noteStyles[rowPos][colPos] = style;
+            }
+            cell.setCellStyle(noteStyles[rowPos][colPos]);
           }
-        }
-
-        // 바깥쪽 테두리만 굵게 따로 지정
-        for (int col = 1; col <= 6; col++) {
-          // 위쪽
-          Cell topCell = sheet.getRow(specialNoteStartRow).getCell(col);
-          topCell.getCellStyle().setBorderTop(BorderStyle.THICK);
-
-          // 아래쪽
-          Cell bottomCell = sheet.getRow(specialNoteStartRow + 2).getCell(col);
-          bottomCell.getCellStyle().setBorderBottom(BorderStyle.THICK);
-        }
-
-        // 왼쪽/오른쪽 테두리는 각 행 첫 번째, 마지막 열에서
-        for (int rowIdx = specialNoteStartRow; rowIdx <= specialNoteStartRow + 2; rowIdx++) {
-          Row row = sheet.getRow(rowIdx);
-          row.getCell(1).getCellStyle().setBorderLeft(BorderStyle.THICK);  // B열
-          row.getCell(6).getCellStyle().setBorderRight(BorderStyle.THICK); // G열
         }
 
         // 6. 병합 시작 셀에 값 설정
@@ -563,11 +581,11 @@ public class BaljuOrderController {
 
         //메일 전송
         mailService.sendMailWithAttachment(
-            recipients,
-            title,
-            content,
-            tempXlsx.toFile(),
-            fileName,
+          recipients,
+          title,
+          content,
+          tempXlsx.toFile(),
+          fileName,
           replyTo
         );
 //      log.info("✅ 메일 전송 완료: 수신자={}", recipients);
@@ -581,7 +599,22 @@ public class BaljuOrderController {
         }, 5, TimeUnit.MINUTES);
 
       } catch (Exception e) {
-        e.printStackTrace();
+        // 예외를 삼키면 발송 실패인데도 화면에 "전송 완료"가 뜬다
+        sendState = "fail";
+        errorMsg = e.getMessage();
+        log.error("발주서 생성/메일 발송 실패. bhId={}", bhId, e);
+      }
+
+      // 발송 이력 적재 (성공/실패 무관)
+      //   첨부 원본은 보관하지 않는다. 어떤 이름으로 나갔는지만 남긴다.
+      //   (tempXlsx 는 5분 뒤 삭제 예약되어 있다)
+      saveMailHistory(bhId, replyTo, recipients, title, content,
+        fileName, sendState, errorMsg, spjangcd, user);
+
+      if ("fail".equals(sendState)) {
+        result.success = false;
+        result.message = "메일 전송 중 문제가 발생했습니다: " + errorMsg;
+        return result;
       }
 
       // 5. 결과 데이터 구성
@@ -596,9 +629,32 @@ public class BaljuOrderController {
 
     } catch (Exception e) {
       log.error("❌ 메일 전송 중 서버에서 예외 발생: {}", e.getMessage(), e);
+
+      // 발주서 조회 단계에서 터진 경우. 사업장을 못 구했어도 이력은 남긴다.
+      saveMailHistory(bhId, replyTo, recipients, title, content,
+        null, "fail", e.getMessage(), null, user);
+
       result.success = false;
       result.message = "메일 전송 중 문제가 발생했습니다: " + e.getMessage();
       return result;
+    }
+  }
+
+  /**
+   * 발송 이력 적재.
+   * 이력 저장이 실패해도 메일 발송 결과 자체를 뒤집지 않는다.
+   * (메일은 이미 나갔는데 INSERT 오류로 화면에 실패가 뜨면 재발송으로 이어진다)
+   */
+  private void saveMailHistory(Integer bhId, String replyTo, List<String> recipients,
+                               String title, String content,
+                               String fileName,
+                               String sendState, String errorMsg,
+                               String spjangcd, User user) {
+    try {
+      balJuMailService.saveHistory(bhId, replyTo, recipients, title, content,
+        fileName, sendState, errorMsg, spjangcd, user);
+    } catch (Exception ex) {
+      log.error("발주서 메일 발송 이력 저장 실패. bhId={}", bhId, ex);
     }
   }
 
@@ -691,7 +747,7 @@ public class BaljuOrderController {
       // 저장
       Material saved = materialRepository.save(material);
 
-     // createOrReuseDefaultBom(saved, spjangcd, user);
+      // createOrReuseDefaultBom(saved, spjangcd, user);
 
 //      String unitName = unitRepository.findById(Unit_id)
 //                          .map(Unit::getName)
