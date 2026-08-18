@@ -1,0 +1,176 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        #paWrap{background:#1b1f27;color:#f3f6f9;min-height:100vh;padding:1.6vw 1.8vw 4vw;font-family:'Pretendard','Malgun Gothic',sans-serif;font-size:clamp(14px,0.85vw,18px);}
+        #paInner{max-width:1500px;margin:0 auto;}
+        #paWrap *{box-sizing:border-box;}
+        .pa-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:12px;}
+        .pa-head h2{font-size:clamp(22px,1.5vw,32px);font-weight:700;margin:0;}
+        .pa-head .sub{font-size:12px;color:#aeb7c4;margin-top:3px;}
+        .view-only{font-size:11px;color:#7e8794;border:1px solid #2a2f38;border-radius:6px;padding:3px 9px;margin-left:10px;}
+        .pa-right{display:flex;align-items:center;gap:16px;}
+        .pa-clock{font-size:clamp(20px,1.4vw,32px);font-weight:600;color:#6c9fd1;font-variant-numeric:tabular-nums;}
+        .seg{display:flex;gap:6px;}
+        .seg button{border:1px solid #404a59;background:#272f3a;color:#aeb7c4;border-radius:8px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer;}
+        .seg button.on{background:#2f4a6b;border-color:#5f8fc0;color:#e6ebf1;}
+        @keyframes pablink{0%,100%{opacity:1}50%{opacity:.3}}
+
+        .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+        .kpi{background:#272f3a;border:1px solid #404a59;border-radius:12px;padding:1vw 1.2vw;}
+        .kpi .l{font-size:clamp(13px,0.95vw,20px);color:#aeb7c4;}
+        .kpi .v{font-size:clamp(24px,1.8vw,36px);font-weight:700;margin-top:3px;}
+        .kpi .v small{font-size:13px;color:#aeb7c4;font-weight:600;}
+        .kpi.plan .v{color:#f3f6f9;} .kpi.act .v{color:#6c9fd1;} .kpi.rate .v{color:#5cbf9b;} .kpi.risk .v{color:#d4685f;}
+
+        .sec-label{font-size:clamp(14px,1vw,20px);color:#aeb7c4;font-weight:700;margin:2px 0 10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+        .sec-label .legend{font-weight:500;color:#7e8794;font-size:11px;}
+
+        #itemRows{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-bottom:22px;}
+        .icard{background:#272f3a;border:1px solid #404a59;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:11px;}
+        .icard.under{border-color:rgba(248,81,73,.5);}
+        .ic-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+        .ic-head .nm{font-size:clamp(17px,1.2vw,24px);font-weight:800;}
+        .ic-head .nm small{font-size:12px;color:#aeb7c4;font-weight:600;margin-left:5px;}
+        .ic-due{font-size:12px;color:#aeb7c4;font-weight:700;background:#1e242d;border:1px solid #404a59;border-radius:7px;padding:3px 9px;white-space:nowrap;}
+        .ic-due.soon{color:#d4685f;border-color:rgba(248,81,73,.4);}
+        .ic-mid{display:flex;align-items:baseline;justify-content:space-between;}
+        .ic-prog{font-size:clamp(28px,2.1vw,42px);font-weight:800;line-height:1;}
+        .ic-prog small{font-size:13px;color:#aeb7c4;font-weight:600;margin-left:3px;}
+        .ic-qty{font-size:clamp(13px,1vw,20px);color:#bcc4ce;text-align:right;}
+        .ic-qty .m{color:#6c9fd1;font-weight:800;}
+        .ic-track{height:10px;background:#39424f;border-radius:999px;overflow:hidden;}
+        .ic-track .f{height:100%;border-radius:999px;}
+        .ic-foot{display:flex;justify-content:space-between;font-size:12px;color:#aeb7c4;}
+        .ic-foot .rem{color:#d3aa55;font-weight:700;}
+
+        table.dt{width:100%;border-collapse:collapse;background:#272f3a;border:1px solid #404a59;border-radius:12px;overflow:hidden;}
+        table.dt th,table.dt td{padding:0.7vw 1vw;font-size:clamp(13px,1vw,20px);text-align:center;border-bottom:1px solid #333c48;}
+        table.dt th{background:#20262f;color:#aeb7c4;font-weight:700;}
+        table.dt td{color:#ccd3dc;} table.dt td.k{font-weight:800;color:#f3f6f9;text-align:left;}
+        table.dt tr:last-child td{border-bottom:0;}
+        .plan-c{color:#e6ebf1;font-weight:700;} .act-c{color:#6c9fd1;font-weight:700;}
+        .bar-cell{width:26%;}
+        .mini{height:8px;background:#39424f;border-radius:999px;overflow:hidden;}
+        .mini .f{height:100%;border-radius:999px;}
+        .rate-c{font-weight:800;} .rate-c.hi{color:#5cbf9b;} .rate-c.mid{color:#d3aa55;} .rate-c.lo{color:#d4685f;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div id="paWrap">
+        <div id="paInner">
+            <div class="pa-head">
+                <div>
+                    <h2>계획 대비 실적<span class="view-only">읽기 전용 · 모니터링</span></h2>
+                    <div class="sub">품목 · 공정별 계획 수량 대비 누적 실적(양품) 및 달성률</div>
+                </div>
+                <div class="pa-right">
+                    <div class="seg" id="seg">
+                        <button data-k="all" class="on">전체</button>
+                        <button data-k="under">미달만</button>
+                    </div>
+                    <span class="pa-clock" id="paClock"></span>
+                </div>
+            </div>
+
+            <div class="kpi-row" id="kpiRow"></div>
+
+            <div class="sec-label">
+                <span>품목별 계획 대비 실적</span>
+                <span class="legend">달성률 ●100%↑ 초록 ◐80~99% 노랑 ○80%↓ 빨강</span>
+            </div>
+            <div id="itemRows"></div>
+
+            <div class="sec-label"><span>공정별 계획 대비 실적</span></div>
+            <table class="dt">
+                <thead><tr><th style="text-align:left">공정</th><th>계획</th><th>실적</th><th class="bar-cell">진행</th><th>달성률</th><th>잔량</th></tr></thead>
+                <tbody id="procBody"></tbody>
+            </table>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" th:inline="none">
+        const $ = s => document.querySelector(s);
+        const nf = n => (n || 0).toLocaleString();
+
+        // 계획 대비 실적 (읽기 전용 · 서버 집계 가정)
+        //  plan=계획수량, act=누적 실적(양품). due=납기
+        const ITEMS = [
+            {code:'RS01', proj:'PRJ-A', proc:'와이어커팅', plan:200, act:186, due:'2026-07-20'},
+            {code:'RS02', proj:'PRJ-A', proc:'와이어커팅', plan:150, act:96,  due:'2026-07-18'},
+            {code:'RS10', proj:'PRJ-B', proc:'선반/밀링',  plan:120, act:124, due:'2026-07-25'},
+            {code:'RS20', proj:'PRJ-C', proc:'선반/밀링',  plan:90,  act:52,  due:'2026-07-16'},
+            {code:'RS31', proj:'PRJ-A', proc:'레이저절단', plan:160, act:158, due:'2026-07-22'},
+            {code:'RS42', proj:'PRJ-B', proc:'레이저절단', plan:110, act:73,  due:'2026-07-19'},
+        ];
+
+        let filter = 'all';
+        const rate = it => it.plan ? (it.act/it.plan*100) : 0;
+        const rateClass = p => p >= 100 ? 'hi' : (p >= 80 ? 'mid' : 'lo');
+        const barColor = p => p >= 100 ? '#5cbf9b' : (p >= 80 ? '#d3aa55' : '#d4685f');
+        const dueSoon = d => { const diff = (new Date(d+'T00:00:00') - new Date())/86400000; return diff <= 3; };
+
+        function render() {
+            const totPlan = ITEMS.reduce((s,i)=>s+i.plan,0);
+            const totAct = ITEMS.reduce((s,i)=>s+i.act,0);
+            const totRate = totPlan ? (totAct/totPlan*100) : 0;
+            const under = ITEMS.filter(i => rate(i) < 100).length;
+            $('#kpiRow').innerHTML = `
+                <div class="kpi plan"><div class="l">총 계획</div><div class="v">${nf(totPlan)} <small>EA</small></div></div>
+                <div class="kpi act"><div class="l">누적 실적</div><div class="v">${nf(totAct)} <small>EA</small></div></div>
+                <div class="kpi rate"><div class="l">전체 달성률</div><div class="v">${totRate.toFixed(1)}<small>%</small></div></div>
+                <div class="kpi risk"><div class="l">미달 품목</div><div class="v">${under} <small>건</small></div></div>`;
+
+            // 품목 카드
+            let items = ITEMS.slice();
+            if (filter === 'under') items = items.filter(i => rate(i) < 100);
+            items.sort((a,b) => rate(a) - rate(b));
+            $('#itemRows').innerHTML = items.map(it => {
+                const p = rate(it), w = Math.min(100, p), rem = Math.max(0, it.plan - it.act);
+                return `<div class="icard ${p < 100 ? 'under' : ''}">
+                    <div class="ic-head">
+                        <span class="nm">${it.code}<small>${it.proj} · ${it.proc}</small></span>
+                        <span class="ic-due ${dueSoon(it.due)?'soon':''}">납기 ${it.due.slice(5)}</span>
+                    </div>
+                    <div class="ic-mid">
+                        <span class="ic-prog" style="color:${barColor(p)}">${p.toFixed(0)}<small>%</small></span>
+                        <span class="ic-qty"><span class="m">${nf(it.act)}</span> / ${nf(it.plan)}</span>
+                    </div>
+                    <div class="ic-track"><div class="f" style="width:${w}%;background:${barColor(p)}"></div></div>
+                    <div class="ic-foot"><span>달성률</span><span class="rem">잔량 ${nf(rem)}</span></div>
+                </div>`;
+            }).join('') || '<div style="color:#9099a7;padding:8px">해당 항목이 없습니다.</div>';
+
+            // 공정별 집계
+            const procs = {};
+            ITEMS.forEach(it => {
+                procs[it.proc] = procs[it.proc] || {plan:0, act:0};
+                procs[it.proc].plan += it.plan; procs[it.proc].act += it.act;
+            });
+            const order = ['레이저절단','선반/밀링','와이어커팅'];
+            $('#procBody').innerHTML = order.filter(p=>procs[p]).map(p => {
+                const d = procs[p], rt = d.plan ? (d.act/d.plan*100) : 0, w = Math.min(100, rt), rem = Math.max(0, d.plan-d.act);
+                return `<tr>
+                    <td class="k">${p}</td>
+                    <td class="plan-c">${nf(d.plan)}</td>
+                    <td class="act-c">${nf(d.act)}</td>
+                    <td class="bar-cell"><div class="mini"><div class="f" style="width:${w}%;background:${barColor(rt)}"></div></div></td>
+                    <td class="rate-c ${rateClass(rt)}">${rt.toFixed(1)}%</td>
+                    <td>${nf(rem)}</td></tr>`;
+            }).join('');
+        }
+
+        $('#seg').querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+            filter = b.dataset.k;
+            $('#seg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+            render();
+        });
+
+        function tick(){ const d=new Date(), p=n=>String(n).padStart(2,'0'); $('#paClock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+        tick(); setInterval(tick,1000);
+
+        render();
+    </script>
+</th:block>
+</html>

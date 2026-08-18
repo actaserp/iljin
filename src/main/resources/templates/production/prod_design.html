@@ -1,391 +1,153 @@
 <html layout:decorate="~{layout_page}">
 <head>
     <style>
-        /* =========================================================
-           [미리보기용] layout_page 가 제공하는 공통 스타일 (실서버 적용 시 이 블록 삭제)
-           ========================================================= */
-        body {
-            margin: 0;
-            font-family: 'Malgun Gothic', 'Pretendard', sans-serif;
-            background: #eef1f6;
-            color: #222;
-            font-size: 13px;
-        }
+        /* 이 페이지 전용 스타일만 정의한다.
+           .layout-contents / .section / .section-top / .container-fluid / .btn /
+           .page-title-wrap 등은 layout_page 가 제공하므로 여기서 재정의하지 않는다.
+           (재정의하면 공통 레이아웃이 틀어진다) */
 
-        section{
-            padding : 7px;
-        }
+        /* --- 풀하이트 2단 (prod_accembly 구조 준용) --- */
+        .layout-contents { display:flex; flex-direction:column; min-height:100vh; box-sizing:border-box; }
+        .main-row { display:flex; gap:5px; align-items:stretch; flex:1 1 auto; min-height:0; }
+        .main-row > .section { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+        /* 본문만 스크롤 + section-top 과 표가 붙지 않게 여백 */
+        .main-row > .section > .container-fluid { flex:1 1 auto; min-height:0; overflow:auto; padding-top:10px; }
+        .main-row > .section.left  { flex:0 0 520px; }
+        .main-row > .section.right { flex:1 1 auto; min-width:0; }
+        .section-top { flex:0 0 auto; }
 
-        .layout-contents {
-            padding: 14px 18px;
-        }
-
-        .page-title-wrap {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 12px;
-        }
-
-        .page-title-wrap .left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .page-title-wrap h2 {
-            font-size: 19px;
-            font-weight: 700;
-            margin: 0;
-        }
-
-        .bookmark {
-            font-size: 12px;
-            color: #5b6b86;
-            border: 1px solid #cfd6e2;
-            background: #fff;
-            border-radius: 16px;
-            padding: 4px 11px;
-            cursor: pointer;
-        }
-
-        .section {
-            background: #fff;
-            border: 1px solid #d7dde7;
-            border-radius: 6px;
-        }
-
-        .section-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 13px;
-            border-bottom: 1px solid #e9edf3;
-            background: #f7f9fc;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .section-top h3 {
-            margin: 0;
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .button-wrap ul {
-            list-style: none;
-            display: flex;
-            gap: 6px;
-            margin: 0;
-            padding: 0;
-            align-items: center;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            border: 1px solid #cfd6e2;
-            background: #fff;
-            border-radius: 5px;
-            padding: 6px 11px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            color: #333;
-            text-decoration: none;
-        }
-
-        .btn img {
-            width: 13px;
-            height: 13px;
-        }
-
-        .container-fluid {
-            padding: 12px 13px;
-        }
-
-        table.work-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        table.work-table th, table.work-table td {
-            border: 1px solid #d7dde7;
-            padding: 6px 7px;
-            font-size: 12.5px;
-            text-align: center;
-        }
-
-        table.work-table th {
-            background: #eef2f8;
-            color: #445;
-            font-weight: 700;
-        }
-
+        table.work-table { width:100%; border-collapse:collapse; }
+        table.work-table th, table.work-table td { border:1px solid #d7dde7; padding:6px 7px; font-size:12.5px; text-align:center; }
+        table.work-table th { background:#eef2f8; color:#445; font-weight:700; position:sticky; top:0; z-index:1; }
+        table.work-table td.l { text-align:left; }
+        table.work-table td.r { text-align:right; }
+        /* layout_page 의 input 공통 규칙(높이·모서리)이 표 안에서 과하게 커지므로 여기서 눌러준다 */
         table.work-table input, table.work-table select {
-            border: 1px solid #cfd6e2;
-            border-radius: 4px;
-            padding: 4px 6px;
-            font-size: 12px;
-            width: 100%;
-            box-sizing: border-box;
+            width:100%; min-width:0;
         }
-
-        /* =========================================================
-           [이 페이지 전용]
-           ========================================================= */
-        html, body {
-            height: 100%;
+        table.work-table input[type=text]:focus, table.work-table input:focus, table.work-table select:focus {
+            outline:none; border-color:#2f57d6;
         }
+        table.work-table input.ta-r { text-align:right; }
+        /* 유형(분류)도 구분과 동일하게 select 로 통일 */
+        table.work-table select:disabled { background:#f2f4f7; color:#aab; }
+        /* datalist 가 붙은 input 은 브라우저가 화살표를 그려 다른 칸과 달라 보인다 */
+        table.work-table input[list]::-webkit-calendar-picker-indicator { display:none !important; }
+        table.work-table input[list]::-webkit-list-button { display:none !important; }
 
-        .layout-contents {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
+        table.bom-table { table-layout:fixed; }
+        table.bom-table td, table.bom-table th { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-        .row3 {
-            display: flex;
-            gap: 5px;
-            align-items: stretch;
-            flex: 1 1 auto;
-            min-height: 0;
-        }
+        .item-row { cursor:pointer; }
+        .item-row:hover { background:#f4f8ff; }
+        .item-row.on { background:#e6efff; }
+        .item-row.on td { font-weight:700; }
+        .item-row.on td:nth-child(1) { box-shadow:inset 3px 0 0 #0026ff; }
 
-        .row3 > .section {
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-            overflow: hidden;
-        }
+        tr.est { background:#fffaf0; }
+        tr.est td:first-child { box-shadow:inset 3px 0 0 #e0b352; }
 
-        .row3 > .section > .container-fluid {
-            flex: 1 1 auto;
-            min-height: 0;
-            overflow: auto;
-        }
+        .badge { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:11px; }
+        .badge.ordered { background:#e3f3ea; color:#1f8f53; }
+        .badge.unordered { background:#eef0f4; color:#777; }
 
-        .section-top {
-            flex: 0 0 auto;
-        }
+        .x { color:#d23b53; cursor:pointer; font-weight:700; }
+        .hint { font-size:11.5px; color:#667; line-height:1.6; margin:0 0 8px; }
+        .empty { color:#99a; text-align:center; padding:18px 0; }
+        .btn-mini { font-size: 11px; padding: 2px 7px; border: 1px solid #cfd6e2; background: #fff; cursor: pointer; border-radius: 3px; }
 
-        table.work-table td.l {
-            text-align: left;
-        }
-
-        table.work-table td.num input {
-            text-align: right;
-        }
-
-        /* BOM 표: 고정 레이아웃 + 말줄임으로 가로 스크롤 제거 */
-        table.bom-table {
-            table-layout: fixed;
-        }
-
-        table.bom-table td, table.bom-table th {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .row-sel {
-            cursor: pointer;
-        }
-
-        .row-sel:hover {
-            background: #f4f8ff;
-        }
-
-        .fin-row {
-            background: #eef3ff;
-        }
-
-        .row-sel.on {
-            background: #e6efff;
-        }
-
-        .badge {
-            font-size: 11px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 11px;
-        }
-
-        .badge.out {
-            background: #dcf0f8;
-            color: #0b69a3;
-        }
-
-        .badge.no {
-            background: #f3e6c0;
-            color: #8a6d1b;
-        }
-
-        .badge.fin {
-            background: #0026ff;
-            color: #fff;
-        }
-
-        .badge.ing {
-            background: #eef0f3;
-            color: #555;
-        }
-
-        /* 완료 / 완료취소 토글 버튼 */
-
-        .btn.done.cancel {
-            background: #fff;
-            color: #0026ff;
-            border-color: #0026ff;
-        }
-
-        .btn.done.sm {
-            padding: 3px 9px;
-            font-size: 11.5px;
-        }
-
-        /* 상태 텍스트 색만 유지(수량 입력칸 색상 박스는 제거) */
-        .stat.est {
-            color: #8a6d1b;
-        }
-
-        .stat.fix {
-            color: #0b69a3;
-        }
-
-        .x {
-            color: #d23b53;
-            cursor: pointer;
-            font-weight: 700;
-        }
-
-        .hint {
-            font-size: 11.5px;
-            color: #667;
-            margin: 0 0 8px;
-        }
-
-        .out-label {
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        /* 프로젝트 선택 바 */
-        .proj-bar {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: #fff;
-            border: 1px solid #d7dde7;
-            border-radius: 6px;
-            padding: 8px 12px;
-            margin-bottom: 8px;
-            flex: 0 0 auto;
-        }
-
-        .proj-bar label {
-            font-weight: 700;
-            color: #445;
-            font-size: 12.5px;
-        }
-
-        .proj-bar select {
-            border: 1px solid #cfd6e2;
-            border-radius: 5px;
-            font-size: 12.5px;
-            min-width: 240px;
-        }
-
-        /* 작업지시 상태 뱃지 */
-        .badge.ordered {
-            background: #0026ff;
-            color: #fff;
-        }
-
-        .badge.unordered {
-            background: #eef0f3;
-            color: #777;
-        }
+        /* 모달 헤더 — section-top 안에서 제목/검색/버튼 세로 가운데 정렬 */
+        .modal-box { padding-bottom:0; }
+        .modal-box .section-top { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 20px; }
+        .modal-box .section-top h3 { margin:0; font-size:15px; font-weight:700; }
+        .modal-box .modal-body { padding:18px 20px 20px; overflow:auto; flex:1 1 auto; min-height:0; }
+        .modal-box .modal-body .hint { margin:0 0 14px; }
+        .modal-box .modal-foot { padding:14px 20px; border-top:1px solid #e9edf3; display:flex; justify-content:flex-end; gap:8px; }
+        .modal-box table.work-table th, .modal-box table.work-table td { padding:9px 10px; }
+        .modal-box table.work-table input { padding:5px 8px; }
+        .modal-box .section-top .search-wrap { display:flex; align-items:center; gap:8px; margin:0; }
+        .modal-box .section-top .search-wrap dl { display:flex; align-items:center; gap:8px; margin:0; }
+        .modal-box .section-top .search-wrap dt { margin:0; white-space:nowrap; }
+        .modal-box .section-top .search-wrap dd { margin:0; }
+        .modal-box .section-top .button-wrap { margin:0; }
     </style>
 </head>
 <th:block layout:fragment="content">
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>생산 지시(설계)</h2>
+                <h2>생산 지시</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
-                <li>생산 관리</li>
-                <li>생산 지시(설계)</li>
+                <li>생산관리</li>
+                <li>생산 지시</li>
             </ul>
         </div>
 
-        <div class="proj-bar">
-            <label>프로젝트</label>
-            <select id="projSel" onchange="bomPage.selectProject(+this.value)"></select>
-        </div>
-
-        <div class="row3">
-            <section class="section" style="flex:0 0 470px;">
+        <div class="main-row">
+            <!-- ========== 왼쪽: 품목 (suju 1행) ========== -->
+            <section class="section left">
                 <div class="section-top">
                     <div class="search-wrap" style="margin-bottom: 0">
-                        <h3>공정</h3>
+                        <dl>
+                            <dt>프로젝트</dt>
+                            <dd><select id="projSel" style="min-width:240px"
+                                        onchange="prodDesign.selectProject(this.value)"></select></dd>
+                        </dl>
                     </div>
                     <div class="button-wrap" style="margin-bottom: 0">
                         <ul>
                             <li>
-                                <a id="orderBtn" class="btn btn-delete" title="선택 공정에 작업 지시"
-                                   onclick="bomPage.toggleOrder()">작업지시</a>
+                                <a id="orderBtn" class="btn btn-delete" title="선택 품목에 작업 지시"
+                                   onclick="prodDesign.toggleOrder()">작업지시</a>
                             </li>
                         </ul>
                     </div>
                 </div>
-                <div class="container-fluid" style="padding:0;">
+                <div class="container-fluid">
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:16%">
-                            <col style="width:35%">
-                            <col style="width:20%">
-                            <col style="width:13%">
-                            <col style="width:16%">
+                            <col style="width:14%">
+                            <col style="width:26%">
+                            <col style="width:17%">
+                            <col style="width:11%">
+                            <col style="width:11%">
+                            <col style="width:21%">
                         </colgroup>
                         <thead>
                         <tr>
                             <th>라인</th>
-                            <th>공정</th>
+                            <th>품목</th>
                             <th>설비타입</th>
                             <th>유니트</th>
+                            <th>부품</th>
                             <th>작업지시</th>
                         </tr>
                         </thead>
-                        <tbody id="prodBody"></tbody>
+                        <tbody id="itemBody"></tbody>
                     </table>
                 </div>
             </section>
 
-            <section class="section" style="flex:1 1 auto; min-width:0;">
+            <!-- ========== 오른쪽: 부품(BOM) ========== -->
+            <section class="section right">
                 <div class="section-top">
                     <div class="search-wrap" style="margin-bottom: 0">
-                        <h3 id="bomTitle">공정 선택</h3>
+                        <h3 id="bomTitle">품목 선택</h3>
                     </div>
                     <div class="button-wrap" style="margin-bottom: 0">
                         <ul>
-                            <li><label class="out-label"><input type="checkbox" id="chkOut"
-                                                                onchange="bomPage.toggleOut()"> 2D 출도</label></li>
-                            <li><a class="btn" title="유형(분류) 관리" onclick="bomPage.openKindManager()">유형 관리</a></li>
-                            <li><a class="btn" title="첨부" onclick="alert('첨부(mock)')">첨부</a></li>
+                            <li><a class="btn" title="유형(분류) 관리" onclick="prodDesign.openKindManager()">유형 관리</a></li>
+                            <li><a class="btn" title="엑셀에서 붙여넣기" onclick="prodDesign.openBulk()">일괄 입력</a></li>
                             <li>
-                                <a class="btn btn-excell" title="등록" onclick="bomPage.addItem()">
-                                    <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
-                                    UNIT
+                                <a class="btn btn-excell" title="부품 추가" onclick="prodDesign.addPart()">
+                                    <img th:src="@{/images/icon/ico-plus.svg}" alt="추가 아이콘">
+                                    부품 추가
                                 </a>
                             </li>
+                            <li><a class="btn btn-delete" title="저장" onclick="prodDesign.savePart()">저장</a></li>
                         </ul>
                     </div>
                 </div>
@@ -393,17 +155,17 @@
                     <div class="hint" id="bomHint"></div>
                     <table class="work-table bom-table">
                         <colgroup>
-                            <col style="width:7%">
-                            <col style="width:30%">
-                            <col style="width:15%">
-                            <col style="width:20%">
-                            <col style="width:11%">
-                            <col style="width:9%">
                             <col style="width:8%">
+                            <col style="width:34%">
+                            <col style="width:14%">
+                            <col style="width:18%">
+                            <col style="width:11%">
+                            <col style="width:13%">
+                            <col style="width:6%">
                         </colgroup>
                         <thead>
                         <tr>
-                            <th>NO</th>
+                            <th>순번</th>
                             <th>부품명</th>
                             <th>구분</th>
                             <th>유형(분류)</th>
@@ -418,20 +180,63 @@
             </section>
         </div>
 
-        <!-- ===== 유형(분류) 관리 모달 (인라인 스타일 / 기존 클래스 재사용) ===== -->
+        <!-- ===== 일괄 입력 모달 (엑셀 붙여넣기 / CSV) ===== -->
+        <div id="bulkModal"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
+            <div class="modal-box" style="background:#fff;border-radius:8px;width:720px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+                <div class="section-top" style="border-radius:8px 8px 0 0;">
+                    <h3>부품 일괄 입력</h3>
+                    <div class="button-wrap">
+                        <ul>
+                            <li><a class="btn" onclick="prodDesign.el('bulkFile').click()">파일 선택 (csv/txt)</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <p class="hint">
+                        엑셀에서 <b>범위를 복사해 아래에 붙여넣으세요</b> (Ctrl+V). 탭·쉼표 구분 모두 인식합니다.<br>
+                        열 순서: <b>부품명 · 수량 · 구분 · 유형</b> — <b>부품명만 있어도 됩니다.</b>
+                        수량을 비우면 1, 구분을 비우면 제작품, 유형을 비우면 부품명으로 자동 분류됩니다.<br>
+                        첫 줄이 머리글(부품명/수량/…)이면 알아서 건너뜁니다.
+                    </p>
+                    <input type="file" id="bulkFile" accept=".csv,.txt,.tsv" style="display:none"
+                           onchange="prodDesign.readBulkFile(this)">
+                    <textarea id="bulkText" rows="8" placeholder="JOINT PLATE&#9;4&#10;PIN BRKT&#9;2&#10;CLAMP CYL(SMC)&#9;1&#9;구매품"
+                              style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12.5px;padding:9px 10px;border:1px solid #cfd6e2;border-radius:5px;"
+                              oninput="prodDesign.previewBulk()"></textarea>
+                    <div class="hint" id="bulkCount" style="margin:10px 0 6px;"></div>
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:8%"><col style="width:44%"><col style="width:14%">
+                            <col style="width:17%"><col style="width:17%">
+                        </colgroup>
+                        <thead><tr><th>순번</th><th>부품명</th><th>수량</th><th>구분</th><th>유형</th></tr></thead>
+                        <tbody id="bulkBody"></tbody>
+                    </table>
+                </div>
+                <div class="modal-foot">
+                    <a class="btn" onclick="prodDesign.closeBulk()">닫기</a>
+                    <a class="btn btn-delete" onclick="prodDesign.applyBulk()">추가</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 유형(분류) 관리 모달 ===== -->
         <div id="kindModal"
              style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
-            <div style="background:#fff;border-radius:8px;width:560px;max-width:92vw;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+            <div class="modal-box" style="background:#fff;border-radius:8px;width:560px;max-width:92vw;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
                 <div class="section-top" style="border-radius:8px 8px 0 0;">
                     <h3>유형(분류) 관리</h3>
                     <div class="button-wrap">
                         <ul>
-                            <li><a class="btn" onclick="bomPage.draftAdd()">+ 유형 추가</a></li>
+                            <li><a class="btn" onclick="prodDesign.draftAdd()">+ 유형 추가</a></li>
                         </ul>
                     </div>
                 </div>
-                <div style="padding:12px 14px;overflow:auto;">
-                    <p class="hint">정규유형 1개에 여러 별칭(영문/한글)을 쉼표로 구분해 입력합니다. 부품명에 별칭이 포함되면 해당 정규유형으로 자동 분류됩니다. (예: plate ← PLATE, BRACKET, 브라켓)</p>
+                <div class="modal-body">
+                    <p class="hint">
+                        <b>별칭</b> — 부품명에 포함되면 해당 유형으로 자동 분류됩니다 (쉼표 구분, 위에 있는 유형이 먼저 매칭).<br>
+                    </p>
                     <table class="work-table">
                         <colgroup>
                             <col style="width:26%">
@@ -448,9 +253,9 @@
                         <tbody id="kindModalBody"></tbody>
                     </table>
                 </div>
-                <div style="padding:10px 14px;border-top:1px solid #e9edf3;display:flex;justify-content:flex-end;gap:6px;">
-                    <a class="btn" onclick="bomPage.closeKindManager()">닫기</a>
-                    <a class="btn btn-delete" onclick="bomPage.saveKindAliases()">저장</a>
+                <div class="modal-foot">
+                    <a class="btn" onclick="prodDesign.closeKindManager()">닫기</a>
+                    <a class="btn btn-delete" onclick="prodDesign.saveKindAliases()">저장</a>
                 </div>
             </div>
         </div>
@@ -460,117 +265,505 @@
 <th:block layout:fragment="scripts">
     <script type="text/javascript">
 
-        class BomDesignPage {
+        /**
+         * 생산 지시(설계)
+         *
+         * [용어]
+         *  품목      = suju 1행 (S10 등 지그 세트). 작업지시 단위.
+         *  부품      = 품목 아래 BOM 행 (JOINT PLATE 등)
+         *  유형      = plate / block / shim / etc. 가공품 종류이자 실적 집계 단위.
+         *
+         * [설계 메모]
+         *  - 가공공정(레이저절단/선반밀링/와이어커팅)은 여기서 다루지 않는다.
+         *    라우팅 개념 없음 — 키오스크에서 설비를 고르면 공정이 자동 결정되고,
+         *    어떤 유형이든 어떤 공정에서든 실적이 찍힌다. 공정은 실적에만 존재한다.
+         *  - 여기서 만든 유형별 소요량이 가공 키오스크의 유형 타일 / "소요 N" 을 채운다.
+         *  - 2D 출도 여부는 이 화면에서 관리하지 않음 (수주관리 도면 이력이 소유)
+         *  - 재고/귀속/파기 개념 없음. 이 화면은 "필요량"까지만 책임진다.
+         */
+        class ProdDesignPage {
+
             constructor() {
+                this.API = '/api/production/prod_design';
+                this.spjangcd = $('#spjangcd').val() || 'ZZ';
+
                 this.GUBUN = ['제작품', 'STD', '구매품'];
+                this.STATES = ['추정', '확정'];
 
-                // 유형(분류) 동의어 표: [정규유형, [별칭들...]]
-                // - 같은 부품을 도면마다 다르게 부르는 경우를 하나로 모은다.
-                // - 예) plate 와 브라켓(bracket/brkt)은 동일 유형으로 취급 → 모두 'plate'
-                // - 부품명 스캔(guessKind) 시 위에서부터 먼저 매칭되므로 "더 구체적인 것"을 앞에 둔다.
-                //   (PIN BRKT → plate, PIN BLOCK → block, CLAMP ARM → arm 처럼 충돌 해결)
-                this.KIND_ALIASES = [
-                    ['locator', ['LOCATOR', '로케이터']],
-                    ['plate', ['PLATE', 'BRACKET', 'BRKT', '브라켓', '브래킷', '플레이트']], // plate = bracket
-                    ['shim', ['SHIM', '심']],
-                    ['arm', ['ARM', '암']],
-                    ['block', ['BLOCK', '블록', '블럭']],
-                    ['pin', ['PIN', '핀']],
-                    ['link', ['LINK', '링크']],
-                    ['clamp', ['CLAMP', '클램프']],
-                    ['assy', ['ASSEMBLY', 'ASSY', '어셈블리']],
-                    ['etc', ['ETC', '기타']]   // 유형 미지정 시 기본값
-                ];
-                // 정규 유형 목록 (datalist 추천값)
-                this.KINDS = this.KIND_ALIASES.map(a => a[0]);
-                this.DEFAULT_KIND = 'etc';   // 유형 비어있으면 etc(기타)로
+                this.projects = [];
+                this.items = [];
+                this.parts = [];
+                this.kinds = [];
 
-                this.selProj = 0;   // 선택된 프로젝트
-                this.selP = 0;      // 선택된 공정(프로젝트 내 index)
+                this.selProj = null;
+                this.selItemIdx = -1;
 
-                // 데이터: 프로젝트 → 공정 → 부품
-                // - 유니트는 이 화면에서 관리하지 않음(부품은 공정에 바로 소속).
-                // - line: 라인 / equ: 설비타입 / unitCnt: 이전 등록에서 넘어온 유니트 개수(읽기 전용)
-                // - out: 2D 출도 여부(공정 단위) / ordered: 작업지시 상태(내림/취소 토글)
-                this.PROJECTS = [
-                    {
-                        nm: 'A9-760', processes: [
-                            {
-                                line: 'MAIN', nm: 'S10', equ: '고정지그', unitCnt: 8, out: true, ordered: false, items: [
-                                    {no: 1, nm: 'JOINT PLATE', g: '제작품', k: 'plate', qty: 2, st: '확정'},
-                                    {no: 2, nm: 'LOC BLOCK', g: '제작품', k: 'block', qty: 4, st: '확정'},
-                                    {no: 3, nm: 'SHIM 3T', g: 'STD', k: 'etc', qty: 6, st: '확정'},
-                                    {no: 9, nm: 'UNIT PLATE', g: '제작품', k: 'plate', qty: 1, st: '확정'},
-                                    {no: 11, nm: 'PIN BRKT', g: '제작품', k: 'plate', qty: 1, st: '확정'},
-                                    {no: 12, nm: 'PIN BLOCK', g: '제작품', k: 'block', qty: 1, st: '확정'},
-                                    {no: 101, nm: 'CLAMP CYL', g: '구매품', k: 'etc', qty: 2, st: '확정'}
-                                ]
-                            },
-                            {
-                                line: 'HOOD', nm: 'S25', equ: '슬라이더', unitCnt: 2, out: false, ordered: false, items: [
-                                    {no: 1, nm: '(미정) plate', g: '제작품', k: 'plate', qty: 8, st: '추정'},
-                                    {no: 2, nm: '(미정) block', g: '제작품', k: 'block', qty: 6, st: '추정'}
-                                ]
-                            }
-                        ]
-                    },
-                    {
-                        nm: 'A9-820', processes: [
-                            {
-                                line: 'SUB1', nm: 'SI01', equ: '턴테이블', unitCnt: 1, out: false, ordered: false, items: [
-                                    {no: 1, nm: '(미정) plate', g: '제작품', k: 'plate', qty: 12, st: '추정'}
-                                ]
-                            }
-                        ]
-                    }
-                ];
-
-                this.buildKindsDatalist();
-                this.buildProjectSelect();
-                this.renderProd();
-                this.renderBom();
+                this.init();
             }
 
-            // 현재 선택된 공정 목록 / 공정
-            procs() {
-                return this.PROJECTS[this.selProj].processes;
-            }
-
-            proc() {
-                return this.procs()[this.selP];
+            async init() {
+                // content fragment 가 렌더링되지 않은 경우를 조기에 잡는다
+                if (!this.el('projSel')) {
+                    console.error('[prod_design] 화면 요소를 찾을 수 없습니다. '
+                        + 'layout_page 데코레이터 또는 th:block fragment 구조를 확인하세요.');
+                    return;
+                }
+                await this.loadKinds();
+                await this.loadProjects();
             }
 
             el(id) {
                 return document.getElementById(id);
             }
 
-            // ===== 유형(분류) 자동 분류 =====
+            // ===== 프로젝트 =====
+            async loadProjects() {
+                const res = await this.get(`${this.API}/project_list`, {spjangcd: this.spjangcd});
+                this.projects = res.data || [];
 
-            // 부품명 안의 키워드로 유형 추정 (OCR 미사용, 입력 텍스트만 사용)
-            guessKind(name) {
-                if (!name) return '';
-                let s = name.toUpperCase();
-                for (let [canon, aliases] of this.KIND_ALIASES) {
-                    for (let kw of aliases) {
-                        if (s.includes(kw.toUpperCase())) return canon;
-                    }
+                const sel = this.el('projSel');
+                if (!sel) return;
+
+                if (!this.projects.length) {
+                    sel.innerHTML = '<option value="">진행중인 프로젝트가 없습니다</option>';
+                    return;
                 }
-                return '';
+
+                sel.innerHTML = this.projects
+                    .map(p => `<option value="${p.proj_no}">${p.proj_no} - ${p.proj_name || ''}</option>`)
+                    .join('');
+
+                await this.selectProject(this.projects[0].proj_no);
             }
 
-            // 유형칸에 직접 입력한 값(별칭 포함)을 정규유형으로 변환 (예: bracket/브라켓 → plate)
-            normKind(token) {
-                if (!token) return this.DEFAULT_KIND;
-                let t = token.trim();
-                if (!t) return this.DEFAULT_KIND;
-                let up = t.toUpperCase();
-                for (let [canon, aliases] of this.KIND_ALIASES) {
-                    if (up === canon.toUpperCase()) return canon;
-                    for (let kw of aliases) {
-                        if (up === kw.toUpperCase()) return canon;
+            async selectProject(projNo) {
+                this.selProj = projNo;
+                const p = this.projects.find(x => x.proj_no === projNo);
+                this.selItemIdx = -1;
+                await this.loadItems();
+                this.renderPart();
+            }
+
+            // ===== 품목 =====
+            async loadItems() {
+                const res = await this.get(`${this.API}/item_list`,
+                    {spjangcd: this.spjangcd, projNo: this.selProj});
+                this.items = res.data || [];
+                this.renderItem();
+            }
+
+            renderItem() {
+                const body = this.el('itemBody');
+                body.innerHTML = this.items.map((it, i) => `
+                    <tr class="item-row ${this.selItemIdx === i ? 'on' : ''}" data-i="${i}">
+                        <td>${it.line_name || ''}</td>
+                        <td class="l" style="font-weight:700;padding-left:9px">${it.item_name || ''}</td>
+                        <td>${it.equip_type || ''}</td>
+                        <td>${it.unit_qty ?? 0}</td>
+                        <td>${it.part_cnt ?? 0}</td>
+                        <td><span class="badge ${it.ordered_yn === 'Y' ? 'ordered' : 'unordered'}">
+                            ${it.ordered_yn === 'Y' ? '지시완료' : '미지시'}</span></td>
+                    </tr>`).join('');
+
+                body.querySelectorAll('.item-row').forEach(r => r.onclick = () => {
+                    this.selItemIdx = +r.dataset.i;
+                    this.renderItem();
+                    this.loadParts();
+                });
+
+                this.updateOrderBtn();
+            }
+
+            item() {
+                return this.selItemIdx >= 0 ? this.items[this.selItemIdx] : null;
+            }
+
+            // ===== 작업지시 =====
+            updateOrderBtn() {
+                const it = this.item();
+                const btn = this.el('orderBtn');
+                if (!btn) return;
+                const ordered = it && it.ordered_yn === 'Y';
+                btn.textContent = ordered ? '지시취소' : '작업지시';
+                btn.title = ordered ? '선택 품목의 작업 지시 취소' : '선택 품목에 작업 지시';
+            }
+
+            async toggleOrder() {
+                const it = this.item();
+                if (!it) {
+                    Alert.alert('', '품목을 선택하세요.');
+                    return;
+                }
+
+                const ordered = it.ordered_yn === 'Y';
+                const url = ordered ? `${this.API}/order_cancel` : `${this.API}/order`;
+
+                const ok = await Alert.confirmAsync('',
+                    ordered ? '작업 지시를 취소하시겠습니까?' : '작업 지시를 생성하시겠습니까?');
+                if (!ok) return;
+
+                const res = await this.post(url, {sujuId: it.suju_id});
+                Alert.alert('', res.message || (res.success ? '처리되었습니다.' : '실패했습니다.'));
+                if (res.success) await this.loadItems();
+            }
+
+            // ===== 부품(BOM) =====
+            async loadParts() {
+                const it = this.item();
+                if (!it) {
+                    this.parts = [];
+                    this.renderPart();
+                    return;
+                }
+
+                const res = await this.get(`${this.API}/part_list`, {sujuId: it.suju_id});
+                this.parts = res.data || [];
+                this.renderPart();
+            }
+
+            renderPart() {
+                const it = this.item();
+                if (!it) {
+                    this.el('bomTitle').textContent = '품목 선택';
+                    this.el('bomHint').innerHTML = '';
+                    this.el('bomBody').innerHTML = '';
+                    return;
+                }
+
+                this.el('bomTitle').textContent = `${it.item_name} 부품`;
+
+                const need = this.parts.reduce((s, p) => s + (+p.qty || 0), 0);
+                const est = this.parts.filter(p => p.state === '추정').length;
+                this.el('bomHint').innerHTML =
+                    `필요량 합계 <b>${need}</b> · 부품 ${this.parts.length}건`
+                    + (est ? ` · <b style="color:#8a6d1b">추정 ${est}건</b>` : '');
+
+                this.el('bomBody').innerHTML = this.parts.map((p, i) => {
+                    const isEst = p.state === '추정';
+                    const isMake = p.gubun === '제작품';
+                    return `<tr class="${isEst ? 'est' : ''}">
+                        <td>${i + 1}</td>
+                        <td class="l"><input list="matDL" value="${this.esc(p.part_name)}"
+                                             oninput="prodDesign.suggest(${i}, this.value)"
+                                             onchange="prodDesign.up(${i},'part_name',this.value)"></td>
+                        <td><select onchange="prodDesign.up(${i},'gubun',this.value)">
+                            ${this.GUBUN.map(g => `<option ${p.gubun === g ? 'selected' : ''}>${g}</option>`).join('')}
+                        </select></td>
+                        <td><select ${isMake ? '' : 'disabled'} onchange="prodDesign.up(${i},'kind',this.value)">
+                            ${this.kindOptions(p.kind)}
+                        </select></td>
+                        <td><input class="ta-r" value="${p.qty ?? 0}" onchange="prodDesign.up(${i},'qty',this.value)"></td>
+                        <td><select onchange="prodDesign.up(${i},'state',this.value)">
+                            ${this.STATES.map(s => `<option ${p.state === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select></td>
+                        <td><span class="x" onclick="prodDesign.del(${i})">✕</span></td>
+                    </tr>`;
+                }).join('');
+            }
+
+            /**
+             * 부품명으로 유형 추정 (화면용).
+             * 서버 guessKind 와 같은 규칙 — 별칭이 이름에 포함되면 그 유형, 정렬순 우선.
+             * 저장 시 서버가 한 번 더 판정하므로 결과는 같지만,
+             * 저장 전에 화면에서 확인·수정할 수 있어야 하므로 여기서도 돌린다.
+             */
+            guessKind(partName) {
+                const name = (partName || '').toUpperCase();
+                if (!name) return 'etc';
+
+                // 1) 별칭이 이름에 포함 (서버 guessKind 와 동일)
+                for (const k of this.kinds) {
+                    const words = [k.canon].concat((k.aliases || '').split(','))
+                        .map(a => (a || '').trim().toUpperCase()).filter(Boolean);
+                    if (words.some(a => name.includes(a))) return k.canon;
+                }
+                // 2) 이름이 짧아 포함 판정이 안 될 때 (pl → plate) 앞글자로 한 번 더
+                for (const k of this.kinds) {
+                    const words = [k.canon].concat((k.aliases || '').split(','))
+                        .map(a => (a || '').trim().toUpperCase()).filter(Boolean);
+                    if (words.some(a => a.startsWith(name))) return k.canon;
+                }
+                return 'etc';
+            }
+
+            kindOptions(cur) {
+                const list = this.kinds.length ? this.kinds.map(k => k.canon) : ['etc'];
+                if (!list.includes('etc')) list.push('etc');
+                const v = cur || 'etc';
+                if (!list.includes(v)) list.unshift(v);
+                return list.map(k => `<option ${v === k ? 'selected' : ''}>${k}</option>`).join('');
+            }
+
+            /**
+             * 부품명 자동완성 — STD·구매품 전용.
+             *
+             * 검색 대상은 품목마스터(material)다. 제작품은 프로젝트 1회성이라
+             * 애초에 마스터에 등록하지 않으므로 자동완성이 걸릴 대상이 없다.
+             * 부품은 iljin_suju_bom 에만 저장되고 품목마스터를 새로 만들지 않는다.
+             */
+            suggest(i, keyword) {
+                const p = this.parts[i];
+                if (!p) return;
+                const isMake = p.gubun === '제작품';
+
+                clearTimeout(this._sugT);
+                this._sugT = setTimeout(async () => {
+                    const kw = (keyword || '').trim();
+                    if (kw.length < 1) return;
+
+                    if (!isMake) {
+                        // STD·구매품 → 품목마스터
+                        const res = await this.get(`${this.API}/material_search`,
+                            {spjangcd: this.spjangcd, keyword: kw});
+                        this._sug = res.data || [];
+                        this._sugPart = [];
+                        this.fillDatalist(this._sug.map(m => ({
+                            value: m.name, label: `[${m.code}]`
+                        })));
+                        return;
+                    }
+
+                    // 제작품 → 과거 부품명 + 유형 별칭. 둘 다 이름 후보로 내려준다
+                    const res = await this.get(`${this.API}/part_name_suggest`,
+                        {spjangcd: this.spjangcd, keyword: kw});
+
+                    const past = (res.data || [])
+                        .map(m => ({part_name: m.part_name, kind: m.kind || 'etc'}));
+
+                    // 'pl' → plate. 정규유형과 별칭 모두 앞글자로 매칭한다
+                    const up = kw.toUpperCase();
+                    const fromKind = [];
+                    this.kinds.forEach(k => {
+                        const words = [k.canon].concat((k.aliases || '').split(','))
+                            .map(x => (x || '').trim()).filter(Boolean);
+                        words.forEach(w => {
+                            if (w.toUpperCase().startsWith(up)) {
+                                fromKind.push({part_name: w, kind: k.canon});
+                            }
+                        });
+                    });
+
+                    // 과거 입력이 우선, 이름 중복 제거
+                    const merged = [...new Map(
+                        past.concat(fromKind).map(x => [x.part_name.toUpperCase(), x])
+                    ).values()];
+
+                    this._sug = [];
+                    this._sugPart = merged;
+                    this.fillDatalist(merged.map(m => ({value: m.part_name, label: m.kind})));
+                }, 200);
+            }
+
+            fillDatalist(rows) {
+                let dl = document.getElementById('matDL');
+                if (!dl) {
+                    dl = document.createElement('datalist');
+                    dl.id = 'matDL';
+                    document.body.appendChild(dl);
+                }
+                dl.innerHTML = rows
+                    .map(r => `<option value="${this.esc(r.value)}">${this.esc(r.label || '')}</option>`)
+                    .join('');
+            }
+
+            up(i, k, v) {
+                const p = this.parts[i];
+                p[k] = v;
+
+                // 부품명이 품목마스터 검색결과와 정확히 일치하면 품목을 자동 연결
+                // 제작품: 부품명이 정해지면 유형을 채운다.
+                // 과거 입력과 같은 이름이면 그때 쓰던 유형, 아니면 별칭으로 추정.
+                // 사용자가 이미 고른 값(etc 가 아닌)은 덮지 않는다
+                if (k === 'part_name' && p.gubun === '제작품') {
+                    const m = (this._sugPart || [])
+                        .find(x => x.part_name.toUpperCase() === (v || '').toUpperCase());
+                    const guessed = (m && m.kind) ? m.kind : this.guessKind(v);
+                    if (!p.kind || p.kind === 'etc') {
+                        p.kind = guessed;
+                        this.renderPart();
                     }
                 }
-                return t.toLowerCase(); // 표에 없는 값은 그대로 (소문자)
+
+                if (k === 'part_name' && this._sug && p.gubun !== '제작품') {
+                    const m = this._sug.find(x => x.name === v);
+                    if (m) {
+                        p.material_id = m.id;
+                        p.material_code = m.code;
+                        p.material_name = m.name;
+                        this.renderPart();
+                    }
+                }
+
+                // 구분 변경 시: 제작품이면 품목 연결 해제, 아니면 유형 무의미
+                if (k === 'gubun') {
+                    if (v === '제작품') {
+                        p.material_id = null;
+                        p.material_code = null;
+                        p.material_name = null;
+                        if (!p.kind || p.kind === 'etc') p.kind = this.guessKind(p.part_name);
+                    } else {
+                        p.kind = 'etc';
+                    }
+                }
+
+
+                if (k === 'gubun' || k === 'kind') this.renderPart();
+            }
+
+
+            addPart() {
+                const it = this.item();
+                if (!it) {
+                    Alert.alert('', '품목을 먼저 선택하세요.');
+                    return;
+                }
+                this.parts.push({
+                    id: null, part_no: '', part_name: '', gubun: '제작품',
+                    kind: 'etc', qty: 1, state: '추정'
+                });
+                this.renderPart();
+            }
+
+            async del(i) {
+                const p = this.parts[i];
+                if (!await Alert.confirmAsync('', '삭제하시겠습니까?')) return;
+
+                if (p.id) {
+                    const res = await this.post(`${this.API}/part_delete`, {id: p.id});
+                    if (!res.success) {
+                        Alert.alert('', res.message);
+                        return;
+                    }
+                }
+                this.parts.splice(i, 1);
+                this.renderPart();
+            }
+
+            async savePart() {
+                const it = this.item();
+                if (!it) {
+                    Alert.alert('', '품목을 선택하세요.');
+                    return;
+                }
+
+                const res = await this.post(`${this.API}/part_save`, {
+                    spjangcd: this.spjangcd,
+                    sujuId: it.suju_id,
+                    items: this.parts.map((p, i) => ({
+                        id: p.id,
+                        partNo: String(i + 1),   // 순번. 화면 표시 순서를 그대로 저장
+                        partName: p.part_name,
+                        gubun: p.gubun,
+                        materialId: p.material_id,
+                        kind: p.kind,
+                        qty: p.qty,
+                        state: p.state,
+                        remark: p.remark
+                    }))
+                });
+
+                Alert.alert('', res.message || (res.success ? '저장되었습니다.' : '실패했습니다.'));
+                if (res.success) {
+                    await this.loadParts();
+                    await this.loadItems();   // 부품 수 갱신
+                }
+            }
+
+            /** STD·구매품 품목 선택 (발주 연계). prompt 금지라 모달로 처리한다 */
+            // ===== 일괄 입력 (엑셀 붙여넣기 / CSV) =====
+            openBulk() {
+                if (!this.item()) {
+                    Alert.alert('', '품목을 먼저 선택하세요.');
+                    return;
+                }
+                this.el('bulkText').value = '';
+                this.el('bulkBody').innerHTML = '';
+                this.el('bulkCount').textContent = '';
+                this._bulk = [];
+                this.el('bulkModal').style.display = 'flex';
+                this.el('bulkText').focus();
+            }
+
+            closeBulk() {
+                this.el('bulkModal').style.display = 'none';
+            }
+
+            readBulkFile(input) {
+                const f = input.files && input.files[0];
+                if (!f) return;
+                const r = new FileReader();
+                r.onload = () => {
+                    this.el('bulkText').value = r.result;
+                    this.previewBulk();
+                };
+                r.readAsText(f, 'utf-8');
+                input.value = '';
+            }
+
+            /** 탭/쉼표 구분 텍스트 → 부품 행. 열이 모자라도 동작한다 */
+            parseBulk(text) {
+                const HEAD = ['부품명', '품명', 'partname', 'no', '순번'];
+                return (text || '').split(/\r?\n/)
+                    .map(line => line.trim())
+                    .filter(Boolean)
+                    .map(line => line.split(/\t|,/).map(c => c.trim()))
+                    .filter((c, idx) => !(idx === 0 && HEAD.includes((c[0] || '').toLowerCase())))
+                    .map(c => {
+                        const name = c[0] || '';
+                        const qty = Number(String(c[1] || '').replace(/[^0-9.\-]/g, '')) || 1;
+                        let gubun = c[2] || '제작품';
+                        if (!this.GUBUN.includes(gubun)) gubun = '제작품';
+                        // 유형은 여기서 확정한다. 저장 전에 화면에서 보이고 고칠 수 있어야 한다
+                        const kind = gubun === '제작품'
+                            ? (c[3] || this.guessKind(name))
+                            : 'etc';
+                        return {name: name, qty: qty, gubun: gubun, kind: kind};
+                    })
+                    .filter(r => r.name);
+            }
+
+            previewBulk() {
+                const rows = this.parseBulk(this.el('bulkText').value);
+                this._bulk = rows;
+
+                this.el('bulkCount').innerHTML = rows.length
+                    ? `<b>${rows.length}건</b> 인식됨 · 유형은 부품명으로 자동 분류했습니다. 추가 후 표에서 수정할 수 있습니다`
+                    : '인식된 행이 없습니다';
+
+                this.el('bulkBody').innerHTML = rows.length
+                    ? rows.map((r, i) => `
+                        <tr>
+                            <td>${i + 1}</td>
+                            <td class="l">${this.escHtml(r.name)}</td>
+                            <td>${r.qty}</td>
+                            <td>${this.escHtml(r.gubun)}</td>
+                            <td>${this.escHtml(r.kind)}</td>
+                        </tr>`).join('')
+                    : '<tr><td colspan="5" class="empty">붙여넣은 내용이 없습니다</td></tr>';
+            }
+
+            applyBulk() {
+                const rows = this._bulk || [];
+                if (!rows.length) {
+                    Alert.alert('', '추가할 내용이 없습니다.');
+                    return;
+                }
+
+                rows.forEach(r => this.parts.push({
+                    id: null, part_no: '', part_name: r.name, gubun: r.gubun,
+                    kind: r.kind || 'etc', qty: r.qty, state: '추정'
+                }));
+
+                this.closeBulk();
+                this.renderPart();
+                Alert.alert('', `${rows.length}건을 추가했습니다. 확인 후 저장하세요.`);
+            }
+
+            // ===== 유형(분류) =====
+            async loadKinds() {
+                const res = await this.get(`${this.API}/kind_list`, {spjangcd: this.spjangcd});
+                this.kinds = res.data || [];
+                this.buildKindsDatalist();
             }
 
             buildKindsDatalist() {
@@ -580,175 +773,32 @@
                     dl.id = 'kindsDL';
                     document.body.appendChild(dl);
                 }
-                dl.innerHTML = '';
-                this.KINDS.forEach(k => {
-                    let o = document.createElement('option');
-                    o.value = k;
-                    dl.appendChild(o);
-                });
+                dl.innerHTML = this.kinds.map(k => `<option value="${k.canon}"></option>`).join('');
             }
-
-            buildProjectSelect() {
-                let sel = this.el('projSel');
-                sel.innerHTML = this.PROJECTS.map((pj, i) =>
-                    `<option value="${i}" ${this.selProj === i ? 'selected' : ''}>${pj.nm}</option>`).join('');
-            }
-
-            selectProject(i) {
-                this.selProj = i;
-                this.selP = 0;
-                this.renderProd();
-                this.renderBom();
-            }
-
-            renderProd() {
-                let body = this.el('prodBody');
-                body.innerHTML = this.procs().map((p, i) =>
-                    `<tr class="row-sel ${this.selP === i ? 'on' : ''}" data-i="${i}">
-                        <td>${p.line}</td>
-                        <td class="l" style="font-weight:700;padding-left:9px">${p.nm}</td>
-                        <td>${p.equ}</td>
-                        <td>${p.unitCnt}</td>
-                        <td><span class="badge ${p.ordered ? 'ordered' : 'unordered'}">${p.ordered ? '지시완료' : '미지시'}</span></td></tr>`).join('');
-                body.querySelectorAll('.row-sel').forEach(r => r.onclick = () => {
-                    this.selP = +r.dataset.i;
-                    this.renderProd();
-                    this.renderBom();
-                });
-                this.updateOrderBtn();
-            }
-
-            // 작업지시 버튼: 선택 공정 상태에 따라 '작업지시' ↔ '지시취소'
-            updateOrderBtn() {
-                let p = this.proc();
-                let btn = this.el('orderBtn');
-                if (!btn) return;
-                if (p && p.ordered) {
-                    btn.textContent = '지시취소';
-                    btn.title = '선택 공정의 작업 지시 취소';
-                } else {
-                    btn.textContent = '작업지시';
-                    btn.title = '선택 공정에 작업 지시';
-                }
-            }
-
-            // 작업 지시 내림/취소 (모달 없이 바로 처리)
-            toggleOrder() {
-                let p = this.proc();
-                if (!p) return;
-                p.ordered = !p.ordered;   // 실서버: 작업지시 생성/취소 API 호출
-                this.renderProd();
-            }
-
-            renderBom() {
-                let p = this.proc();
-                if (!p) {
-                    this.el('bomTitle').textContent = '공정 선택';
-                    this.el('bomHint').innerHTML = '';
-                    this.el('bomBody').innerHTML = '';
-                    return;
-                }
-                this.el('bomTitle').textContent = `${p.nm} UNIT`;
-                this.el('chkOut').checked = p.out;
-                this.el('bomHint').innerHTML = p.out
-                    ? '출도 완료 — UNIT'
-                    : '<b style="color:#8a6d1b">미출도 — 유형+임시(추정) 수량</b>';
-                this.el('bomBody').innerHTML = p.items.map((it, i) => {
-                    let est = it.st === '추정';
-                    let kind = it.k || this.DEFAULT_KIND;
-                    return `<tr class="${est ? 'est' : ''}">
-                        <td><input value="${it.no}" onchange="bomPage.up(${i},'no',this.value)"></td>
-                        <td class="l"><input value="${it.nm}" onchange="bomPage.up(${i},'nm',this.value)"></td>
-                        <td><select style="min-width: 60px;" onchange="bomPage.up(${i},'g',this.value)">${this.GUBUN.map(x => `<option ${it.g === x ? 'selected' : ''}>${x}</option>`).join('')}</select></td>
-                        <td><input list="kindsDL" value="${kind}" ${it.g !== '제작품' ? 'disabled' : ''} onchange="bomPage.up(${i},'k',this.value)"></td>
-                        <td><input value="${it.qty}" onchange="bomPage.up(${i},'qty',+this.value)"></td>
-                        <td><span class="stat ${est ? 'est' : 'fix'}">${it.st}</span></td>
-                        <td><span class="x" onclick="bomPage.del(${i})">✕</span></td></tr>`;
-                }).join('');
-            }
-
-            up(i, k, v) {
-                let it = this.proc().items[i];
-
-                // 유형칸 직접 입력 → 동의어 정규화 (bracket/브라켓 → plate, 빈 값 → etc)
-                if (k === 'k') {
-                    it.k = this.normKind(v);
-                    this.renderBom();
-                    return;
-                }
-
-                it[k] = v;
-
-                // 부품명 입력 시 유형 자동 추정 (제작품 + 유형 미지정/etc 일 때만 → 수동값 보존)
-                if (k === 'nm' && it.g === '제작품' && (!it.k || it.k === this.DEFAULT_KIND)) {
-                    let guess = this.guessKind(v);
-                    if (guess) {
-                        it.k = guess;
-                        this.renderBom();
-                        return;
-                    }
-                }
-
-                // 구분을 제작품으로 바꾸면 부품명으로 한 번 추정
-                if (k === 'g') {
-                    if (v === '제작품' && (!it.k || it.k === this.DEFAULT_KIND)) {
-                        let guess = this.guessKind(it.nm);
-                        if (guess) it.k = guess;
-                    }
-                    this.renderBom();
-                }
-            }
-
-            del(i) {
-                this.proc().items.splice(i, 1);
-                this.renderBom();
-            }
-
-            addItem() {
-                let p = this.proc();
-                p.items.push({no: '', nm: '', g: '제작품', k: this.DEFAULT_KIND, qty: 1, st: p.out ? '확정' : '추정'});
-                this.renderBom();
-            }
-
-            toggleOut() {
-                let p = this.proc();
-                p.out = this.el('chkOut').checked;
-                p.items.forEach(it => {
-                    if (it.st !== '완료') it.st = p.out ? '확정' : '추정';
-                });
-                this.renderBom();
-            }
-
-            // ===== 유형(분류) 관리 모달 =====
 
             openKindManager() {
-                // 원본을 건드리지 않도록 깊은 복사본(draft)으로 편집
-                this._draft = this.KIND_ALIASES.map(([c, a]) => [c, a.slice()]);
+                this._draft = this.kinds.map(k => ({canon: k.canon, aliases: k.aliases || ''}));
                 this.renderKindManager();
                 this.el('kindModal').style.display = 'flex';
             }
 
             renderKindManager() {
-                this.el('kindModalBody').innerHTML = this._draft.map((row, i) => {
-                    let [canon, aliases] = row;
-                    return `<tr>
-                        <td class="l"><input value="${canon}" placeholder="예: plate" onchange="bomPage.draftSet(${i},'canon',this.value)"></td>
-                        <td class="l"><input value="${aliases.join(', ')}" placeholder="PLATE, BRACKET, 브라켓" onchange="bomPage.draftSet(${i},'aliases',this.value)"></td>
-                        <td><span class="x" title="이 행 삭제" onclick="bomPage.draftRemove(${i})">✕</span></td>
-                    </tr>`;
-                }).join('');
+                this.el('kindModalBody').innerHTML = this._draft.map((row, i) => `
+                    <tr>
+                        <td class="l"><input value="${this.esc(row.canon)}" placeholder="예: plate"
+                                             onchange="prodDesign.draftSet(${i},'canon',this.value)"></td>
+                        <td class="l"><input value="${this.esc(row.aliases)}" placeholder="PLATE, BRACKET, 브라켓"
+                                             onchange="prodDesign.draftSet(${i},'aliases',this.value)"></td>
+                        <td><span class="x" onclick="prodDesign.draftRemove(${i})">✕</span></td>
+                    </tr>`).join('');
             }
 
             draftSet(i, field, v) {
-                if (field === 'canon') {
-                    this._draft[i][0] = v.trim();
-                } else {
-                    this._draft[i][1] = v.split(',').map(s => s.trim()).filter(Boolean);
-                }
+                this._draft[i][field] = v;
             }
 
             draftAdd() {
-                this._draft.push(['', []]);
+                this._draft.push({canon: '', aliases: ''});
                 this.renderKindManager();
             }
 
@@ -757,37 +807,64 @@
                 this.renderKindManager();
             }
 
-            saveKindAliases() {
-                // 정규유형이 비어있는 행은 제외, 별칭 정리
-                let cleaned = this._draft
-                    .map(([c, a]) => [c.trim(), a.map(x => x.trim()).filter(Boolean)])
-                    .filter(([c]) => c);
+            async saveKindAliases() {
+                // 별칭 중복 제거 (대소문자 무시). 초기 데이터가 두 번 들어가 있는 경우가 있다
+                const dedup = a => [...new Map((a || '').split(',')
+                    .map(x => x.trim()).filter(Boolean)
+                    .map(x => [x.toUpperCase(), x])).values()].join(', ');
 
-                this.KIND_ALIASES = cleaned;
-                this.KINDS = this.KIND_ALIASES.map(a => a[0]);
-                this.buildKindsDatalist();
-                this.renderBom();
-                this.closeKindManager();
+                const kinds = this._draft
+                    .filter(k => k.canon && k.canon.trim())
+                    .map(k => ({canon: k.canon.trim(), aliases: dedup(k.aliases)}));
+                const res = await this.post(`${this.API}/kind_save`,
+                    {spjangcd: this.spjangcd, kinds: kinds});
+
+                if (res.success) {
+                    await this.loadKinds();
+                    await this.loadParts();   // 라우팅이 바뀌었으므로 상속값 갱신
+                    this.closeKindManager();
+                } else {
+                    Alert.alert('', res.message || '저장에 실패했습니다.');
+                }
             }
 
             closeKindManager() {
                 this.el('kindModal').style.display = 'none';
             }
+
+            // ===== 통신 =====
+            // AjaxUtil (common.js) 사용. CSRF 토큰 / spjangcd / 로딩바 / 공통 에러처리를
+            // AjaxUtil 이 알아서 해주므로 직접 $.ajax 를 쓰지 않는다.
+            // 콜백 방식이라 await 로 쓰기 위해 Promise 로 감싼다.
+            get(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.getAsyncData(url, data,
+                        res => resolve(res || {success: false, data: []}),
+                        () => resolve({success: false, data: []}));
+                });
+            }
+
+            post(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.postJsonData(url, data,
+                        res => resolve(res || {success: false}),
+                        () => resolve({success: false, message: ''}));
+                });
+            }
+
+            escHtml(s) {
+                return (s == null ? '' : String(s))
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            esc(s) {
+                return (s == null ? '' : String(s)).replace(/"/g, '&quot;');
+            }
         }
 
-        // prod_plan 과 동일하게 ready 시점에 페이지 객체 생성
-        // (jQuery 가 있으면 $(document).ready, 미리보기 등 없을 땐 DOMContentLoaded)
-        function bootBomPage() {
-            window.bomPage = new BomDesignPage();
-        }
-
-        if (window.jQuery) {
-            jQuery(function () {
-                bootBomPage();
-            });
-        } else {
-            document.addEventListener('DOMContentLoaded', bootBomPage);
-        }
+        $(document).ready(function () {
+            window.prodDesign = new ProdDesignPage();
+        });
 
     </script>
 </th:block>

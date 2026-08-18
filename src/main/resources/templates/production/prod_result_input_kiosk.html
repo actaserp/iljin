@@ -1,0 +1,949 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* ===== 미리보기용 공통 (layout_page에 있으면 이 블록 삭제) ===== */
+        body{margin:0;font-family:'Malgun Gothic','Pretendard',sans-serif;background:#e9edf3;color:#1d2330;font-size:14px;}
+        *{box-sizing:border-box;}
+        html,body{height:100%;}
+
+        /* 키오스크는 전체 화면을 쓴다. 레이아웃의 푸터를 숨긴다 */
+        .footer { display:none !important; }
+        .con_area, .contents { padding-bottom:0 !important; }
+
+        /* 전체화면 버튼 — 키오스크는 헤더·탭·푸터 없이 쓰는 게 맞다 */
+        /* .kiosk button 의 height:auto !important / min-width:50px 를 이겨야 정사각형이 된다 */
+        .fs-btn { border:1px solid #3c4d77; background:#2c3a5e; color:#fff; border-radius:8px;
+            width:32px !important; height:32px !important; min-width:0 !important;
+            padding:0; font-size:15px; line-height:1; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+        .fs-btn:hover { background:#36456c; }
+        /* 시계 오른쪽 끝에 전체화면 아이콘 */
+        .clock-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:2px; }
+
+        /* ===== 키오스크 전용 ===== */
+        /* 외부(layout_page) CSS의 button{height:30px} 무력화 */
+        .kiosk button{height:auto !important;min-height:0;min-width: 50px;}
+        .kiosk{display:flex;flex-direction:column;height:100vh;padding:12px;gap:10px;}
+
+        /* --- 상단 컨텍스트 바 (세션: 작업자·설비·작업중) --- */
+        .ctx-bar{display:flex;align-items:stretch;gap:10px;background:#1f2a44;border-radius:12px;padding:10px 12px;color:#fff;flex:0 0 auto;}
+        .ctx-title{display:flex;flex-direction:column;justify-content:center;padding-right:14px;border-right:1px solid #3c4d77;}
+        .ctx-title h1{margin:0;font-size:18px;font-weight:800;letter-spacing:-.3px;}
+        .ctx-title span{font-size:11.5px;color:#9fb0d4;margin-top:2px;}
+        .ctx-slots{display:flex;gap:10px;flex:1 1 auto;}
+        .ctx-slot{flex:1;background:#2c3a5e;border:1px solid #3c4d77;border-radius:10px;padding:8px 11px;display:flex;flex-direction:column;justify-content:center;min-width:0;}
+        .ctx-slot .lab{font-size:11px;color:#9fb0d4;font-weight:700;letter-spacing:.3px;}
+        .ctx-slot .val{font-size:16px;font-weight:800;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .ctx-slot .val.empty{color:#6f80a8;font-weight:600;font-size:14px;}
+        .ctx-slot .sub{font-size:11.5px;color:#b9c6e4;margin-top:1px;}
+        .ctx-right{display:flex;align-items:center;gap:12px;padding-left:4px;}
+        .ctx-date{display:flex;flex-direction:column;justify-content:center;}
+        .ctx-date label{font-size:11px;color:#9fb0d4;font-weight:700;}
+        .clock{font-size:16px;font-weight:800;color:#ffd98a;letter-spacing:.5px;margin-bottom:2px;font-variant-numeric:tabular-nums;}
+        .area-sel{margin-top:3px;border:1px solid #3c4d77;background:#2c3a5e;color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;}
+        /* 생산일 터치 스테퍼 */
+        .date-pick{display:flex;align-items:center;gap:6px;margin-top:4px;}
+        .date-nav{border:1px solid #3c4d77;background:#2c3a5e;color:#fff;border-radius:8px;width:36px;height:38px;font-size:15px;font-weight:800;cursor:pointer;}
+        .date-nav:hover{background:#36456c;}
+        /* 외부 input[type=date] 규칙(달력 배경아이콘 + min-width:160px) 무력화 */
+        input[type=date].date-input{height:38px;border:1px solid #3c4d77;background:#2c3a5e !important;color:#fff;border-radius:8px;padding:0 10px;font-size:15px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums;min-width:0 !important;width:140px;z-index:auto;}
+        input[type=date].date-input::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85;cursor:pointer;}
+        .work-area{display:flex;align-items:stretch;min-width:160px;height: 100%}
+        .work-btns{display:flex;gap:6px;flex:1;}
+        .wbtn{flex:1;border:none;border-radius:10px;padding:0 14px;font-size:18px;font-weight:800;cursor:pointer;color:#fff;white-space:nowrap;}
+        .wbtn.start{background:#2e9e5b;} .wbtn.start:hover{background:#34b366;}
+        .wbtn.pause{background:#d9a23a;} .wbtn.pause:hover{background:#e6b04a;}
+        .wbtn.done{background:#3565c4;} .wbtn.done:hover{background:#3f74d8;}
+        .work-area.disabled{opacity:.4;pointer-events:none;}
+
+        /* --- 본문: 좌(선택+로그) / 우(수량·등록 패드) --- */
+        .kiosk-main{display:flex;gap:10px;flex:1 1 auto;min-height:0;}
+        .left-col{flex:1.3;display:flex;flex-direction:column;gap:10px;min-height:0;}
+        .pick-col{flex:1 1 auto;display:flex;flex-direction:column;background:#fff;border:1px solid #d4dae5;border-radius:12px;min-height:0;overflow:hidden;}
+        .entry-col{flex:1;display:flex;flex-direction:column;gap:12px;background:#fff;border:1px solid #d4dae5;border-radius:12px;padding:16px;min-height:0;}
+
+        /* 단계 탭 */
+        .steps{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid #e6eaf1;background:#f6f8fb;flex:0 0 auto;}
+        .step-tab{flex:1;border:1.5px solid #d4dae5;background:#fff;border-radius:9px;padding:9px 11px;cursor:pointer;text-align:left;min-width:0;}
+        .step-tab .n{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;background:#cfd6e2;color:#fff;font-size:11px;font-weight:800;margin-right:6px;}
+        .step-tab .t{font-size:12.5px;font-weight:700;color:#52607a;}
+        .step-tab .sv{display:block;margin-top:4px;font-size:14px;font-weight:800;color:#1d2330;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .step-tab .sv.none{color:#aab2c2;font-weight:600;font-size:12.5px;}
+        .step-tab.active{border-color:#2f57d6;box-shadow:0 0 0 2px rgba(47,87,214,.12);}
+        .step-tab.active .n{background:#2f57d6;}
+        .step-tab.done .n{background:#1ca36b;}
+
+        /* 타일 영역 */
+        .pick-body{flex:1 1 auto;min-height:0;overflow:auto;padding:14px;}
+        .pick-head{font-size:13px;font-weight:700;color:#5a6680;margin:0 0 10px;}
+        .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+        .tiles.mach{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
+        .tile{position:relative;border:1.5px solid #d4dae5;background:#fff;border-radius:12px;padding:16px 14px;cursor:pointer;text-align:left;transition:.1s;min-height:70px;display:flex;flex-direction:column;justify-content:center;
+            /* grid 아이템은 기본 min-width:auto 라 내용이 길면 칸을 밀고 나간다 */
+            min-width:0;max-width:100%;overflow:hidden;}
+        .tile:hover{border-color:#9fb1d8;background:#fafbfe;}
+        .tile .tt{font-size:17px;font-weight:800;color:#1d2330;
+            width:100%;min-width:0;max-width:100%;
+            overflow-wrap:anywhere;word-break:break-word;line-height:1.25;
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .tile .ts{font-size:12px;color:#7a8499;margin-top:3px;
+            width:100%;min-width:0;max-width:100%;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        .tile.on{border-color:#2f57d6;background:#eef3ff;box-shadow:0 0 0 2px rgba(47,87,214,.15);}
+        .tile.on::after{content:'✓';position:absolute;top:9px;right:11px;color:#2f57d6;font-weight:900;font-size:15px;}
+        /* ✓ 자리를 비워 제목이 겹치지 않게 */
+        .tile.on .tt{padding-right:20px;}
+        .tile .proc-chip{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:800;color:#1b5e9b;background:#e7f1fb;border-radius:8px;padding:2px 9px;width:fit-content;}
+        .tile .busy{position:absolute;top:9px;right:11px;font-size:11px;font-weight:800;color:#a6791b;background:#fff5dd;border:1px solid #f0dca0;border-radius:8px;padding:1px 7px;}
+        .group-lab{grid-column:1/-1;font-size:12px;font-weight:800;color:#8893a8;margin:6px 0 -2px;letter-spacing:.3px;}
+        .pick-empty{color:#99a;text-align:center;padding:30px 0;font-size:14px;}
+
+        /* 설비·공정 select */
+        .sel-wrap{max-width:420px;}
+        .kiosk-select{width:100%;font-size:20px;font-weight:800;color:#1d2330;border:1.5px solid #c7cfdd;border-radius:12px;padding:16px 14px;background:#fff;cursor:pointer;}
+        .kiosk-select:focus{outline:none;border-color:#2f57d6;box-shadow:0 0 0 2px rgba(47,87,214,.15);}
+        .sel-note{margin-top:10px;font-size:14px;color:#5a6680;}
+        .sel-note b{color:#1b5e9b;}
+
+        /* 우측 등록 패널 */
+        /* 우측 등록 패드 (섹션 전체 사용) */
+        .pad-search,.pad-qty{flex:1 1 auto;display:flex;flex-direction:column;gap:12px;min-height:0;}
+        .search-hint{font-size:13px;font-weight:800;color:#5a6680;flex:0 0 auto;}
+        .qwerty{flex:1 1 auto;display:flex;flex-direction:column;gap:8px;min-height:0;}
+        .qrow{flex:1;display:flex;gap:8px;}
+        .qkey{flex:1;border:1.5px solid #d4dae5;background:#fff;border-radius:12px;font-size:22px;font-weight:800;cursor:pointer;color:#1d2330;display:flex;align-items:center;justify-content:center;padding:0;}
+        .qkey:hover{background:#f2f5fb;}
+        .qkey:active{transform:translateY(1px);}
+        .qkey.grp{font-size:22px;letter-spacing:1px;color:#244a8a;}
+        .qkey.spec{font-size:15px;color:#3d5a99;background:#f0f3f9;}
+        /* 공정 검색칸 (좌측 목록 상단) */
+        .srch{display:flex;align-items:center;gap:9px;border:1.5px solid #c7cfdd;border-radius:10px;padding:10px 13px;margin-bottom:12px;background:#fff;position:sticky;top:0;z-index:2;}
+        .srch-ico{font-size:15px;}
+        .srch-chips{flex:1;display:flex;gap:5px;flex-wrap:wrap;align-items:center;min-height:28px;}
+        .qchip{font-size:14px;font-weight:800;color:#1b3a6b;background:#e7f1fb;border:1px solid #cfe0f2;border-radius:7px;padding:3px 9px;letter-spacing:.5px;}
+        .srch-txt.ph{color:#aab2c2;font-weight:600;font-size:13px;}
+        .srch-clr{border:1px solid #d4dae5;background:#fff;border-radius:7px;width:28px;height:28px;cursor:pointer;color:#888;font-weight:800;}
+        .srch-tgl{border:1px solid #c7cfdd;background:#f0f3f9;border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;font-weight:800;color:#2f57d6;white-space:nowrap;}
+        .srch-cnt{font-size:12px;font-weight:800;color:#8893a8;}
+        .qty-row{display:flex;gap:12px;flex:0 0 auto;}
+        .qty-box{flex:1;border:1.5px solid #d4dae5;border-radius:12px;padding:14px 16px;cursor:pointer;background:#fff;}
+        .qty-box .ql{font-size:14px;font-weight:800;color:#5a6680;}
+        .qty-box .qv{font-size:40px;font-weight:900;text-align:right;line-height:1.05;margin-top:4px;}
+        .qty-box.good.active{border-color:#0b69a3;background:#ecf7fc;}
+        .qty-box.good .qv{color:#0b69a3;}
+        .qty-box.scrap.active{border-color:#a4478f;background:#fbeef7;}
+        .qty-box.scrap .qv{color:#a4478f;}
+
+        .keypad{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);gap:10px;}
+        .key{border:1.5px solid #d4dae5;background:#fff;border-radius:12px;font-size:30px;font-weight:800;cursor:pointer;color:#1d2330;display:flex;align-items:center;justify-content:center;}
+        .key:hover{background:#f2f5fb;}
+        .key.act{background:#f0f3f9;color:#3d5a99;}
+        .key:active{transform:translateY(1px);}
+
+        .btn-reg{flex:0 0 auto;width:100%;border:none;border-radius:12px;padding:22px;font-size:24px;font-weight:900;color:#fff;background:#2f57d6;cursor:pointer;letter-spacing:2px;}
+        .btn-reg:disabled{background:#c2c9d4;cursor:not-allowed;}
+        .btn-reg:not(:disabled):hover{background:#274ec2;}
+
+        /* 최근 등록 (좌측 하단) */
+        .log-card{flex:0 0 220px;display:flex;flex-direction:column;background:#fff;border:1px solid #d4dae5;border-radius:12px;min-height:0;overflow:hidden;}
+        .log-head{padding:9px 14px;border-bottom:1px solid #e6eaf1;background:#f6f8fb;font-weight:800;font-size:13.5px;color:#39435a;flex:0 0 auto;}
+        .log-scroll{flex:1 1 auto;min-height:0;overflow:auto;}
+        table.log-table{width:100%;border-collapse:collapse;}
+        table.log-table th,table.log-table td{border-bottom:1px solid #eef1f6;padding:8px 10px;font-size:12.5px;text-align:center;}
+        table.log-table th{position:sticky;top:0;background:#eef2f8;color:#445;font-weight:800;}
+        table.log-table td.k{font-weight:800;}
+        .g-cell{color:#0b69a3;font-weight:800;}
+        .s-cell{color:#a4478f;font-weight:800;}
+        .x-btn{border:1px solid #e2b8c8;background:#fff;color:#c0466a;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;}
+        .work-row{cursor:pointer;background:#fffbe8;}
+        .work-row:hover{background:#fff3c4;}
+        .work-row td.k{color:#7a5d12;}
+        .badge-work{display:inline-block;font-size:11px;font-weight:800;color:#8a6d1b;background:#ffeebc;border:1px solid #f0dca0;border-radius:8px;padding:2px 8px;font-variant-numeric:tabular-nums;}
+        .x-btn.stop{border-color:#f0c98a;color:#a6791b;}
+        .work-acts{white-space:nowrap;}
+        .x-btn.pause{border-color:#f0c98a;color:#a6791b;margin-right:5px;}
+        .x-btn.done{border-color:#9ab8e6;color:#2f5fb0;}
+        .log-empty{color:#99a;text-align:center;padding:22px 0;font-size:13.5px;}
+
+        .flash{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#1ca36b;color:#fff;font-weight:800;padding:11px 22px;border-radius:30px;font-size:15px;box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.2s;z-index:50;}
+        .flash.show{opacity:1;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="kiosk">
+        <!-- 상단: 세션 컨텍스트 (작업자 → 설비/공정 → 작업중) -->
+        <div class="ctx-bar">
+            <div class="ctx-title">
+                <h1>생산 실적</h1>
+                <select id="opSel" class="area-sel"></select>
+            </div>
+            <div class="ctx-slots">
+                <div class="ctx-slot">
+                    <span class="lab">작업자</span>
+                    <span class="val empty" id="cxWorker">선택하세요</span>
+                </div>
+                <div class="ctx-slot">
+                    <span class="lab">설비 · 공정</span>
+                    <span class="val empty" id="cxMachine">선택하세요</span>
+                    <span class="sub" id="cxProc"></span>
+                </div>
+                <div class="ctx-slot">
+                    <span class="lab">프로젝트 · 공정</span>
+                    <span class="val empty" id="cxProj">선택하세요</span>
+                    <span class="sub" id="cxItem"></span>
+                </div>
+            </div>
+            <div class="ctx-right">
+                <div class="work-area disabled" id="workArea">
+                    <div class="work-btns" id="workBtns"></div>
+                </div>
+                <div class="ctx-date">
+                    <div class="clock-row">
+                        <div class="clock" id="clock">--:--:--</div>
+                        <button class="fs-btn" id="btnFull" title="전체화면">⛶</button>
+                    </div>
+                    <label>생산일</label>
+                    <div class="date-pick">
+                        <button class="date-nav" id="dPrev">◀</button>
+                        <input type="date" id="pdate" class="date-input">
+                        <button class="date-nav" id="dNext">▶</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="kiosk-main">
+            <!-- 좌: 단계별 선택 (위) + 최근 등록 (아래) -->
+            <div class="left-col">
+                <div class="pick-col">
+                    <div class="steps" id="steps"></div>
+                    <div class="pick-body" id="pickBody"></div>
+                </div>
+
+                <div class="log-card">
+                    <div class="log-head" id="logHead">최근 등록</div>
+                    <div class="log-scroll">
+                        <table class="log-table">
+                            <thead><tr><th>공정</th><th>유형</th><th>설비</th><th>작업자</th><th>가공품</th><th>취소</th></tr></thead>
+                            <tbody id="logBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 우: 공정 선택 단계엔 검색 키패드, 그 외엔 수량 키패드 -->
+            <div class="entry-col">
+                <!-- 검색 패드 (공정 선택 단계) -->
+                <div class="pad-search" id="padSearch">
+                    <div class="search-hint">품목 검색 — 기억나는 글자·숫자를 누르면 포함된 코드만 (위치 무관)</div>
+                    <div class="qwerty" id="qwerty"></div>
+                </div>
+                <!-- 수량 패드 -->
+                <div class="pad-qty" id="padQty">
+                    <div class="qty-row">
+                        <div class="qty-box good active" id="qbGood" data-f="good">
+                            <div class="ql">가공품 수량</div>
+                            <div class="qv" id="qvGood">0</div>
+                        </div>
+                    </div>
+                    <div class="keypad" id="keypad"></div>
+                    <button class="btn-reg" id="btnReg" disabled>등 록</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="flash" id="flash"></div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" th:inline="none">
+        // 주의: 전역 $ (jQuery) 를 덮으면 common.js 의 AjaxUtil 이 깨진다.
+        // 최상위 const 는 전역 렉시컬 스코프를 점유하므로 반드시 다른 이름을 쓸 것.
+        const el = s => document.querySelector(s);
+        // 로컬 시간 기준 YYYY-MM-DD (toISOString은 UTC라 KST에서 하루 밀림 → 사용 금지)
+        const toYMD = d => {
+            const p = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+        };
+
+        /* ===== 서버 연동 ===== */
+        // AjaxUtil (common.js) 사용. CSRF 토큰 / spjangcd / 로딩바 / 공통 에러처리를
+        // AjaxUtil 이 알아서 해주므로 직접 $.ajax 를 쓰지 않는다.
+        // 콜백 방식이라 await 로 쓰기 위해 Promise 로 감싼다.
+        const API = '/api/production/prod_result_kiosk';
+        const SPJANGCD = sessionStorage.getItem('spjangcd') || 'ZZ';
+
+        const getJSON = (url, data) => new Promise(resolve => {
+            AjaxUtil.getAsyncData(url, data,
+                res => resolve(res || {success: false, data: []}),
+                () => resolve({success: false, data: []}));
+        });
+
+        const postJSON = (url, data) => new Promise(resolve => {
+            AjaxUtil.postJsonData(url, data,
+                res => resolve(res || {success: false}),
+                () => resolve({success: false, message: ''}));
+        });
+
+        /* ===== 마스터 (서버에서 로드) ===== */
+        // 이 키오스크가 담당하는 가공공정. 설비 옆에 설치되므로 공정 단위로 고정된다.
+        // URL ?operation=와이어커팅 으로 지정 (미지정이면 첫 공정).
+        //  - 설비는 이 공정 것만 보인다.
+        //  - 작업자(person)는 이 공정의 워크센터 인원이 위로 오되 다른 인원도 폴백으로 보인다.
+        let CURRENT_OP = new URLSearchParams(location.search).get('operation') || '';
+
+        let OPERATIONS = [];   // [{operation, workcenter_id, workcenter_name, equip_cnt}]
+        let EQUIPMENTS = [];   // [{code, operation, workcenter_id}]
+        let WORKERS = [];      // [{name, area, own_area}]
+        let PROJECTS = [];     // [{proj_no, proj_name}]
+        let ITEMS = [];        // 선택 프로젝트의 품목 [{suju_id, item_name, unit_qty, part_cnt}]
+        let TILES = [];        // 선택 품목의 유형 타일 [{kind, need_qty, done_qty}]
+
+        // 가공공정은 설비가 결정한다 (서버도 동일하게 재확인함)
+        const machineProc = code => {
+            const e = EQUIPMENTS.find(x => x.code === code);
+            return e ? e.operation : '';
+        };
+        const procName = c => c;
+
+        /** 공정 목록은 한 번만 로드 (키오스크 선택지) */
+        async function loadOperations() {
+            const res = await getJSON(API + '/operation_list', {spjangcd: SPJANGCD});
+            OPERATIONS = res.data || [];
+            if (!CURRENT_OP && OPERATIONS.length) CURRENT_OP = OPERATIONS[0].operation;
+        }
+
+        // 이 공정의 워크센터 — 작업자 목록에서 담당 인원을 위로 올리는 데 쓴다
+        const curWorkCenterId = () => {
+            const o = OPERATIONS.find(x => x.operation === CURRENT_OP);
+            return o ? o.workcenter_id : null;
+        };
+
+        async function loadMasters() {
+            const [eq, wk, pj] = await Promise.all([
+                getJSON(API + '/equipment_list', {spjangcd: SPJANGCD, operation: CURRENT_OP}),
+                getJSON(API + '/worker_list', {spjangcd: SPJANGCD, workCenterId: curWorkCenterId()}),
+                getJSON(API + '/project_list', {spjangcd: SPJANGCD})
+            ]);
+            EQUIPMENTS = eq.data || [];
+            WORKERS = wk.data || [];
+            PROJECTS = pj.data || [];
+
+            // 설비가 1개뿐이면 자동 선택 (터치 한 번 절약)
+            if (EQUIPMENTS.length === 1) st.machine = EQUIPMENTS[0].code;
+        }
+
+        async function loadItems() {
+            if (st.proj < 0) { ITEMS = []; return; }
+            const res = await getJSON(API + '/item_list',
+                {spjangcd: SPJANGCD, projNo: PROJECTS[st.proj].proj_no});
+            ITEMS = res.data || [];
+        }
+
+        // 유형 타일 = 필요량(BOM) vs 누적 생산량.
+        // 생산 지시 화면에서 등록한 부품이 여기 타일로 나타난다.
+        async function loadTiles() {
+            if (st.proj < 0) { TILES = []; return; }
+            const res = await getJSON(API + '/kind_tiles', {
+                spjangcd: SPJANGCD,
+                projNo: PROJECTS[st.proj].proj_no,
+                sujuId: st.item >= 0 ? ITEMS[st.item].suju_id : null
+            });
+            TILES = res.data || [];
+        }
+
+        // 등록 내역(log)이 곧 실적 기록.
+
+        // 작업중 / 등록내역은 서버에서 조회한다 (아래 refreshLog).
+
+        /* ===== 상태 ===== */
+        const st = {
+            worker: null,
+            workerId: null,
+            machine: null,
+            proj: -1,
+            item: -1,
+            kind: null,
+            good: 0,
+            step: 0
+        };
+        let curDate = toYMD(new Date());
+        let searchMode = false;      // 품목 단계에서 [검색] 을 눌렀을 때만 문자 패드
+        let qTokens = [];            // 멀티탭 검색 패턴: 위치별 허용문자 토큰 [{face, chars[]}]
+        let recentItems = [];        // 최근 사용 품목 키 `${proj}|${item}` (최신순)
+
+        // 부분일치 AND: 누른 각 키(글자그룹/숫자)의 문자 중 하나라도 코드에 포함되어야 함.
+        //  - 키 하나 안에서는 OR (ABC → A·B·C 중 아무거나)
+        //  - 키들끼리는 AND (ABC 누르고 1 → A/B/C 포함 그리고 1 포함). 위치·순서 무시.
+        function matchTokens(code) {
+            const c = code.toUpperCase();
+            return qTokens.every(t => t.chars.some(ch => c.includes(ch)));
+        }
+
+        // 서버 응답 필드명 기준. 목업의 code/name 은 존재하지 않는다
+        function projLabel(p) {
+            if (!p) return '';
+            return `${p.proj_no || ''}${p.proj_name ? ' ' + p.proj_name : ''}`.trim();
+        }
+
+        const STEPS = [
+            {key: 'worker', t: '작업자'},
+            {key: 'machine', t: '설비'},
+            {key: 'proj', t: '프로젝트'},
+            {key: 'item', t: '품목'},
+            {key: 'kind', t: '유형'}
+        ];
+
+        function stepValue(k) {
+            if (k === 'worker') return st.worker;
+            if (k === 'machine') return st.machine ? `${st.machine} · ${procName(machineProc(st.machine))}` : null;
+            if (k === 'proj') return st.proj >= 0 ? projLabel(PROJECTS[st.proj]) : null;
+            if (k === 'item') return (st.proj >= 0 && st.item >= 0 && ITEMS[st.item])
+                ? (ITEMS[st.item].item_name || '') : null;
+            if (k === 'kind') return st.kind;
+            return null;
+        }
+
+        function stepDone(k) {
+            if (k === 'item') return true;   // 품목은 선택사항이라 항상 통과
+            return stepValue(k) != null;
+        }
+
+        /* ===== 렌더 ===== */
+        function renderSteps() {
+            el('#steps').innerHTML = STEPS.map((s, i) => {
+                const v = stepValue(s.key), done = v != null, active = st.step === i;
+                return `<div class="step-tab ${active ? 'active' : ''} ${done ? 'done' : ''}" data-i="${i}">
+                    <div><span class="n">${done ? '✓' : i + 1}</span><span class="t">${s.t}</span></div>
+                    <span class="sv ${v ? '' : 'none'}">${v || '미선택'}</span></div>`;
+            }).join('');
+            el('#steps').querySelectorAll('.step-tab').forEach(t => t.onclick = () => {
+                st.step = +t.dataset.i;
+                renderAll();
+            });
+        }
+
+        // 유형 타일: 필요량이 있는 것 우선, 없으면 실적이 있던 것도 보여준다.
+        function visKinds() {
+            return TILES.map(t => t.kind);
+        }
+
+        function tileOf(k) {
+            return TILES.find(t => t.kind === k) || {need_qty: 0, done_qty: 0};
+        }
+
+        // 품목 선택 상단에 올릴 '최근' 인덱스 (현재 프로젝트 기준)
+        function priorityItemIdx() {
+            if (st.proj < 0) return [];
+            return recentItems.filter(k => k.startsWith(st.proj + '|'))
+                .map(k => +k.split('|')[1])
+                .filter(i => i >= 0 && i < ITEMS.length);
+        }
+
+        function renderPick() {
+            const step = STEPS[st.step].key;
+            let html = '';
+            if (step === 'worker') {
+                const team = WORKERS.filter(w => w.own_area === 'Y');
+                const rest = WORKERS.filter(w => w.own_area !== 'Y');
+                const tile = w => `<button class="tile ${st.workerId === w.id ? 'on' : ''}"
+                        data-w="${w.name}" data-wid="${w.id}">
+                        <span class="tt">${w.name}</span></button>`;
+                const wcName = (OPERATIONS.find(o => o.operation === CURRENT_OP) || {}).workcenter_name;
+                html = `<p class="pick-head">작업자를 선택하세요${wcName ? ` — ${wcName} 담당 우선` : ''}</p><div class="tiles">`;
+                if (team.length) {
+                    html += `<div class="group-lab">${wcName || '담당'}</div>` + team.map(tile).join('');
+                }
+                if (rest.length) {
+                    html += `<div class="group-lab">그 외 작업자</div>` + rest.map(tile).join('');
+                }
+                if (!WORKERS.length) {
+                    html += `<div class="pick-empty" style="grid-column:1/-1">등록된 직원이 없습니다. 기준정보 &gt; 사원관리에서 등록하세요.</div>`;
+                }
+                html += `</div>`;
+            } else if (step === 'machine') {
+                html = `<p class="pick-head">설비를 선택하세요 — 이 키오스크는 <b>${CURRENT_OP}</b> 전용입니다</p><div class="tiles mach">`;
+                html += EQUIPMENTS.length
+                    ? EQUIPMENTS.map(e => `<button class="tile ${st.machine === e.code ? 'on' : ''}" data-m="${e.code}">
+                            <span class="tt">${e.code}</span>
+                            <span class="proc-chip">${e.operation}</span></button>`).join('')
+                    : `<div class="pick-empty" style="grid-column:1/-1">${CURRENT_OP} 에 등록된 설비가 없습니다.</div>`;
+                html += `</div>`;
+            } else if (step === 'proj') {
+                html = `<p class="pick-head">프로젝트를 선택하세요</p><div class="tiles">` +
+                    PROJECTS.map((p, i) => `<button class="tile ${st.proj === i ? 'on' : ''}" data-p="${i}">
+                        <span class="tt">${p.proj_no}</span><span class="ts">${p.proj_name || ''}</span></button>`).join('') + `</div>`;
+            } else if (step === 'item') {
+                if (st.proj < 0) {
+                    html = `<p class="pick-empty">먼저 프로젝트를 선택하세요.</p>`;
+                } else {
+                    const items = ITEMS;
+                    const active = qTokens.length > 0;
+                    const tile = (it, i) => `<button class="tile ${st.item === i ? 'on' : ''}" data-it="${i}">
+                            <span class="tt">${it.item_name}</span>
+                            <span class="ts">유니트 ${it.unit_qty || 0} · 부품 ${it.part_cnt || 0}종</span></button>`;
+                    const chips = active
+                        ? qTokens.map(t => `<span class="qchip">${t.face}</span>`).join('')
+                        : `<span class="srch-txt ph">${searchMode
+                            ? '오른쪽 문자 패드로 품목명을 좁히세요'
+                            : '품목이 많으면 [검색] 을 누르세요'}</span>`;
+                    html = `<div class="srch">
+                            <span class="srch-ico">🔎</span>
+                            <span class="srch-chips">${chips}</span>
+                            ${active ? `<button class="srch-clr" id="srchClr">✕</button>` : ''}
+                            <button class="srch-tgl" id="srchTgl">${searchMode ? '닫기' : '검색'}</button>
+                            <span class="srch-cnt">${items.length}개</span>
+                        </div><div class="tiles">`;
+                    if (active) {
+                        const matched = items.map((it, i) => ({it, i})).filter(x => matchTokens(x.it.item_name || ''));
+                        html += `<div class="group-lab">검색 결과 ${matched.length}</div>`;
+                        html += matched.length ? matched.map(x => tile(x.it, x.i)).join('')
+                            : `<div class="pick-empty" style="grid-column:1/-1">일치하는 품목이 없습니다.</div>`;
+                    } else {
+                        const pri = priorityItemIdx();
+                        if (pri.length) {
+                            html += `<div class="group-lab">최근·작업중</div>` + pri.map(i => tile(items[i], i)).join('');
+                        }
+                        html += `<div class="group-lab">전체 ${items.length}</div>` + items.map((it, i) => tile(it, i)).join('');
+                        // 2D 전 추정 생산 — 어느 품목 것인지 확정되지 않은 물량
+                        html += `<div class="group-lab">품목이 정해지지 않았다면</div>
+                            <button class="tile ${st.item < 0 ? 'on' : ''}" data-it="-1">
+                                <span class="tt">품목 미지정</span>
+                                <span class="ts">프로젝트 단위로만 집계</span></button>`;
+                    }
+                    html += `</div>`;
+                }
+            } else if (step === 'kind') {
+                if (st.item < 0) {
+                    html = `<p class="pick-empty">먼저 품목을 선택하세요.</p>`;
+                } else {
+                    const ks = visKinds();
+                    html = `<p class="pick-head">유형 — <b>선택하지 않으면 '기타'로 기록됩니다</b></p><div class="tiles">`;
+                    html += ks.length
+                        ? ks.map(k => {
+                            const t = tileOf(k);
+                            return `<button class="tile ${st.kind === k ? 'on' : ''}" data-k="${k}">
+                                <span class="tt">${k}</span>
+                                <span class="ts">필요 ${t.need_qty || 0} · 생산 ${t.done_qty || 0}</span></button>`;
+                        }).join('')
+                        : `<div class="pick-empty" style="grid-column:1/-1">이 품목에 등록된 부품이 없습니다. 생산 지시 화면에서 부품을 먼저 등록하세요.</div>`;
+                    html += `<button class="tile ${st.kind === 'etc' ? 'on' : ''}" data-k="etc">
+                                <span class="tt">기타</span><span class="ts">유형 구분 안 됨</span></button>`;
+                    html += `</div>`;
+                }
+            }
+            el('#pickBody').innerHTML = html;
+            // 바인딩
+            el('#pickBody').querySelectorAll('[data-w]').forEach(b =>
+                b.onclick = () => pickWorker(b.dataset.w, +b.dataset.wid));
+            el('#pickBody').querySelectorAll('[data-m]').forEach(b => b.onclick = () => pickMachine(b.dataset.m));
+            el('#pickBody').querySelectorAll('[data-p]').forEach(b => b.onclick = () => pickProj(+b.dataset.p));
+            el('#pickBody').querySelectorAll('[data-it]').forEach(b => b.onclick = () => pickItem(+b.dataset.it));
+            el('#pickBody').querySelectorAll('[data-k]').forEach(b => b.onclick = () => pickKind(b.dataset.k));
+            const sc = el('#srchClr');
+            if (sc) sc.onclick = () => { qTokens = []; renderPick(); };
+
+            const stg = el('#srchTgl');
+            if (stg) stg.onclick = () => {
+                searchMode = !searchMode;
+                if (!searchMode) qTokens = [];
+                renderPick();
+                renderEntry();
+            };
+        }
+
+        /* ===== 선택 핸들러 (선택 시 비어있는 다음 단계로 자동 이동) ===== */
+        function pickWorker(name, id) {
+            st.worker = name;
+            st.workerId = id || null;
+            advanceFrom('worker');
+        }
+
+        async function pickMachine(m) {
+            st.machine = m;
+            advanceFrom('machine');
+            renderCtx();
+            await refreshLog();          // 설비별 작업중/등록내역
+        }
+
+        async function pickProj(i) {
+            st.proj = i;
+            st.item = -1;
+            st.kind = null;
+            qTokens = [];
+            await loadItems();
+            await loadTiles();
+            advanceFrom('proj');
+            renderAll();
+        }
+
+        async function pickItem(i) {
+            st.item = (i >= 0 ? i : -1);   // -1 = 품목 미지정
+            searchMode = false;          // 품목을 고르면 수량 패드로 돌아온다
+            qTokens = [];
+            await loadTiles();           // 품목별 필요량/생산량
+            if (st.kind && st.kind !== 'etc' && !visKinds().includes(st.kind)) st.kind = null;
+            advanceFrom('item');
+            renderAll();
+        }
+
+        function pickKind(k) {
+            st.kind = (st.kind === k ? null : k);
+            renderAll();
+        }  // 유형은 선택사항(다시 누르면 해제)
+
+        function advanceFrom(key) {
+            const i = STEPS.findIndex(s => s.key === key);
+            let next = i + 1;
+            while (next < STEPS.length && stepDone(STEPS[next].key)) next++;
+            st.step = next < STEPS.length ? next : i;
+            renderAll();
+        }
+
+        /* ===== 컨텍스트 바 ===== */
+        function renderCtx() {
+            const w = el('#cxWorker');
+            w.textContent = st.worker || '선택하세요';
+            w.classList.toggle('empty', !st.worker);
+            const m = el('#cxMachine');
+            m.textContent = st.machine || '선택하세요';
+            m.classList.toggle('empty', !st.machine);
+            el('#cxProc').textContent = st.machine ? procName(machineProc(st.machine)) : '';
+            // 프로젝트 · 공정(품목)
+            const pj = el('#cxProj');
+            pj.textContent = st.proj >= 0 ? projLabel(PROJECTS[st.proj]) : '선택하세요';
+            pj.classList.toggle('empty', st.proj < 0);
+            el('#cxItem').textContent = (st.proj >= 0 && st.item >= 0 && ITEMS[st.item])
+                ? (ITEMS[st.item].item_name || '') : '';
+            // 작업 버튼 (작업자+설비+프로젝트+공정 선택 시 활성)
+            const wa = el('#workArea');
+            const can = !!(st.worker && st.machine && st.proj >= 0);
+            wa.classList.toggle('disabled', !can);
+            const cur = currentWorking();
+            el('#workBtns').innerHTML = cur
+                ? '<button class="wbtn done" data-act="end">작업 종료</button>'
+                : '<button class="wbtn start" data-act="start">작업 시작</button>';
+            el('#workBtns').querySelectorAll('[data-act]').forEach(b => b.onclick = () => workAct(b.dataset.act));
+        }
+
+        /** 지금 선택된 설비·프로젝트·품목으로 진행중인 작업 (서버 목록에서 찾는다) */
+        function currentWorking() {
+            if (!(st.machine && st.proj >= 0)) return null;
+            const projNo = PROJECTS[st.proj].proj_no;
+            const sujuId = (st.item >= 0 && ITEMS[st.item]) ? ITEMS[st.item].suju_id : null;
+            return working.find(w => w.equipment === st.machine
+                && w.proj_no === projNo
+                && String(w.suju_id ?? '') === String(sujuId ?? '')) || null;
+        }
+
+        // 작업중 상태는 서버가 들고 있다. 화면 메모리에 담으면 다른 키오스크와 어긋난다
+        async function workAct(act) {
+            if (!(st.worker && st.machine && st.proj >= 0)) return;
+
+            let res;
+            if (act === 'start') {
+                res = await postJSON(API + '/working_start', {
+                    spjangcd: SPJANGCD,
+                    equipment: st.machine,
+                    projNo: PROJECTS[st.proj].proj_no,
+                    sujuId: (st.item >= 0 && ITEMS[st.item]) ? ITEMS[st.item].suju_id : null,
+                    kind: st.kind || '',
+                    worker: st.worker || '',
+                    workerId: st.workerId
+                });
+            } else {
+                const cur = currentWorking();
+                if (!cur) return;
+                res = await postJSON(API + '/working_end', {id: cur.id});
+            }
+
+            if (!res.success) { Alert.alert('', res.message || '처리에 실패했습니다.'); return; }
+
+            flash(res.message || (act === 'start' ? '작업 시작' : '작업 종료'));
+            await refreshLog();
+            renderCtx();
+        }
+
+        /* ===== 우측 등록 패널 ===== */
+        function renderQty() {
+            el('#qvGood').textContent = st.good;
+        }
+
+        // 품목(suju)은 선택사항이다.
+        // 2D 도면 전에 추정으로 미리 만드는 물량은 어느 품목 것인지 확정되지 않는다.
+        // 그런 실적은 Suju_id 없이 프로젝트 단위로만 쌓인다 (나중에 매칭하지 않는다).
+        function canReg() {
+            return !!(st.worker && st.machine && st.proj >= 0 && st.good > 0);
+        }
+
+        function renderRegBtn() {
+            el('#btnReg').disabled = !canReg();
+        }
+
+        // 키패드 (양품 수량만 입력)
+        const KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', 'C', '0', '⌫'];
+        el('#keypad').innerHTML = KEYS.map(k => `<button class="key ${k === 'C' || k === '⌫' ? 'act' : ''}" data-key="${k}">${k}</button>`).join('');
+        el('#keypad').querySelectorAll('[data-key]').forEach(b => b.onclick = () => press(b.dataset.key));
+
+        function press(k) {
+            let cur = String(st.good);
+            if (k === 'C') cur = '0';
+            else if (k === '⌫') cur = cur.length > 1 ? cur.slice(0, -1) : '0';
+            else {
+                cur = (cur === '0' ? '' : cur) + k;
+                if (cur.length > 6) cur = cur.slice(0, 6);
+            }
+            st.good = parseInt(cur || '0', 10);
+            renderQty();
+            renderRegBtn();
+        }
+
+        el('#btnReg').onclick = async () => {
+            if (!canReg()) return;
+
+            const item = ITEMS[st.item];
+            const res = await postJSON(API + '/save', {
+                prodDate: curDate,
+                projNo: PROJECTS[st.proj].proj_no,
+                sujuId: item ? item.suju_id : null,
+                kind: st.kind || 'etc',      // 미선택은 기타
+                equipment: st.machine,
+                worker: st.worker,
+                workerId: st.workerId,
+                goodQty: st.good
+            });
+
+            if (!res.success) { Alert.alert('', res.message || '등록에 실패했습니다.'); return; }
+
+            flash(`등록됨 · ${item ? item.item_name : '품목 미지정'} ${st.kind || '기타'} ${st.good}`);
+            const rk = `${st.proj}|${st.item}`;
+            recentItems = [rk, ...recentItems.filter(k => k !== rk)].slice(0, 8);
+            st.good = 0;
+            renderQty();
+            renderRegBtn();
+            await loadTiles();     // 누적 생산량 갱신
+            await refreshLog();
+        };
+
+        /* ===== 작업 현황 (작업중 + 등록 내역) ===== */
+        let working = [];   // 서버 조회 결과
+        let log = [];
+
+        async function refreshLog() {
+            const [w, l] = await Promise.all([
+                getJSON(API + '/working_list', {spjangcd: SPJANGCD, equipment: st.machine || ''}),
+                getJSON(API + '/log', {spjangcd: SPJANGCD, prodDate: curDate, equipment: st.machine || ''})
+            ]);
+            working = w.data || [];
+            log = l.data || [];
+            renderLog();
+        }
+
+        function renderLog() {
+            el('#logHead').textContent = `작업 현황 · ${curDate}`;
+
+            if (!working.length && !log.length) {
+                el('#logBody').innerHTML = '<tr><td colspan="6" class="log-empty">작업중·등록 내역이 없습니다.</td></tr>';
+                return;
+            }
+
+            // 작업중 (날짜 무관, 항상 상단)
+            let html = working.map(w => `
+                <tr class="work-row" data-wid="${w.id}" title="클릭하면 이 작업을 불러와 가공품 수량을 입력합니다">
+                    <td class="k">${w.item_name || '<span style="color:#a6791b">품목 미지정</span>'}</td><td>${w.kind || '-'}</td>
+                    <td>${w.equipment || '-'}</td><td>${w.worker || '-'}</td>
+                    <td><span class="badge-work">작업중 ${w.start_time || ''}</span></td>
+                    <td><button class="x-btn stop" data-wstop="${w.id}">종료</button></td></tr>`).join('');
+
+            // 선택 생산일의 등록 실적
+            html += log.map(l => `<tr>
+                <td class="k">${l.item_name || '<span style="color:#a6791b">품목 미지정</span>'}</td><td>${l.kind || '-'}</td>
+                <td>${l.equipment || '-'}</td><td>${l.worker || '-'}</td>
+                <td class="g-cell">${l.good_qty || 0}</td>
+                <td><button class="x-btn" data-i="${l.id}">취소</button></td></tr>`).join('');
+
+            el('#logBody').innerHTML = html;
+
+            el('#logBody').querySelectorAll('.work-row').forEach(r => r.onclick = e => {
+                if (e.target.closest('[data-wstop]')) return;
+                resumeWork(+r.dataset.wid);
+            });
+            el('#logBody').querySelectorAll('[data-wstop]').forEach(b => b.onclick = async () => {
+                const res = await postJSON(API + '/working_end', {id: +b.dataset.wstop});
+                if (!res.success) { Alert.alert('', res.message); return; }
+                await refreshLog();
+                renderCtx();
+            });
+            el('#logBody').querySelectorAll('[data-i]').forEach(b => b.onclick = async () => {
+                if (!await Alert.confirmAsync('', '이 실적을 취소하시겠습니까?')) return;
+                const res = await postJSON(API + '/delete', {id: +b.dataset.i});
+                if (!res.success) { Alert.alert('', res.message); return; }
+                await loadTiles();
+                await refreshLog();
+            });
+        }
+
+        // 작업중 행을 눌러 컨텍스트 복원 (유형 단계로 이동 → 수량만 입력)
+        async function resumeWork(id) {
+            const w = working.find(x => x.id === id);
+            if (!w) return;
+
+            const pi = PROJECTS.findIndex(p => p.proj_no === w.proj_no);
+            if (pi < 0) return;
+
+            st.machine = w.equipment;
+            st.proj = pi;
+            st.worker = w.worker;
+            st.kind = w.kind || null;
+            st.good = 0;
+
+            await loadItems();
+            st.item = ITEMS.findIndex(it => it.suju_id === w.suju_id);
+            await loadTiles();
+
+            st.step = STEPS.findIndex(s => s.key === 'kind');
+            renderAll();
+            flash(`작업중 불러옴 · ${w.item_name || ''} (가공품 수량 입력 후 등록)`);
+        }
+
+        let flashT;
+
+        function flash(msg) {
+            const f = el('#flash');
+            f.textContent = msg;
+            f.classList.add('show');
+            clearTimeout(flashT);
+            flashT = setTimeout(() => f.classList.remove('show'), 1600);
+        }
+
+        function renderAll() {
+            renderSteps();
+            renderPick();
+            renderCtx();
+            renderQty();
+            renderRegBtn();
+            renderEntry();
+        }
+
+        /* =====  우측 패드 전환 =====
+           기본은 항상 수량 패드다. 품목 단계에서 [검색] 을 눌렀을 때만 문자 패드로 바꾼다.
+           품목이 몇 개 안 되면 굳이 검색할 일이 없으므로 수량 패드가 기본이어야 한다. */
+        function renderEntry() {
+            const onItem = STEPS[st.step].key === 'item';
+            const search = onItem && searchMode;
+            el('#padSearch').style.display = search ? 'flex' : 'none';
+            el('#padQty').style.display = search ? 'none' : 'flex';
+        }
+
+        // 멀티탭 검색 키패드 (큰 버튼 / 누를수록 후보가 좁혀짐)
+        const TAPS = [
+            ['ABC', 'DEF', 'GHI'],
+            ['JKL', 'MNO', 'PQRS'],
+            ['TUV', 'WXYZ', '-'],
+            ['1', '2', '3', '4', '5'],
+            ['6', '7', '8', '9', '0'],
+            ['⌫', '전체지우기']
+        ];
+        el('#qwerty').innerHTML = TAPS.map(row => `<div class="qrow">` +
+            row.map(k => {
+                const spec = (k === '⌫' || k === '전체지우기');
+                const grp = /^[A-Z]{2,4}$/.test(k);
+                return `<button class="qkey ${spec ? 'spec' : ''} ${grp ? 'grp' : ''}" data-tap="${k}">${k}</button>`;
+            }).join('') + `</div>`).join('');
+        el('#qwerty').querySelectorAll('[data-tap]').forEach(b => b.onclick = () => tap(b.dataset.tap));
+        function tap(v) {
+            if (v === '전체지우기') qTokens = [];
+            else if (v === '⌫') qTokens.pop();
+            else if (/^[A-Z]{2,4}$/.test(v)) qTokens.push({face: v, chars: v.split('')});  // 글자 그룹
+            else qTokens.push({face: v, chars: [v]});                                       // 숫자/'-' 정확
+            renderPick();   // 실시간 필터
+        }
+
+        /* ===== 생산일 (◀ 날짜 ▶) ===== */
+        function setDate(s) {
+            curDate = s;
+            el('#pdate').value = s;
+            if (typeof refreshLog === 'function') refreshLog();
+        }
+
+        function shiftDate(n) {
+            const d = new Date(curDate + 'T00:00:00');
+            d.setDate(d.getDate() + n);
+            setDate(toYMD(d));
+        }
+
+        el('#dPrev').onclick = () => shiftDate(-1);
+        el('#dNext').onclick = () => shiftDate(1);
+        el('#pdate').onchange = () => setDate(el('#pdate').value || curDate);
+
+        /* ===== 현재 시간 ===== */
+        function tick() {
+            const d = new Date();
+            const p = n => String(n).padStart(2, '0');
+            el('#clock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+        }
+
+        tick();
+        setInterval(tick, 1000);
+
+        /* ===== 키오스크(공정) 전환 ===== */
+        function buildOpSelect() {
+            el('#opSel').innerHTML = OPERATIONS.map(o =>
+                `<option value="${o.operation}" ${CURRENT_OP === o.operation ? 'selected' : ''}>${o.operation} 키오스크</option>`).join('');
+        }
+
+        /**
+         * 전체화면.
+         * 키오스크는 iframe 안에서 열리므로 헤더·탭·푸터가 화면을 먹는다.
+         * 전체화면이면 그 전부가 사라지고 100vh 를 그대로 쓴다.
+         */
+        function toggleFullscreen() {
+            const doc = document, root = doc.documentElement;
+            if (!doc.fullscreenElement) {
+                const req = root.requestFullscreen || root.webkitRequestFullscreen;
+                if (!req) { Alert.alert('', '이 브라우저는 전체화면을 지원하지 않습니다.'); return; }
+                Promise.resolve(req.call(root)).catch(() =>
+                    Alert.alert('', '전체화면으로 전환하지 못했습니다. F11 을 눌러주세요.'));
+            } else {
+                (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc);
+            }
+        }
+
+        function renderFsBtn() {
+            const b = document.getElementById('btnFull');
+            if (b) b.textContent = document.fullscreenElement ? '⤡' : '⛶';
+        }
+
+        document.getElementById('btnFull').onclick = toggleFullscreen;
+        document.addEventListener('fullscreenchange', renderFsBtn);
+
+        el('#opSel').onchange = async () => {
+            CURRENT_OP = el('#opSel').value;
+            st.machine = null;                               // 공정이 바뀌면 설비도 초기화
+            st.worker = null;
+            st.step = 0;                                     // 작업자 단계부터
+            await loadMasters();
+            renderAll();
+            await refreshLog();
+        };
+
+        // init
+        const ymd = n => {
+            const d = new Date();
+            d.setDate(d.getDate() + n);
+            return toYMD(d);
+        };
+
+        (async function init() {
+            st.machine = null;
+            st.step = 0;                   // 작업자 단계부터
+            setDate(ymd(0));
+            await loadOperations();
+            buildOpSelect();
+            await loadMasters();
+            renderAll();
+            await refreshLog();
+        })();
+    </script>
+</th:block>
+</html>

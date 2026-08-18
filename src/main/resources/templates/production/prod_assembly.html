@@ -1,0 +1,474 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* 이 페이지 전용 스타일만 정의한다.
+           .layout-contents / .section / .section-top / .container-fluid / .btn /
+           .page-title-wrap 등은 layout_page 가 제공하므로 재정의하지 않는다. */
+
+        .layout-contents { display:flex; flex-direction:column; min-height:100vh; box-sizing:border-box; }
+        .main-row { display:flex; gap:5px; align-items:stretch; flex:1 1 auto; min-height:0; }
+        .main-row > .section { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+        .main-row > .section > .container-fluid { flex:1 1 auto; min-height:0; overflow:auto; padding-top:10px; }
+        .section-top { flex:0 0 auto; }
+
+        .right-col { display:flex; flex-direction:column; gap:5px; flex:1; min-width:0; min-height:0; }
+        .right-col > .reg-sec { flex:0 0 auto; display:flex; flex-direction:column; overflow:hidden; }
+        .right-col > .log-sec { flex:1 1 auto; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+        .right-col > .log-sec > .container-fluid { flex:1 1 auto; min-height:0; overflow:auto; }
+
+        table.work-table { width:100%; border-collapse:collapse; }
+        table.work-table th, table.work-table td { border:1px solid #d7dde7; padding:7px; font-size:12.5px; text-align:center; }
+        table.work-table th { background:#eef2f8; color:#445; font-weight:700; position:sticky; top:0; z-index:1; }
+        table.work-table td.l { text-align:left; font-weight:700; padding-left:6px; }
+        table.work-table input, table.work-table select { width:100%; min-width:0; }
+
+        tr.asy-row { cursor:pointer; }
+        tr.asy-row:hover { background:#f4f8ff; }
+        tr.asy-row.on { background:#e6efff; }
+        tr.asy-row.on td:nth-child(1) { box-shadow:inset 3px 0 0 #0026ff; }
+        tr.asy-row.run { background:#fffbe8; }
+        tr.asy-row.run.on { background:#fff3c4; }
+
+        .badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:11px; display:inline-block; }
+        .badge.wait { background:#eef0f4; color:#777; }
+        .badge.run { background:#f3e6c0; color:#8a6d1b; }
+        .empty { color:#99a; text-align:center; padding:18px 0; }
+        .hint { font-size:11.5px; color:#667; line-height:1.6; margin:10px 0 0; }
+
+        /* 등록 값(생산일·작업자) 줄 — 조회 조건이 아니라 여기 속한다 */
+        .reg-input { display:flex; align-items:flex-end; gap:16px; padding-bottom:12px;
+            border-bottom:1px solid #eef1f6; margin-bottom:14px; }
+        .reg-input dl { margin:0; }
+        .reg-input dt { font-size:12px; color:#445; font-weight:600; margin-bottom:5px; }
+        .reg-input dd { margin:0; }
+        .reg-input .eq { color:#e0533d; margin-left:2px; }
+
+        .pick-card { display:flex; flex-direction:column; gap:14px; align-items:stretch; }
+        .pick-name { font-size:19px; font-weight:800; color:#1d2330; }
+
+        /* 유니트수 / 조립완료 / 재공 — 나란히 놓는 세 숫자 */
+        .stat-row { display:flex; gap:8px; }
+        .stat { flex:1; background:#f7f9fc; border:1px solid #e5eaf2; border-radius:8px; padding:10px 12px; }
+        .stat .lab { display:block; font-size:11.5px; color:#7a8499; font-weight:700; }
+        .stat .v { display:block; font-size:22px; font-weight:800; color:#1d2330; margin-top:2px; }
+        .stat.wip .v { color:#8a6d1b; }
+
+        .qty-line { display:flex; align-items:center; gap:10px; }
+        .qty-line .lab { font-size:12.5px; color:#7a8499; font-weight:700; }
+        .qty-input { width:120px; text-align:right; font-size:20px; font-weight:800; padding:8px 12px;
+            border:1px solid #cfd6e2; border-radius:7px; }
+        .qty-input:disabled { background:#f2f4f7; color:#aab; }
+
+        .big-actions { display:flex; gap:10px; }
+        .big-actions .btn { flex:1; padding:14px; font-size:15px; font-weight:800; border-radius:8px; text-align:center; }
+        .btn-start { background:#1ca36b; border-color:#1ca36b; color:#fff; }
+        .btn-end { background:#2f57d6; border-color:#2f57d6; color:#fff; }
+        .btn-off { background:#eef0f4; border-color:#e2e5ea; color:#aab; cursor:not-allowed; }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>조립 공정</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산관리</li>
+                <li>조립 공정</li>
+            </ul>
+        </div>
+
+        <div class="main-row">
+            <!-- 좌: 조립 대상 품목 -->
+            <section class="section" style="flex:1;">
+                <div class="section-top">
+                    <div class="search-wrap" style="margin-bottom:0">
+                        <dl>
+                            <dt>프로젝트</dt>
+                            <dd><select id="fProject" style="min-width:220px"
+                                        onchange="prodAssembly.search()"></select></dd>
+                        </dl>
+                    </div>
+                </div>
+                <div class="container-fluid">
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:12%"><col><col style="width:12%">
+                            <col style="width:12%"><col style="width:12%"><col style="width:14%">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>라인</th>
+                            <th>품목</th>
+                            <th>유니트수</th>
+                            <th>조립완료</th>
+                            <th>재공</th>
+                            <th>상태</th>
+                        </tr>
+                        </thead>
+                        <tbody id="asyBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 우: 시작/완료 + 조립 이력 -->
+            <div class="right-col">
+                <section class="section reg-sec">
+                    <div class="section-top">
+                        <span id="selLab" style="font-weight:700;">품목을 선택하세요</span>
+                    </div>
+                    <div class="container-fluid">
+                        <!-- 생산일·작업자는 조회 조건이 아니라 등록 값이므로 이 영역에 둔다 -->
+                        <div class="reg-input">
+                            <dl>
+                                <dt>생산일<span class="eq">*</span></dt>
+                                <dd><input type="date" id="pdate"></dd>
+                            </dl>
+                            <dl>
+                                <dt>작업자<span class="eq">*</span></dt>
+                                <dd><select id="fWorker" style="min-width:150px"></select></dd>
+                            </dl>
+                        </div>
+                        <div class="pick-card" id="pickCard">
+                            <div class="empty" style="width:100%">왼쪽에서 품목을 선택하세요</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section log-sec">
+                    <div class="section-top"><span style="font-weight:700;">조립 이력</span></div>
+                    <div class="container-fluid">
+                        <table class="work-table">
+                            <colgroup>
+                                <col style="width:16%"><col><col style="width:12%">
+                                <col style="width:14%"><col style="width:14%"><col style="width:12%">
+                            </colgroup>
+                            <thead>
+                            <tr>
+                                <th>프로젝트</th><th>품목</th><th>수량</th>
+                                <th>작업자</th><th>시작~종료</th><th>취소</th>
+                            </tr>
+                            </thead>
+                            <tbody id="logBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+
+        /**
+         * 조립 공정 (PC)
+         *
+         * [단위] 유닛(품목). 가공 키오스크의 가공품 개수와 다른 축이다.
+         *        조립 완료 누적 = 완제품 재고. 재고가 존재하는 유일한 지점.
+         *        재공 = 유니트수 - 조립완료. 차감이 아니라 두 이벤트의 차이라 항상 참이다.
+         */
+        class ProdAssemblyPage {
+
+            constructor() {
+                this.API = '/api/production/prod_assembly';
+                this.spjangcd = $('#spjangcd').val() || 'ZZ';
+
+                this.projects = [];
+                this.workers = [];
+                this.items = [];
+                this.log = [];
+
+                this.selProj = '';
+                this.sel = -1;
+
+                this.init();
+            }
+
+            el(id) {
+                return document.getElementById(id);
+            }
+
+            async init() {
+                if (!this.el('fProject')) {
+                    console.error('[prod_assembly] 화면 요소를 찾을 수 없습니다. layout_page 구조를 확인하세요.');
+                    return;
+                }
+                this.el('pdate').value = this.today();
+                await this.loadWorkers();
+                await this.loadProjects();
+            }
+
+            today() {
+                const d = new Date(), z = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+            }
+
+            // ===== 마스터 =====
+            async loadWorkers() {
+                const res = await this.get(`${this.API}/worker_list`, {spjangcd: this.spjangcd});
+                this.workers = res.data || [];
+
+                const own = this.workers.filter(w => w.own_area === 'Y');
+                const etc = this.workers.filter(w => w.own_area !== 'Y');
+
+                // 조립 담당을 위로 올리되 막지는 않는다 (교대·대체 인력)
+                this.el('fWorker').innerHTML =
+                    '<option value="">선택</option>'
+                    + own.map(w => `<option value="${w.id}">${w.name}</option>`).join('')
+                    + (etc.length ? `<optgroup label="타 부서">`
+                        + etc.map(w => `<option value="${w.id}">${w.name}</option>`).join('')
+                        + `</optgroup>` : '');
+            }
+
+            async loadProjects() {
+                const res = await this.get(`${this.API}/project_list`, {spjangcd: this.spjangcd});
+                this.projects = res.data || [];
+
+                this.el('fProject').innerHTML = '<option value="">전체</option>'
+                    + this.projects.map(p =>
+                        `<option value="${p.proj_no}">${p.proj_no} ${p.proj_name || ''}</option>`).join('');
+
+                await this.search();
+            }
+
+            worker() {
+                const id = this.el('fWorker').value;
+                return this.workers.find(w => String(w.id) === String(id)) || null;
+            }
+
+            // ===== 조회 =====
+            async search() {
+                this.selProj = this.el('fProject').value;
+                this.sel = -1;
+                await this.loadItems();
+                await this.loadLog();
+                this.renderDetail();
+            }
+
+            async loadItems() {
+                const res = await this.get(`${this.API}/item_list`,
+                    {spjangcd: this.spjangcd, projNo: this.selProj});
+                this.items = res.data || [];
+                this.renderList();
+            }
+
+            async loadLog() {
+                // 생산일은 등록용이지 조회 조건이 아니다.
+                // 날짜로 자르면 어제 완료분이 안 보여 중복 등록이 생긴다
+                const res = await this.get(`${this.API}/log`, {
+                    spjangcd: this.spjangcd,
+                    projNo: this.selProj
+                });
+                this.log = res.data || [];
+                this.renderLog();
+            }
+
+            item() {
+                return this.sel >= 0 ? this.items[this.sel] : null;
+            }
+
+            // ===== 렌더 =====
+            renderList() {
+                const body = this.el('asyBody');
+                if (!this.items.length) {
+                    body.innerHTML = '<tr><td colspan="6" class="empty">작업 지시된 품목이 없습니다</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = this.items.map((it, i) => {
+                    const run = !!it.working_id;
+                    return `<tr class="asy-row ${this.sel === i ? 'on' : ''} ${run ? 'run' : ''}" data-i="${i}">
+                        <td>${it.line_name || ''}</td>
+                        <td class="l">${this.esc(it.item_name)}</td>
+                        <td>${it.unit_qty ?? 0}</td>
+                        <td>${it.done_qty ?? 0}</td>
+                        <td>${it.wip_qty ?? 0}</td>
+                        <td>${this.badge(it)}</td>
+                    </tr>`;
+                }).join('');
+
+                body.querySelectorAll('.asy-row').forEach(r => r.onclick = () => {
+                    this.sel = +r.dataset.i;
+                    this.renderList();
+                    this.renderDetail();
+                });
+            }
+
+            badge(it) {
+                return it.working_id
+                    ? `<span class="badge run">진행중 ${it.start_time || ''}</span>`
+                    : '<span class="badge wait">대기</span>';
+            }
+
+            renderDetail() {
+                const it = this.item();
+                if (!it) {
+                    this.el('selLab').textContent = '품목을 선택하세요';
+                    this.el('pickCard').innerHTML =
+                        '<div class="empty" style="width:100%">왼쪽에서 품목을 선택하세요</div>';
+                    return;
+                }
+
+                this.el('selLab').textContent = `선택: ${it.item_name || ''}`;
+                const run = !!it.working_id;
+
+                this.el('pickCard').innerHTML = `
+                    <div>
+                        <div class="pick-name">${this.esc(it.item_name)}</div>
+                        <div style="margin-top:6px">${this.badge(it)}
+                            ${run && it.working_worker
+                    ? `<span style="color:#8a6d1b;font-size:12.5px;font-weight:700"> · ${this.esc(it.working_worker)}</span>`
+                    : ''}</div>
+                    </div>
+                    <div class="stat-row">
+                        <div class="stat"><span class="lab">유니트수</span><span class="v">${it.unit_qty ?? 0}</span></div>
+                        <div class="stat"><span class="lab">조립완료</span><span class="v">${it.done_qty ?? 0}</span></div>
+                        <div class="stat wip"><span class="lab">재공</span><span class="v">${it.wip_qty ?? 0}</span></div>
+                    </div>
+                    <div class="qty-line">
+                        <span class="lab">완료 수량</span>
+                        <input type="number" class="qty-input" id="qty" value="1" min="1" ${run ? '' : 'disabled'}>
+                        <span style="font-size:12px;color:#8a93a3">유닛</span>
+                    </div>
+                    <div class="big-actions">
+                        <a class="btn ${run ? 'btn-off' : 'btn-start'}" id="btnStart">시작</a>
+                        <a class="btn ${run ? 'btn-end' : 'btn-off'}" id="btnEnd">완료</a>
+                    </div>
+                    <p class="hint">${run
+                    ? '진행중 — <b>완료</b>를 누르면 입력한 수량만큼 완제품이 생성됩니다.'
+                    : '대기 — <b>시작</b>을 누르면 조립을 시작합니다.'}</p>`;
+
+                this.el('btnStart').onclick = () => {
+                    if (!run) this.start();
+                };
+                this.el('btnEnd').onclick = () => {
+                    if (run) this.complete();
+                };
+            }
+
+            renderLog() {
+                const body = this.el('logBody');
+                if (!this.log.length) {
+                    body.innerHTML = '<tr><td colspan="6" class="empty">조립 내역이 없습니다</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = this.log.map(l => `
+                    <tr>
+                        <td>${this.esc(l.proj_no)}</td>
+                        <td class="l">${this.esc(l.item_name)}</td>
+                        <td>${l.qty ?? 0}</td>
+                        <td>${this.esc(l.worker)}</td>
+                        <td>${l.start_time || '-'} ~ ${l.end_time || '-'}</td>
+                        <td><a class="btn" style="padding:3px 8px" data-i="${l.id}">취소</a></td>
+                    </tr>`).join('');
+
+                body.querySelectorAll('[data-i]').forEach(b => b.onclick = async () => {
+                    if (!await Alert.confirmAsync('', '이 조립 실적을 취소하시겠습니까?')) return;
+                    const res = await this.post(`${this.API}/delete`, {id: +b.dataset.i});
+                    if (!res.success) {
+                        Alert.alert('', res.message);
+                        return;
+                    }
+                    await this.loadItems();
+                    await this.loadLog();
+                    this.renderDetail();
+                });
+            }
+
+            // ===== 동작 =====
+            async start() {
+                const it = this.item(), w = this.worker();
+                if (!w) {
+                    Alert.alert('', '작업자를 선택하세요.');
+                    return;
+                }
+
+                const res = await this.post(`${this.API}/working_start`, {
+                    spjangcd: this.spjangcd,
+                    projNo: it.proj_no,
+                    sujuId: it.suju_id,
+                    worker: w.name,
+                    workerId: w.id
+                });
+                if (!res.success) {
+                    Alert.alert('', res.message);
+                    return;
+                }
+
+                await this.refresh();
+            }
+
+            async complete() {
+                const it = this.item(), w = this.worker();
+                if (!w) {
+                    Alert.alert('', '작업자를 선택하세요.');
+                    return;
+                }
+
+                const qty = Number(this.el('qty').value);
+                if (!(qty > 0)) {
+                    Alert.alert('', '완료 수량을 입력하세요.');
+                    return;
+                }
+
+                const res = await this.post(`${this.API}/complete`, {
+                    spjangcd: this.spjangcd,
+                    prodDate: this.el('pdate').value,
+                    projNo: it.proj_no,
+                    sujuId: it.suju_id,
+                    qty: qty,
+                    worker: w.name,
+                    workerId: w.id
+                });
+                if (!res.success) {
+                    Alert.alert('', res.message);
+                    return;
+                }
+
+                await this.refresh();
+            }
+
+            async refresh() {
+                const id = this.item() ? this.item().suju_id : null;
+                await this.loadItems();
+                await this.loadLog();
+                this.sel = this.items.findIndex(x => x.suju_id === id);
+                this.renderList();
+                this.renderDetail();
+            }
+
+            // ===== 통신 =====
+            // AjaxUtil (common.js) 사용. $.ajax 직접 호출 금지 (CSRF 누락으로 403)
+            get(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.getAsyncData(url, data,
+                        res => resolve(res || {success: false, data: []}),
+                        () => resolve({success: false, data: []}));
+                });
+            }
+
+            post(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.postJsonData(url, data,
+                        res => resolve(res || {success: false}),
+                        () => resolve({success: false, message: ''}));
+                });
+            }
+
+            esc(s) {
+                return (s == null ? '' : String(s))
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+        }
+
+        $(document).ready(function () {
+            window.prodAssembly = new ProdAssemblyPage();
+        });
+
+    </script>
+</th:block>
+</html>

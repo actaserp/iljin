@@ -1,0 +1,642 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* 키오스크는 전체 화면을 쓴다. 레이아웃의 푸터를 숨긴다 */
+        .footer { display:none !important; }
+        .con_area, .contents { padding-bottom:0 !important; }
+
+        /* 전체화면 버튼 — 키오스크는 헤더·탭·푸터 없이 쓰는 게 맞다 */
+        /* .kiosk button 의 height:auto !important / min-width:50px 를 이겨야 정사각형이 된다 */
+        .fs-btn { border:1px solid #3c4d77; background:#2c3a5e; color:#fff; border-radius:8px;
+            width:32px !important; height:32px !important; min-width:0 !important;
+            padding:0; font-size:15px; line-height:1; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+        .fs-btn:hover { background:#36456c; }
+        /* 시계 오른쪽 끝에 전체화면 아이콘 */
+        .clock-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:2px; }
+
+        /* 조립 키오스크 전용. 공통 클래스는 재정의하지 않는다 */
+        .kiosk button { height:auto !important; min-height:0; }
+        .kiosk { display:flex; flex-direction:column; height:100vh; padding:12px; gap:10px; box-sizing:border-box; }
+
+        /* 상단 컨텍스트 바 */
+        .ctx-bar { display:flex; align-items:stretch; gap:10px; background:#1f2a44; border-radius:12px;
+            padding:10px 12px; color:#fff; flex:0 0 auto; }
+        .ctx-title { display:flex; flex-direction:column; justify-content:center; padding-right:14px;
+            border-right:1px solid #3c4d77; }
+        .ctx-title h1 { margin:0; font-size:18px; font-weight:800; letter-spacing:-.3px; }
+        .ctx-title span { font-size:11.5px; color:#9fb0d4; margin-top:2px; }
+        .ctx-slots { display:flex; gap:10px; flex:1 1 auto; }
+        .ctx-slot { flex:1; background:#2c3a5e; border:1px solid #3c4d77; border-radius:10px; padding:8px 11px;
+            display:flex; flex-direction:column; justify-content:center; min-width:0; }
+        .ctx-slot .lab { font-size:11px; color:#9fb0d4; font-weight:700; letter-spacing:.3px; }
+        .ctx-slot .val { font-size:16px; font-weight:800; margin-top:2px;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .ctx-slot .val.empty { color:#6f80a8; font-weight:600; font-size:14px; }
+        .ctx-right { display:flex; align-items:center; gap:12px; padding-left:4px; }
+        .ctx-date { display:flex; flex-direction:column; justify-content:center; }
+        .clock { font-size:16px; font-weight:800; color:#ffd98a; letter-spacing:.5px;
+            font-variant-numeric:tabular-nums; }
+        .ctx-date label { font-size:11px; color:#9fb0d4; font-weight:700; }
+        .date-pick { display:flex; align-items:center; gap:6px; margin-top:4px; }
+        .date-nav { border:1px solid #3c4d77; background:#2c3a5e; color:#fff; border-radius:8px;
+            width:36px; height:38px; font-size:15px; font-weight:800; cursor:pointer; }
+        input[type=date].date-input { height:38px; border:1px solid #3c4d77; background:#2c3a5e !important; color:#fff;
+            border-radius:8px; padding:0 10px; font-size:15px; font-weight:800; cursor:pointer;
+            min-width:0 !important; width:140px; }
+        input[type=date].date-input::-webkit-calendar-picker-indicator { filter:invert(1); opacity:.85; cursor:pointer; }
+
+        /* 본문 */
+        .kiosk-main { display:flex; gap:10px; flex:1 1 auto; min-height:0; }
+        .left-col { flex:1.3; display:flex; flex-direction:column; gap:10px; min-height:0; }
+        .pick-col { flex:1 1 auto; display:flex; flex-direction:column; background:#fff;
+            border:1px solid #d4dae5; border-radius:12px; min-height:0; overflow:hidden; }
+        .entry-col { flex:1; display:flex; flex-direction:column; gap:12px; background:#fff;
+            border:1px solid #d4dae5; border-radius:12px; padding:16px; min-height:0; }
+
+        /* 단계 탭 */
+        .steps { display:flex; gap:6px; padding:10px 12px; border-bottom:1px solid #e6eaf1;
+            background:#f6f8fb; flex:0 0 auto; }
+        .step-tab { flex:1; border:1.5px solid #d4dae5; background:#fff; border-radius:9px;
+            padding:9px 11px; cursor:pointer; text-align:left; min-width:0; }
+        .step-tab .n { display:inline-flex; align-items:center; justify-content:center; width:19px; height:19px;
+            border-radius:50%; background:#cfd6e2; color:#fff; font-size:11px; font-weight:800; margin-right:6px; }
+        .step-tab .t { font-size:12.5px; font-weight:700; color:#52607a; }
+        .step-tab .sv { display:block; margin-top:4px; font-size:14px; font-weight:800; color:#1d2330;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .step-tab .sv.none { color:#aab2c2; font-weight:600; font-size:12.5px; }
+        .step-tab.active { border-color:#2f57d6; box-shadow:0 0 0 2px rgba(47,87,214,.12); }
+        .step-tab.active .n { background:#2f57d6; }
+        .step-tab.done .n { background:#1ca36b; }
+
+        /* 타일 */
+        .pick-body { flex:1 1 auto; min-height:0; overflow:auto; padding:14px; }
+        .pick-head { font-size:13px; font-weight:700; color:#5a6680; margin:0 0 10px; }
+        .tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:10px; }
+        .tile { position:relative; border:1.5px solid #d4dae5; background:#fff; border-radius:12px;
+            padding:16px 14px; cursor:pointer; text-align:left; min-height:70px;
+            display:flex; flex-direction:column; justify-content:center;
+            min-width:0; max-width:100%; overflow:hidden; }
+        .tile:hover { border-color:#9fb1d8; background:#fafbfe; }
+        .tile .tt { font-size:17px; font-weight:800; color:#1d2330; width:100%; min-width:0;
+            overflow-wrap:anywhere; word-break:break-word; line-height:1.25;
+            display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .tile .ts { font-size:12px; color:#7a8499; margin-top:4px; width:100%;
+            overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .tile.on { border-color:#2f57d6; background:#eef3ff; box-shadow:0 0 0 2px rgba(47,87,214,.15); }
+        .tile.on::after { content:'✓'; position:absolute; top:9px; right:11px; color:#2f57d6; font-weight:900; font-size:15px; }
+        .tile.on .tt { padding-right:20px; }
+        .tile.run { background:#fffbe8; border-color:#f0dca0; }
+        .tile .busy { position:absolute; top:9px; right:11px; font-size:11px; font-weight:800; color:#a6791b;
+            background:#fff5dd; border:1px solid #f0dca0; border-radius:8px; padding:1px 7px; }
+        .pick-empty { color:#99a; text-align:center; padding:30px 0; font-size:14px; grid-column:1/-1; }
+
+        /* 우측 수량 패드 */
+        .qty-row { display:flex; gap:12px; flex:0 0 auto; }
+        .qty-box { flex:1; border:1.5px solid #0b69a3; border-radius:12px; padding:14px 16px; background:#ecf7fc; }
+        .qty-box .ql { font-size:14px; font-weight:800; color:#5a6680; }
+        .qty-box .qv { font-size:40px; font-weight:900; text-align:right; line-height:1.05; margin-top:4px; color:#0b69a3; }
+        .keypad { flex:1 1 auto; min-height:0; display:grid; grid-template-columns:repeat(3,1fr);
+            grid-template-rows:repeat(4,1fr); gap:10px; }
+        .key { border:1.5px solid #d4dae5; background:#fff; border-radius:12px; font-size:30px; font-weight:800;
+            cursor:pointer; color:#1d2330; display:flex; align-items:center; justify-content:center; }
+        .key:hover { background:#f2f5fb; }
+        .key.act { background:#f0f3f9; color:#3d5a99; }
+        .work-btns { display:flex; gap:10px; flex:0 0 auto; }
+        .wbtn { flex:1; border:none; border-radius:12px; padding:22px; font-size:22px; font-weight:900;
+            color:#fff; cursor:pointer; letter-spacing:1px; }
+        .wbtn.start { background:#2e9e5b; }
+        .wbtn.done { background:#2f57d6; }
+        .wbtn:disabled { background:#c2c9d4; cursor:not-allowed; }
+
+        /* 하단 이력 */
+        .log-sec { flex:0 0 auto; background:#fff; border:1px solid #d4dae5; border-radius:12px;
+            max-height:220px; overflow:auto; }
+        .log-head { font-size:13px; font-weight:800; color:#5a6680; padding:10px 14px 0; }
+        table.log-table { width:100%; border-collapse:collapse; }
+        table.log-table th, table.log-table td { border-bottom:1px solid #eef1f6; padding:8px 10px;
+            font-size:13px; text-align:center; }
+        table.log-table th { color:#8893a8; font-weight:700; }
+        table.log-table td.k { text-align:left; font-weight:700; }
+        .x-btn { border:1px solid #d4dae5; background:#fff; border-radius:7px; padding:4px 10px;
+            cursor:pointer; font-size:12px; color:#888; }
+        .log-empty { color:#aab; padding:18px 0; }
+
+        .flash { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:#1f2a44; color:#fff;
+            padding:14px 26px; border-radius:12px; font-size:16px; font-weight:800; opacity:0;
+            transition:.2s; pointer-events:none; z-index:2000; }
+        .flash.show { opacity:1; }
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="kiosk">
+        <!-- 상단 컨텍스트 -->
+        <div class="ctx-bar">
+            <div class="ctx-title">
+                <h1>조립 키오스크</h1>
+                <span>유닛(완제품) 단위</span>
+            </div>
+            <div class="ctx-slots">
+                <div class="ctx-slot"><span class="lab">작업자</span>
+                    <span class="val empty" id="cxWorker">선택하세요</span></div>
+                <div class="ctx-slot"><span class="lab">프로젝트</span>
+                    <span class="val empty" id="cxProj">선택하세요</span></div>
+                <div class="ctx-slot"><span class="lab">품목</span>
+                    <span class="val empty" id="cxItem">선택하세요</span>
+                    <span class="sub" id="cxItemSub"></span></div>
+            </div>
+            <div class="ctx-right">
+                <div class="ctx-date">
+                    <div class="clock-row">
+                        <div class="clock" id="clock">--:--:--</div>
+                        <button class="fs-btn" id="btnFull" title="전체화면">⛶</button>
+                    </div>
+                    <label>생산일</label>
+                    <div class="date-pick">
+                        <button class="date-nav" id="dPrev">◀</button>
+                        <input type="date" class="date-input" id="pdate">
+                        <button class="date-nav" id="dNext">▶</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="kiosk-main">
+            <div class="left-col">
+                <div class="pick-col">
+                    <div class="steps" id="steps"></div>
+                    <div class="pick-body" id="pickBody"></div>
+                </div>
+                <div class="log-sec">
+                    <div class="log-head" id="logHead">조립 이력</div>
+                    <table class="log-table">
+                        <thead>
+                        <tr><th>품목</th><th style="width:90px">수량</th><th style="width:110px">작업자</th>
+                            <th style="width:130px">시작~종료</th><th style="width:90px">취소</th></tr>
+                        </thead>
+                        <tbody id="logBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 우: 수량 + 시작/완료 -->
+            <div class="entry-col">
+                <div class="qty-row">
+                    <div class="qty-box">
+                        <div class="ql">완료 수량 (유닛)</div>
+                        <div class="qv" id="qvQty">1</div>
+                    </div>
+                </div>
+                <div class="keypad" id="keypad"></div>
+                <div class="work-btns">
+                    <button class="wbtn start" id="btnStart" disabled>시 작</button>
+                    <button class="wbtn done" id="btnDone" disabled>완 료</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="flash" id="flash"></div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <!-- th:inline="none" : Thymeleaf 가 스크립트를 템플릿으로 파싱하지 않게 한다.
+         이게 없으면 백틱 템플릿 리터럴의 ${...} 를 Thymeleaf 가 건드려 스크립트가 통째로 죽는다 -->
+    <script type="text/javascript" th:inline="none">
+
+        /**
+         * 조립 키오스크
+         *
+         *  동선: 작업자 → 프로젝트 → 품목 → 시작 / 완료(수량)
+         *
+         * [단위] 유닛(완제품). 가공 키오스크의 가공품 개수와 다른 축이다.
+         *        완료 누적 = 완제품 재고. 재고가 존재하는 유일한 지점.
+         *
+         * 주의: 전역 $ (jQuery) 를 덮지 않는다. AjaxUtil 내부 $.ajax 가 깨진다.
+         */
+        (function () {
+
+            const API = '/api/production/prod_assembly';
+            let SPJANGCD = 'ZZ';
+
+            const el = id => document.getElementById(id);
+            const esc = s => (s == null ? '' : String(s))
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const toYMD = d => {
+                const z = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+            };
+
+            // AjaxUtil (common.js). CSRF / spjangcd / 로딩바를 알아서 처리한다
+            const getJSON = (url, data) => new Promise(r =>
+                AjaxUtil.getAsyncData(url, data,
+                    res => r(res || {success: false, data: []}),
+                    () => r({success: false, data: []})));
+            const postJSON = (url, data) => new Promise(r =>
+                AjaxUtil.postJsonData(url, data,
+                    res => r(res || {success: false}),
+                    () => r({success: false, message: ''})));
+
+            let WORKERS = [], PROJECTS = [], ITEMS = [], LOG = [];
+            let curDate = toYMD(new Date());
+
+            const st = {worker: null, workerId: null, proj: -1, item: -1, qty: 1, step: 0};
+
+            /** 화면이 비는 원인을 백지 대신 눈에 보이게 찍는다 */
+            function fatal(msg) {
+                const box = document.getElementById('pickBody') || document.body;
+                box.innerHTML = `<div class="pick-empty" style="color:#c0392b">${msg}</div>`;
+                console.error('[prod_assembly_kiosk] ' + msg);
+            }
+
+            const STEPS = [
+                {key: 'worker', t: '작업자'},
+                {key: 'proj', t: '프로젝트'},
+                {key: 'item', t: '품목'}
+            ];
+
+            const projLabel = p => p ? `${p.proj_no || ''}${p.proj_name ? ' ' + p.proj_name : ''}`.trim() : '';
+            const curItem = () => (st.item >= 0 && ITEMS[st.item]) ? ITEMS[st.item] : null;
+            const isRunning = () => { const it = curItem(); return !!(it && it.working_id); };
+
+            function stepValue(k) {
+                if (k === 'worker') return st.worker;
+                if (k === 'proj') return st.proj >= 0 ? projLabel(PROJECTS[st.proj]) : null;
+                if (k === 'item') return curItem() ? curItem().item_name : null;
+                return null;
+            }
+
+            // ===== 로드 =====
+            async function loadMasters() {
+                const [wk, pj] = await Promise.all([
+                    getJSON(API + '/worker_list', {spjangcd: SPJANGCD}),
+                    getJSON(API + '/project_list', {spjangcd: SPJANGCD})
+                ]);
+
+                // 응답 자체가 실패면 조용히 빈 화면이 되므로 눈에 보이게 알린다
+                if (!wk.success && !pj.success) {
+                    fatal(`API 응답이 없습니다. ${API} 컨트롤러가 등록됐는지,`
+                        + ' 개발자도구 Network 에서 404/500 이 나는지 확인하세요.');
+                    return;
+                }
+
+                WORKERS = wk.data || [];
+                PROJECTS = pj.data || [];
+
+                if (!PROJECTS.length) console.warn('[prod_assembly_kiosk] 프로젝트가 0건입니다. spjangcd=' + SPJANGCD);
+                if (!WORKERS.length) console.warn('[prod_assembly_kiosk] 작업자가 0건입니다.');
+            }
+
+            async function loadItems() {
+                if (st.proj < 0) { ITEMS = []; return; }
+                const res = await getJSON(API + '/item_list',
+                    {spjangcd: SPJANGCD, projNo: PROJECTS[st.proj].proj_no});
+                ITEMS = res.data || [];
+            }
+
+            async function loadLog() {
+                // 생산일은 등록 시 찍는 값이고 조회 조건이 아니다
+                const res = await getJSON(API + '/log', {
+                    spjangcd: SPJANGCD,
+                    projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : ''
+                });
+                LOG = res.data || [];
+            }
+
+            // ===== 렌더 =====
+            function renderSteps() {
+                el('steps').innerHTML = STEPS.map((s, i) => {
+                    const v = stepValue(s.key), done = v != null, active = st.step === i;
+                    return `<div class="step-tab ${active ? 'active' : ''} ${done ? 'done' : ''}" data-i="${i}">
+                        <div><span class="n">${done ? '✓' : i + 1}</span><span class="t">${s.t}</span></div>
+                        <span class="sv ${v ? '' : 'none'}">${esc(v) || '미선택'}</span></div>`;
+                }).join('');
+
+                el('steps').querySelectorAll('.step-tab').forEach(t => t.onclick = () => {
+                    st.step = +t.dataset.i;
+                    renderAll();
+                });
+            }
+
+            function renderPick() {
+                const step = STEPS[st.step].key;
+                let html = '';
+
+                if (step === 'worker') {
+                    const own = WORKERS.filter(w => w.own_area === 'Y');
+                    const etc = WORKERS.filter(w => w.own_area !== 'Y');
+                    const tile = w => `<button class="tile ${st.workerId === w.id ? 'on' : ''}" data-w="${w.id}">
+                            <span class="tt">${esc(w.name)}</span>
+                            <span class="ts">${esc(w.workcenter_name || '')}</span></button>`;
+
+                    html = `<p class="pick-head">작업자를 선택하세요</p><div class="tiles">`;
+                    html += own.length ? own.map(tile).join('')
+                        : `<div class="pick-empty">조립 담당 인원이 없습니다</div>`;
+                    // 교대·대체 인력이 있으므로 타 부서도 막지 않는다
+                    if (etc.length) html += `<div class="pick-empty" style="padding:6px 0;font-size:12px">타 부서</div>`
+                        + etc.map(tile).join('');
+                    html += `</div>`;
+
+                } else if (step === 'proj') {
+                    html = `<p class="pick-head">프로젝트를 선택하세요</p><div class="tiles">`
+                        + (PROJECTS.length
+                            ? PROJECTS.map((p, i) => `<button class="tile ${st.proj === i ? 'on' : ''}" data-p="${i}">
+                                <span class="tt">${esc(p.proj_no)}</span>
+                                <span class="ts">${esc(p.proj_name || '')}</span></button>`).join('')
+                            : `<div class="pick-empty">진행중인 프로젝트가 없습니다</div>`)
+                        + `</div>`;
+
+                } else {
+                    if (st.proj < 0) {
+                        html = `<div class="pick-empty">먼저 프로젝트를 선택하세요</div>`;
+                    } else if (!ITEMS.length) {
+                        html = `<div class="pick-empty">작업 지시된 품목이 없습니다.<br>
+                            생산 지시 화면에서 작업지시를 먼저 하세요.</div>`;
+                    } else {
+                        html = `<p class="pick-head">품목을 선택하세요 · 완료 / 유니트수</p><div class="tiles">`
+                            + ITEMS.map((it, i) => `
+                                <button class="tile ${st.item === i ? 'on' : ''} ${it.working_id ? 'run' : ''}" data-it="${i}">
+                                    ${it.working_id && st.item !== i ? `<span class="busy">진행중</span>` : ''}
+                                    <span class="tt">${esc(it.item_name)}</span>
+                                    <span class="ts">완료 ${it.done_qty ?? 0} / ${it.unit_qty ?? 0}
+                                        · 재공 ${it.wip_qty ?? 0}</span></button>`).join('')
+                            + `</div>`;
+                    }
+                }
+
+                el('pickBody').innerHTML = html;
+
+                el('pickBody').querySelectorAll('[data-w]').forEach(b => b.onclick = () => pickWorker(+b.dataset.w));
+                el('pickBody').querySelectorAll('[data-p]').forEach(b => b.onclick = () => pickProj(+b.dataset.p));
+                el('pickBody').querySelectorAll('[data-it]').forEach(b => b.onclick = () => pickItem(+b.dataset.it));
+            }
+
+            function renderCtx() {
+                const w = el('cxWorker');
+                w.textContent = st.worker || '선택하세요';
+                w.classList.toggle('empty', !st.worker);
+
+                const p = el('cxProj');
+                p.textContent = st.proj >= 0 ? projLabel(PROJECTS[st.proj]) : '선택하세요';
+                p.classList.toggle('empty', st.proj < 0);
+
+                const i = el('cxItem');
+                const it = curItem();
+                i.textContent = it ? it.item_name : '선택하세요';
+                i.classList.toggle('empty', !it);
+                el('cxItemSub').textContent = it
+                    ? `완료 ${it.done_qty ?? 0} / ${it.unit_qty ?? 0} · 재공 ${it.wip_qty ?? 0}` : '';
+            }
+
+            function renderQty() {
+                el('qvQty').textContent = st.qty;
+            }
+
+            function renderButtons() {
+                const ready = !!(st.worker && curItem());
+                const run = isRunning();
+                el('btnStart').disabled = !ready || run;
+                el('btnDone').disabled = !ready || !run || !(st.qty > 0);
+            }
+
+            function renderLog() {
+                el('logHead').textContent = '조립 이력 (최근)';
+
+                if (!LOG.length) {
+                    el('logBody').innerHTML = '<tr><td colspan="5" class="log-empty">조립 내역이 없습니다.</td></tr>';
+                    return;
+                }
+
+                el('logBody').innerHTML = LOG.map(l => `
+                    <tr>
+                        <td class="k">${esc(l.item_name)}</td>
+                        <td>${l.qty ?? 0}</td>
+                        <td>${esc(l.worker)}</td>
+                        <td>${l.start_time || '-'} ~ ${l.end_time || '-'}</td>
+                        <td><button class="x-btn" data-i="${l.id}">취소</button></td>
+                    </tr>`).join('');
+
+                el('logBody').querySelectorAll('[data-i]').forEach(b => b.onclick = async () => {
+                    if (!await Alert.confirmAsync('', '이 조립 실적을 취소하시겠습니까?')) return;
+                    const res = await postJSON(API + '/delete', {id: +b.dataset.i});
+                    if (!res.success) { Alert.alert('', res.message); return; }
+                    await refresh();
+                });
+            }
+
+            function renderAll() {
+                renderSteps(); renderPick(); renderCtx(); renderQty(); renderButtons(); renderLog();
+            }
+
+            // ===== 선택 =====
+            function advanceFrom(key) {
+                const i = STEPS.findIndex(s => s.key === key);
+                st.step = Math.min(i + 1, STEPS.length - 1);
+            }
+
+            function pickWorker(id) {
+                const w = WORKERS.find(x => x.id === id);
+                if (!w) return;
+                st.worker = w.name;
+                st.workerId = w.id;
+                advanceFrom('worker');
+                renderAll();
+            }
+
+            async function pickProj(i) {
+                st.proj = i;
+                st.item = -1;
+                await loadItems();
+                await loadLog();
+                advanceFrom('proj');
+                renderAll();
+            }
+
+            function pickItem(i) {
+                st.item = i;
+                st.qty = 1;
+                renderAll();
+            }
+
+            // ===== 수량 키패드 =====
+            const KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', 'C', '0', '⌫'];
+
+            function press(k) {
+                let cur = String(st.qty);
+                if (k === 'C') cur = '0';
+                else if (k === '⌫') cur = cur.length > 1 ? cur.slice(0, -1) : '0';
+                else {
+                    cur = (cur === '0' ? '' : cur) + k;
+                    if (cur.length > 5) cur = cur.slice(0, 5);
+                }
+                st.qty = parseInt(cur || '0', 10);
+                renderQty();
+                renderButtons();
+            }
+
+            // ===== 시작 / 완료 =====
+            async function doStart() {
+                const it = curItem();
+                if (!it || !st.worker) return;
+
+                const res = await postJSON(API + '/working_start', {
+                    spjangcd: SPJANGCD,
+                    projNo: it.proj_no,
+                    sujuId: it.suju_id,
+                    worker: st.worker,
+                    workerId: st.workerId
+                });
+                if (!res.success) { Alert.alert('', res.message || '시작에 실패했습니다.'); return; }
+
+                flash('조립 시작 · ' + (it.item_name || ''));
+                await refresh();
+            }
+
+            async function doComplete() {
+                const it = curItem();
+                if (!it || !st.worker || !(st.qty > 0)) return;
+
+                const res = await postJSON(API + '/complete', {
+                    spjangcd: SPJANGCD,
+                    prodDate: curDate,
+                    projNo: it.proj_no,
+                    sujuId: it.suju_id,
+                    qty: st.qty,
+                    worker: st.worker,
+                    workerId: st.workerId
+                });
+                if (!res.success) { Alert.alert('', res.message || '완료 처리에 실패했습니다.'); return; }
+
+                flash(`조립 완료 · ${it.item_name || ''} ${st.qty}개`);
+                st.qty = 1;
+                await refresh();
+            }
+
+            /** 목록을 다시 읽되 선택 품목은 유지한다 */
+            async function refresh() {
+                const id = curItem() ? curItem().suju_id : null;
+                await loadItems();
+                await loadLog();
+                st.item = ITEMS.findIndex(x => x.suju_id === id);
+                renderAll();
+            }
+
+            // ===== 생산일 =====
+            function setDate(s) {
+                curDate = s;              // 등록에만 쓰인다. 이력은 다시 읽지 않는다
+                el('pdate').value = s;
+            }
+
+            function shiftDate(n) {
+                const d = new Date(curDate + 'T00:00:00');
+                d.setDate(d.getDate() + n);
+                setDate(toYMD(d));
+            }
+
+
+            // ===== 플래시 =====
+            let flashT;
+            function flash(msg) {
+                const f = el('flash');
+                f.textContent = msg;
+                f.classList.add('show');
+                clearTimeout(flashT);
+                flashT = setTimeout(() => f.classList.remove('show'), 1600);
+            }
+
+            // ===== 시작 =====
+            /** DOM 이 준비된 뒤에만 화면을 만진다.
+             최상위에서 el(...) 을 부르면 요소가 없을 때 스크립트 전체가 죽어
+             화면에 아무것도 안 나온다 */
+            /**
+             * 전체화면.
+             * 키오스크는 iframe 안에서 열리므로 헤더·탭·푸터가 화면을 먹는다.
+             * 전체화면으로 들어가면 그 전부가 사라지고 100vh 를 그대로 쓴다.
+             * (iframe 에 allowfullscreen 이 없으면 브라우저가 거부하므로 안내한다)
+             */
+            function toggleFullscreen() {
+                const doc = document;
+                const root = doc.documentElement;
+
+                if (!doc.fullscreenElement) {
+                    const req = root.requestFullscreen || root.webkitRequestFullscreen;
+                    if (!req) { Alert.alert('', '이 브라우저는 전체화면을 지원하지 않습니다.'); return; }
+                    Promise.resolve(req.call(root)).catch(() => {
+                        Alert.alert('', '전체화면으로 전환하지 못했습니다. F11 을 눌러주세요.');
+                    });
+                } else {
+                    (doc.exitFullscreen || doc.webkitExitFullscreen).call(doc);
+                }
+            }
+
+            function renderFsBtn() {
+                const b = document.getElementById('btnFull');
+                if (b) b.textContent = document.fullscreenElement ? '⤡' : '⛶';
+            }
+
+            function tickClock() {
+                const d = new Date(), z = n => String(n).padStart(2, '0');
+                el('clock').textContent = `${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`;
+            }
+
+            function bind() {
+                tickClock();
+                setInterval(tickClock, 1000);
+                el('btnFull').onclick = toggleFullscreen;
+                document.addEventListener('fullscreenchange', renderFsBtn);
+
+                el('keypad').innerHTML = KEYS.map(k =>
+                    `<button class="key ${k === 'C' || k === '⌫' ? 'act' : ''}" data-key="${k}">${k}</button>`).join('');
+                el('keypad').querySelectorAll('[data-key]').forEach(b => b.onclick = () => press(b.dataset.key));
+
+                el('dPrev').onclick = () => shiftDate(-1);
+                el('dNext').onclick = () => shiftDate(1);
+                el('pdate').onchange = () => setDate(el('pdate').value || curDate);
+
+                el('btnStart').onclick = doStart;
+                el('btnDone').onclick = doComplete;
+            }
+
+            /**
+             * 시작.
+             * jQuery 에 의존하지 않는다 — $(document).ready 를 쓰면 이 스크립트가
+             * common.js 보다 먼저 실행될 때 $ 가 없어 통째로 죽고 화면이 백지가 된다.
+             * (생산실적 키오스크는 최상위에서 바로 실행돼 그 영향을 덜 받는다)
+             */
+            async function start() {
+                if (!el('steps')) {
+                    console.error('[prod_assembly_kiosk] 화면 요소를 찾을 수 없습니다. '
+                        + 'layout_page 데코레이터 / th:block fragment 구조를 확인하세요.');
+                    return;
+                }
+
+                const sp = document.getElementById('spjangcd');
+                SPJANGCD = (sp && sp.value) || 'ZZ';
+                el('pdate').value = curDate;
+                bind();
+                renderAll();          // 통신 전에 화면부터 그린다 (시계·키패드는 여기서 살아난다)
+
+                if (typeof AjaxUtil === 'undefined') {
+                    fatal('AjaxUtil 을 찾을 수 없습니다. common.js 로드를 확인하세요.');
+                    return;
+                }
+
+                try {
+                    await loadMasters();
+                    await loadLog();
+                    renderAll();
+                } catch (e) {
+                    fatal('데이터를 불러오지 못했습니다: ' + e);
+                }
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', start);
+            } else {
+                start();
+            }
+
+        })();
+
+    </script>
+</th:block>
+</html>

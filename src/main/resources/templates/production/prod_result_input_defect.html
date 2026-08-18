@@ -1,0 +1,333 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* ===== 미리보기용 공통 (layout_page에 있으면 이 블록 삭제) ===== */
+        body{margin:0;font-family:'Malgun Gothic','Pretendard',sans-serif;background:#e9edf3;color:#1d2330;font-size:14px;}
+        *{box-sizing:border-box;}
+        html,body{height:100%;}
+
+        .kiosk button{height:auto !important;min-height:0;}
+        .kiosk{display:flex;flex-direction:column;height:100vh;padding:12px;gap:10px;}
+
+        /* 상단 컨텍스트 바 */
+        .ctx-bar{display:flex;align-items:stretch;gap:10px;background:#3a2340;border-radius:12px;padding:10px 12px;color:#fff;flex:0 0 auto;}
+        .ctx-title{display:flex;flex-direction:column;justify-content:center;padding-right:14px;border-right:1px solid #5b3d63;}
+        .ctx-title h1{margin:0;font-size:18px;font-weight:800;letter-spacing:-.3px;}
+        .ctx-title span{font-size:11.5px;color:#d3b0dc;margin-top:2px;}
+        .ctx-fields{display:flex;gap:10px;flex:1 1 auto;align-items:center;}
+        .fld{display:flex;flex-direction:column;gap:3px;min-width:0;}
+        .fld label{font-size:11px;color:#d3b0dc;font-weight:700;letter-spacing:.3px;}
+        .fld select{border:1px solid #5b3d63;background:#4a2e52;color:#fff;border-radius:9px;font-size:15px;font-weight:700;padding:9px 11px;cursor:pointer;min-width:130px;}
+        .ctx-right{display:flex;align-items:center;gap:12px;padding-left:4px;margin-left:auto;}
+        .ctx-date{display:flex;flex-direction:column;justify-content:center;}
+        .ctx-date label{font-size:11px;color:#d3b0dc;font-weight:700;}
+        .clock{font-size:17px;font-weight:800;color:#ffd98a;letter-spacing:.5px;margin-bottom:2px;font-variant-numeric:tabular-nums;}
+        .date-pick{display:flex;align-items:center;gap:6px;margin-top:4px;}
+        .date-nav{border:1px solid #5b3d63;background:#4a2e52;color:#fff;border-radius:8px;width:36px;height:38px;font-size:15px;font-weight:800;cursor:pointer;}
+        .date-nav:hover{background:#573860;}
+        input[type=date].date-input{height:38px;border:1px solid #5b3d63;background:#4a2e52 !important;color:#fff;border-radius:8px;padding:0 10px;font-size:15px;font-weight:800;cursor:pointer;font-variant-numeric:tabular-nums;min-width:0 !important;width:140px;}
+        input[type=date].date-input::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85;cursor:pointer;}
+
+        /* 본문: 좌(불량유형+수량) / 우(내역) */
+        .kiosk-main{display:flex;gap:10px;flex:1 1 auto;min-height:0;}
+        .left-col{flex:1.15;display:flex;flex-direction:column;gap:10px;min-height:0;background:#fff;border:1px solid #d4dae5;border-radius:12px;padding:14px;overflow:auto;}
+        .right-col{flex:1;display:flex;flex-direction:column;background:#fff;border:1px solid #d4dae5;border-radius:12px;min-height:0;overflow:hidden;}
+
+        .sec-head{font-size:13px;font-weight:800;color:#5a6680;margin:2px 0 8px;}
+
+        /* 불량유형 타일 */
+        .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+        .tile{position:relative;border:1.5px solid #d4dae5;background:#fff;border-radius:12px;padding:16px 14px;cursor:pointer;text-align:left;min-height:64px;display:flex;flex-direction:column;justify-content:center;}
+        .tile:hover{border-color:#c79fd8;background:#faf7fc;}
+        .tile .tt{font-size:17px;font-weight:800;color:#1d2330;}
+        .tile .ts{font-size:12px;color:#7a8499;margin-top:3px;}
+        .tile.on{border-color:#a4478f;background:#fbeef7;box-shadow:0 0 0 2px rgba(164,71,143,.15);}
+        .tile.on::after{content:'✓';position:absolute;top:9px;right:11px;color:#a4478f;font-weight:900;font-size:15px;}
+
+        /* 수량 + 키패드 */
+        .qty-wrap{display:flex;gap:12px;align-items:stretch;margin-top:6px;}
+        .qty-box{flex:1;border:1.5px solid #a4478f;border-radius:12px;padding:12px 16px;background:#fbeef7;}
+        .qty-box .ql{font-size:14px;font-weight:800;color:#5a6680;}
+        .qty-box .qv{font-size:44px;font-weight:900;text-align:right;line-height:1.05;color:#a4478f;}
+        .keypad{flex:1.2;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:8px;}
+        .key{border:1.5px solid #d4dae5;background:#fff;border-radius:12px;font-size:26px;font-weight:800;cursor:pointer;color:#1d2330;display:flex;align-items:center;justify-content:center;padding:14px 0;}
+        .key:hover{background:#f2f5fb;}
+        .key.act{background:#f0f3f9;color:#3d5a99;}
+
+        .form-btns{display:flex;gap:10px;margin-top:12px;}
+        .btn-reg{flex:2;border:none;border-radius:12px;padding:20px;font-size:22px;font-weight:900;color:#fff;background:#a4478f;cursor:pointer;letter-spacing:2px;}
+        .btn-reg:disabled{background:#c2c9d4;cursor:not-allowed;}
+        .btn-reg:not(:disabled):hover{background:#93407f;}
+        .btn-cancel{flex:1;border:1.5px solid #d4dae5;border-radius:12px;background:#fff;font-size:16px;font-weight:800;color:#5a6680;cursor:pointer;}
+        .btn-cancel:hover{background:#f2f5fb;}
+
+        /* 우측 내역(조회) */
+        .log-head{padding:10px 14px;border-bottom:1px solid #e6eaf1;background:#f6f8fb;font-weight:800;font-size:14px;color:#39435a;flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;}
+        .log-head .cnt{font-size:12.5px;color:#8893a8;}
+        .log-scroll{flex:1 1 auto;min-height:0;overflow:auto;}
+        table.log-table{width:100%;border-collapse:collapse;}
+        table.log-table th,table.log-table td{border-bottom:1px solid #eef1f6;padding:9px 8px;font-size:12.5px;text-align:center;}
+        table.log-table th{position:sticky;top:0;background:#eef2f8;color:#445;font-weight:800;}
+        table.log-table td.k{font-weight:800;}
+        .d-cell{color:#a4478f;font-weight:800;}
+        .qv-cell{font-weight:800;}
+        .row-acts{white-space:nowrap;}
+        .x-btn{border:1px solid #cfd6e2;background:#fff;border-radius:7px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;color:#445;}
+        .x-btn.edit{border-color:#9ab8e6;color:#2f5fb0;margin-right:5px;}
+        .x-btn.del{border-color:#e2b8c8;color:#c0466a;}
+        tr.editing{background:#fff6fb;}
+        .log-empty{color:#99a;text-align:center;padding:26px 0;font-size:13.5px;}
+
+        .flash{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#a4478f;color:#fff;font-weight:800;padding:11px 22px;border-radius:30px;font-size:15px;box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.2s;z-index:50;}
+        .flash.show{opacity:1;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div class="kiosk">
+        <!-- 상단: 작업자 / 설비·공정 / 프로젝트·품목 / 생산일 -->
+        <div class="ctx-bar">
+            <div class="ctx-title">
+                <h1>불량 실적</h1>
+                <span>부적합(불량) 등록 · 조회 · 수정 · 삭제</span>
+            </div>
+            <div class="ctx-fields">
+                <div class="fld"><label>작업자</label><select id="selWorker"></select></div>
+                <div class="fld"><label>설비 · 공정</label><select id="selMachine"></select></div>
+                <div class="fld"><label>프로젝트 · 품목</label><select id="selItem"></select></div>
+            </div>
+            <div class="ctx-right">
+                <div class="ctx-date">
+                    <div class="clock" id="clock">--:--:--</div>
+                    <label>생산일</label>
+                    <div class="date-pick">
+                        <button class="date-nav" id="dPrev">◀</button>
+                        <input type="date" id="pdate" class="date-input">
+                        <button class="date-nav" id="dNext">▶</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="kiosk-main">
+            <!-- 좌: 불량유형 선택 + 수량 입력 + 등록 -->
+            <div class="left-col">
+                <div class="sec-head">불량 유형 — 하나 선택</div>
+                <div class="tiles" id="defectTiles"></div>
+
+                <div class="sec-head" style="margin-top:12px;">불량 수량</div>
+                <div class="qty-wrap">
+                    <div class="qty-box">
+                        <div class="ql">불량 수량</div>
+                        <div class="qv" id="qvQty">0</div>
+                    </div>
+                    <div class="keypad" id="keypad"></div>
+                </div>
+
+                <div class="form-btns">
+                    <button class="btn-reg" id="btnReg" disabled>등 록</button>
+                    <button class="btn-cancel" id="btnCancel" style="display:none;">수정취소</button>
+                </div>
+            </div>
+
+            <!-- 우: 불량 내역 (조회 / 수정 / 삭제) -->
+            <div class="right-col">
+                <div class="log-head">
+                    <span id="logTitle">불량 내역</span>
+                    <span class="cnt" id="logCnt"></span>
+                </div>
+                <div class="log-scroll">
+                    <table class="log-table">
+                        <thead><tr>
+                            <th>품목</th><th>불량유형</th><th>수량</th><th>설비</th><th>작업자</th><th>관리</th>
+                        </tr></thead>
+                        <tbody id="logBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="flash" id="flash"></div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" th:inline="none">
+        const $ = s => document.querySelector(s);
+        const toYMD = d => { const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
+
+        /* ===== 마스터 데이터 ===== */
+        const WORKERS = ['이종길', '반흥', '채완병', '우병철', '유현민', '휘황'];
+
+        const MACHINES = [
+            {m: 'LC-01', proc: '레이저절단'}, {m: 'LC-02', proc: '레이저절단'},
+            {m: 'LM-01', proc: '선반/밀링'}, {m: 'LM-02', proc: '선반/밀링'},
+            {m: 'WC-01', proc: '와이어커팅'}, {m: 'WC-02', proc: '와이어커팅'}
+        ];
+        const machineProc = m => (MACHINES.find(x => x.m === m) || {}).proc || '';
+
+        // 프로젝트·품목 (평면 목록으로 단순화)
+        const ITEMS = [
+            {code: 'RS01', proj: 'PRJ-A'}, {code: 'RS02', proj: 'PRJ-A'},
+            {code: 'RS10', proj: 'PRJ-B', name: 'A9 센터필러'}, {code: 'RS20', proj: 'PRJ-C'}
+        ];
+
+        // 미리 정해둔 불량 유형
+        const DEFECTS = [
+            {code: 'MAT',  name: '소재불량'},
+            {code: 'ASSY', name: '조립불량'},
+            {code: 'ETC',  name: '기타'}
+        ];
+        const defectName = c => (DEFECTS.find(d => d.code === c) || {}).name || c;
+
+        /* ===== 상태 ===== */
+        const st = { worker: '', machine: '', item: '', defect: null, qty: 0, editId: null };
+        let records = [];      // 등록된 불량 실적
+        let seq = 1;
+        let curDate = toYMD(new Date());
+
+        /* ===== 콤보 채우기 ===== */
+        $('#selWorker').innerHTML = `<option value="">작업자 선택</option>` +
+            WORKERS.map(w => `<option value="${w}">${w}</option>`).join('');
+        $('#selMachine').innerHTML = `<option value="">설비 선택</option>` +
+            MACHINES.map(x => `<option value="${x.m}">${x.m} · ${x.proc}</option>`).join('');
+        $('#selItem').innerHTML = `<option value="">품목 선택</option>` +
+            ITEMS.map(it => `<option value="${it.code}">${it.code}${it.name ? ' · ' + it.name : ''} (${it.proj})</option>`).join('');
+
+        $('#selWorker').onchange = e => { st.worker = e.target.value; renderRegBtn(); };
+        $('#selMachine').onchange = e => { st.machine = e.target.value; renderRegBtn(); };
+        $('#selItem').onchange = e => { st.item = e.target.value; renderRegBtn(); };
+
+        /* ===== 불량유형 타일 ===== */
+        function renderDefects() {
+            $('#defectTiles').innerHTML = DEFECTS.map(d =>
+                `<button class="tile ${st.defect === d.code ? 'on' : ''}" data-d="${d.code}">
+                    <span class="tt">${d.name}</span><span class="ts">${d.code}</span></button>`).join('');
+            $('#defectTiles').querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
+                st.defect = (st.defect === b.dataset.d ? null : b.dataset.d);
+                renderDefects(); renderRegBtn();
+            });
+        }
+
+        /* ===== 수량 키패드 ===== */
+        const KEYS = ['7','8','9','4','5','6','1','2','3','C','0','⌫'];
+        $('#keypad').innerHTML = KEYS.map(k => `<button class="key ${k==='C'||k==='⌫'?'act':''}" data-key="${k}">${k}</button>`).join('');
+        $('#keypad').querySelectorAll('[data-key]').forEach(b => b.onclick = () => press(b.dataset.key));
+        function press(k) {
+            let cur = String(st.qty);
+            if (k === 'C') cur = '0';
+            else if (k === '⌫') cur = cur.length > 1 ? cur.slice(0,-1) : '0';
+            else { cur = (cur === '0' ? '' : cur) + k; if (cur.length > 6) cur = cur.slice(0,6); }
+            st.qty = parseInt(cur || '0', 10);
+            $('#qvQty').textContent = st.qty;
+            renderRegBtn();
+        }
+
+        function renderQty() { $('#qvQty').textContent = st.qty; }
+
+        /* ===== 등록 / 수정 ===== */
+        function canReg() { return !!(st.worker && st.machine && st.item && st.defect && st.qty > 0); }
+        function renderRegBtn() {
+            $('#btnReg').disabled = !canReg();
+            $('#btnReg').textContent = st.editId ? '수 정' : '등 록';
+            $('#btnCancel').style.display = st.editId ? 'block' : 'none';
+        }
+
+        $('#btnReg').onclick = () => {
+            if (!canReg()) return;
+            if (st.editId) {
+                const r = records.find(x => x.id === st.editId);
+                if (r) Object.assign(r, {
+                    date: curDate, worker: st.worker, machine: st.machine,
+                    proc: machineProc(st.machine), item: st.item, defect: st.defect, qty: st.qty
+                });
+                flash('수정되었습니다');
+            } else {
+                records.unshift({
+                    id: seq++, date: curDate, worker: st.worker, machine: st.machine,
+                    proc: machineProc(st.machine), item: st.item, defect: st.defect, qty: st.qty
+                });
+                flash(`등록됨 · ${st.item} ${defectName(st.defect)} ${st.qty}`);
+            }
+            resetForm();
+            renderLog();
+        };
+
+        $('#btnCancel').onclick = () => { resetForm(); };
+
+        function resetForm() {
+            st.defect = null; st.qty = 0; st.editId = null;
+            renderDefects(); renderQty(); renderRegBtn(); renderLog();
+        }
+
+        /* ===== 내역(조회) ===== */
+        function renderLog() {
+            $('#logTitle').textContent = `불량 내역 · ${curDate}`;
+            const rows = records.filter(r => r.date === curDate);
+            $('#logCnt').textContent = `${rows.length}건`;
+            if (!rows.length) {
+                $('#logBody').innerHTML = '<tr><td colspan="6" class="log-empty">등록된 불량 내역이 없습니다.</td></tr>';
+                return;
+            }
+            $('#logBody').innerHTML = rows.map(r =>
+                `<tr class="${st.editId === r.id ? 'editing' : ''}">
+                    <td class="k">${r.item}</td>
+                    <td class="d-cell">${defectName(r.defect)}</td>
+                    <td class="qv-cell">${r.qty}</td>
+                    <td>${r.machine}</td>
+                    <td>${r.worker}</td>
+                    <td class="row-acts">
+                        <button class="x-btn edit" data-edit="${r.id}">수정</button>
+                        <button class="x-btn del" data-del="${r.id}">삭제</button>
+                    </td></tr>`).join('');
+            $('#logBody').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => startEdit(+b.dataset.edit));
+            $('#logBody').querySelectorAll('[data-del]').forEach(b => b.onclick = () => delRec(+b.dataset.del));
+        }
+
+        function startEdit(id) {
+            const r = records.find(x => x.id === id);
+            if (!r) return;
+            st.editId = id; st.worker = r.worker; st.machine = r.machine;
+            st.item = r.item; st.defect = r.defect; st.qty = r.qty;
+            $('#selWorker').value = r.worker;
+            $('#selMachine').value = r.machine;
+            $('#selItem').value = r.item;
+            renderDefects(); renderQty(); renderRegBtn(); renderLog();
+            flash('수정할 항목을 불러왔습니다');
+        }
+
+        function delRec(id) {
+            if (!confirm('이 불량 내역을 삭제하시겠습니까?')) return;
+            records = records.filter(x => x.id !== id);
+            if (st.editId === id) resetForm();
+            else renderLog();
+            flash('삭제되었습니다');
+        }
+
+        /* ===== 생산일 ===== */
+        function setDate(s) { curDate = s; $('#pdate').value = s; renderLog(); }
+        function shiftDate(n) { const d = new Date(curDate + 'T00:00:00'); d.setDate(d.getDate()+n); setDate(toYMD(d)); }
+        $('#dPrev').onclick = () => shiftDate(-1);
+        $('#dNext').onclick = () => shiftDate(1);
+        $('#pdate').onchange = () => setDate($('#pdate').value || curDate);
+
+        /* ===== 시계 ===== */
+        function tick() { const d = new Date(), p = n => String(n).padStart(2,'0'); $('#clock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+        tick(); setInterval(tick, 1000);
+
+        function flash(msg) { const f = $('#flash'); f.textContent = msg; f.classList.add('show'); clearTimeout(flash._t); flash._t = setTimeout(() => f.classList.remove('show'), 1600); }
+
+        /* ===== init ===== */
+        const ymd = n => { const d = new Date(); d.setDate(d.getDate()+n); return toYMD(d); };
+        // 예시 내역
+        records = [
+            {id: seq++, date: ymd(0),  worker: '이종길', machine: 'WC-01', proc: '와이어커팅', item: 'RS01', defect: 'DIM', qty: 2},
+            {id: seq++, date: ymd(0),  worker: '반흥',   machine: 'WC-02', proc: '와이어커팅', item: 'RS02', defect: 'SCR', qty: 1},
+            {id: seq++, date: ymd(-1), worker: '채완병', machine: 'LM-01', proc: '선반/밀링',  item: 'RS10', defect: 'MC',  qty: 3}
+        ];
+
+        renderDefects();
+        renderQty();
+        renderRegBtn();
+        setDate(ymd(0));
+    </script>
+</th:block>
+</html>

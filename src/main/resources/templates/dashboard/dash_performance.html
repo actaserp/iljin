@@ -1,0 +1,215 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        #pdWrap{background:#1b1f27;color:#f3f6f9;min-height:100vh;padding:1.6vw 1.8vw 4vw;font-family:'Pretendard','Malgun Gothic',sans-serif;font-size:clamp(14px,0.85vw,18px);}
+        #pdInner{max-width:1500px;margin:0 auto;}
+        #pdWrap *{box-sizing:border-box;}
+        .pd-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:12px;}
+        .pd-head h2{font-size:clamp(22px,1.5vw,32px);font-weight:700;color:#f3f6f9;margin:0;}
+        .pd-head .sub{font-size:12px;color:#aeb7c4;margin-top:3px;}
+        .view-only{font-size:11px;color:#7e8794;border:1px solid #2a2f38;border-radius:6px;padding:3px 9px;margin-left:10px;}
+        .pd-right{display:flex;align-items:center;gap:16px;}
+        .pd-clock{font-size:clamp(20px,1.4vw,32px);font-weight:600;color:#6c9fd1;font-variant-numeric:tabular-nums;}
+        .date-pick{display:flex;align-items:center;gap:6px;}
+        .date-nav{border:1px solid #404a59;background:#272f3a;color:#fff;border-radius:8px;width:34px;height:36px;font-size:15px;font-weight:800;cursor:pointer;}
+        .date-nav:hover{background:#303a47;}
+        input[type=date].date-input{height:36px;border:1px solid #404a59;background:#272f3a !important;color:#fff;border-radius:8px;padding:0 10px;font-size:14px;font-weight:800;cursor:pointer;min-width:0 !important;width:150px;}
+        input[type=date].date-input::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.85;cursor:pointer;}
+        @keyframes pdblink{0%,100%{opacity:1}50%{opacity:.3}}
+
+        .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+        .kpi{background:#272f3a;border:1px solid #404a59;border-radius:12px;padding:1vw 1.2vw;}
+        .kpi .l{font-size:clamp(13px,0.95vw,20px);color:#aeb7c4;}
+        .kpi .v{font-size:clamp(24px,1.8vw,36px);font-weight:700;color:#f3f6f9;margin-top:3px;}
+        .kpi .v small{font-size:13px;color:#aeb7c4;font-weight:600;}
+        .kpi.good .v{color:#6c9fd1;} .kpi.bad .v{color:#d4685f;} .kpi.rate .v{color:#d3aa55;}
+
+        .work-banner{background:#272f3a;border:1px solid #404a59;border-radius:12px;padding:11px 15px;margin-bottom:18px;}
+        .wb-title{font-size:13px;color:#d3aa55;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+        .wb-dot{width:9px;height:9px;border-radius:50%;background:#d3aa55;animation:pdblink 1.1s infinite;}
+        .wb-list{display:flex;flex-wrap:wrap;gap:9px;}
+        .wb-item{background:#2b333e;border-radius:9px;padding:0.5vw 0.9vw;border-left:3px solid #d3aa55;font-size:clamp(13px,0.95vw,20px);}
+        .wb-item b{color:#f3f6f9;} .wb-item .w{color:#ccd3dc;margin-left:6px;} .wb-item .p{color:#aeb7c4;margin-left:6px;font-size:12px;}
+        .wb-empty{color:#9099a7;font-size:13px;}
+
+        .sec-label{font-size:clamp(14px,1vw,20px);color:#aeb7c4;font-weight:700;margin:2px 0 10px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+        .sec-label .legend{font-weight:500;color:#7e8794;font-size:11px;}
+
+        .proc-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;}
+        .pcard{background:#272f3a;border:1px solid #404a59;border-radius:14px;padding:16px;}
+        .pc-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+        .pc-head .nm{font-size:clamp(17px,1.2vw,24px);font-weight:800;color:#f3f6f9;}
+        .pc-head .mc{font-size:12px;color:#aeb7c4;}
+        .pc-nums{display:flex;gap:14px;margin-bottom:10px;}
+        .pc-num .n{font-size:clamp(24px,1.8vw,34px);font-weight:800;line-height:1;}
+        .pc-num .t{font-size:12px;color:#aeb7c4;margin-top:3px;}
+        .pc-num.good .n{color:#6c9fd1;} .pc-num.bad .n{color:#d4685f;} .pc-num.rate .n{color:#d3aa55;}
+        .pc-track{height:9px;background:#39424f;border-radius:999px;overflow:hidden;display:flex;}
+        .pc-track .fg{height:100%;background:#5f8fc0;} .pc-track .fb{height:100%;background:#d4685f;}
+
+        table.dt{width:100%;border-collapse:collapse;background:#272f3a;border:1px solid #404a59;border-radius:12px;overflow:hidden;margin-bottom:22px;}
+        table.dt th,table.dt td{padding:0.7vw 1vw;font-size:clamp(13px,1vw,20px);text-align:center;border-bottom:1px solid #333c48;}
+        table.dt th{background:#20262f;color:#aeb7c4;font-weight:700;}
+        table.dt td{color:#ccd3dc;}
+        table.dt td.k{font-weight:800;color:#f3f6f9;text-align:left;}
+        table.dt tr:last-child td{border-bottom:0;}
+        .g-c{color:#6c9fd1;font-weight:700;} .b-c{color:#d4685f;font-weight:700;}
+        .rate-c{font-weight:700;} .rate-c.hi{color:#d4685f;} .rate-c.mid{color:#d3aa55;} .rate-c.lo{color:#5cbf9b;}
+
+        .def-row{display:flex;flex-wrap:wrap;gap:10px;}
+        .def-chip{background:#272f3a;border:1px solid #404a59;border-radius:10px;padding:10px 14px;min-width:140px;}
+        .def-chip .dn{font-size:clamp(13px,1vw,20px);color:#ccd3dc;font-weight:700;}
+        .def-chip .dv{font-size:clamp(20px,1.5vw,28px);font-weight:800;color:#d4685f;margin-top:2px;}
+        .def-chip .db{height:6px;background:#39424f;border-radius:999px;overflow:hidden;margin-top:7px;}
+        .def-chip .db .f{height:100%;background:#d4685f;border-radius:999px;}
+    </style>
+</head>
+<th:block layout:fragment="content">
+    <div id="pdWrap">
+        <div id="pdInner">
+            <div class="pd-head">
+                <div>
+                    <h2>생산 실적 현황<span class="view-only">읽기 전용 · 모니터링</span></h2>
+                    <div class="sub">공정 · 설비 · 작업자별 양품/불량 집계 — 생산일 기준</div>
+                </div>
+                <div class="pd-right">
+                    <div class="date-pick">
+                        <button class="date-nav" id="dPrev">◀</button>
+                        <input type="date" id="pdate" class="date-input">
+                        <button class="date-nav" id="dNext">▶</button>
+                    </div>
+                    <span class="pd-clock" id="pdClock"></span>
+                </div>
+            </div>
+
+            <div class="kpi-row" id="kpiRow"></div>
+
+            <div class="work-banner">
+                <div class="wb-title"><span class="wb-dot"></span>현재 작업중</div>
+                <div class="wb-list" id="workList"></div>
+            </div>
+
+            <div class="sec-label"><span>공정별 실적</span><span class="legend">양품 · 불량 · 불량률</span></div>
+            <div class="proc-row" id="procRow"></div>
+
+            <div class="sec-label"><span>작업자 · 설비별 실적</span></div>
+            <table class="dt">
+                <thead><tr><th style="text-align:left">작업자</th><th>공정</th><th>설비</th><th>양품</th><th>불량</th><th>불량률</th></tr></thead>
+                <tbody id="workerBody"></tbody>
+            </table>
+
+            <div class="sec-label"><span>불량 유형별 집계</span></div>
+            <div class="def-row" id="defRow"></div>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript" th:inline="none">
+        const $ = s => document.querySelector(s);
+        const nf = n => (n || 0).toLocaleString();
+        const toYMD = d => { const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
+        const ymd = n => { const d = new Date(); d.setDate(d.getDate()+n); return toYMD(d); };
+
+        const machineProc = m => ({'LC-01':'레이저절단','LC-02':'레이저절단','LM-01':'선반/밀링','LM-02':'선반/밀링','WC-01':'와이어커팅','WC-02':'와이어커팅'})[m] || '';
+        const DEFECTS = {DIM:'치수불량', SCR:'외관/스크래치', MC:'가공불량', WELD:'용접불량', MAT:'소재불량', ASSY:'조립불량', ETC:'기타'};
+
+        // 실적 기록 (읽기 전용 · 서버 집계 가정). good=양품, defs=[{type,qty}]
+        const RECORDS = [
+            {date: ymd(0), worker:'이종길', machine:'WC-01', item:'RS01', good:120, defs:[{type:'DIM',qty:2}]},
+            {date: ymd(0), worker:'반흥',   machine:'WC-02', item:'RS02', good:86,  defs:[{type:'SCR',qty:1},{type:'DIM',qty:1}]},
+            {date: ymd(0), worker:'채완병', machine:'LM-01', item:'RS10', good:64,  defs:[{type:'MC',qty:3}]},
+            {date: ymd(0), worker:'우병철', machine:'LM-02', item:'RS20', good:52,  defs:[]},
+            {date: ymd(0), worker:'유현민', machine:'LC-01', item:'RS01', good:98,  defs:[{type:'MAT',qty:2}]},
+            {date: ymd(0), worker:'휘황',   machine:'LC-02', item:'RS10', good:73,  defs:[{type:'WELD',qty:1}]},
+            {date: ymd(-1), worker:'이종길', machine:'WC-01', item:'RS02', good:110, defs:[{type:'DIM',qty:4}]},
+        ];
+
+        // 현재 작업중 (예시)
+        const WORKING = [
+            {worker:'이종길', machine:'WC-01', item:'RS01', proc:'와이어커팅', t:'10:20'},
+            {worker:'채완병', machine:'LM-01', item:'RS10', proc:'선반/밀링', t:'09:55'},
+        ];
+
+        let curDate = ymd(0);
+
+        const defTotal = r => r.defs.reduce((s,d)=>s+d.qty,0);
+        const rateClass = p => p >= 5 ? 'hi' : (p >= 2 ? 'mid' : 'lo');
+
+        function render() {
+            const rows = RECORDS.filter(r => r.date === curDate);
+
+            // KPI
+            const good = rows.reduce((s,r)=>s+r.good,0);
+            const bad = rows.reduce((s,r)=>s+defTotal(r),0);
+            const total = good + bad;
+            const rate = total ? (bad/total*100) : 0;
+            $('#kpiRow').innerHTML = `
+                <div class="kpi good"><div class="l">양품</div><div class="v">${nf(good)} <small>EA</small></div></div>
+                <div class="kpi bad"><div class="l">불량</div><div class="v">${nf(bad)} <small>EA</small></div></div>
+                <div class="kpi rate"><div class="l">불량률</div><div class="v">${rate.toFixed(1)}<small>%</small></div></div>
+                <div class="kpi"><div class="l">등록 건수</div><div class="v">${rows.length} <small>건</small></div></div>`;
+
+            // 작업중
+            $('#workList').innerHTML = WORKING.length
+                ? WORKING.map(w => `<div class="wb-item"><b>${w.item}</b><span class="w">${w.worker}</span><span class="p">${w.machine} · ${w.proc} · ${w.t}~</span></div>`).join('')
+                : '<span class="wb-empty">작업중인 항목이 없습니다.</span>';
+
+            // 공정별 집계
+            const procs = {};
+            rows.forEach(r => {
+                const p = machineProc(r.machine);
+                procs[p] = procs[p] || {good:0, bad:0, machines:new Set()};
+                procs[p].good += r.good; procs[p].bad += defTotal(r); procs[p].machines.add(r.machine);
+            });
+            const order = ['레이저절단','선반/밀링','와이어커팅'];
+            $('#procRow').innerHTML = order.filter(p=>procs[p]).map(p => {
+                const d = procs[p], tot = d.good + d.bad, rt = tot ? (d.bad/tot*100) : 0;
+                const gw = tot ? (d.good/tot*100) : 0, bw = tot ? (d.bad/tot*100) : 0;
+                return `<div class="pcard">
+                    <div class="pc-head"><span class="nm">${p}</span><span class="mc">${[...d.machines].join(', ')}</span></div>
+                    <div class="pc-nums">
+                        <div class="pc-num good"><div class="n">${nf(d.good)}</div><div class="t">양품</div></div>
+                        <div class="pc-num bad"><div class="n">${nf(d.bad)}</div><div class="t">불량</div></div>
+                        <div class="pc-num rate"><div class="n">${rt.toFixed(1)}%</div><div class="t">불량률</div></div>
+                    </div>
+                    <div class="pc-track"><div class="fg" style="width:${gw}%"></div><div class="fb" style="width:${bw}%"></div></div>
+                </div>`;
+            }).join('') || '<div class="wb-empty" style="padding:8px">해당 일자 실적이 없습니다.</div>';
+
+            // 작업자·설비별
+            $('#workerBody').innerHTML = rows.length ? rows.map(r => {
+                const bad = defTotal(r), tot = r.good + bad, rt = tot ? (bad/tot*100) : 0;
+                return `<tr>
+                    <td class="k">${r.worker}</td>
+                    <td>${machineProc(r.machine)}</td>
+                    <td>${r.machine}</td>
+                    <td class="g-c">${nf(r.good)}</td>
+                    <td class="b-c">${nf(bad)}</td>
+                    <td class="rate-c ${rateClass(rt)}">${rt.toFixed(1)}%</td></tr>`;
+            }).join('') : '<tr><td colspan="6" style="color:#9099a7;padding:18px">실적이 없습니다.</td></tr>';
+
+            // 불량 유형별
+            const defAgg = {};
+            rows.forEach(r => r.defs.forEach(d => defAgg[d.type] = (defAgg[d.type]||0) + d.qty));
+            const maxDef = Math.max(1, ...Object.values(defAgg));
+            const entries = Object.entries(defAgg).sort((a,b)=>b[1]-a[1]);
+            $('#defRow').innerHTML = entries.length ? entries.map(([t,q]) =>
+                    `<div class="def-chip"><div class="dn">${DEFECTS[t]||t}</div><div class="dv">${q}</div>
+                    <div class="db"><div class="f" style="width:${q/maxDef*100}%"></div></div></div>`).join('')
+                : '<span class="wb-empty">불량 내역이 없습니다.</span>';
+        }
+
+        function setDate(s){ curDate = s; $('#pdate').value = s; render(); }
+        function shift(n){ const d = new Date(curDate+'T00:00:00'); d.setDate(d.getDate()+n); setDate(toYMD(d)); }
+        $('#dPrev').onclick = () => shift(-1);
+        $('#dNext').onclick = () => shift(1);
+        $('#pdate').onchange = () => setDate($('#pdate').value || curDate);
+
+        function tick(){ const d=new Date(), p=n=>String(n).padStart(2,'0'); $('#pdClock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+        tick(); setInterval(tick,1000);
+
+        setDate(ymd(0));
+    </script>
+</th:block>
+</html>
