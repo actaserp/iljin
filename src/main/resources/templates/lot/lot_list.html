@@ -61,7 +61,9 @@
                                 </label>
                             </dt>
                             <dd>
-                                <select class="form-control2" id="cboMaterial" name="cboMaterial"></select>
+                                <input type="text" id="cboMaterial" name="cboMaterial"
+                                       placeholder="품목명 입력 후 Enter" autocomplete="off">
+                                <input type="hidden" id="cboMaterialHidden">
                             </dd>
                         </dl>
                         <dl>
@@ -168,7 +170,105 @@
 
 <th:block layout:fragment="scripts">
     <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
+    <th:block th:replace="/common/multiform_material :: multiform_material"></th:block>
     <script type="text/javascript">
+
+        // ── 품목 선택 (팝업 + 자동완성) ────────────────────────────
+        // 검색 API 는 PopMatComponent 가 쓰는 것과 동일하다
+        const MATERIAL_SEARCH_URL = '/api/popup/search_material';
+
+        let matResolvedName = '';   // 마지막으로 id 까지 확정된 품목명
+        let matLastQuery    = '';   // 마지막으로 조회를 던진 검색어 (중복 조회/팝업 방지)
+        let matResolving    = false;
+
+        function setMaterial(row) {
+            $('#cboMaterialHidden').val(row.id);   // hidden : 품목 id
+            $('#cboMaterial').val(row.Name);       // 화면 표시용 품목명
+            matResolvedName = row.Name;
+        }
+
+        function clearMaterial(keepText) {
+            $('#cboMaterialHidden').val('');
+            if (!keepText) $('#cboMaterial').val('');
+            matResolvedName = '';
+        }
+
+        function searchMaterial(keyword) {
+            return new Promise((resolve) => {
+                const param = {
+                    'material_group': $('#cboMaterialGroup').val() || '',
+                    'keyword': keyword,
+                    'spjangcd': sessionStorage.getItem('spjangcd')
+                };
+                AjaxUtil.getAsyncData(MATERIAL_SEARCH_URL, param,
+                    (res) => resolve((res && res.data) ? res.data : []),
+                    ()    => resolve([]));
+            });
+        }
+
+        // PopMatComponent 는 검색어를 받는 인자가 없다.
+        // 팝업 DOM 이 만들어진 뒤에 품목명을 넣고 검색을 다시 태운다.
+        function openMaterialPopup(keyword) {
+            const poppage = new PopMatComponent();
+            poppage.show(function (row) {
+                if (!row) return;
+                setMaterial(row);
+            });
+
+            if (!keyword) return;
+            let tries = 0;
+            const timer = setInterval(function () {
+                const kwEl = document.getElementById('keyword');
+                const btn  = document.getElementById('btnMaterialSearch');
+                if (kwEl && btn) {
+                    clearInterval(timer);
+                    kwEl.value = keyword;
+                    btn.click();
+                } else if (++tries > 20) {
+                    clearInterval(timer);   // 팝업이 안 뜨면 조용히 포기
+                }
+            }, 30);
+        }
+
+        /**
+         * 입력한 품목명으로 조회 → 1건: 자동 바인딩 / 여러건: 팝업 / 0건: 안내
+         * @returns {Promise<boolean>} id 까지 확정됐으면 true
+         */
+        async function bindMaterialByKeyword(keyword) {
+            const kw = (keyword || '').trim();
+
+            if (kw === '') { clearMaterial(); return false; }
+            if (kw === matResolvedName && $('#cboMaterialHidden').val() !== '') return true;
+            if (matResolving) return false;
+
+            matResolving = true;
+            matLastQuery = kw;
+            let list;
+            try {
+                list = await searchMaterial(kw);
+            } finally {
+                matResolving = false;
+            }
+
+            if (list.length === 0) {
+                clearMaterial(true);
+                Alert.alert('', '검색된 품목이 없습니다.');
+                $('#cboMaterial').focus().select();
+                return false;
+            }
+
+            if (list.length === 1) { setMaterial(list[0]); return true; }
+
+            // 품목명이 정확히 일치하는 건이 하나뿐이면 그걸로 확정
+            const exact = list.filter(v => (v.Name || '').trim() === kw);
+            if (exact.length === 1) { setMaterial(exact[0]); return true; }
+
+            clearMaterial(true);
+            openMaterialPopup(kw);
+            return false;
+        }
+        // ──────────────────────────────────────────────────────────
+
 
         class LotListPage {
             constructor() {
@@ -312,7 +412,7 @@
 
                 AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type'); // 품목구분
                 AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false); // 품목그룹
-                AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', false); // 품목
+                // 품목은 콤보가 아니라 팝업으로 고른다 (아래 MatSelector)
 
             }
 
@@ -322,7 +422,7 @@
                 let param = {
                     'mat_type': $('#cboMaterialType').val(),
                     'mat_group': $('#cboMaterialGroup').val(),
-                    'material': $('#cboMaterial').val(),
+                    'material': $('#cboMaterialHidden').val() || '',
                     'lot_num': $('#txtLotnum').val(),
                 };
 
@@ -422,12 +522,42 @@
         $(document).ready(function (e) {
             page = new LotListPage();
 
+            // 입력 중에는 확정 id 를 비워 둔다 (이름만 바뀐 채로 옛 id 가 남는 것 방지)
+            $('#cboMaterial').on('input', function () {
+                const val = $(this).val();
+                if (val.trim() !== matResolvedName) {
+                    $('#cboMaterialHidden').val('');
+                    matResolvedName = '';
+                }
+                if (val.trim() !== matLastQuery) matLastQuery = '';
+                if (val === '') clearMaterial();
+            });
+
+            // Enter : 입력값이 있으면 조회(1건 자동완성 / 여러건 팝업), 비어 있으면 바로 팝업
+            $('#cboMaterial').on('keydown', function (e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault();   // form 안에 있어 기본 submit 이 걸린다
+                    const kw = $(this).val().trim();
+                    if (kw === '') {
+                        clearMaterial();
+                        matLastQuery = '';
+                        openMaterialPopup('');
+                        return;
+                    }
+                    bindMaterialByKeyword(kw);
+                }
+            });
+
+            $('#cboMaterial').on('change', function () {
+                if ($(this).val().trim() === matLastQuery) return;   // Enter 직후 blur 중복 방지
+                bindMaterialByKeyword($(this).val());
+            });
+
             $("#chk_filter").change(function () {
                 if ($("#chk_filter").val() == "date") {
                     $("#srchStartDt").attr("disabled", false);
                     $("#srchEndDt").attr("disabled", false);
-                }
-                else {
+                } else {
                     $("#srchStartDt").attr("disabled", true);
                     $("#srchEndDt").attr("disabled", true);
                 }
@@ -436,14 +566,21 @@
 
             let startDate = CommonUtil.getYYYYMMDD(-7);
             let today = CommonUtil.getYYYYMMDD();
-            $('#srchDt').ax5DatePicker({ direction: 'top' });
+            $('#srchDt').ax5DatePicker({direction: 'top'});
             $('#srchStartDt').val(startDate);
             $('#srchEndDt').val(today);
 
             page.searchMainData();
 
-            // 검색버튼
-            $('#btnMainSearch').click(function (e) { page.searchMainData(); });
+            // 검색버튼 (화면의 버튼 id 는 btnSearch)
+            $('#btnSearch').click(async function (e) {
+                const kw = $('#cboMaterial').val().trim();
+                if (kw !== '' && $('#cboMaterialHidden').val() === '') {
+                    const ok = await bindMaterialByKeyword(kw);
+                    if (!ok) return;   // 품목이 확정되지 않으면(0건·팝업) 조회하지 않음
+                }
+                page.searchMainData();
+            });
 
             // 품목구분에 따른 품목그룹 세팅
             $('#cboMaterialType').change(function (e) {
@@ -452,15 +589,13 @@
                 } else {
                     AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
                 }
+                clearMaterial();   // 상위 필터가 바뀌면 선택 품목 초기화
             });
 
-            // 품목그룹에 따른 품목명 세팅
+            // 품목그룹이 바뀌면 선택해 둔 품목을 비운다
+            // (그룹과 맞지 않는 품목이 남아 있으면 조회 결과가 0건이 된다)
             $('#cboMaterialGroup').change(function (e) {
-                if ($('#cboMaterialGroup').val()) {
-                    AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', false, $('#cboMaterialGroup').val());
-                } else {
-                    AjaxUtil.fillSelectOptions($('#cboMaterial'), 'material', 'all', false);
-                }
+                clearMaterial();
             });
 
         })

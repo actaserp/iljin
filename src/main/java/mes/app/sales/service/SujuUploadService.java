@@ -34,9 +34,6 @@ public class SujuUploadService {
 	@Autowired
 	SujuRepository SujuRepository;
 
-
-	
-	
 	// 수주 업로드 내역 조회 
 	public List<Map<String, Object>> getSujuUploadList(String date_kind, String start, String end, String spjangcd) {
 		

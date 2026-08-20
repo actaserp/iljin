@@ -25,14 +25,14 @@ public class SujuService {
 
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	@Autowired
 	SujuRepository SujuRepository;
-	
-	
+
+
 	// 수주 내역 조회
 	public List<Map<String, Object>> getSujuList(Timestamp start, Timestamp end, String spjangcd, String company, String projno) {
-		
+
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("start", start);
 		dicParam.addValue("end", end);
@@ -91,14 +91,15 @@ public class SujuService {
 			  sh."Description",
 			  sc_state."Value" AS "StateName",
 			  sc_type."Value" AS "SujuTypeName",
+			  sh.suju_name,
 				s.project_id  as projno,
 			  -- 대표 제품명 + 외 N개
 			  CASE
 				 WHEN COUNT(DISTINCT s."Material_id") = 1 THEN
-				       (array_agg(m."Name" ORDER BY s.id))[1]  
+				       (array_agg(COALESCE(m."Name", s."Material_Name") ORDER BY s.id))[1]  
 				     ELSE
 				       CONCAT(
-				         (array_agg(m."Name" ORDER BY s.id))[1], 
+				         (array_agg(COALESCE(m."Name", s."Material_Name") ORDER BY s.id))[1], 
 				         ' 외 ',
 				         COUNT(DISTINCT s."Material_id") - 1,
 				         '개'
@@ -109,7 +110,7 @@ public class SujuService {
 			   
 			FROM suju_head sh
 			JOIN suju s ON s."SujuHead_id" = sh.id
-			JOIN material m ON m.id = s."Material_id"
+			LEFT JOIN material m ON m.id = s."Material_id"
 			LEFT JOIN (
 			  SELECT "SourceDataPk", SUM("Qty") AS "shippedQty"
 			  FROM shipment
@@ -154,6 +155,7 @@ public class SujuService {
 					 sh."TotalPrice",
 					 sh."Description",
 					 sh."SujuType",
+					 sh.suju_name,
 					 sss.summary_state,
 					 sc_state."Value",
 					 sc_type."Value",
@@ -164,13 +166,13 @@ public class SujuService {
 
 
 		List<Map<String, Object>> itmes = this.sqlRunner.getRows(sql, dicParam);
-		
+
 		return itmes;
 	}
-	
+
 	// 수주 상세정보 조회
 	public Map<String, Object> getSujuDetail(int id) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("id", id);
 
@@ -189,6 +191,8 @@ public class SujuService {
 				sh."SuJuOrderName"  ,
 				sh."DeliveryName",
 				sh."EstimateMemo" ,	
+				sh.suju_name,
+				sh.project_id AS "headProjno",
 				fn_code_name('suju_type', sh."SujuType") AS "SujuTypeName"
 			FROM suju_head sh
 			LEFT JOIN company c ON c.id = sh."Company_id"
@@ -331,13 +335,13 @@ public class SujuService {
 
 		return sujuHead;
 	}
-	
+
 	// 제품 정보 조회
 	public Map<String, Object> getSujuMatInfo(int product_id) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("product_id", product_id);
-		
+
 		String sql = """
 			select m.id as mat_pk
 			, m."AvailableStock" 
@@ -346,24 +350,24 @@ public class SujuService {
 			inner join unit u on u.id = m."Unit_id" 
 			where m.id = :product_id
 			""";
-		
+
 		Map<String, Object> item = this.sqlRunner.getRow(sql, paramMap);
-		
+
 		return item;
 	}
-	
+
 	public String makeJumunNumber(Date dataDate) {
-		
+
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("data_date", dataDate);
-		
+
 		String jumunNumber = "";
-		
+
 		String sql = """
 		select "CurrVal" from seq_maker where "Code" = 'JumunNumber' and "BaseDate" = :data_date
 		""";
 		Map<String, Object> mapRow = this.sqlRunner.getRow(sql, paramMap);
-		
+
 		int currVal = 1;
 		if (mapRow!=null && mapRow.containsKey("CurrVal")) {
 			currVal =  (int)mapRow.get("CurrVal");
@@ -379,15 +383,15 @@ public class SujuService {
 		}
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 		jumunNumber = String.format("{0}-{1}", sdf.format(dataDate), currVal);
-		return jumunNumber;	
+		return jumunNumber;
 	}
-	
+
 	public String makeJumunNumberAndUpdateSuju(int suju_id, String dataDate) {
 
 		Suju suju = this.SujuRepository.getSujuById(suju_id);
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("data_date", dataDate);
-		
+
 		String jumunNumber = suju.getJumunNumber();
 		if(StringUtils.hasText(jumunNumber)==false) {
 			Date jumun_date = CommonUtil.trySqlDate(dataDate);
@@ -431,14 +435,25 @@ public class SujuService {
 
 	public String getNextCompCode() {
 		MapSqlParameterSource params = new MapSqlParameterSource();
+		// "Code" 가 varchar 라 MAX("Code") 는 사전순 최대값을 준다.
+		// ('9' > '10' 이므로 9 를 넘기면 계속 10 이 나와 UNIQUE 위반)
+		// 숫자 코드만 골라 bigint 로 비교해야 한다.
 		String sql = """
-        SELECT (COALESCE(MAX("Code")::bigint, 0) + 1) AS next_code
-        FROM company
+       SELECT COALESCE(MAX(
+                CASE WHEN btrim("Code") ~ '^[0-9]+$'
+                     THEN btrim("Code")::bigint
+                END
+              ), 0) + 1 AS next_code
+         FROM company
     """;
 
 		Map<String, Object> row = sqlRunner.getRow(sql, params);
 		Object v = (row == null) ? null : row.get("next_code");
-		return (v == null) ? "1" : v.toString();   // "1"부터 시작
+		long next = (v == null) ? 1L : Long.parseLong(v.toString());
+
+		// 기존 코드가 '001' ~ '023' 3자리 0채움이라 형식을 맞춘다.
+		// 999 를 넘으면 자릿수가 자연히 늘어난다.
+		return String.format("%03d", next);
 	}
 
 	public String getNextMatCode() {
@@ -647,7 +662,7 @@ public class SujuService {
     """;
 		String site = (String) head.getOrDefault("spjangcd", "ZZ");
 		Map<String, Object> supplier = sqlRunner.getRow(
-				supplierSql, new MapSqlParameterSource().addValue("spjangcd", site)
+			supplierSql, new MapSqlParameterSource().addValue("spjangcd", site)
 		);
 		if (supplier == null) supplier = Collections.emptyMap();
 
@@ -661,7 +676,7 @@ public class SujuService {
 
 	public List<Map<String, Object>> getWorkcenterList(int Factory_id) {
 		MapSqlParameterSource params = new MapSqlParameterSource()
-				.addValue("Factory_id", Factory_id);
+																		 .addValue("Factory_id", Factory_id);
 
 		String sql = """
         select id as value, "Name" as text

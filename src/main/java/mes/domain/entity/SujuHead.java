@@ -65,5 +65,13 @@ public class SujuHead extends AbstractAuditModel {
 
 	@Column(name="\"EstimateMemo\"")
 	String EstimateMemo;
+	/** 수주 구분명. 프로젝트 1건에 NQ6 / NQ7 / NQ8 처럼 여러 수주가 붙는다. */
+	@Column(name="suju_name")
+	String sujuName;
+
+	/** 프로젝트 (tb_da003.projno) */
+	@Column(name="project_id")
+	String projectId;
+
 
 }

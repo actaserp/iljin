@@ -3,6 +3,7 @@ package mes.app.sales;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import mes.app.definition.service.BomService;
+import mes.app.balju.service.BaljuOrderService;
 import mes.app.definition.service.material.UnitPriceService;
 import mes.app.sales.service.SujuService;
 import mes.app.sales.service.SujuUploadService;
@@ -106,17 +107,39 @@ public class SujuController {
   @Autowired
   UserCodeRepository userCodeRepository;
 
+  @Autowired
+  BalJuHeadRepository balJuHeadRepository;
+
+  @Autowired
+  BujuRepository bujuRepository;
+
+  @Autowired
+  BaljuOrderService baljuOrderService;
+
   private static final String DEFAULT_COMPANY_TYPE = "";
+
+  /** 엑셀 업로드로 생성하는 공정 품목의 품목그룹 (mat_grp."Code") — MAKE 가공품 */
+  private static final String PROC_MATERIAL_GROUP_CODE = "MAKE";
+
+  /** 엑셀 업로드로 생성하는 LINE(BOM 모품목) 의 품목그룹 (mat_grp."Code") — FG 제품 */
+  private static final String LINE_MATERIAL_GROUP_CODE = "FG";
+
+  /** 라인 BOM 의 종류 / 버전 (SujuController.createOrReuseDefaultBom 과 동일) */
+  private static final String BOM_TYPE = "manufacturing";
+  private static final String BOM_VERSION = "1.0";
+
+  /** 자사명. 제작/설계 업체가 이 이름이면 제작구분을 내작으로 본다. */
+  private static final String INHOUSE_COMPANY_NAME = "일진";
 
   // 수주 목록 조회
   @GetMapping("/read")
   public AjaxResult getSujuList(
-      @RequestParam(value = "start") String start_date,
-      @RequestParam(value = "end" ) String end_date,
-      @RequestParam(value = "spjangcd") String spjangcd,
-      @RequestParam(value = "company",required = false) String company,
-      @RequestParam(value = "projno", required = false) String projno,
-      HttpServletRequest request) {
+    @RequestParam(value = "start") String start_date,
+    @RequestParam(value = "end" ) String end_date,
+    @RequestParam(value = "spjangcd") String spjangcd,
+    @RequestParam(value = "company",required = false) String company,
+    @RequestParam(value = "projno", required = false) String projno,
+    HttpServletRequest request) {
 
     start_date = start_date + " 00:00:00";
     end_date = end_date + " 23:59:59";
@@ -135,8 +158,8 @@ public class SujuController {
   // 수주 상세정보 조회
   @GetMapping("/detail")
   public AjaxResult getSujuDetail(
-      @RequestParam("id") int id,
-      HttpServletRequest request) {
+    @RequestParam("id") int id,
+    HttpServletRequest request) {
     Map<String, Object> item = this.sujuService.getSujuDetail(id);
 
     AjaxResult result = new AjaxResult();
@@ -165,8 +188,8 @@ public class SujuController {
   // 제품 정보 조회
   @GetMapping("/product_info")
   public AjaxResult getSujuMatInfo(
-      @RequestParam("product_id") int id,
-      HttpServletRequest request) {
+    @RequestParam("product_id") int id,
+    HttpServletRequest request) {
     Map<String, Object> item = this.sujuService.getSujuMatInfo(id);
 
     AjaxResult result = new AjaxResult();
@@ -280,8 +303,8 @@ public class SujuController {
     for (Map<String, Object> item : items) {
       Suju suju;
       String standard = java.util.Objects.toString(
-          item.containsKey("Standard") ? item.get("Standard") : item.get("standard"),
-          ""
+        item.containsKey("Standard") ? item.get("Standard") : item.get("standard"),
+        ""
       );
 
 
@@ -308,16 +331,16 @@ public class SujuController {
 
         // 기존 DB 값과 핵심 변경 비교
         boolean coreChanged =
-            !java.util.Objects.equals(suju.getMaterialId(), mid) ||
-                !java.util.Objects.equals(suju.getSujuQty(), qty) ||
-                !java.util.Objects.equals(suju.getSujuQty2(), qty) ||
-                !java.util.Objects.equals(suju.getUnitPrice(), unitPrice) ||
-                !java.util.Objects.equals(suju.getCompanyId(), companyId) ||
-                !java.util.Objects.equals(suju.getDueDate(), newDueDate);
+          !java.util.Objects.equals(suju.getMaterialId(), mid) ||
+            !java.util.Objects.equals(suju.getSujuQty(), qty) ||
+            !java.util.Objects.equals(suju.getSujuQty2(), qty) ||
+            !java.util.Objects.equals(suju.getUnitPrice(), unitPrice) ||
+            !java.util.Objects.equals(suju.getCompanyId(), companyId) ||
+            !java.util.Objects.equals(suju.getDueDate(), newDueDate);
 
         // 정확한 출하 연동 여부 확인 (SourceTableName/SourceDataPk 기준)
         boolean hasShipment = shipmentRepository
-            .existsBySourceTableNameAndSourceDataPk("rela_data", sujuId);
+                                .existsBySourceTableNameAndSourceDataPk("rela_data", sujuId);
         // ← Repository에 아래 시그니처 추가 필요:
         // boolean existsBySourceTableNameAndSourceDataPk(String sourceTableName, Integer sourceDataPk);
 
@@ -344,10 +367,10 @@ public class SujuController {
         boolean hasDetailsPayload = (sdObj instanceof List) && !((List<?>) sdObj).isEmpty();
 
         boolean nothingChanged = !coreChanged
-         && !standardChanged
-         && !hasDetailsPayload
-         && java.util.Objects.equals(suju.getTotalAmount(), tryIntNull(item.get("totalAmount")))
-         && java.util.Objects.equals(suju.getDescription(), (String) item.get("description"));
+                                   && !standardChanged
+                                   && !hasDetailsPayload
+                                   && java.util.Objects.equals(suju.getTotalAmount(), tryIntNull(item.get("totalAmount")))
+                                   && java.util.Objects.equals(suju.getDescription(), (String) item.get("description"));
 
         if (nothingChanged) continue;
 
@@ -403,7 +426,7 @@ public class SujuController {
       SujuRepository.save(suju);
       Integer sujuId = suju.getId();
 
-    // 우선: items 요소에 배열 형태로 온 경우
+      // 우선: items 요소에 배열 형태로 온 경우
       Object sdObj = item.get("standardDetails");
       if (sdObj instanceof List) {
 //        @SuppressWarnings("unchecked")
@@ -442,6 +465,26 @@ public class SujuController {
 
   private static String str(Object o) {
     return (o == null) ? "" : o.toString().trim();
+  }
+
+  /**
+   * 파라미터가 중복 전송되면 Spring 이 "ZZ,ZZ" / ",ZZ" 형태로 바인딩한다.
+   * 첫 번째 비어있지 않은 토큰을 반환. 없으면 null.
+   */
+  private static String firstToken(Object o) {
+    String s = str(o);
+    if (s.isEmpty()) return null;
+    for (String t : s.split(",")) {
+      String v = t.trim();
+      if (!v.isEmpty()) return v;
+    }
+    return null;
+  }
+
+  /** 빈 문자열/공백은 NULL 로 정규화 (텍스트 컬럼 저장용) */
+  private static String nullIfEmpty(Object o) {
+    String s = str(o);
+    return s.isEmpty() ? null : s;
   }
 
   private static Double dnum(Object o) {
@@ -587,8 +630,8 @@ public class SujuController {
 
     try {
       List<Map<String, Object>> details =
-          objectMapper.readValue(detailJson,
-              new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
+        objectMapper.readValue(detailJson,
+          new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {});
 
       saveSujuDetailsList(sujuId, details);
 
@@ -631,9 +674,9 @@ public class SujuController {
   @Transactional
   @PostMapping("/delete")
   public AjaxResult deleteSuju(
-      @RequestParam("id") Integer id,
-      @RequestParam("State") String State,
-      @RequestParam("ShipmentStateName") String ShipmentStateName) {
+    @RequestParam("id") Integer id,
+    @RequestParam("State") String State,
+    @RequestParam("ShipmentStateName") String ShipmentStateName) {
 
     AjaxResult result = new AjaxResult();
 
@@ -690,11 +733,11 @@ public class SujuController {
   @Transactional
   @PostMapping("/upload_save")
   public AjaxResult saveSujuBulkData(
-      @RequestParam(value = "data_date") String data_date,
-      @RequestParam(value = "spjangcd") String spjangcd,
-      @RequestParam(value = "upload_file") MultipartFile upload_file,
-      MultipartHttpServletRequest multipartRequest,
-      Authentication auth) throws FileNotFoundException, IOException {
+    @RequestParam(value = "data_date") String data_date,
+    @RequestParam(value = "spjangcd") String spjangcd,
+    @RequestParam(value = "upload_file") MultipartFile upload_file,
+    MultipartHttpServletRequest multipartRequest,
+    Authentication auth) throws FileNotFoundException, IOException {
 
     User user = (User) auth.getPrincipal();
 
@@ -737,24 +780,24 @@ public class SujuController {
     List<Suju> sujuList = new ArrayList<>();
 
     Map<String, Company> companyMap = CompanyList.stream()
-        .collect(Collectors.toMap(Company::getName, Function.identity()));
+                                        .collect(Collectors.toMap(Company::getName, Function.identity()));
 
     Map<String, Depart> departMap = departList.stream()
-        .collect(Collectors.toMap(Depart::getName, Function.identity()));
+                                      .collect(Collectors.toMap(Depart::getName, Function.identity()));
 
     Map<String, TB_DA003> projectMap = projectList.stream()
-        .collect(Collectors.toMap(TB_DA003::getProjnm, Function.identity()));
+                                         .collect(Collectors.toMap(TB_DA003::getProjnm, Function.identity()));
 
     Map<String, Material> materialMap = materialList.stream()
-        .filter(m -> m.getCustomerBarcode() != null && !m.getCustomerBarcode().trim().isEmpty())
-        .collect(Collectors.toMap(
-            Material::getCustomerBarcode,
-            Function.identity(),
-            (existing, duplicate) -> existing
-        ));
+                                          .filter(m -> m.getCustomerBarcode() != null && !m.getCustomerBarcode().trim().isEmpty())
+                                          .collect(Collectors.toMap(
+                                            Material::getCustomerBarcode,
+                                            Function.identity(),
+                                            (existing, duplicate) -> existing
+                                          ));
 
     Map<String, Unit> unitMap = unitList.stream()
-        .collect(Collectors.toMap(Unit::getName, Function.identity()));
+                                  .collect(Collectors.toMap(Unit::getName, Function.identity()));
 
 
     AjaxResult result = new AjaxResult();
@@ -883,18 +926,18 @@ public class SujuController {
 
       if (sujuHead == null) {
         sujuHead = sujuHeadRepository.findByJumunNumberAndSpjangcd(jumun_number, spjangcd)
-            .orElseGet(() -> {
-              SujuHead newHead = new SujuHead();
-              newHead.setCompany_id(company.getId());   // 해당 행 기준
-              newHead.setJumunDate(Date.valueOf(jumun_date));
-              newHead.setDeliveryDate(Date.valueOf(due_date));
-              newHead.setSpjangcd(spjangcd);
-              newHead.setJumunNumber(jumun_number);
-              newHead.set_audit(user);
-              newHead.set_audit(user);
-              newHead.setSujuType("sales");
-              return sujuHeadRepository.save(newHead);
-            });
+                     .orElseGet(() -> {
+                       SujuHead newHead = new SujuHead();
+                       newHead.setCompany_id(company.getId());   // 해당 행 기준
+                       newHead.setJumunDate(Date.valueOf(jumun_date));
+                       newHead.setDeliveryDate(Date.valueOf(due_date));
+                       newHead.setSpjangcd(spjangcd);
+                       newHead.setJumunNumber(jumun_number);
+                       newHead.set_audit(user);
+                       newHead.set_audit(user);
+                       newHead.setSujuType("sales");
+                       return sujuHeadRepository.save(newHead);
+                     });
 
         sujuHeadMap.put(jumun_number, sujuHead);  // 캐싱
       }
@@ -993,9 +1036,9 @@ public class SujuController {
   // 수주 변환 changeSujuBulkData
   @PostMapping("/change")
   public AjaxResult changeSujuBulkData(
-      @RequestParam MultiValueMap<String, Object> Q,
-      HttpServletRequest request,
-      Authentication auth) {
+    @RequestParam MultiValueMap<String, Object> Q,
+    HttpServletRequest request,
+    Authentication auth) {
 
     AjaxResult result = new AjaxResult();
 
@@ -1095,19 +1138,19 @@ public class SujuController {
 
   @PostMapping("/save_Comp")
   public AjaxResult SaveComp(
-      @RequestParam(value = "id", required = false) Integer id,   // ★ 신규일 땐 null 허용
-      @RequestParam("name") String name,
-      @RequestParam("cboCompanyType") String companyType,
-      @RequestParam("TelNumber") String telNumber,
-      @RequestParam("business_number") String businessNumber,
-      @RequestParam("business_type") String businessType,
-      @RequestParam("business_item") String businessItem,
-      @RequestParam("address") String address,
-      @RequestParam("fax_number") String fax_number,
-      @RequestParam("sales_manager") String sales_manager,
-      @RequestParam("email") String email,
-      @RequestParam("spjangcd") String spjangcd,
-      Authentication auth
+    @RequestParam(value = "id", required = false) Integer id,   // ★ 신규일 땐 null 허용
+    @RequestParam("name") String name,
+    @RequestParam("cboCompanyType") String companyType,
+    @RequestParam("TelNumber") String telNumber,
+    @RequestParam("business_number") String businessNumber,
+    @RequestParam("business_type") String businessType,
+    @RequestParam("business_item") String businessItem,
+    @RequestParam("address") String address,
+    @RequestParam("fax_number") String fax_number,
+    @RequestParam("sales_manager") String sales_manager,
+    @RequestParam("email") String email,
+    @RequestParam("spjangcd") String spjangcd,
+    Authentication auth
   ) {
     AjaxResult result = new AjaxResult();
     User user = (User) auth.getPrincipal();
@@ -1236,8 +1279,8 @@ public class SujuController {
       createOrReuseDefaultBom(saved, spjangcd, user);
 
       String unitName = unitRepository.findById(Unit_id)
-          .map(Unit::getName)
-          .orElse(null);
+                          .map(Unit::getName)
+                          .orElse(null);
 
       // 프론트에서 바로 바인딩할 최소 데이터 제공
       Map<String, Object> data = new HashMap<>();
@@ -1319,8 +1362,8 @@ public class SujuController {
   @PostMapping("/estimate_confirm")
   @Transactional
   public AjaxResult estimateConfirm(
-      @RequestParam("JumunNumber") String jumunNumber,
-      Authentication auth
+    @RequestParam("JumunNumber") String jumunNumber,
+    Authentication auth
   ) {
     AjaxResult result = new AjaxResult();
 
@@ -1333,7 +1376,7 @@ public class SujuController {
 
     // 1) 헤더 조회
     SujuHead head = (SujuHead) sujuHeadRepository.findByJumunNumber(jumunNumber)
-        .orElse(null);
+                                 .orElse(null);
     if (head == null) {
       result.success = false;
       result.message = "수주 헤더를 찾을 수 없습니다.";
@@ -1430,6 +1473,8 @@ public class SujuController {
     head.setSpjangcd(spjangcd);
     head.setSujuType(sujuType);
     head.setDescription(description);
+    head.setSujuName(nullIfEmpty(payload.get("suju_name")));
+    head.setProjectId(nullIfEmpty(projno));
     head.setSuJuOrderId(orderId);
     head.setSuJuOrderName(orderName);
     head.set_status("manual");
@@ -1499,8 +1544,8 @@ public class SujuController {
       suju.setStandard(str(item.get("setCnt")));
 
       // 라인 / 설비타입 → 신규 컬럼 (Suju 엔티티에 필드 있어야 함)
-      suju.setLine(str(item.get("line")));
-      suju.setEquipType(str(item.get("equiptype")));
+      suju.setLine(nullIfEmpty(item.get("line")));
+      suju.setEquipType(nullIfEmpty(item.get("equiptype")));   // 텍스트 그대로 (user_code 변환 없음)
 
       SujuRepository.save(suju);
     }
@@ -1509,7 +1554,9 @@ public class SujuController {
     return result;
   }
 
-  // ---------- 신규 품목 get-or-create (BOM 생성 제외) ----------
+  // ---------- 신규 품목 채번 (BOM 생성 제외) ----------
+  //  엑셀 업로드와 동일하게 이름으로 기존 품목을 재사용하지 않는다.
+  //  단, 화면에서 이미 품목을 지정했거나 기존 행을 수정하는 경우(Material_id 존재)는 그대로 쓴다.
   private Integer resolveOrCreateMaterialForProject(Map<String, Object> item, String spjangcd, User user) {
     // 1) 이미 id 있으면 그대로
     Integer mid = toIntegerOrNull(item.get("Material_id"));
@@ -1520,26 +1567,22 @@ public class SujuController {
       throw new IllegalArgumentException("품목명이 비어 있습니다.");
     }
 
-    // 2) 이름 + 사업장으로 재조회 (중복 생성 방지)
-    Integer existing = findMaterialIdByName(name, spjangcd);
-    if (existing != null) return existing;
-
-    // 3) 품목그룹(proc/hanger) → MaterialGroup_id 변환
-    String groupCode = str(item.get("MaterialGroupName"));
-    Integer groupId = findMaterialGroupIdByCode(groupCode);
+    // 2) 품목그룹 → MaterialGroup_id (엑셀 업로드와 동일하게 MAKE 고정)
+    Integer groupId = findMaterialGroupIdByCode(PROC_MATERIAL_GROUP_CODE);
     if (groupId == null) {
-      throw new IllegalStateException("품목그룹을 찾을 수 없습니다: " + groupCode);
+      throw new IllegalStateException(
+        "품목그룹을 찾을 수 없습니다. mat_grp 에 Code='" + PROC_MATERIAL_GROUP_CODE + "' 인 행이 필요합니다.");
     }
 
-    // 4) factory_id (라인에서 추출, 없으면 1)
+    // 3) factory_id (라인에서 추출, 없으면 1)
     Integer factoryId = toIntegerOrNull(item.get("factoryId"));
     if (factoryId == null) factoryId = 1;
 
     Integer workcenterId = toIntegerOrNull(item.get("lineId"));
     Integer unitId = toIntegerOrNull(item.get("unitId"));
-    Integer equipId = toIntegerOrNull(item.get("equiptype"));
+    // 설비타입(장비)은 user_code 로 변환하지 않는다. suju.equip_type 텍스트로만 저장.
 
-    // 5) 신규 INSERT (BOM 생성 안 함)
+    // 4) 신규 INSERT (BOM 생성 안 함)
     Material material = new Material();
     material.setCode(sujuService.getNextMatCode());
     material.setName(name);
@@ -1552,30 +1595,17 @@ public class SujuController {
     material.setStoreHouseId(3);
     material.setPurchaseOrderStandard("mrp");
     material.setValidDays(1);
-    material.setMatUserCode(equipId);
+    // mat_user_code 는 NULL 허용. 장비를 여기에 넣던 코드 제거.
     material.set_audit(user);
 
     Material saved = materialRepository.save(material);
     return saved.getId();
   }
 
-  // 품목명 + 사업장으로 기존 품목 id 조회 (없으면 null)
-  private Integer findMaterialIdByName(String name, String spjangcd) {
-    String sql = "SELECT id FROM material WHERE \"Name\" = :name AND spjangcd = :spjangcd ORDER BY id DESC LIMIT 1";
-    MapSqlParameterSource p = new MapSqlParameterSource();
-    p.addValue("name", name);
-    p.addValue("spjangcd", spjangcd);
-    try {
-      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
-    } catch (Exception e) {
-      return null;
-    }
-  }
-
   // ===================================================================
 //  수주 엑셀 업로드 - 즉시 저장
 //   파일 + 헤더(수주처/프로젝트/수주일/납기일) 받아
-//   파싱 → 라인(중분류) → 공정(품목) → 수주 라인까지 한 번에 저장
+//   파싱 → 공정(품목) → 수주 라인 → 라인별 BOM → 외작 발주까지 한 번에 저장
 // ===================================================================
   @PostMapping("/excel_save")
   @Transactional
@@ -1587,6 +1617,7 @@ public class SujuController {
     @RequestParam("JumunDate") String jumunDateStr,
     @RequestParam("DueDate") String dueDateStr,
     @RequestParam("projno") String projno,
+    @RequestParam(value = "suju_name", required = false) String sujuName,
     Authentication auth) {
 
     AjaxResult result = new AjaxResult();
@@ -1606,12 +1637,26 @@ public class SujuController {
     Date jumunDate = CommonUtil.trySqlDate(jumunDateStr);
     Date dueDate   = CommonUtil.trySqlDate(dueDateStr);
 
+    // ── 0-1) spjangcd 정규화 ──
+    // suju_head.spjangcd / suju.spjangcd 는 varchar(2).
+    // 파라미터가 중복 전송되면 "ZZ,ZZ" 로 바인딩돼 22001(too long) 이 난다.
+    log.info("[excel_save] 수신 spjangcd = [{}]", spjangcd);
+    spjangcd = firstToken(spjangcd);
+    if (spjangcd != null && spjangcd.length() > 2) {
+      result.success = false;
+      result.message = "사업장코드가 올바르지 않습니다: [" + spjangcd + "]";
+      TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+      return result;
+    }
+
     // ── 1) 엑셀 파싱 ──
     List<Map<String, Object>> items;
     String formName;
+    String projectTitle;
     try {
       Map<String, Object> parsed = parseSujuExcel(file);
       formName = (String) parsed.get("formName");
+      projectTitle = (String) parsed.get("projectTitle");
       @SuppressWarnings("unchecked")
       List<Map<String, Object>> parsedItems = (List<Map<String, Object>>) parsed.get("items");
       items = parsedItems;
@@ -1636,15 +1681,24 @@ public class SujuController {
     head.setCompany_id(orderId);
     head.setSpjangcd(spjangcd);
     head.setSujuType("sales");
+    // 주의: suju_head."Description" 은 화면의 '비고' 가 사용 중이므로 프로젝트명을 넣지 않는다.
+    // 수주 구분명: 화면 입력값 우선, 비면 A1 제목에서 뽑은 값
+    String headName = nullIfEmpty(sujuName);
+    if (headName == null) headName = projectTitle;
+    head.setSujuName(headName);
+    head.setProjectId(projno);
     head.setSuJuOrderId(orderId);
     head.setSuJuOrderName(orderName);
     head.set_status("manual");
     head.set_audit(user);
     head = sujuHeadRepository.save(head);
 
-    // ── 3) 라인(중분류) → 품목 → 수주 라인 저장 ──
-    Map<String, Integer> lineCache = new HashMap<>();
-    Map<String, Integer> matCache  = new HashMap<>();
+    // ── 3) 공정(품목) → 수주 라인 저장 ──
+    //  중분류(user_code) 는 사용하지 않는다. 라인은 suju."line" 텍스트로 보관하고,
+    //  BOM 등록용으로 라인별 구성품 목록을 함께 모은다.
+    Map<String, Integer> compCache = new HashMap<>();   // 업체명 → 매입처 id (null 결과도 캐시)
+    Map<String, List<Object[]>> bomGroups = new LinkedHashMap<>();  // 라인명 → [공정품목id, 수량]
+    Map<Integer, List<Suju>> baljuGroups = new LinkedHashMap<>();   // 제작업체id → 외작 수주행
     int saved = 0;
 
     for (Map<String, Object> it : items) {
@@ -1652,8 +1706,8 @@ public class SujuController {
       String procName = str(it.get("procName"));
       if (procName.isEmpty()) continue;
 
-      Integer lineId = resolveOrCreateLineUserCode(lineName, "proc", user, lineCache);
-      Integer matId  = resolveOrCreateProcMaterial(procName, "proc", lineId, spjangcd, user, matCache);
+      // 행마다 품목 신규 채번 (재사용 안 함)
+      Integer matId = createMaterial(procName, PROC_MATERIAL_GROUP_CODE, spjangcd, user);
 
       Suju suju = new Suju();
       suju.setSujuHeadId(head.getId());
@@ -1679,11 +1733,43 @@ public class SujuController {
       suju.setStandard(str(it.get("jigSet")));
 
       // 라인 / 설비타입 → 신규 컬럼
-      suju.setLine(lineName);
-      suju.setEquipType(str(it.get("equipType")));
+      suju.setLine(nullIfEmpty(lineName));
+      suju.setEquipType(nullIfEmpty(it.get("equipType")));   // 엑셀 '장비' / '설비 타입' 텍스트 그대로
 
-      SujuRepository.save(suju);
+      // 설계업체 / 제작업체 → 매입처(company.CompanyType='purchase') 조회
+      String designCompName = str(it.get("designCompName"));
+      String makeCompName   = str(it.get("makeCompName"));
+      suju.setDesignCompId(findPurchaseCompanyIdByName(designCompName, compCache, spjangcd, user));
+      suju.setDesignCompName(nullIfEmpty(designCompName));
+      Integer makeCompId = findPurchaseCompanyIdByName(makeCompName, compCache, spjangcd, user);
+      suju.setMakeCompId(makeCompId);
+      suju.setMakeCompName(nullIfEmpty(makeCompName));
+
+      // 제작구분: '일진' 이면 내작, 다른 업체면 외작
+      String makeType = resolveMakeType(makeCompName, designCompName);
+      suju.setMakeType(makeType);
+
+      // 도면출도일 / 비고 / 나머지 수치 컬럼
+      suju.setDrawDate(CommonUtil.trySqlDate(str(it.get("drawDate"))));
+      suju.setItemRemark(nullIfEmpty(it.get("itemRemark")));
+      suju.setPinShiftUnit(nullIfEmpty(it.get("pinShiftUnit")));
+      suju.setLegSpec(nullIfEmpty(it.get("legSpec")));
+      suju.setLegCnt(nullIfEmpty(it.get("legCnt")));
+
+      Suju savedSuju = SujuRepository.save(suju);
       saved++;
+
+      // 외작 행은 거래처별로 모아 발주 생성 대상으로 적재
+      if ("outsource".equals(makeType) && makeCompId != null && matId != null) {
+        baljuGroups.computeIfAbsent(makeCompId, k -> new ArrayList<>())
+          .add(savedSuju);
+      }
+
+      // 라인별 BOM 구성품 후보로 적재 (라인명이 있는 행만)
+      if (!lineName.isEmpty() && matId != null) {
+        bomGroups.computeIfAbsent(lineName, k -> new ArrayList<>())
+          .add(new Object[]{ matId, unitVal });
+      }
     }
 
     if (saved == 0) {
@@ -1693,15 +1779,155 @@ public class SujuController {
       return result;
     }
 
-    // ── 4) 결과 ──
+    // ── 4) 라인별 BOM 등록 ──
+    //  LINE = 모품목(신규 채번), 그 라인의 공정명 품목들 = 구성품, 수량 = UNIT 수량
+    int bomCount = createLineBoms(bomGroups, spjangcd, user);
+
+    // ── 5) 외작 발주 등록 (거래처별 1건) ──
+    int baljuCount = createBaljuForOutsource(baljuGroups, jumunDate, dueDate, spjangcd, user);
+
+    // ── 6) 결과 ──
     Map<String, Object> data = new HashMap<>();
     data.put("formName", formName);
+    data.put("projectTitle", projectTitle);   // A1 에서 추출한 값 (화면 프리필용)
     data.put("savedCount", saved);
+    data.put("bomCount", bomCount);
+    data.put("baljuCount", baljuCount);
     data.put("headId", head.getId());
     result.success = true;
-    result.message = formName + " " + saved + "건이 저장되었습니다.";
+    result.message = formName + " " + saved + "건이 저장되었습니다."
+                       + " (BOM " + bomCount + "건, 발주 " + baljuCount + "건)";
     result.data = data;
     return result;
+  }
+
+  /**
+   * 외작 수주행 → 발주 등록. 제작업체(거래처)가 같은 것끼리 묶어 발주 1건을 만든다.
+   *  - 단가 정보가 없으므로 단가/공급가/부가세/합계는 0 으로 두고 발주 화면에서 채운다
+   * @return 생성한 발주 헤더 수
+   */
+  private int createBaljuForOutsource(Map<Integer, List<Suju>> baljuGroups,
+                                      Date jumunDate, Date dueDate,
+                                      String spjangcd, User user) {
+    if (baljuGroups == null || baljuGroups.isEmpty()) return 0;
+
+    Timestamp now = new Timestamp(System.currentTimeMillis());
+    int baljuCount = 0;
+
+    for (Map.Entry<Integer, List<Suju>> e : baljuGroups.entrySet()) {
+      Integer companyId = e.getKey();
+      List<Suju> rows = e.getValue();
+      if (companyId == null || rows == null || rows.isEmpty()) continue;
+
+      String companyName = str(rows.get(0).getMakeCompName());
+
+      BaljuHead head = new BaljuHead();
+      head.setCreated(now);
+      head.setCreaterId(user.getId());
+      head.set_status("manual");
+      head.setJumunNumber(baljuOrderService.makeJumunNumber(jumunDate));
+      head.setJumunDate(jumunDate);
+      head.setDeliveryDate(dueDate);
+      head.setCompanyId(companyId);
+      head.setSpjangcd(spjangcd);
+      head.setSujuType("balju");
+      head.setTotalPrice(0d);
+      balJuHeadRepository.save(head);
+      baljuCount++;
+
+      for (Suju s : rows) {
+        Balju detail = new Balju();
+        detail._created = now;
+        detail._creater_id = user.getId();
+        detail.setBaljuHeadId(head.getId());
+        detail.setJumunNumber(head.getJumunNumber());
+        detail.setMaterialId(s.getMaterialId());
+        detail.setCompanyId(companyId);
+        detail.setCompanyName(companyName);
+        detail.setSujuQty(s.getSujuQty() == null ? 0d : s.getSujuQty());
+        detail.setSujuQty2(0d);
+        detail.setUnitPrice(0d);        // 단가 미정 → 발주 화면에서 입력
+        detail.setPrice(0d);
+        detail.setVat(0d);
+        detail.setTotalAmount(0d);
+        detail.setStandard(str(s.getStandard()));
+        detail.setDescription(str(s.getMaterial_Name()));
+        detail.setJumunDate(jumunDate);
+        detail.setDueDate(dueDate);
+        detail.setSpjangcd(spjangcd);
+        detail.setInVatYN("N");
+        detail.setSujuType("balju");
+        detail.setState("draft");
+        detail.set_status("manual");
+        bujuRepository.save(detail);
+      }
+
+      log.info("[excel_save] 발주 등록: 거래처 [{}] id={} 품목 {}건",
+        companyName, companyId, rows.size());
+    }
+
+    return baljuCount;
+  }
+
+  /**
+   * 라인별 BOM 등록.
+   *  - LINE 이름으로 모품목을 신규 채번 (품목그룹 LINE_MATERIAL_GROUP_CODE)
+   *  - 그 라인의 공정명 품목들을 bom_comp 로 등록, 수량은 UNIT 수량
+   *  - 품목을 매번 새로 따므로 기존 BOM 과 버전/기간이 충돌할 일이 없다
+   * @return 생성한 BOM 헤더 수
+   */
+  private int createLineBoms(Map<String, List<Object[]>> bomGroups, String spjangcd, User user) {
+    if (bomGroups == null || bomGroups.isEmpty()) return 0;
+
+    java.sql.Timestamp startTs = java.sql.Timestamp.valueOf(java.time.LocalDate.now().toString() + " 00:00:00");
+    java.sql.Timestamp endTs   = java.sql.Timestamp.valueOf("2100-12-31 00:00:00");
+
+    int bomCount = 0;
+
+    for (Map.Entry<String, List<Object[]>> e : bomGroups.entrySet()) {
+      String lineName = e.getKey();
+      List<Object[]> comps = e.getValue();
+      if (comps == null || comps.isEmpty()) continue;
+
+      // 모품목: LINE 이름으로 신규 등록
+      Integer lineMatId = createMaterial(lineName, LINE_MATERIAL_GROUP_CODE, spjangcd, user);
+      if (lineMatId == null) continue;
+
+      Bom bom = new Bom();
+      bom.setName(lineName);
+      bom.setMaterialId(lineMatId);
+      bom.setOutputAmount(1F);
+      bom.setBomType(BOM_TYPE);
+      bom.setVersion(BOM_VERSION);
+      bom.setStartDate(startTs);
+      bom.setEndDate(endTs);
+      bom.setSpjangcd(spjangcd);
+      bom.set_audit(user);
+
+      Bom savedBom = bomService.saveBom(bom);
+      bomCount++;
+
+      int order = 1;
+      for (Object[] c : comps) {
+        Integer compMatId = (Integer) c[0];
+        Double  amount    = (Double) c[1];
+
+        BomComponent bc = new BomComponent();
+        bc.setBomId(savedBom.getId());
+        bc.setMaterialId(compMatId);
+        bc.setAmount(amount == null ? 0F : amount.floatValue());
+        bc.set_order(order++);
+        bc.setDescription(null);
+        bc.setSpjangcd(spjangcd);
+        bc.set_audit(user);
+
+        bomService.saveBomComponent(bc);
+      }
+
+      log.info("[excel_save] BOM 등록: 라인 [{}] 모품목 id={} 구성품 {}건", lineName, lineMatId, comps.size());
+    }
+
+    return bomCount;
   }
 
   /* ---------- 헬퍼 ---------- */
@@ -1748,56 +1974,80 @@ public class SujuController {
   }*/
 
 // ===================================================================
-//  엑셀 업로드 저장용 헬퍼 (라인 중분류 / 공정 품목 get-or-create)
+//  엑셀 업로드 저장용 헬퍼 (공정 품목 get-or-create)
+//  ※ 중분류(user_code) 는 사용하지 않는다.
 // ===================================================================
 
-  // 라인(중분류) 조회 → 없으면 user_code 신규 등록, id 반환
-  private Integer resolveOrCreateLineUserCode(
-    String lineName, String parentGroupCode,
-    User user, Map<String, Integer> lineCache) {
+  // 업체명 → 매입처(company."CompanyType" = 'purchase') id 조회, 없으면 신규 등록
+  private Integer findPurchaseCompanyIdByName(String name, Map<String, Integer> cache, String spjangcd, User user) {
+    if (name == null || name.trim().isEmpty()) return null;
+    String nm = name.trim();
+    if (cache.containsKey(nm)) return cache.get(nm);
 
-    if (lineName == null || lineName.trim().isEmpty()) return null;
-    String nm = lineName.trim();
-    if (lineCache.containsKey(nm)) return lineCache.get(nm);
-
-    Integer parentId = findParentUserCodeId(parentGroupCode);
-    if (parentId == null) {
-      throw new IllegalStateException("품목그룹의 분류 부모를 찾을 수 없습니다: " + parentGroupCode);
+    String sql = "SELECT id FROM company "
+                   + "WHERE \"Name\" = :name AND \"CompanyType\" = 'purchase' "
+                   + "ORDER BY id LIMIT 1";
+    MapSqlParameterSource p = new MapSqlParameterSource().addValue("name", nm);
+    Integer id;
+    try {
+      id = sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
+    } catch (Exception e) {
+      id = null;
     }
 
-    Integer existing = findUserCodeIdByValue(parentId, nm);
-    if (existing != null) { lineCache.put(nm, existing); return existing; }
+    if (id == null) {
+      // 자사(일진)는 내작이라 발주 대상이 아니다. 매입처로 만들지 않는다.
+      if (nm.contains(INHOUSE_COMPANY_NAME)) {
+        log.info("[excel_save] 자사 업체이므로 매입처 등록 생략: [{}]", nm);
+        cache.put(nm, null);
+        return null;
+      }
 
-    UserCode uc = new UserCode();
-    uc.setParentId(parentId);
-    uc.setCode(generateLineCode(parentId));
-    uc.setValue(nm);
-    uc.setDescription(null);
-    if (user != null) uc.set_audit(user);
+      // 매입처 신규 등록
+      //  "BusinessNumber" 에 UNIQUE 제약이 있어 빈 문자열을 넣으면 두 번째 등록부터 충돌한다.
+      //  값이 없으므로 NULL 로 둔다 (PostgreSQL 은 NULL 중복을 허용).
+      Company company = new Company();
+      company.setCode(sujuService.getNextCompCode());
+      company.setName(nm);
+      company.setCompanyType("purchase");
+      company.setBusinessNumber(null);
+      company.setRelyn("0");
+      company.setSpjangcd(spjangcd);
+      if (user != null) company.set_audit(user);
 
-    UserCode saved = userCodeRepository.save(uc);
-    lineCache.put(nm, saved.getId());
-    return saved.getId();
+      id = companyRepository.save(company).getId();
+      log.info("[excel_save] 매입처 신규 등록: [{}] id={}", nm, id);
+    }
+
+    cache.put(nm, id);
+    return id;
   }
 
-  // 공정(품목) 조회 → 없으면 material 신규 등록, id 반환
-  private Integer resolveOrCreateProcMaterial(
-    String name, String groupCode, Integer userCodeId,
-    String spjangcd, User user, Map<String, Integer> cache) {
+  // 제작구분 판정: 제작업체 우선, 비어 있으면 설계업체로 판단
+  //   '일진' 이면 내작(self), 그 외 값이 있으면 외작(outsource), 둘 다 비면 null
+  private String resolveMakeType(String makeCompName, String designCompName) {
+    String basis = str(makeCompName);
+    if (basis.isEmpty()) basis = str(designCompName);
+    if (basis.isEmpty()) return null;
+    return basis.contains(INHOUSE_COMPANY_NAME) ? "self" : "outsource";
+  }
+
+  // 품목 신규 등록 후 id 반환
+  //  ※ 기존 품목을 이름으로 재사용하지 않는다. 호출할 때마다 새 품목을 채번한다.
+  private Integer createMaterial(String name, String groupCode, String spjangcd, User user) {
 
     if (name == null || name.trim().isEmpty()) return null;
-    String key = (userCodeId == null ? "" : userCodeId) + "|" + name.trim();
-    if (cache.containsKey(key)) return cache.get(key);
-
-    Integer existing = findMaterialIdByName(name.trim(), spjangcd, userCodeId);
-    if (existing != null) { cache.put(key, existing); return existing; }
+    String key = name.trim();
 
     Integer groupId = findMaterialGroupIdByCode(groupCode);
-    if (groupId == null) throw new IllegalStateException("품목그룹을 찾을 수 없습니다: " + groupCode);
+    if (groupId == null) {
+      throw new IllegalStateException(
+        "품목그룹을 찾을 수 없습니다. mat_grp 에 Code='" + groupCode + "' 인 행이 필요합니다.");
+    }
 
     Material m = new Material();
     m.setCode(sujuService.getNextMatCode());
-    m.setName(name.trim());
+    m.setName(key);
     m.setMaterialGroupId(groupId);
     m.setFactory_id(1);
     m.setSpjangcd(spjangcd);
@@ -1805,76 +2055,20 @@ public class SujuController {
     m.setStoreHouseId(3);
     m.setPurchaseOrderStandard("mrp");
     m.setValidDays(1);
-    m.setMatUserCode(userCodeId);
+    // mat_user_code 는 채우지 않는다 (중분류 미사용)
     m.set_audit(user);
 
     Material saved = materialRepository.save(m);
-    cache.put(key, saved.getId());
     return saved.getId();
   }
 
-  // 품목그룹 code → 그 품목그룹에 연결된 usercode_id (= 중분류들의 parentId)
-  private Integer findParentUserCodeId(String groupCode) {
-    if (groupCode == null || groupCode.isEmpty()) return null;
-    String sql = "SELECT usercode_id FROM mat_grp WHERE \"Code\" = :code LIMIT 1";
-    MapSqlParameterSource p = new MapSqlParameterSource().addValue("code", groupCode);
-    try {
-      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
-    } catch (Exception e) {
-      return null;
-    }
-  }
-
-  // 부모 하위에서 value(중분류명)로 user_code id 조회
-  private Integer findUserCodeIdByValue(Integer parentId, String value) {
-    String sql = "SELECT id FROM user_code WHERE parent_id = :pid AND \"Value\" = :val LIMIT 1";
-    MapSqlParameterSource p = new MapSqlParameterSource()
-                                .addValue("pid", parentId).addValue("val", value);
-    try {
-      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
-    } catch (Exception e) {
-      return null;
-    }
-  }
-
-  // 중분류 코드 채번 (부모 하위 숫자코드 max+1)
-  private String generateLineCode(Integer parentId) {
-    String sql = "SELECT COALESCE(MAX(CAST(\"Code\" AS INTEGER)), 0) + 1 " +
-                   "FROM user_code WHERE parent_id = :pid AND \"Code\" ~ '^[0-9]+$'";
-    MapSqlParameterSource p = new MapSqlParameterSource().addValue("pid", parentId);
-    try {
-      Integer next = sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
-      return String.format("%03d", next == null ? 1 : next);
-    } catch (Exception e) {
-      return String.valueOf(System.currentTimeMillis() % 100000);
-    }
-  }
-
-  // 품목그룹 code → material_group id (proc/hanger)
+  // 품목그룹 code → material_group id
   private Integer findMaterialGroupIdByCode(String code) {
     if (code == null || code.isEmpty()) return null;
     String sql = "SELECT id FROM mat_grp WHERE \"Code\" = :code LIMIT 1";
     MapSqlParameterSource p = new MapSqlParameterSource().addValue("code", code);
     try {
       return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getInt(1));
-    } catch (Exception e) {
-      return null;
-    }
-  }
-
-  // 품목명 + 사업장 (+중분류)로 기존 품목 id 조회
-  private Integer findMaterialIdByName(String name, String spjangcd, Integer userCodeId) {
-    StringBuilder sql = new StringBuilder(
-      "SELECT id FROM material WHERE \"Name\" = :name AND spjangcd = :spjangcd");
-    MapSqlParameterSource p = new MapSqlParameterSource()
-                                .addValue("name", name).addValue("spjangcd", spjangcd);
-    if (userCodeId != null) {
-      sql.append(" AND \"MatUserCode\" = :uc");
-      p.addValue("uc", userCodeId);
-    }
-    sql.append(" ORDER BY id DESC LIMIT 1");
-    try {
-      return sqlRunner.queryForObject(sql.toString(), p, (rs, n) -> rs.getInt(1));
     } catch (Exception e) {
       return null;
     }
@@ -1893,6 +2087,11 @@ public class SujuController {
       if (headerRow == null) {
         throw new IllegalArgumentException("헤더(2행)를 찾을 수 없습니다.");
       }
+
+      // A1 제목에서 프로젝트명 추출 ("NQ6 제작출도리스트" → "NQ6")
+      Row titleRow = sheet.getRow(0);
+      String titleRaw = (titleRow == null) ? "" : getString(titleRow.getCell(0));
+      String projectTitle = extractProjectTitle(titleRaw);
 
       Map<String, Integer> col = new HashMap<>();
       for (Cell c : headerRow) {
@@ -1931,6 +2130,8 @@ public class SujuController {
           m.put("pinShiftUnit", cellByHeader(sheet, merged, row, col, "PINSHIFTUNIT수량"));
           m.put("drawDate", normalizeDrawDate(cellByHeader(sheet, merged, row, col, "도면출도일")));
           m.put("itemRemark", cellByHeader(sheet, merged, row, col, "비고"));
+          m.put("designCompName", cellByHeader(sheet, merged, row, col, "설계업체"));
+          m.put("makeCompName",   cellByHeader(sheet, merged, row, col, "제작업체"));
           m.put("legSpec", "");
           m.put("legCnt", "");
         } else {
@@ -1941,12 +2142,15 @@ public class SujuController {
           m.put("pinShiftUnit", "");
           m.put("drawDate", "");
           m.put("itemRemark", "");
+          m.put("designCompName", "");
+          m.put("makeCompName", "");
         }
         items.add(m);
       }
 
       Map<String, Object> out = new HashMap<>();
       out.put("formName", formName);
+      out.put("projectTitle", projectTitle);
       out.put("items", items);
       return out;
     }
@@ -1997,6 +2201,28 @@ public class SujuController {
         catch (Exception e) { return String.valueOf(c.getNumericCellValue()); }
       default: return "";
     }
+  }
+
+  /* ---------- A1 제목 → 프로젝트명 ----------
+     "NQ6 제작출도리스트"                      → "NQ6"
+     "LW 새한산업 공정별 타입 및 다리발 수량집계" → "LW 새한산업"
+     "제작출도리스트" (프로젝트명 없음)          → null
+     양식명이 시작되는 지점에서 잘라낸다. 표식이 없으면 제목 전체를 쓴다. */
+  private static final String[] TITLE_FORM_MARKERS = { "제작출도리스트", "공정별", "수량집계" };
+
+  private String extractProjectTitle(String raw) {
+    if (raw == null) return null;
+    String s = raw.trim().replaceAll("\\s+", " ");
+    if (s.isEmpty()) return null;
+
+    int cut = -1;
+    for (String marker : TITLE_FORM_MARKERS) {
+      int i = s.indexOf(marker);
+      if (i >= 0 && (cut < 0 || i < cut)) cut = i;
+    }
+    if (cut == 0) return null;              // 제목이 양식명뿐이면 프로젝트명 없음
+    String title = (cut > 0) ? s.substring(0, cut).trim() : s;
+    return title.isEmpty() ? null : title;
   }
 
   /* ---------- "06월 17일", "6/17" 등 → yyyy-MM-dd ---------- */
