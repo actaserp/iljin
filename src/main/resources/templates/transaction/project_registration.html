@@ -204,6 +204,75 @@
           background: #fafbfd;
           border-top: 1px solid #eef0f4;
       }
+
+      /* ===== WBS 템플릿 관리 모달 ===== */
+      .wbsmodal { position: fixed; inset: 0; z-index: 1050; }
+      .wbsmodal-dim { position: absolute; inset: 0; background: rgba(17,24,39,.45); }
+      .wbsmodal-box {
+          position: relative; width: min(1080px, 94vw); height: min(720px, 90vh);
+          margin: 4vh auto; background: #fff; border-radius: 10px;
+          display: flex; flex-direction: column; overflow: hidden;
+          box-shadow: 0 18px 48px rgba(0,0,0,.28);
+      }
+      .wbsmodal-head {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 12px 16px; border-bottom: 1px solid #e5e7eb; background: #f8fafc;
+      }
+      .wbsmodal-title { font-weight: 700; font-size: 15px; }
+      .wbsmodal-x { border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: #6b7280; }
+      .wbsmodal-body { flex: 1; display: flex; gap: 12px; padding: 12px; overflow: hidden; }
+      .wbsmodal-foot {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 10px 16px; border-top: 1px solid #e5e7eb; background: #fafbfd;
+      }
+      .wf-left { width: 320px; display: flex; flex-direction: column; gap: 8px; }
+      .wf-right { flex: 1; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+      .wf-secttitle { font-weight: 700; font-size: 13px; color: #374151; }
+      .wf-listwrap { flex: 1; overflow: auto; border: 1px solid #e5e7eb; border-radius: 6px; }
+      .wf-list { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .wf-list th, .wf-list td { padding: 6px 8px; border-bottom: 1px solid #f0f2f5; text-align: left; }
+      .wf-list thead th { background: #f8fafc; position: sticky; top: 0; }
+      .wf-list tbody tr { cursor: pointer; }
+      .wf-list tbody tr.sel { background: #eef4ff; }
+      .wf-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+      .wf-help { font-size: 11px; color: #8a94a6; line-height: 1.7; }
+      .wf-editor { flex: 1; overflow: auto; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; }
+      .wf-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+      .wf-badge.draft { background: #fff4e5; color: #b45309; }
+      .wf-badge.active { background: #e6f7ee; color: #047857; }
+      .wf-badge.expired { background: #f1f3f5; color: #868e96; }
+      .wf-stepbar { display: flex; gap: 6px; align-items: center; margin: 10px 0 4px; }
+      .wf-stepbar b { min-width: 22px; text-align: center; color: #6b7280; }
+      .wf-stepbar input { flex: 1; }
+      .wf-tasktbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .wf-tasktbl th, .wf-tasktbl td { border: 1px solid #eef0f4; padding: 3px 4px; }
+      .wf-tasktbl thead th { background: #f8fafc; font-weight: 600; }
+      .wf-tasktbl input, .wf-tasktbl select { width: 100%; box-sizing: border-box; }
+      .wf-minibtn {
+          border: 1px solid #d7dbe3; background: #fff; border-radius: 4px;
+          padding: 1px 6px; font-size: 11px; cursor: pointer;
+      }
+      .wf-minibtn.danger { color: #d6336c; border-color: #f2c2d2; }
+      .wf-empty { padding: 30px; text-align: center; color: #98a2b3; font-size: 13px; }
+
+      /* ===== WBS 요약 패널 (임시) — 전용 화면 생기면 이 블록 삭제 ===== */
+      .wbs-panel { margin-top: 14px; border: 1px solid #dfe3e8; border-radius: 8px; background: #fff; overflow: hidden; }
+      .wbs-panel-head {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #eef0f4;
+          font-weight: 700; font-size: 13px;
+      }
+      .wbs-panel-body { max-height: 320px; overflow: auto; }
+      .wbs-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .wbs-tbl th, .wbs-tbl td { padding: 5px 8px; border-bottom: 1px solid #f0f2f5; }
+      .wbs-tbl thead th { background: #fafbfd; position: sticky; top: 0; text-align: center; font-weight: 600; }
+      .wbs-tbl td.c { text-align: center; }
+      .wbs-tbl tr.step-first td { border-top: 1px solid #e5e7eb; }
+      .wbs-tbl tr.delay { background: #fff5f5; }
+      .wbs-tbl tr.delay td.c.dl { color: #d6336c; font-weight: 700; }
+      .wbs-ms { display: inline-block; color: #b45309; font-weight: 700; }
+      .wbs-empty { padding: 24px; text-align: center; color: #98a2b3; font-size: 12px; }
+      .wbs-note { font-size: 11px; color: #8a94a6; font-weight: 400; }
   </style>
 
   <div class="layout-contents">
@@ -279,6 +348,12 @@
         <div class="button-wrap" style="border-top:none; text-align: right; !important;">
           <ul>
             <li>
+              <a class="btn btn-excell" title="WBS 템플릿 관리" id="btnWbsForm">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="템플릿 아이콘">
+                WBS 템플릿
+              </a>
+            </li>
+            <li>
               <a class="btn btn-excell" title="신규등록" id="Newbtn">
                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
                 신규등록
@@ -326,6 +401,12 @@
                       <th><label for="projnm">프로젝트명</label></th>
                       <td colspan="3">
                         <input type="text" id="projnm" name="projnm" class="wp100" placeholder="프로젝트명"/>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th><label for="wbsFormId">WBS 템플릿</label></th>
+                      <td colspan="3">
+                        <select id="wbsFormId" name="wbs_form_id" class="wp100"></select>
                       </td>
                     </tr>
                     <tr>
@@ -411,6 +492,33 @@
                 </div>
                 <!-- ============================================ -->
 
+                <!-- WBS 요약 시작 — 전용 화면 생기면 이 블록 삭제 -->
+                <div class="wbs-panel" id="wbsPanel">
+                  <div class="wbs-panel-head">
+                    <span>WBS 계획 <span class="wbs-note" id="wbsPanelCount"></span></span>
+                    <span class="wbs-note">읽기 전용 · 템플릿을 다시 적용하면 계획일이 재계산됩니다</span>
+                  </div>
+                  <div class="wbs-panel-body">
+                    <table class="wbs-tbl">
+                      <caption class="hide">WBS 계획</caption>
+                      <colgroup>
+                        <col style="width:16%"><col style="width:24%">
+                        <col style="width:15%"><col style="width:15%">
+                        <col style="width:12%"><col style="width:9%"><col style="width:9%">
+                      </colgroup>
+                      <thead>
+                      <tr>
+                        <th>대단계</th><th>세부단계</th>
+                        <th>계획 착수</th><th>계획 완료</th>
+                        <th>담당</th><th>진척</th><th>상태</th>
+                      </tr>
+                      </thead>
+                      <tbody id="wbsPanelBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <!-- WBS 요약 끝 -->
+
               </form>
             </div>
           </div>
@@ -418,6 +526,62 @@
       </div>
     </section>
   </div>
+
+  <!-- ===================== WBS 템플릿 관리 모달 ===================== -->
+  <div id="wbsFormModal" class="wbsmodal" style="display:none;">
+    <div class="wbsmodal-dim"></div>
+    <div class="wbsmodal-box">
+      <div class="wbsmodal-head">
+        <span class="wbsmodal-title">WBS 표준 템플릿 관리</span>
+        <button type="button" class="wbsmodal-x" id="btnWfClose" aria-label="닫기">&times;</button>
+      </div>
+
+      <div class="wbsmodal-body">
+        <div class="wf-left">
+          <div class="wf-secttitle">템플릿 목록</div>
+          <div class="wf-listwrap">
+            <table class="wf-list">
+              <thead>
+              <tr><th style="width:38%">코드</th><th style="width:22%">Rev</th><th>상태</th></tr>
+              </thead>
+              <tbody id="wfList"></tbody>
+            </table>
+          </div>
+          <div class="wf-btns">
+            <button type="button" class="btn" id="btnWfNew">신규</button>
+            <button type="button" class="btn" id="btnWfRevise">개정</button>
+            <button type="button" class="btn" id="btnWfApply">적용</button>
+            <button type="button" class="btn" id="btnWfDrop">초안 삭제</button>
+          </div>
+          <div class="wf-help">
+            · <b>적용중</b> 템플릿은 수정할 수 없습니다.<br>
+            · [개정] &rarr; Rev+1 초안 &rarr; 편집 &rarr; [적용]<br>
+            · 프로젝트에서 사용된 템플릿은 삭제되지 않습니다.<br>
+            · 적용해도 이미 만들어진 프로젝트 일정은 바뀌지 않습니다.
+          </div>
+        </div>
+
+        <div class="wf-right">
+          <div class="wf-secttitle">
+            <span id="wfTtl">템플릿을 선택하세요</span>
+            <span id="wfLock" style="float:right;"></span>
+          </div>
+          <div id="wfEditor" class="wf-editor">
+            <div class="wf-empty">왼쪽에서 템플릿을 선택하거나 [신규]를 누르세요.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wbsmodal-foot">
+        <span class="wf-help">기준일 + 오프셋에서 시작해 소요일만큼 진행합니다. 영업일 기준(주말·공휴일 제외)입니다.</span>
+        <span>
+          <button type="button" class="btn" id="btnWfCancel">닫기</button>
+          <button type="button" class="btn btn-edit" id="btnWfSave">초안 저장</button>
+        </span>
+      </div>
+    </div>
+  </div>
+
 </th:block>
 
 <th:block layout:fragment="scripts">
@@ -480,6 +644,7 @@
        $('#remark').val(selectedItem.remark);
 
        this.loadStages(selectedItem.projno);
+       this.wbsPanelLoad(selectedItem.projno);
       }
      });
 
@@ -810,14 +975,43 @@
 
      Alert.confirm('', '저장하시겠습니까?', function () {
       // ⚠️ 콜백 안에서는 this 가 page 인스턴스가 아니므로 _this 사용
+      const formId = $('#wbsFormId').val();
+      const curProjno = $('#projno').val();
+
       AjaxUtil.postJsonData(_this.url + '/save', data, function (result) {
        if (result && result.success) {
-        Alert.alert('', '저장되었습니다.');
-        _this.searchMainData();
-        $('#CategoryForm')[0].reset();
-        $('#balcltcd').val('');
-        _this.clearStages();
-        _this.resetDefaultDates();
+        // 신규면 result.data 에 채번된 projno 가 온다
+        const projno = (result.data ? String(result.data) : curProjno);
+
+        const done = function () {
+         _this.searchMainData();
+         $('#CategoryForm')[0].reset();
+         $('#balcltcd').val('');
+         _this.clearStages();
+         _this.resetDefaultDates();
+         _this.loadWbsFormOptions();
+         _this.wbsPanelClear();
+        };
+
+        if (formId && projno) {
+         // WBS 템플릿을 골랐으면 계획을 전개한다
+         AjaxUtil.postJsonData('/api/transaction/wbsPlan/plan_make',
+          {spjangcd: _this.spjangcd.val(), projno: projno, wbs_form_id: formId},
+          function (wr) {
+           if (wr && wr.success) {
+            Alert.alert('', '저장되었습니다.\n' + (wr.message || ''));
+            _this.wbsPanelLoad(projno);   // 생성 결과 바로 표시
+           } else {
+            // 프로젝트는 저장됐고 WBS 만 실패한 상황이므로 구분해서 알린다
+            Alert.alert('', '프로젝트는 저장되었으나 WBS 생성에 실패했습니다.\n'
+             + ((wr && wr.message) ? wr.message : ''));
+           }
+           done();
+          });
+        } else {
+         Alert.alert('', '저장되었습니다.');
+         done();
+        }
        } else {
         Alert.alert('', (result && result.message) ? result.message : '저장에 실패했습니다.');
        }
@@ -864,6 +1058,422 @@
      $('#contdate').val(todayStr);
     }
 
+
+    /* ===== WBS 요약 패널 (임시) — 전용 화면 생기면 이 메서드들 삭제 ===== */
+
+    wbsPanelEsc(v) {
+     return String(v == null ? '' : v)
+     .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+     .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    wbsPanelDate(v) {
+     const s = String(v == null ? '' : v).trim();
+     if (s.length !== 8) return '';
+     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+    }
+
+    wbsPanelClear() {
+     $('#wbsPanelBody').html('<tr><td colspan="7" class="wbs-empty">프로젝트를 선택하면 WBS 계획이 표시됩니다.</td></tr>');
+     $('#wbsPanelCount').text('');
+    }
+
+    wbsPanelLoad(projno) {
+     const _this = this;
+     if (!projno) { this.wbsPanelClear(); return; }
+
+     AjaxUtil.getAsyncData('/api/transaction/wbsPlan/plan_list',
+      {spjangcd: this.spjangcd.val(), projno: projno},
+      function (result) {
+       _this.wbsPanelRender((result && result.data) ? result.data : []);
+      });
+    }
+
+    wbsPanelRender(rows) {
+     const _this = this;
+
+     if (!rows.length) {
+      $('#wbsPanelBody').html(
+       '<tr><td colspan="7" class="wbs-empty">WBS 계획이 없습니다. 상단에서 템플릿을 선택하고 저장하세요.</td></tr>');
+      $('#wbsPanelCount').text('');
+      return;
+     }
+
+     let html = '';
+     let prevStep = null;
+     let delayCnt = 0;
+
+     rows.forEach(function (r) {
+      const isNewStep = (r.step_no !== prevStep);
+      const delay = (r.delay_yn === '1');
+      if (delay) delayCnt++;
+
+      const cls = [isNewStep ? 'step-first' : '', delay ? 'delay' : ''].filter(Boolean).join(' ');
+      const prog = (r.progress == null) ? 0 : Math.round(Number(r.progress));
+
+      html += '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
+       '<td>' + (isNewStep ? _this.wbsPanelEsc(r.step_name) : '') + '</td>' +
+       '<td>' + _this.wbsPanelEsc(r.task_name) +
+       (r.milestone_yn === '1' ? ' <span class="wbs-ms" title="마일스톤">&#9733;</span>' : '') + '</td>' +
+       '<td class="c">' + _this.wbsPanelDate(r.pl_stdate) + '</td>' +
+       '<td class="c">' + _this.wbsPanelDate(r.pl_eddate) + '</td>' +
+       '<td class="c">' + _this.wbsPanelEsc(r.charge_name) + '</td>' +
+       '<td class="c">' + prog + '%</td>' +
+       '<td class="c dl">' + (delay ? '지연' : (r.ac_eddate ? '완료' : '')) + '</td>' +
+       '</tr>';
+
+      prevStep = r.step_no;
+     });
+
+     $('#wbsPanelBody').html(html);
+     $('#wbsPanelCount').text('· ' + rows.length + '단계' + (delayCnt ? ' · 지연 ' + delayCnt + '건' : ''));
+    }
+
+    /* =========================================================
+       WBS 표준 템플릿 관리 (모달)
+       draft --[적용]--> active --[개정]--> 새 draft
+       ========================================================= */
+    wfUrl() { return '/api/transaction/wbsForm'; }
+
+    wfEsc(v) {
+     return String(v == null ? '' : v)
+     .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+     .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /** 편집 불가 여부 — 초안이 아니면 잠금 */
+    wfReadonly() {
+     return !this.WF || !this.WF.cur || this.WF.cur.state !== 'draft';
+    }
+
+    openWbsForm() {
+     const _this = this;
+     this.WF = {list: [], cur: null};
+     $('#wbsFormModal').show();
+     this.bindWbsFormEvents();
+     this.wfLoadList();
+    }
+
+    closeWbsForm() {
+     $('#wbsFormModal').hide();
+     this.WF = {list: [], cur: null};
+     this.loadWbsFormOptions();   // 적용 상태가 바뀌었을 수 있으니 콤보 갱신
+    }
+
+    bindWbsFormEvents() {
+     const _this = this;
+     const off = (sel, ev) => $(document).off(ev, sel);
+
+     off('#btnWfClose', 'click');  $(document).on('click', '#btnWfClose',  () => _this.closeWbsForm());
+     off('#btnWfCancel', 'click'); $(document).on('click', '#btnWfCancel', () => _this.closeWbsForm());
+     off('#btnWfNew', 'click');    $(document).on('click', '#btnWfNew',    () => _this.wfNew());
+     off('#btnWfSave', 'click');   $(document).on('click', '#btnWfSave',   () => _this.wfSave());
+     off('#btnWfRevise', 'click'); $(document).on('click', '#btnWfRevise', () => _this.wfRevise());
+     off('#btnWfApply', 'click');  $(document).on('click', '#btnWfApply',  () => _this.wfApply());
+     off('#btnWfDrop', 'click');   $(document).on('click', '#btnWfDrop',   () => _this.wfDrop());
+
+     off('#wfList tr', 'click');
+     $(document).on('click', '#wfList tr', function () {
+      const id = $(this).data('id');
+      if (id) _this.wfLoadDetail(id);
+     });
+    }
+
+    wfLoadList(selectId) {
+     const _this = this;
+     AjaxUtil.getAsyncData(this.wfUrl() + '/form_list',
+      {spjangcd: this.spjangcd.val()},
+      function (result) {
+       _this.WF.list = (result && result.data) ? result.data : [];
+       _this.wfRenderList();
+       if (selectId) _this.wfLoadDetail(selectId);
+      });
+    }
+
+    wfRenderList() {
+     const _this = this;
+     const cur = this.WF.cur;
+     const label = {draft: '초안', active: '적용중', expired: '만료'};
+
+     let html = '';
+     this.WF.list.forEach(function (f) {
+      const sel = (cur && cur.id === f.id) ? ' class="sel"' : '';
+      html += '<tr data-id="' + f.id + '"' + sel + '>' +
+       '<td>' + _this.wfEsc(f.form_code) + '</td>' +
+       '<td>Rev.' + f.revision + '</td>' +
+       '<td><span class="wf-badge ' + f.state + '">' + (label[f.state] || f.state) + '</span></td>' +
+       '</tr>';
+     });
+     if (!html) html = '<tr><td colspan="3" class="wf-empty">등록된 템플릿이 없습니다.</td></tr>';
+     $('#wfList').html(html);
+
+     const c = this.WF.cur;
+     $('#btnWfRevise').prop('disabled', !c || c.state !== 'active');
+     $('#btnWfApply').prop('disabled', !c || c.state !== 'draft');
+     $('#btnWfDrop').prop('disabled', !c || c.state !== 'draft');
+     $('#btnWfSave').prop('disabled', !c || c.state !== 'draft');
+    }
+
+    wfLoadDetail(id) {
+     const _this = this;
+     AjaxUtil.getAsyncData(this.wfUrl() + '/form_detail', {id: id}, function (result) {
+      if (!result || !result.data) {
+       Alert.alert('', (result && result.message) ? result.message : '템플릿을 불러오지 못했습니다.');
+       return;
+      }
+      _this.WF.cur = result.data;
+      if (!_this.WF.cur.steps) _this.WF.cur.steps = [];
+      _this.wfRenderList();
+      _this.wfRenderEditor();
+     });
+    }
+
+    /** 신규 초안 — 서버 저장 전까지는 화면에만 존재 */
+    wfNew() {
+     this.WF.cur = {
+      id: null, form_code: '', form_name: '', revision: 1,
+      state: 'draft', remark: '', used_count: 0,
+      steps: [{step_name: '', remark: '', tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0'}]}]
+     };
+     this.wfRenderList();
+     this.wfRenderEditor();
+     setTimeout(() => $('#wfFormCode').focus(), 50);
+    }
+
+    wfRenderEditor() {
+     const _this = this;
+     const c = this.WF.cur;
+     if (!c) {
+      $('#wfTtl').text('템플릿을 선택하세요');
+      $('#wfLock').html('');
+      $('#wfEditor').html('<div class="wf-empty">왼쪽에서 템플릿을 선택하거나 [신규]를 누르세요.</div>');
+      return;
+     }
+
+     const ro = this.wfReadonly();
+     const dis = ro ? ' disabled' : '';
+     const esc = v => this.wfEsc(v);
+
+     $('#wfTtl').text(c.id ? (c.form_code + ' Rev.' + c.revision) : '새 템플릿 (초안)');
+     $('#wfLock').html(ro
+      ? '<span class="wf-badge expired">읽기전용 — 수정하려면 [개정]</span>' +
+      (c.used_count ? ' <span class="wf-help">프로젝트 ' + c.used_count + '건 사용중</span>' : '')
+      : '<span class="wf-badge draft">초안 편집중</span>');
+
+     // 기준 콤보
+     const baseOpts = (v) => {
+      // 주의: 대괄호 두 개가 연달아 붙으면 Thymeleaf 인라인 표현식으로 해석되어 파싱이 깨진다.
+      //       배열 리터럴 양끝에 공백을 둘 것.
+      const opts = [ ['prev', '이전단계 종료'], ['contract', '계약일'], ['start', '공사일자'], ['end', '종료일'] ];
+      return opts.map(o => '<option value="' + o[0] + '"' + (o[0] === (v || 'prev') ? ' selected' : '') + '>' + o[1] + '</option>').join('');
+     };
+
+     let html = '<table class="wf-tasktbl" style="margin-bottom:10px;"><tbody>' +
+      '<tr><th style="width:90px;">템플릿 코드</th>' +
+      '<td><input id="wfFormCode" value="' + esc(c.form_code) + '"' + (c.id ? ' disabled' : dis) + ' placeholder="예: STD-JIG"></td>' +
+      '<th style="width:70px;">템플릿명</th>' +
+      '<td><input id="wfFormName" value="' + esc(c.form_name) + '"' + dis + ' placeholder="예: 표준 지그 제작"></td></tr>' +
+      '</tbody></table>';
+
+     (c.steps || []).forEach(function (st, si) {
+      html += '<div class="wf-stepbar"><b>' + (si + 1) + '</b>' +
+       '<input class="wf-stepnm"' + dis + ' data-si="' + si + '" value="' + esc(st.step_name) + '" placeholder="대단계명 (예: 설계)">' +
+       (ro ? '' :
+        '<button type="button" class="wf-minibtn wfStepUp" data-si="' + si + '">&#9650;</button>' +
+        '<button type="button" class="wf-minibtn wfStepDown" data-si="' + si + '">&#9660;</button>' +
+        '<button type="button" class="wf-minibtn danger wfStepDel" data-si="' + si + '">&#10005;</button>') +
+       '</div>';
+
+      html += '<table class="wf-tasktbl"><colgroup>' +
+       '<col style="width:34px"><col><col style="width:120px"><col style="width:62px">' +
+       '<col style="width:62px"><col style="width:48px"><col style="width:34px">' +
+       '</colgroup><thead><tr>' +
+       '<th>No</th><th>세부단계</th><th>기준</th><th>오프셋</th><th>소요일</th><th>MS</th><th></th>' +
+       '</tr></thead><tbody>';
+
+      (st.tasks || []).forEach(function (t, ti) {
+       html += '<tr>' +
+        '<td style="text-align:center;">' + (ti + 1) + '</td>' +
+        '<td><input class="wf-t" data-si="' + si + '" data-ti="' + ti + '" data-k="task_name"' + dis + ' value="' + esc(t.task_name) + '" placeholder="예: 3D 설계"></td>' +
+        '<td><select class="wf-t" data-si="' + si + '" data-ti="' + ti + '" data-k="base_type"' + dis + '>' + baseOpts(t.base_type) + '</select></td>' +
+        '<td><input type="number" class="wf-t" data-si="' + si + '" data-ti="' + ti + '" data-k="offset_days"' + dis + ' value="' + (t.offset_days == null ? 0 : t.offset_days) + '"></td>' +
+        '<td><input type="number" class="wf-t" data-si="' + si + '" data-ti="' + ti + '" data-k="duration_days"' + dis + ' value="' + (t.duration_days == null ? 0 : t.duration_days) + '"></td>' +
+        '<td style="text-align:center;"><input type="checkbox" class="wf-ms" data-si="' + si + '" data-ti="' + ti + '"' + dis + (t.milestone_yn === '1' ? ' checked' : '') + '></td>' +
+        '<td style="text-align:center;">' + (ro ? '' :
+         '<button type="button" class="wf-minibtn danger wfTaskDel" data-si="' + si + '" data-ti="' + ti + '">&#10005;</button>') + '</td>' +
+        '</tr>';
+      });
+      html += '</tbody></table>';
+      if (!ro) html += '<div style="margin:3px 0 12px;"><button type="button" class="wf-minibtn wfAddTask" data-si="' + si + '">+ 세부단계 추가</button></div>';
+     });
+
+     if (!ro) html += '<div style="margin-top:8px;"><button type="button" class="btn wfAddStep">+ 대단계 추가</button></div>';
+
+     $('#wfEditor').html(html);
+     if (ro) return;
+     this.bindWbsEditorEvents();
+    }
+
+    bindWbsEditorEvents() {
+     const _this = this;
+     const c = this.WF.cur;
+
+     $('#wfFormCode').off('input').on('input', function () { c.form_code = this.value; });
+     $('#wfFormName').off('input').on('input', function () { c.form_name = this.value; });
+
+     $('#wfEditor .wf-stepnm').off('input').on('input', function () {
+      c.steps[+this.dataset.si].step_name = this.value;
+     });
+
+     $('#wfEditor .wf-t').off('input change').on('input change', function () {
+      const si = +this.dataset.si, ti = +this.dataset.ti, k = this.dataset.k;
+      let v = this.value;
+      if (k === 'offset_days' || k === 'duration_days') v = (v === '' ? 0 : parseInt(v, 10));
+      c.steps[si].tasks[ti][k] = v;
+     });
+
+     $('#wfEditor .wf-ms').off('change').on('change', function () {
+      c.steps[+this.dataset.si].tasks[+this.dataset.ti].milestone_yn = this.checked ? '1' : '0';
+     });
+
+     $('#wfEditor .wfAddStep').off('click').on('click', function () {
+      c.steps.push({step_name: '', remark: '', tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0'}]});
+      _this.wfRenderEditor();
+     });
+
+     $('#wfEditor .wfAddTask').off('click').on('click', function () {
+      c.steps[+this.dataset.si].tasks.push({task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0'});
+      _this.wfRenderEditor();
+     });
+
+     $('#wfEditor .wfTaskDel').off('click').on('click', function () {
+      c.steps[+this.dataset.si].tasks.splice(+this.dataset.ti, 1);
+      _this.wfRenderEditor();
+     });
+
+     $('#wfEditor .wfStepDel').off('click').on('click', async function () {
+      const si = +this.dataset.si;
+      const ok = await Alert.confirmAsync('', '이 대단계와 하위 세부단계를 삭제할까요?');
+      if (!ok) return;
+      c.steps.splice(si, 1);
+      _this.wfRenderEditor();
+     });
+
+     $('#wfEditor .wfStepUp').off('click').on('click', function () {
+      const si = +this.dataset.si;
+      if (si <= 0) return;
+      const t = c.steps[si - 1]; c.steps[si - 1] = c.steps[si]; c.steps[si] = t;
+      _this.wfRenderEditor();
+     });
+
+     $('#wfEditor .wfStepDown').off('click').on('click', function () {
+      const si = +this.dataset.si;
+      if (si >= c.steps.length - 1) return;
+      const t = c.steps[si + 1]; c.steps[si + 1] = c.steps[si]; c.steps[si] = t;
+      _this.wfRenderEditor();
+     });
+    }
+
+    wfSave() {
+     const _this = this;
+     const c = this.WF.cur;
+     if (!c) return;
+
+     if (!String(c.form_code || '').trim()) { Alert.alert('', '템플릿 코드를 입력하세요.'); return; }
+     if (!String(c.form_name || '').trim()) { Alert.alert('', '템플릿명을 입력하세요.'); return; }
+
+     const payload = Object.assign({}, c, {spjangcd: this.spjangcd.val()});
+     AjaxUtil.postJsonData(this.wfUrl() + '/form_save', payload, function (result) {
+      if (result && result.success) {
+       Alert.alert('', '초안을 저장했습니다.');
+       _this.WF.cur = null;
+       _this.wfLoadList(result.data);
+      } else {
+       Alert.alert('', (result && result.message) ? result.message : '저장에 실패했습니다.');
+      }
+     });
+    }
+
+    async wfRevise() {
+     const _this = this;
+     if (!this.WF.cur) return;
+     const ok = await Alert.confirmAsync('', '새 Rev 초안을 만들까요?');
+     if (!ok) return;
+
+     AjaxUtil.postJsonData(this.wfUrl() + '/form_revise',
+      {base_id: this.WF.cur.id, spjangcd: this.spjangcd.val()},
+      function (result) {
+       if (result && result.success) {
+        Alert.alert('', result.message || '초안을 만들었습니다.');
+        _this.WF.cur = null;
+        _this.wfLoadList(result.data);
+       } else {
+        Alert.alert('', (result && result.message) ? result.message : '개정에 실패했습니다.');
+       }
+      });
+    }
+
+    async wfApply() {
+     const _this = this;
+     if (!this.WF.cur) return;
+     const ok = await Alert.confirmAsync('', '이 초안을 적용할까요?\n적용하면 더 이상 수정할 수 없습니다.');
+     if (!ok) return;
+
+     const id = this.WF.cur.id;
+     const payload = Object.assign({}, this.WF.cur, {spjangcd: this.spjangcd.val()});
+
+     // 편집 내용을 먼저 저장한 뒤 적용
+     AjaxUtil.postJsonData(this.wfUrl() + '/form_save', payload, function (saved) {
+      if (!saved || !saved.success) {
+       Alert.alert('', (saved && saved.message) ? saved.message : '저장에 실패했습니다.');
+       return;
+      }
+      AjaxUtil.postJsonData(_this.wfUrl() + '/form_apply',
+       {id: id, spjangcd: _this.spjangcd.val()},
+       function (result) {
+        if (result && result.success) {
+         Alert.alert('', result.message || '적용했습니다.');
+         _this.WF.cur = null;
+         _this.wfLoadList(id);
+        } else {
+         Alert.alert('', (result && result.message) ? result.message : '적용에 실패했습니다.');
+        }
+       });
+     });
+    }
+
+    async wfDrop() {
+     const _this = this;
+     if (!this.WF.cur || !this.WF.cur.id) return;
+     const ok = await Alert.confirmAsync('', '이 초안을 삭제할까요?');
+     if (!ok) return;
+
+     AjaxUtil.postJsonData(this.wfUrl() + '/form_delete', {id: this.WF.cur.id}, function (result) {
+      if (result && result.success) {
+       Alert.alert('', '삭제했습니다.');
+       _this.WF.cur = null;
+       _this.wfLoadList();
+      } else {
+       Alert.alert('', (result && result.message) ? result.message : '삭제에 실패했습니다.');
+      }
+     });
+    }
+
+    /** 등록 폼의 템플릿 콤보 — 적용중인 것만 */
+    loadWbsFormOptions(selectedId) {
+     AjaxUtil.getAsyncData(this.wfUrl() + '/active_list',
+      {spjangcd: this.spjangcd.val()},
+      function (result) {
+       const rows = (result && result.data) ? result.data : [];
+       let html = '<option value="">선택 안 함</option>';
+       rows.forEach(function (f) {
+        html += '<option value="' + f.id + '">' + f.label + '</option>';
+       });
+       $('#wbsFormId').html(html);
+       if (selectedId) $('#wbsFormId').val(selectedId);
+      });
+    }
+
    }
 
    let page = null;
@@ -888,11 +1498,19 @@
     $('#srchEndDt').val(CommonUtil.formatYYYYMMDD(today));
 
     page.resetDefaultDates();
+    page.loadWbsFormOptions();
+    page.wbsPanelClear();
     page.searchMainData();
 
     // 검색
     $('#btnSearch').click(function (e) {
      page.searchMainData();
+    });
+
+    // WBS 템플릿 관리
+    $('#btnWbsForm').click(function (e) {
+     e.preventDefault();
+     page.openWbsForm();
     });
 
     //저장

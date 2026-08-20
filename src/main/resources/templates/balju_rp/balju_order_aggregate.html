@@ -36,14 +36,9 @@
               업체
             </dt>
             <dd>
-              <input type="text" id="cboCompany" name="cboCompany" placeholder="업체검색버튼으로 검색하세요.">
+              <input type="text" id="cboCompany" name="cboCompany" placeholder="업체명 입력 후 Enter" autocomplete="off">
               <input type="hidden" id="cboCompanyHidden">
               <input type="hidden" id="spjangcdHidden">
-              &nbsp;
-              <a class="btn btn-delete" title="검색" id="btnCompanySearch">
-                <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">
-                업체 검색
-              </a>
             </dd>
 
           </dl>
@@ -85,176 +80,279 @@
 </th:block>
 <th:block layout:fragment="scripts">
   <th:block th:replace="/common/columns_setting :: columns_setting" ></th:block>
-  <th:block th:replace="/common/popup_company :: popup_company"></th:block>
   <th:block th:replace="/common/popup_company_purchase :: popup_company_Purchase"></th:block>
   <script type="text/javascript">
 
+   // ── 업체 자동완성 ─────────────────────────────────────────────
+   // popup_company_purchase 의 PopCompComponentPurchase 와 같은 API 를 쓴다
+   const COMPANY_SEARCH_URL = '/api/popup/search_Comp_purchase';
 
-    class SujuSummaryPage {
-      constructor() {
-        this.url = '/api/balju/balju_order_aggregate';
-        this.grid = null;
-        this.$btnEdit = $('#btnEdit');
-        this.$btnAddNew = $('#btnAddNew');
-        this.spjangcd = $('#spjangcdHidden');
-        this.viewData = new wijmo.collections.CollectionView();
-        this.init();
-      }
+   let companyResolvedName = '';   // 마지막으로 id 까지 확정된 업체명
+   let companyLastQuery    = '';   // 마지막으로 조회를 던진 검색어 (중복 조회/팝업 방지)
+   let companyResolving    = false;
 
-      init() {
-        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-          selectionMode: wijmo.grid.SelectionMode.Row,
-          headersVisibility: wijmo.grid.HeadersVisibility.Column,
-          allowSorting: wijmo.grid.AllowSorting.MultiColumn,
-          allowMerging: wijmo.grid.AllowMerging.Cells,  //셀 병합
-          autoGenerateColumns: false,
-          showMarquee: true,
-          isReadOnly: true,
-          formatItem: (sender, e) => {
-            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-              e.cell.style.textAlign = 'center';
-            }
-          },
-          columns: [
-            { binding: 'mat_grp_name', header: '제품그룹', width: 150 ,allowMerging: true },
-            { binding: 'mat_code', header: '제품코드', width: 150 ,allowMerging: true },
-            { binding: 'mat_name', header: '제품명', width: '*', allowMerging: true , align: 'left'},
-            { binding: 'unit_name', header: '단위', width: 70, allowSorting: false },
-            { binding: 'tot_price_sum', header: '공급가액', width: 120, align: 'right', format: 'n0' },
-            { binding: 'tot_vat_sum', header: '부과세액', width: 120, align: 'right', format: 'n0' },
-            { binding: 'amount_sum', header: '발주액', width: 120, align: 'right', format: 'n0' },
-            { binding: 'tot_suju_sum', header: '발주량', width: 120, align: 'right', format: 'n0' },
-            { binding: 'company_name', header: '업체', width: 150, allowSorting: false },
-          ],
-          itemsSource: this.viewData,
-        });
-        this.grid.itemFormatter = function (panel, row, col, cell) {
-          if (panel.cellType === wijmo.grid.CellType.Cell) {
-            let colName = panel.columns[col].binding;
-            if (['mat_grp_name', 'mat_code', 'unit_name'].includes(colName)) {
-              cell.style.textAlign = 'center';          // 수평 가운데
-              cell.style.verticalAlign = 'middle';      // 수직 가운데
-              cell.style.display = 'flex';              // flex로 정렬
-              cell.style.alignItems = 'center';         // 수직 정렬
-              cell.style.justifyContent = 'center';     // 수평 정렬
-            }
-          }
-        };
-        // ✅ Footer 패널 사용 설정
-        this.grid.columnFooters.rows.push(new wijmo.grid.Row());
-        this.grid.bottomLeftCells.setCellData(0, 0, '총합');
+   function setCompany(item) {
+    document.getElementById('cboCompany').value       = item.compname;
+    document.getElementById('cboCompanyHidden').value = item.id;
+    companyResolvedName = item.compname;
+   }
 
-        // ✅ Footer 합계 값 설정 (수동)
-        this.grid.loadedRows.addHandler(() => {
-          const rows = this.grid.rows;
-          const footer = this.grid.columnFooters.rows[0];
+   function clearCompany(keepText) {
+    document.getElementById('cboCompanyHidden').value = '';
+    if (!keepText) document.getElementById('cboCompany').value = '';
+    companyResolvedName = '';
+   }
 
-          const getSum = (field) => rows.map(r => +r.dataItem[field] || 0).reduce((a, b) => a + b, 0);
+   function searchCompany(keyword) {
+    return new Promise((resolve) => {
+     AjaxUtil.getAsyncData(COMPANY_SEARCH_URL,
+      { compCode: '', compName: keyword, business_number: '' },
+      (res) => resolve((res && res.data) ? res.data : []),
+      ()    => resolve([]));
+    });
+   }
 
-          footer.dataItem = {
-            tot_price_sum: getSum('tot_price_sum'),
-            tot_suju_sum: getSum('tot_suju_sum'),
-            amount_sum: getSum('amount_sum'),
-            tot_vat_sum: getSum('tot_vat_sum'),
-            price_sum: getSum('price_sum'),
-          };
-        });
+   // PopCompComponentPurchase 는 검색어를 받는 인자가 없다.
+   // 팝업 DOM 이 만들어진 뒤에 거래처명을 넣고 검색을 다시 태운다.
+   function openCompanyPopup(keyword) {
+    const poppage = new PopCompComponentPurchase();
+    poppage.show(function (items) {
+     if (!items) return;
+     setCompany(items);
+    });
 
-        new FlexGridContextMenu(this.grid);
-        this.grid.downloadFileName = '발주량 집계';
-      }
+    if (!keyword) return;
+    let tries = 0;
+    const timer = setInterval(function () {
+     const kwEl = document.getElementById('compName');
+     const btn  = document.getElementById('btnCompSearch');
+     if (kwEl && btn) {
+      clearInterval(timer);
+      kwEl.value = keyword;
+      btn.click();
+     } else if (++tries > 20) {
+      clearInterval(timer);   // 팝업이 안 뜨면 조용히 포기
+     }
+    }, 30);
+   }
 
+   /**
+    * 입력한 업체명으로 조회 → 1건: 자동 바인딩 / 여러건: 팝업 / 0건: 안내
+    * @returns {Promise<boolean>} id 까지 확정됐으면 true
+    */
+   async function bindCompanyByKeyword(keyword) {
+    const kw = (keyword || '').trim();
 
+    if (kw === '') { clearCompany(); return false; }
+    if (kw === companyResolvedName && $('#cboCompanyHidden').val() !== '') return true;
+    if (companyResolving) return false;
 
-
-      searchMainData() {
-        const url = this.url + '/read';
-        const data = {
-          'srchStartDt' : $("#srchStartDt").val(),
-          'srchEndDt' : $("#srchEndDt").val(),
-          'cboCompany' : $("#cboCompanyHidden").val(),
-          'cboMatGrp' : $("#cboMatGrp").val(),
-          'cBaljuState' : $("#cBaljuState").val(),
-          spjangcd: this.spjangcd.val()
-        };
-        const result = AjaxUtil.getSyncData(url, data);
-        console.log("result data : ", result.data);
-        if (result) {
-          this.grid.itemsSource = result.data;
-        }
-      }
-
-      exportExcel() {
-        const book = wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(this.grid, {
-          includeColumnHeaders: true,
-          includeCellStyles: false,
-        }, (blob) => {
-          wijmo.saveFile(blob, '발주량 집계.xlsx');
-        });
-      }
+    companyResolving = true;
+    companyLastQuery = kw;
+    let list;
+    try {
+     list = await searchCompany(kw);
+    } finally {
+     companyResolving = false;
     }
-    let page = null;
 
-    $(document.body).ready(function (e) {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작
-      const dd = String(today.getDate()).padStart(2, '0');
+    if (list.length === 0) {
+     clearCompany(true);
+     Alert.alert('', '검색된 업체가 없습니다.');
+     $('#cboCompany').focus().select();
+     return false;
+    }
 
-      const firstDay = `${yyyy}-${mm}-01`;
-      const currentDay = `${yyyy}-${mm}-${dd}`;
-      page = new SujuSummaryPage();
+    if (list.length === 1) { setCompany(list[0]); return true; }
 
-      const spjangcd = sessionStorage.getItem('spjangcd');
-      if (spjangcd) {
-        $('#spjangcdHidden').val(spjangcd);  // hidden input이 있어야 함
+    // 이름이 정확히 일치하는 건이 하나뿐이면 그걸로 확정
+    const exact = list.filter(v => (v.compname || '').trim() === kw);
+    if (exact.length === 1) { setCompany(exact[0]); return true; }
+
+    clearCompany(true);
+    openCompanyPopup(kw);
+    return false;
+   }
+   // ─────────────────────────────────────────────────────────────
+
+   class SujuSummaryPage {
+    constructor() {
+     this.url = '/api/balju/balju_order_aggregate';
+     this.grid = null;
+     this.$btnEdit = $('#btnEdit');
+     this.$btnAddNew = $('#btnAddNew');
+     this.spjangcd = $('#spjangcdHidden');
+     this.viewData = new wijmo.collections.CollectionView();
+     this.init();
+    }
+
+    init() {
+     this.grid = new wijmo.grid.FlexGrid('#theGrid', {
+      selectionMode: wijmo.grid.SelectionMode.Row,
+      headersVisibility: wijmo.grid.HeadersVisibility.Column,
+      allowSorting: wijmo.grid.AllowSorting.MultiColumn,
+      allowMerging: wijmo.grid.AllowMerging.Cells,  //셀 병합
+      autoGenerateColumns: false,
+      showMarquee: true,
+      isReadOnly: true,
+      formatItem: (sender, e) => {
+       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
+        e.cell.style.textAlign = 'center';
+       }
+      },
+      columns: [
+       { binding: 'mat_grp_name', header: '제품그룹', width: 150 ,allowMerging: true },
+       { binding: 'mat_code', header: '제품코드', width: 150 ,allowMerging: true },
+       { binding: 'mat_name', header: '제품명', width: '*', allowMerging: true , align: 'left'},
+       { binding: 'unit_name', header: '단위', width: 70, allowSorting: false },
+       { binding: 'tot_price_sum', header: '공급가액', width: 120, align: 'right', format: 'n0' },
+       { binding: 'tot_vat_sum', header: '부과세액', width: 120, align: 'right', format: 'n0' },
+       { binding: 'amount_sum', header: '발주액', width: 120, align: 'right', format: 'n0' },
+       { binding: 'tot_suju_sum', header: '발주량', width: 120, align: 'right', format: 'n0' },
+       { binding: 'company_name', header: '업체', width: 150, allowSorting: false },
+      ],
+      itemsSource: this.viewData,
+     });
+     this.grid.itemFormatter = function (panel, row, col, cell) {
+      if (panel.cellType === wijmo.grid.CellType.Cell) {
+       let colName = panel.columns[col].binding;
+       if (['mat_grp_name', 'mat_code', 'unit_name'].includes(colName)) {
+        cell.style.textAlign = 'center';          // 수평 가운데
+        cell.style.verticalAlign = 'middle';      // 수직 가운데
+        cell.style.display = 'flex';              // flex로 정렬
+        cell.style.alignItems = 'center';         // 수직 정렬
+        cell.style.justifyContent = 'center';     // 수평 정렬
+       }
       }
+     };
+     // ✅ Footer 패널 사용 설정
+     this.grid.columnFooters.rows.push(new wijmo.grid.Row());
+     this.grid.bottomLeftCells.setCellData(0, 0, '총합');
 
-      $('#srchStartDt').val(firstDay);
-      $('#srchEndDt').val(currentDay);
+     // ✅ Footer 합계 값 설정 (수동)
+     this.grid.loadedRows.addHandler(() => {
+      const rows = this.grid.rows;
+      const footer = this.grid.columnFooters.rows[0];
 
-      AjaxUtil.fillSelectOptions($('#cboMatGrp'), 'material_group', 'all', '', 'product,semi');
-      AjaxUtil.fillSelectOptions($('#cBaljuState'), 'system_code', 'all', null, 'balju_state');
+      const getSum = (field) => rows.map(r => +r.dataItem[field] || 0).reduce((a, b) => a + b, 0);
 
-      $('#btnSearch').click(() => {
-        if ($('#cboCompanyHidden').val() === '' && $('#cboCompany').val() !== '') {
-          Alert.alert('', '업체명은 업체검색 버튼을 통해서 \n 검색해주세요');
-          return;
-        }
+      footer.dataItem = {
+       tot_price_sum: getSum('tot_price_sum'),
+       tot_suju_sum: getSum('tot_suju_sum'),
+       amount_sum: getSum('amount_sum'),
+       tot_vat_sum: getSum('tot_vat_sum'),
+       price_sum: getSum('price_sum'),
+      };
+     });
 
-        page.searchMainData();
-      });
+     new FlexGridContextMenu(this.grid);
+     this.grid.downloadFileName = '발주량 집계';
+    }
 
-      $('#btnCompanySearch').click(function () {
 
-        let poppage = new PopCompComponentPurchase();
-        let $poppage = $(poppage);
-        let searchcallback = function (items) {
-          // $content.find('#cboCompany').val(items.id);
-          // $content.find('#CompanyName').val(items.compname);
-          console.log('items : ',items);
-          document.getElementById('cboCompany').value = items.compname;
-          document.getElementById('cboCompanyHidden').value = items.id;
-        };
 
-        poppage.show(searchcallback);
-      });
 
-      page.searchMainData();
+    searchMainData() {
+     const url = this.url + '/read';
+     const data = {
+      'srchStartDt' : $("#srchStartDt").val(),
+      'srchEndDt' : $("#srchEndDt").val(),
+      'cboCompany' : $("#cboCompanyHidden").val(),
+      'cboMatGrp' : $("#cboMatGrp").val(),
+      'cBaljuState' : $("#cBaljuState").val(),
+      spjangcd: this.spjangcd.val()
+     };
+     const result = AjaxUtil.getSyncData(url, data);
+     if (!result || !result.data) {          // 통신 실패 시 result 가 null 이다
+      this.grid.itemsSource = [];
+      return;
+     }
+     this.grid.itemsSource = result.data;
+    }
+
+    exportExcel() {
+     const book = wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(this.grid, {
+      includeColumnHeaders: true,
+      includeCellStyles: false,
+     }, (blob) => {
+      wijmo.saveFile(blob, '발주량 집계.xlsx');
+     });
+    }
+   }
+   let page = null;
+
+   $(document.body).ready(function (e) {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0'); // 월은 0부터 시작
+    const dd = String(today.getDate()).padStart(2, '0');
+
+    const firstDay = `${yyyy}-${mm}-01`;
+    const currentDay = `${yyyy}-${mm}-${dd}`;
+    page = new SujuSummaryPage();
+
+    const spjangcd = sessionStorage.getItem('spjangcd');
+    if (spjangcd) {
+     $('#spjangcdHidden').val(spjangcd);  // hidden input이 있어야 함
+    }
+
+    $('#srchStartDt').val(firstDay);
+    $('#srchEndDt').val(currentDay);
+
+    AjaxUtil.fillSelectOptions($('#cboMatGrp'), 'material_group', 'all', '', 'product,semi');
+    AjaxUtil.fillSelectOptions($('#cBaljuState'), 'system_code', 'all', null, 'balju_state');
+
+    $('#btnSearch').click(async () => {
+     const name = $('#cboCompany').val().trim();
+     if (name !== '' && $('#cboCompanyHidden').val() === '') {
+      const ok = await bindCompanyByKeyword(name);
+      if (!ok) return;   // 업체가 확정되지 않으면(0건·팝업) 조회하지 않음
+     }
+
+     page.searchMainData();
     });
 
+
+    // 입력 중에는 확정 id 를 비워 둔다 (이름만 바뀐 채로 옛 id 가 남는 것 방지)
     $('#cboCompany').on('input', function () {
-      const val = $(this).val();
-      if (val === '') {
-        $('#cboCompanyHidden').val('');
+     const val = $(this).val();
+     if (val.trim() !== companyResolvedName) {
+      $('#cboCompanyHidden').val('');
+      companyResolvedName = '';
+     }
+     if (val.trim() !== companyLastQuery) companyLastQuery = '';
+     if (val === '') clearCompany();
+    });
+
+    // Enter : 입력값이 있으면 조회(1건 자동완성 / 여러건 팝업), 비어 있으면 바로 팝업
+    $('#cboCompany').on('keydown', function (e) {
+     if (e.key === 'Enter' || e.keyCode === 13) {
+      e.preventDefault();
+      const kw = $(this).val().trim();
+      if (kw === '') {
+       clearCompany();
+       companyLastQuery = '';
+       openCompanyPopup('');
+       return;
       }
+      bindCompanyByKeyword(kw);
+     }
     });
-    // .btn-clear 클릭 후 input 이벤트 강제 발생
-    $(document).on('click', '.btn-clear', function () {
-      const $input = $(this).siblings('input[type="text"]');
-      $input.val('');
-      $input.trigger('input'); // 🔥 input 이벤트 강제 발생
+
+    $('#cboCompany').on('change', function () {
+     if ($(this).val().trim() === companyLastQuery) return;   // Enter 직후 blur 중복 방지
+     bindCompanyByKeyword($(this).val());
     });
+
+    page.searchMainData();
+   });
+
+   // .btn-clear 클릭 후 input 이벤트 강제 발생
+   $(document).on('click', '.btn-clear', function () {
+    const $input = $(this).siblings('input[type="text"]');
+    $input.val('');
+    $input.trigger('input'); // 🔥 input 이벤트 강제 발생
+   });
 
 
   </script>

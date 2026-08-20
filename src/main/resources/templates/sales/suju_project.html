@@ -268,6 +268,227 @@
           padding: 2px 6px;
       }
       #sujuForm .write-table th { font-size: 13px; }
+
+      /* ===== 프로젝트 등록 팝업 : 진행단계 테이블 ===== */
+      /* 진행단계 영역 박스 */
+      .stage-box {
+          margin-top: 14px;
+          border: 1px solid #dfe3e8;
+          border-radius: 8px;
+          background: #fff;
+          overflow: hidden;
+      }
+      /* 상단 헤더 바 (제목 + 건수 + 추가버튼) */
+      .stage-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 8px 12px;
+          background: #f7f9fc;
+          border-bottom: 1px solid #dfe3e8;
+      }
+      .stage-head .title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #2b3648;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+      }
+      .stage-head .count-badge {
+          display: inline-block;
+          min-width: 20px;
+          padding: 1px 7px;
+          border-radius: 10px;
+          background: #2f6fed;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 700;
+          text-align: center;
+      }
+      .stage-head .hint {
+          font-size: 11px;
+          color: #8a94a6;
+          font-weight: 400;
+      }
+      .stage-head .head-btns { display: flex; gap: 6px; }
+      /* ✅ 핵심: 부모가 아니라 이 영역에만 스크롤이 생김 */
+      .stage-scroll {
+          max-height: 330px;          /* 약 7행 정도 보이고 그 이상은 내부 스크롤 */
+          overflow-y: auto;
+          overflow-x: hidden;
+          overscroll-behavior: contain; /* 끝까지 스크롤해도 부모로 전파되지 않음 */
+      }
+      .stage-scroll::-webkit-scrollbar { width: 10px; }
+      .stage-scroll::-webkit-scrollbar-track { background: #f1f3f6; }
+      .stage-scroll::-webkit-scrollbar-thumb { background: #c3cad6; border-radius: 5px; }
+      .stage-scroll::-webkit-scrollbar-thumb:hover { background: #a7b1c2; }
+      /* 테이블 기본 */
+      #pr_stageTable {
+          width: 100%;
+          table-layout: fixed;
+          border-collapse: separate;
+          border-spacing: 0;
+      }
+      /* ✅ 스크롤해도 헤더 고정 */
+      #pr_stageTable thead th {
+          position: sticky;
+          top: 0;
+          z-index: 3;
+          background: #eef1f6;
+          color: #3a4557;
+          font-size: 12px;
+          font-weight: 700;
+          height: 34px;
+          padding: 0 6px;
+          border-bottom: 1px solid #d5dbe4;
+          text-align: center;
+          white-space: nowrap;
+      }
+      #pr_stageTable tbody td {
+          padding: 4px 6px;
+          height: 38px;
+          border-bottom: 1px solid #eef0f4;
+          vertical-align: middle;
+          background: transparent;
+      }
+      #pr_stageTable tbody tr:nth-child(even) { background: #fbfcfe; }
+      #pr_stageTable tbody tr:hover { background: #eef5ff; }
+      #pr_stageTable tbody tr.is-done { background: #f1faf3; }
+      #pr_stageTable tbody tr.is-done:hover { background: #e6f6ea; }
+      #pr_stageTable tbody tr.is-empty .stage-seq { color: #c2c9d4; }
+      /* 입력요소 */
+      #pr_stageTable tbody input[type="text"],
+      #pr_stageTable tbody input[type="date"] {
+          width: 100%;
+          height: 30px;
+          line-height: 30px;
+          padding: 0 8px;
+          font-size: 13px;
+          border: 1px solid #d8dde5;
+          border-radius: 4px;
+          background: #fff;
+          box-sizing: border-box;
+      }
+      #pr_stageTable tbody input:focus {
+          border-color: #2f6fed;
+          box-shadow: 0 0 0 2px rgba(47,111,237,.15);
+          outline: none;
+      }
+      #pr_stageTable tbody tr.is-done .stage-stagenm { font-weight: 600; color: #1b7a3c; }
+      /* 순번 + 드래그 핸들 */
+      .stage-seq-cell { text-align: center; white-space: nowrap; }
+      .drag-handle {
+          display: inline-block;
+          color: #b3bbc8;
+          cursor: grab;
+          font-size: 13px;
+          line-height: 1;
+          padding: 2px 3px;
+          user-select: none;
+      }
+      .drag-handle:active { cursor: grabbing; }
+      tr:hover .drag-handle { color: #2f6fed; }
+      .stage-seq {
+          display: inline-block;
+          min-width: 18px;
+          font-size: 12px;
+          font-weight: 700;
+          color: #55617a;
+      }
+      /* 미니 버튼 (순서이동 / 삭제) */
+      .td-center { text-align: center; white-space: nowrap; }
+      .mini-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px;
+          height: 22px;
+          padding: 0;
+          margin: 0 1px;
+          font-size: 11px;
+          line-height: 1;
+          color: #55617a;
+          background: #fff;
+          border: 1px solid #d3d9e2;
+          border-radius: 4px;
+          cursor: pointer;
+      }
+      .mini-btn:hover { background: #eef5ff; border-color: #2f6fed; color: #2f6fed; }
+      .mini-btn:disabled { opacity: .35; cursor: default; background: #f5f6f8; }
+      .mini-btn:disabled:hover { border-color: #d3d9e2; color: #55617a; }
+      .mini-btn.danger:hover { background: #fdeeee; border-color: #e05252; color: #e05252; }
+      /* 완료 토글 버튼 */
+      .stage-chip {
+          display: inline-block;
+          min-width: 54px;
+          height: 24px;
+          line-height: 22px;
+          padding: 0 8px;
+          font-size: 11px;
+          font-weight: 600;
+          color: #55617a;
+          background: #fff;
+          border: 1px solid #d3d9e2;
+          border-radius: 12px;
+          cursor: pointer;
+      }
+      .stage-chip:hover { border-color: #2f6fed; color: #2f6fed; }
+      .stage-chip.done {
+          color: #fff;
+          background: #2aa25a;
+          border-color: #2aa25a;
+      }
+      .stage-chip.done:hover { background: #23904f; color: #fff; }
+      /* 드래그 중 시각 효과 */
+      #pr_stageTableBody tr.dragging { opacity: .45; background: #dbe8ff !important; }
+      #pr_stageTableBody tr.drop-target td { box-shadow: inset 0 2px 0 0 #2f6fed; }
+      #pr_stageTableBody tr.flash { animation: stageFlash .7s ease; }
+      @keyframes stageFlash {
+          0%   { background: #fff3cd; }
+          100% { background: transparent; }
+      }
+      .stage-foot {
+          padding: 6px 12px;
+          font-size: 11px;
+          color: #8a94a6;
+          background: #fafbfd;
+          border-top: 1px solid #eef0f4;
+      }
+
+      /* ===== WBS 요약 패널 (임시) — 전용 화면 생기면 이 블록 삭제 ===== */
+      /* flex 컨테이너(#sujuForm) 안에서 눌리지 않도록 고정 크기로 둔다.
+         지정하지 않으면 .item-scroll 이 남은 공간을 다 가져가 헤더만 남는다. */
+      .wbs-panel {
+          flex: 0 0 auto;
+          margin-top: 12px;
+          border: 1px solid #dfe3e8; border-radius: 8px;
+          background: #fff; overflow: hidden;
+      }
+      .wbs-panel-head {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #eef0f4;
+          font-weight: 700; font-size: 13px;
+      }
+      .wbs-panel-body { max-height: 200px; overflow: auto; }
+      .wbs-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+      .wbs-tbl th, .wbs-tbl td { padding: 5px 8px; border-bottom: 1px solid #f0f2f5; }
+      .wbs-tbl thead th { background: #fafbfd; position: sticky; top: 0; text-align: center; font-weight: 600; }
+      .wbs-tbl td.c { text-align: center; }
+      .wbs-tbl tr.step-first td { border-top: 1px solid #e5e7eb; }
+      .wbs-tbl tr.delay { background: #fff5f5; }
+      .wbs-tbl tr.delay td.c.dl { color: #d6336c; font-weight: 700; }
+      .wbs-ms { display: inline-block; color: #b45309; font-weight: 700; }
+      .wbs-empty { padding: 20px; text-align: center; color: #98a2b3; font-size: 12px; }
+      .wbs-note { font-size: 11px; color: #8a94a6; font-weight: 400; }
+      .wbs-toggle {
+          display: inline-block; margin-left: 8px; padding: 0 5px;
+          border: 1px solid #d3d9e2; border-radius: 4px;
+          color: #55617a; font-size: 10px; cursor: pointer; background: #fff;
+      }
+      .wbs-toggle:hover { border-color: #2f6fed; color: #2f6fed; }
+      .wbs-panel.collapsed .wbs-panel-body { display: none; }
   </style>
 </head>
 <th:block layout:fragment="content">
@@ -325,6 +546,9 @@
               <a class="btn btn-delete" title="검색" id="btnSujuSearch">
                 <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘">검색
               </a>
+              <a class="btn btn-excell y_write_auth" title="프로젝트 등록" id="btnProjectNew">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">프로젝트 등록
+              </a>
             </div>
             <div id="sujuGrid" style="flex:1 1 auto; min-height:90px;"></div>
           </div>
@@ -342,6 +566,7 @@
               </h3>
               <ul>
                 <li><a class="btn btn-excell" id="btnExcelNew" title="엑셀업로드"><img th:src="@{/images/icon/ico-plus.svg}" alt="신규">엑셀 업로드</a></li>
+                <li><a class="btn btn-excell y_write_auth" id="btnWbsFix" title="WBS 확정"><img th:src="@{/images/icon/ico-save.svg}" alt="WBS">WBS 확정</a></li>
                 <li><a class="btn btn-excell" id="btnSujuNew" title="신규"><img th:src="@{/images/icon/ico-plus.svg}" alt="신규">신규</a></li>
                 <li><a class="btn btn-edit y_write_auth" id="btnSujuSave" title="저장"><img th:src="@{/images/icon/ico-save.svg}" alt="저장">저장</a></li>
                 <li><a class="btn btn-delete" id="btnSujuDelete" title="삭제"><img th:src="@{/images/icon/ico-delete.svg}" alt="삭제">삭제</a></li>
@@ -373,8 +598,15 @@
                       <span class="proj-state" id="sujuProjState"></span>
                     </div>
                   </td>
+                  <th><label for="sujuName">수주명</label></th>
+                  <td><input type="text" id="sujuName" name="suju_name"
+                             placeholder="NQ6 등 수주 구분명" maxlength="50"></td>
+                </tr>
+                <tr>
                   <th><label for="cboSujuType">수주구분</label></th>
                   <td><select id="cboSujuType" name="SujuType"></select></td>
+                  <th></th>
+                  <td></td>
                 </tr>
                 <tr>
                   <th><label for="JumunDate">수주일<span class="eq">*</span></label></th>
@@ -413,9 +645,9 @@
                     <col style="width: 8.0%">   <!-- 설비타입 -->
                     <col style="width: 6.5%">   <!-- 다리발 사양 -->
                     <col style="width: 6.5%">   <!-- 다리발 개수 -->
-                    <col style="width: 5.5%">   <!-- 제작구분 -->
                     <col style="width: 9.5%">   <!-- 설계 업체 -->
                     <col style="width: 8.5%">   <!-- 도면출도일 -->
+                    <col style="width: 5.5%">   <!-- 제작구분 -->
                     <col style="width: 9.5%">   <!-- 제작 업체 -->
                     <col style="width: 8.5%">   <!-- 비고 -->
                     <col style="width: 3.0%">   <!-- 행추가/삭제 버튼 -->
@@ -430,9 +662,9 @@
                     <th>설비타입</th>
                     <th>다리발 사양</th>
                     <th>다리발 개수</th>
-                    <th>제작구분</th>
                     <th>설계 업체</th>
                     <th>도면출도일</th>
+                    <th>제작구분</th>
                     <th>제작 업체</th>
                     <th>비고</th>
                     <th>
@@ -451,9 +683,8 @@
                       <input type="hidden" name="Material_id"/>
                       <input type="hidden" name="product_code"/>
                       <input type="hidden" name="group_code"/>
-                      <!-- 이 화면은 공정 입력 전용: 품목유형은 proc 고정 -->
-                      <input type="hidden" name="MaterialGroupName" value="proc"/>
-                      <input type="text" name="txtProductName" placeholder="코드/공정명 입력 후 엔터" autocomplete="off"/>
+                      <!-- 이 화면은 공정 입력 전용: 품목그룹은 서버에서 MAKE 고정 -->
+                      <input type="text" name="txtProductName" placeholder="공정명" autocomplete="off"/>
                     </td>
                     <!-- JIG SET -->
                     <td><input type="text" style="text-align:center;" name="setCnt" placeholder="SET"/></td>
@@ -467,13 +698,6 @@
                     <td><input type="text" style="text-align:center;" name="legSpec" placeholder="다리발 사양"/></td>
                     <!-- 다리발 개수 -->
                     <td><input type="text" style="text-align:center;" name="legCnt" placeholder="다리발 개수"/></td>
-                    <!-- 제작구분 -->
-                    <td>
-                      <select name="makeType">
-                        <option value="self">내작</option>
-                        <option value="outsource">외작</option>
-                      </select>
-                    </td>
                     <!-- 설계 업체 -->
                     <td>
                       <div class="input-with-button">
@@ -485,6 +709,13 @@
                     </td>
                     <!-- 도면출도일 -->
                     <td><input type="date" name="drawDate" /></td>
+                    <!-- 제작구분 -->
+                    <td>
+                      <select name="makeType">
+                        <option value="self">내작</option>
+                        <option value="outsource">외작</option>
+                      </select>
+                    </td>
                     <!-- 제작 업체 -->
                     <td>
                       <div class="input-with-button">
@@ -505,6 +736,36 @@
                   </tbody>
                 </table>
               </div>
+
+              <!-- WBS 요약 시작 — 전용 화면 생기면 이 블록 삭제 -->
+              <div class="wbs-panel" id="wbsPanel">
+                <div class="wbs-panel-head">
+                  <span>확정 WBS <span class="wbs-note" id="wbsPanelCount"></span></span>
+                  <span>
+                    <span class="wbs-note">읽기 전용 · [WBS 확정] 을 누르면 프로젝트 계획이 복사됩니다</span>
+                    <a class="wbs-toggle" id="btnWbsPanelToggle" title="접기/펼치기">&#9650;</a>
+                  </span>
+                </div>
+                <div class="wbs-panel-body">
+                  <table class="wbs-tbl">
+                    <caption class="hide">확정 WBS</caption>
+                    <colgroup>
+                      <col style="width:16%"><col style="width:24%">
+                      <col style="width:15%"><col style="width:15%">
+                      <col style="width:12%"><col style="width:9%"><col style="width:9%">
+                    </colgroup>
+                    <thead>
+                    <tr>
+                      <th>대단계</th><th>세부단계</th>
+                      <th>계획 착수</th><th>계획 완료</th>
+                      <th>담당</th><th>진척</th><th>상태</th>
+                    </tr>
+                    </thead>
+                    <tbody id="wbsPanelBody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <!-- WBS 요약 끝 -->
 
               <div class="ps-form-foot">
                 <span class="warn" id="sujuNotEditable" style="display:none;">* 계획 또는 출하가 진행된 수주는 수정이 불가합니다.</span>
@@ -562,6 +823,13 @@
                 </td>
               </tr>
               <tr>
+                <th style="text-align:center"><label>수주명</label></th>
+                <td>
+                  <input type="text" id="up_suju_name" name="suju_name" maxlength="50"
+                         placeholder="비워두면 엑셀 제목에서 자동 추출 (예: NQ6)" style="width:100%;"/>
+                </td>
+              </tr>
+              <tr>
                 <th style="text-align:center"><label>첨부파일<span class="eq">*</span></label></th>
                 <td>
                   <input style="width:320px; height:40px;" type="file" id="upload_file"
@@ -585,6 +853,102 @@
       <div class="popup-button">
         <button type="button" class="btn-popup y_write_auth" id="btn_excel_save">업로드 저장</button>
         <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+      </div>
+    </div>
+  </script>
+
+  <!-- ===================== 프로젝트 등록 팝업 ===================== -->
+  <script type="text/x-tmpl" id="projectRegTemplate">
+    <div class="content_wrap popup" id="div_project_reg">
+      <div class="table-wrap">
+        <form id="ProjectRegForm">
+          <table class="write-table">
+            <colgroup>
+              <col style="width: 25%;"/>
+              <col style="width: 25%;"/>
+              <col style="width: 25%;"/>
+              <col style="width: 25%;"/>
+            </colgroup>
+            <tbody>
+              <tr>
+                <th style="text-align:center"><label for="pr_projno">프로젝트번호</label></th>
+                <td colspan="3">
+                  <input type="text" id="pr_projno" name="projno" class="wp100"
+                         placeholder="저장 시 자동 채번" readonly/>
+                </td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label for="pr_projnm">프로젝트명<span class="eq">*</span></label></th>
+                <td colspan="3">
+                  <input type="text" id="pr_projnm" name="projnm" class="wp100" placeholder="프로젝트명"/>
+                </td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label for="pr_balcltnm">발주처</label></th>
+                <td colspan="3">
+                  <input type="text" id="pr_balcltnm" name="balcltnm" class="wp100"
+                         placeholder="해당 칸을 클릭해서 발주처를 선택하세요.">
+                  <input type="hidden" id="pr_balcltcd">
+                </td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label for="pr_stdate">공사일자</label></th>
+                <td><input type="date" id="pr_stdate" name="stdate" class="wp100"/></td>
+                <th style="text-align:center"><label for="pr_eddate">종료일</label></th>
+                <td><input type="date" id="pr_eddate" name="eddate" class="wp100"/></td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label for="pr_contdate">계약일자</label></th>
+                <td colspan="3"><input type="date" id="pr_contdate" name="contdate" class="wp100"/></td>
+              </tr>
+              <tr>
+                <th style="text-align:center"><label for="pr_remark">비고</label></th>
+                <td colspan="3">
+                  <input type="text" id="pr_remark" name="remark" class="wp100" placeholder="비고"/>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </form>
+
+        <!-- 진행단계 -->
+        <div class="stage-box">
+          <div class="stage-head">
+            <span class="title">
+              진행단계
+              <span class="count-badge" id="pr_stageCount">0</span>
+              <span class="hint">순번의 &#10495;를 끌거나 &#9650;&#9660;로 순서를 바꿀 수 있습니다.</span>
+            </span>
+            <span class="head-btns">
+              <a class="btn btn-excell" title="단계추가" id="pr_btnAddStage">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="추가 아이콘">단계추가
+              </a>
+            </span>
+          </div>
+
+          <div class="stage-scroll" id="pr_stageScroll">
+            <table id="pr_stageTable">
+              <caption class="hide">진행단계</caption>
+              <colgroup>
+                <col style="width:13%"><col style="width:27%"><col style="width:19%">
+                <col style="width:19%"><col style="width:12%"><col style="width:10%">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>순번</th><th>단계명</th><th>예정일</th>
+                  <th>완료일</th><th>완료</th><th>순서/삭제</th>
+                </tr>
+              </thead>
+              <tbody id="pr_stageTableBody"></tbody>
+            </table>
+          </div>
+          <div class="stage-foot">내용이 하나도 없는 행은 저장되지 않습니다. (기본 3행 표시)</div>
+        </div>
+      </div>
+
+      <div class="popup-button">
+        <button type="button" class="btn-popup y_write_auth" id="btn_project_save">저장</button>
+        <button type="button" class="btn-popup" id="project-modal-close">닫기</button>
       </div>
     </div>
   </script>
@@ -647,6 +1011,7 @@
       },
       columns: [
        {binding: 'projno', header: '프로젝트', width: 100, align: 'center'},
+       {binding: 'suju_name', header: '수주명', width: 110, align: 'center'},
        {binding: 'CompanyName', header: '판매처', width: 150, align: 'left'},
        {binding: 'JumunDate', header: '수주일', width: 100, align: 'center'},
        {binding: 'product_name', header: '제품명', width: '*'},
@@ -763,11 +1128,354 @@
       _this.openExcelUpload();
      });
 
+     //WBS 요약 패널 접기/펼치기
+     $(document).on('click', '#btnWbsPanelToggle', function (e) {
+      e.preventDefault();
+      const $p = $('#wbsPanel').toggleClass('collapsed');
+      $(this).html($p.hasClass('collapsed') ? '&#9660;' : '&#9650;');
+     });
+
+     //WBS 확정
+     $('#btnWbsFix').click(function (e) {
+      e.preventDefault();
+      _this.confirmWbs();
+     });
+
+     //프로젝트 등록
+     $('#btnProjectNew').click(function (e) {
+      e.preventDefault();
+      _this.openProjectReg();
+     });
+
      // 수주구분 콤보
      AjaxUtil.fillSelectOptions($('#cboSujuType'), 'system_code', 'choose', 'plan', 'suju_type');
 
      this.bindFormEvents();
      this.bindKeyboardNav();
+    }
+
+    /* =========================================================
+       프로젝트 등록 팝업
+       project_registration.html 의 등록 폼과 동일한 항목/저장 규약
+       ========================================================= */
+    openProjectReg() {
+     const _this = this;
+     if (_this.projectPopup) {
+      _this.projectPopup.close();
+      _this.projectPopup = null;
+     }
+
+     const content = tmpl('projectRegTemplate', {});
+     _this.projectPopup = new PopupDraggable('프로젝트 등록');
+     _this.projectPopup.open({width: 720, height: 620, $content: $(content)});
+
+     // 공사일자 / 계약일자 오늘로 초기화
+     const today = CommonUtil.getYYYYMMDD();
+     $('#pr_stdate').val(today);
+     $('#pr_eddate').val(today);
+     $('#pr_contdate').val(today);
+
+     _this.prClearStages();
+     _this.bindProjectRegEvents();
+
+     setTimeout(() => $('#pr_projnm').focus(), 100);
+    }
+
+    bindProjectRegEvents() {
+     const _this = this;
+
+     // 발주처 선택
+     $(document).off('click', '#pr_balcltnm').on('click', '#pr_balcltnm', function () {
+      const pop = new PopCompComponent();
+      pop.show(function (items) {
+       $('#pr_balcltnm').val(items.compname);
+       $('#pr_balcltcd').val(items.id);
+      });
+     });
+     $(document).off('input', '#pr_balcltnm').on('input', '#pr_balcltnm', function () {
+      if ($(this).val().trim() === '') $('#pr_balcltcd').val('');
+     });
+
+     // 단계추가
+     $(document).off('click', '#pr_btnAddStage').on('click', '#pr_btnAddStage', function (e) {
+      e.preventDefault();
+      const $row = _this.prAddStageRow();
+      $row.find('.stage-stagenm').focus();
+     });
+
+     // 행 삭제 / 순서 이동 / 완료 토글
+     $(document).off('click', '#pr_stageTableBody .btn-stage-del')
+     .on('click', '#pr_stageTableBody .btn-stage-del', function (e) {
+      e.preventDefault();
+      $(this).closest('tr').remove();
+      _this.prEnsureMinRows();
+     });
+     $(document).off('click', '#pr_stageTableBody .btn-stage-up')
+     .on('click', '#pr_stageTableBody .btn-stage-up', function (e) {
+      e.preventDefault();
+      const $tr = $(this).closest('tr');
+      const $prev = $tr.prev('tr');
+      if ($prev.length) { $tr.insertBefore($prev); _this.prRenumberStages(); }
+     });
+     $(document).off('click', '#pr_stageTableBody .btn-stage-down')
+     .on('click', '#pr_stageTableBody .btn-stage-down', function (e) {
+      e.preventDefault();
+      const $tr = $(this).closest('tr');
+      const $next = $tr.next('tr');
+      if ($next.length) { $tr.insertAfter($next); _this.prRenumberStages(); }
+     });
+     $(document).off('click', '#pr_stageTableBody .btn-stage-complete')
+     .on('click', '#pr_stageTableBody .btn-stage-complete', function (e) {
+      e.preventDefault();
+      const $cp = $(this).closest('tr').find('.stage-cpdate');
+      $cp.val(($cp.val() || '').trim() ? '' : CommonUtil.getYYYYMMDD());
+      _this.prRenumberStages();
+     });
+     $(document).off('change input', '#pr_stageTableBody .stage-stagenm, #pr_stageTableBody .stage-pldate, #pr_stageTableBody .stage-cpdate')
+     .on('change input', '#pr_stageTableBody .stage-stagenm, #pr_stageTableBody .stage-pldate, #pr_stageTableBody .stage-cpdate', function () {
+      _this.prRenumberStages();
+     });
+
+     // 저장 / 닫기
+     $(document).off('click', '#btn_project_save').on('click', '#btn_project_save', function () {
+      _this.saveProjectReg();
+     });
+     $(document).off('click', '#project-modal-close').on('click', '#project-modal-close', function () {
+      if (_this.projectPopup) {
+       _this.projectPopup.close();
+       _this.projectPopup = null;
+      }
+     });
+    }
+
+    prEscapeHtml(str) {
+     if (str === null || str === undefined) return '';
+     return String(str)
+     .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+     .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    prAddStageRow(stage = {}) {
+     const $tbody = $('#pr_stageTableBody');
+     const row = `
+       <tr>
+         <td class="stage-seq-cell"><span class="stage-seq"></span></td>
+         <td><input type="text" class="stage-stagenm" value="${this.prEscapeHtml(stage.stagenm)}" placeholder="단계명"/></td>
+         <td><input type="date" class="stage-pldate" value="${stage.pldate || ''}"/></td>
+         <td><input type="date" class="stage-cpdate" value="${stage.cpdate || ''}"/></td>
+         <td class="td-center">
+           <button type="button" class="stage-chip btn-stage-complete" title="완료일 등록/해제">완료</button>
+         </td>
+         <td class="td-center">
+           <button type="button" class="mini-btn btn-stage-up" title="위로 이동">&#9650;</button>
+           <button type="button" class="mini-btn btn-stage-down" title="아래로 이동">&#9660;</button>
+           <button type="button" class="mini-btn danger btn-stage-del" title="행 삭제">&#10005;</button>
+         </td>
+       </tr>`;
+     $tbody.append(row);
+     this.prRenumberStages();
+     return $tbody.children('tr').last();
+    }
+
+    prEnsureMinRows() {
+     const $tbody = $('#pr_stageTableBody');
+     while ($tbody.children('tr').length < 3) this.prAddStageRow();
+     this.prRenumberStages();
+    }
+
+    prClearStages() {
+     $('#pr_stageTableBody').empty();
+     this.prEnsureMinRows();
+    }
+
+    prRenumberStages() {
+     const $rows = $('#pr_stageTableBody tr');
+     const last = $rows.length - 1;
+     let filled = 0;
+
+     $rows.each(function (idx) {
+      const $tr = $(this);
+      $tr.find('.stage-seq').text(idx + 1);
+      $tr.find('.btn-stage-up').prop('disabled', idx === 0);
+      $tr.find('.btn-stage-down').prop('disabled', idx === last);
+
+      const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
+      const $chip = $tr.find('.btn-stage-complete');
+      if (cpdate) { $tr.addClass('is-done'); $chip.addClass('done').text('완료됨'); }
+      else { $tr.removeClass('is-done'); $chip.removeClass('done').text('완료'); }
+
+      const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
+      const pldate = ($tr.find('.stage-pldate').val() || '').trim();
+      const isEmpty = !stagenm && !pldate && !cpdate;
+      $tr.toggleClass('is-empty', isEmpty);
+      if (!isEmpty) filled++;
+     });
+
+     $('#pr_stageCount').text(filled);
+    }
+
+    prCollectStages() {
+     const stages = [];
+     $('#pr_stageTableBody tr').each(function () {
+      const $tr = $(this);
+      const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
+      const pldate = ($tr.find('.stage-pldate').val() || '').trim();
+      const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
+      if (!stagenm && !pldate && !cpdate) return;   // 빈 행은 저장하지 않음
+      stages.push({seq: stages.length + 1, stagenm: stagenm, pldate: pldate, cpdate: cpdate});
+     });
+     return stages;
+    }
+
+    async saveProjectReg() {
+     const _this = this;
+
+     if (!$('#pr_projnm').val().trim()) {
+      Alert.alert('', '프로젝트명을 입력하세요.');
+      $('#pr_projnm').focus();
+      return;
+     }
+
+     // 단계명 없이 날짜만 있는 행 방지
+     let invalid = null;
+     $('#pr_stageTableBody tr').each(function () {
+      const $tr = $(this);
+      const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
+      const pldate = ($tr.find('.stage-pldate').val() || '').trim();
+      const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
+      if (!stagenm && (pldate || cpdate)) { invalid = $tr; return false; }
+     });
+     if (invalid) {
+      Alert.alert('', '단계명이 없는 행이 있습니다.\n단계명을 입력하거나 해당 행을 삭제해 주세요.');
+      invalid.find('.stage-stagenm').focus();
+      return;
+     }
+
+     const ok = await Alert.confirmAsync('', '저장하시겠습니까?');
+     if (!ok) return;
+
+     const data = {
+      projno: $('#pr_projno').val(),
+      projnm: $('#pr_projnm').val(),
+      balcltnm: $('#pr_balcltnm').val(),
+      balcltcd: $('#pr_balcltcd').val(),
+      stdate: $('#pr_stdate').val(),
+      eddate: $('#pr_eddate').val(),
+      contdate: $('#pr_contdate').val(),
+      remark: $('#pr_remark').val(),
+      spjangcd: $('#spjangcdHidden').val(),
+      stages: _this.prCollectStages()
+     };
+
+     AjaxUtil.postJsonData('/api/transaction/projectRegistration/save', data, function (result) {
+      if (result && result.success) {
+       Alert.alert('', '저장되었습니다.');
+       if (_this.projectPopup) {
+        _this.projectPopup.close();
+        _this.projectPopup = null;
+       }
+      } else {
+       Alert.alert('', (result && result.message) ? result.message : '저장에 실패했습니다.');
+      }
+     });
+    }
+
+
+
+    /* ===== WBS 요약 패널 (임시) — 전용 화면 생기면 이 메서드들 삭제 ===== */
+
+    wbsPanelEsc(v) {
+     return String(v == null ? '' : v)
+     .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+     .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    wbsPanelDate(v) {
+     const s = String(v == null ? '' : v).trim();
+     if (s.length !== 8) return '';
+     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
+    }
+
+    wbsPanelClear() {
+     $('#wbsPanelBody').html('<tr><td colspan="7" class="wbs-empty">수주를 선택하면 확정 WBS 가 표시됩니다.</td></tr>');
+     $('#wbsPanelCount').text('');
+    }
+
+    wbsPanelLoad(sujuHeadId) {
+     const _this = this;
+     if (!sujuHeadId) { this.wbsPanelClear(); return; }
+
+     AjaxUtil.getAsyncData('/api/transaction/wbsPlan/fix_list',
+      {suju_head_id: sujuHeadId},
+      function (result) {
+       _this.wbsPanelRender((result && result.data) ? result.data : []);
+      });
+    }
+
+    wbsPanelRender(rows) {
+     const _this = this;
+
+     if (!rows.length) {
+      $('#wbsPanelBody').html(
+       '<tr><td colspan="7" class="wbs-empty">확정된 WBS 가 없습니다. [WBS 확정] 을 누르세요.</td></tr>');
+      $('#wbsPanelCount').text('');
+      return;
+     }
+
+     let html = '';
+     let prevStep = null;
+     let delayCnt = 0;
+
+     rows.forEach(function (r) {
+      const isNewStep = (r.step_no !== prevStep);
+      const delay = (r.delay_yn === '1');
+      if (delay) delayCnt++;
+
+      const cls = [isNewStep ? 'step-first' : '', delay ? 'delay' : ''].filter(Boolean).join(' ');
+      const prog = (r.progress == null) ? 0 : Math.round(Number(r.progress));
+
+      html += '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
+       '<td>' + (isNewStep ? _this.wbsPanelEsc(r.step_name) : '') + '</td>' +
+       '<td>' + _this.wbsPanelEsc(r.task_name) +
+       (r.milestone_yn === '1' ? ' <span class="wbs-ms" title="마일스톤">&#9733;</span>' : '') + '</td>' +
+       '<td class="c">' + _this.wbsPanelDate(r.pl_stdate) + '</td>' +
+       '<td class="c">' + _this.wbsPanelDate(r.pl_eddate) + '</td>' +
+       '<td class="c">' + _this.wbsPanelEsc(r.charge_name) + '</td>' +
+       '<td class="c">' + prog + '%</td>' +
+       '<td class="c dl">' + (delay ? '지연' : (r.ac_eddate ? '완료' : '')) + '</td>' +
+       '</tr>';
+
+      prevStep = r.step_no;
+     });
+
+     $('#wbsPanelBody').html(html);
+     $('#wbsPanelCount').text('· ' + rows.length + '단계' + (delayCnt ? ' · 지연 ' + delayCnt + '건' : ''));
+    }
+
+    /* ---------- WBS 확정 (수주 단위) ---------- */
+    async confirmWbs() {
+     const _this = this;
+     const sujuHeadId = $('#sujuId').val();
+     if (!sujuHeadId) {
+      Alert.alert('', '수주를 먼저 선택해 주세요.');
+      return;
+     }
+
+     const nm = $('#sujuName').val() || '';
+     const ok = await Alert.confirmAsync('',
+      (nm ? nm + ' ' : '') + '수주의 WBS 를 확정할까요?\n프로젝트 WBS 계획을 이 수주로 복사합니다.');
+     if (!ok) return;
+
+     AjaxUtil.postJsonData('/api/transaction/wbsPlan/fix_make',
+      {suju_head_id: sujuHeadId},
+      function (result) {
+       if (result && result.success) {
+        Alert.alert('', result.message || 'WBS 를 확정했습니다.');
+        _this.wbsPanelLoad(sujuHeadId);
+       } else {
+        Alert.alert('', (result && result.message) ? result.message : 'WBS 확정에 실패했습니다.');
+       }
+      });
     }
 
     /* ---------- 엑셀 업로드 팝업 ---------- */
@@ -853,7 +1561,8 @@
      }
 
      const formData = new FormData(document.getElementById('excelUploadForm'));
-     formData.append('spjangcd', $('#spjangcdHidden').val());
+     // spjangcd 는 AjaxUtil 이 자동으로 붙인다. 여기서 또 넣으면 "ZZ,ZZ" 로 전송돼
+     // varchar(2) 컬럼에서 22001 이 난다.
 
      Alert.confirm('', '업로드한 내용으로 수주를 저장하시겠습니까?', function () {
       const res = AjaxUtil.postFileSyncData(_this.url + '/excel_save', formData);
@@ -1100,36 +1809,59 @@
       projno: $('#sujuSrchProjno').val(),   // ★ 프로젝트로 검색
       action: 'read'
      };
+     AjaxUtil.showLoading();
      AjaxUtil.getAsyncData(this.url + '/read', data, function (result) {
-      if (result != null) {
-       _this.suppressSelection = true;
-       _this.viewData.sourceCollection = result.data || [];
-       _this.suppressSelection = false;
-       if (window.selectedSujuId) {
-        GridUtil.selectRowById(_this.grid, window.selectedSujuId);
-        window.selectedSujuId = null;
+       try {
+        if (result != null) {
+         _this.suppressSelection = true;
+         _this.viewData.sourceCollection = result.data || [];
+         _this.suppressSelection = false;
+         if (window.selectedSujuId) {
+          GridUtil.selectRowById(_this.grid, window.selectedSujuId);
+          window.selectedSujuId = null;
+         }
+         // 검색 직후 그리드로 포커스 → 방향키로 바로 행 이동
+         if (focusGrid) {
+          setTimeout(() => {
+           if (_this.grid && _this.grid.rows.length > 0) _this.grid.focus();
+          }, 0);
+         }
+        }
+       } finally {
+        AjaxUtil.hideLoading();
        }
-       // 검색 직후 그리드로 포커스 → 방향키로 바로 행 이동
-       if (focusGrid) {
-        setTimeout(() => {
-         if (_this.grid && _this.grid.rows.length > 0) _this.grid.focus();
-        }, 0);
-       }
-      }
-     });
+      },
+      function (req, status, error) {
+       AjaxUtil.hideLoading();
+       AjaxUtil.failureCallback(req, status, error);
+      });
     }
 
     /* ---------- 상세 로드 (수정 모드) ---------- */
     loadDetail(row) {
      const _this = this;
-     AjaxUtil.getAsyncData(this.url + '/detail', {id: row.id, action: 'detail'}, function (result) {
-      const d = result.data || {};
-      // 목록 행의 상태 정보 보강
-      d.StateName = row.ShipmentStateName || row.StateName || d.StateName;
-      d.State = row.State || d.State;
-      d.ShipmentStateName = row.ShipmentStateName || d.ShipmentStateName;
-      _this.bindForm(d, row);
-     });
+
+     // 조회 API 에는 로딩바가 없어 멈춘 것처럼 보인다. 직접 켜고 끈다.
+     AjaxUtil.showLoading();
+
+     AjaxUtil.getAsyncData(this.url + '/detail', {id: row.id, action: 'detail'},
+      function (result) {
+       try {
+        const d = (result && result.data) || {};
+        // 목록 행의 상태 정보 보강
+        d.StateName = row.ShipmentStateName || row.StateName || d.StateName;
+        d.State = row.State || d.State;
+        d.ShipmentStateName = row.ShipmentStateName || d.ShipmentStateName;
+        _this.bindForm(d, row);
+       } finally {
+        // 렌더링까지 끝난 뒤 끈다 (행이 많으면 그리는 데도 시간이 걸린다)
+        AjaxUtil.hideLoading();
+       }
+      },
+      function (req, status, error) {
+       AjaxUtil.hideLoading();
+       AjaxUtil.failureCallback(req, status, error);
+      });
     }
 
     /* ---------- 값 선택 / 세팅 헬퍼 ---------- */
@@ -1163,6 +1895,7 @@
 
      $('#sujuModeBadge').text('수정 - ' + (d.JumunNumber || row.JumunNumber || '')).addClass('edit');
      $('#sujuId').val(d.id || row.id || '');
+     this.wbsPanelLoad(d.id || row.id || '');
      this.setDetailProject({
       projno: d.projno || row.projno || '',
       projnm: d.projnm || row.projnm || ''
@@ -1176,6 +1909,7 @@
      $('#DeliveryName').val(d.DeliveryName || '');
      $('#cboSujuType').val(d.SujuType || '');
      $('#SujuDescription').val(d.Description || '');
+     $('#sujuName').val(d.suju_name || '');
 
      // 품목 행 바인딩 (detail 응답의 sujuList 기준) — 한 번만!
      const list = d.sujuList || d.items || [];
@@ -1233,6 +1967,7 @@
      this.showForm();
      $('#sujuForm')[0].reset();
      $('#sujuId').val('');
+     this.wbsPanelClear();
      // 신규 시 목록에서 선택된 프로젝트가 있으면 기본값으로 연결
      const srchNo = $('#sujuSrchProjno').val() || '';
      if (srchNo) {
@@ -1306,33 +2041,14 @@
        const baseName = $(this).attr('name');
        if (baseName) $(this).attr('name', `${baseName}_${index}`);
       });
-      // 라인 콤보
-      AjaxUtil.fillSelectOptions($newRow.find('select[name^="line_"]'), 'workcenter', 'choose', '58'); // dash 를 가본으로
-
-      // 설비타입: 품목그룹 기본값 기준으로 토글이 채움 (여기서 user_code_id 직접 호출 X)
-      this.applyEquipState($newRow);
+      // 라인/설비타입은 텍스트 입력이라 콤보 조회가 필요 없다.
+      // (예전 select 시절 코드가 남아 행마다 동기 XHR 을 보내 화면이 멈췄음)
       $tbody.append($newRow);
       $last = $newRow;
      }
      return $last;
     }
 
-
-    /* ---------- 품목그룹(proc 고정)에 따라 설비타입 채움 ---------- */
-    applyEquipState($row) {
-     const group = String($row.find('[name^="MaterialGroupName_"]').val() || 'proc');
-     const $equip = $row.find('select[name^="equiptype_"]');
-     const cur = $equip.val();   // 기존 선택값 보존
-
-     if (group === 'proc') {
-      // proc 하위 설비타입만 채움 (4번째 인자 = 부모코드)
-      AjaxUtil.fillSelectOptions($equip, 'user_code_id', '', '', 'proc');
-      $equip.prop('disabled', false);
-      if (cur) $equip.val(cur);
-     } else {
-      $equip.empty().prop('disabled', true).val('');
-     }
-    }
 
     /* ---------- 금액 계산 ---------- */
     calcRow($row, source) {
@@ -1420,11 +2136,6 @@
       _this.calcRow($row, 'unit');
      });
 
-     // 품목그룹 변경 → 설비타입 재구성/토글
-     $form.on('change', 'select[name^="MaterialGroupName_"]', function () {
-      _this.applyEquipState($(this).closest('tr'));
-     });
-
      // 행 추가
      $('#btnAddItemRow').click(function () {
       _this.addItemRows(3);
@@ -1479,44 +2190,7 @@
       });
      });
 
-     // 품목 검색 (엔터)
-     $form.on('keydown', 'input[name^="txtProductName_"]', function (e) {
-      if (e.key !== 'Enter' && e.keyCode !== 13) return;
-      e.preventDefault();
-
-      const $field = $(this);
-      const $row = $field.closest('tr');
-      const keyword = $field.val().trim();
-      const pop = new PopMatComponent();
-      pop.material_type = 'product,sangpum';
-
-      const callback = function (item) {
-       $row.find('input[name^="Material_id_"]').val(item.id || '');
-       $row.find('input[name^="txtProductName_"]').val(item.Name || '');
-       $row.find('input[name^="product_code_"]').val(item.Code || '');
-       $row.find('input[name^="unit_"]').val(item.unit_name || '');
-       $row.find('input[name^="standard_"]').val(item.Spec || '');
-       _this.tryShowPrice($row);
-      };
-
-      if (!keyword) {
-       pop.focusAfterClose = $field[0];
-       pop.show(callback);
-       return;
-      }
-      const result = AjaxUtil.getSyncData('/api/popup/search_material',
-       {keyword: keyword, spjangcd: sessionStorage.getItem('spjangcd')});
-      const rows = result?.data || [];
-      if (rows.length === 1) {
-       callback(rows[0]);
-      } else {
-       pop.show(callback);
-       setTimeout(() => {
-        pop.$keyword.val(keyword);
-        pop.$btnMaterialSearch.trigger('click');
-       }, 50);
-      }
-     });
+     // 공정명은 단순 입력만 허용 (품목 코드 검색 비활성화)
 
      // 품목명 지우면 연관 필드 초기화
      $form.on('input', 'input[name^="txtProductName_"]', function () {
@@ -1591,7 +2265,7 @@
      const $form = $('#sujuForm');
 
      /* ---------- (1) 상세 헤더 폼 : Enter / 위·아래 ---------- */
-     const headOrder = ['#sujuProjName', '#cboSujuType', '#JumunDate',
+     const headOrder = ['#sujuProjName', '#sujuName', '#cboSujuType', '#JumunDate',
       '#DueDate', '#SuJuOrderName', '#SujuDescription'];
 
      const focusHead = (idx) => {
@@ -1690,12 +2364,12 @@
      /* ---------- (2) 품목 테이블 : Enter / 방향키 ---------- */
      const focusOrder = [
       'line_',            // 라인
-      'txtProductName_',  // 공정명 (Enter는 검색)
+      'txtProductName_',  // 공정명
       'setCnt_', 'unit_', 'pinShiftUnit_',
       'equiptype_',       // 설비타입
       'legSpec_', 'legCnt_',
-      'makeType_',        // select
       'drawDate_',        // date
+      'makeType_',        // select
       'itemRemark_'
      ];
 
@@ -1715,9 +2389,6 @@
       const name = $input.attr('name') || '';
       const cur = focusOrder.findIndex(p => name.startsWith(p));
       if (cur === -1) return;
-
-      // 공정명 엔터는 검색 동작이므로 네비게이션에서 제외
-      if (name.startsWith('txtProductName_') && key === 'Enter') return;
 
       const tag = this.tagName.toLowerCase();
       const isDate = (this.type === 'date');
@@ -1848,7 +2519,6 @@
       const productName = ($row.find('input[name^="txtProductName_"]').val() || '').trim();
       if (!productName) return;   // 공정명 없는 빈 행 스킵
 
-      const group = String($row.find('[name^="MaterialGroupName_"]').val() || 'proc');
       const equip = $row.find('input[name^="equiptype_"]').val() || '';
 
       // 라인 + factory_id 추출 (라인 option의 data에 Factory_id가 실려 있어야 함)
@@ -1863,9 +2533,8 @@
       items.push({
        suju_id: $row.find('input[name^="suju_id_"]').val() || '',
        Material_id: normMaterialId,
-       isNewMaterial: normMaterialId == null,             // 서버 get-or-create 신호
+       isNewMaterial: normMaterialId == null,             // 서버 신규 채번 신호
        txtProductName: productName,                        // 공정명
-       MaterialGroupName: group,                          // proc 고정
        product_code: $row.find('input[name^="product_code_"]').val() || '',
 
        line: lineVal,                                     // 라인 코드/값
@@ -1908,6 +2577,7 @@
         SujuType: $('#cboSujuType').val(),
         spjangcd: $('#spjangcdHidden').val(),
         Description: $('#SujuDescription').val(),
+        suju_name: $('#sujuName').val(),
         order_id: $('#SuJuOrderId').val(),
         OrderName: $('#SuJuOrderName').val(),
         items: items
