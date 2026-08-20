@@ -106,10 +106,6 @@
 <!--                                <select class="form-control2" id="cboMaterialRow" name="cboMaterialRow" style="width: 150px;"></select>-->
 <!--                            </dd>-->
 <!--                        </dl>-->
-
-
-                    </div>
-                    <div class="search-wrap" style="margin-top: -10px;">
                         <dl>
                             <dt>
                                 <label>품목명</label>
@@ -137,7 +133,7 @@
                                 </li>
                             </dd>
                         </dl>
-                        <dl style="margin-left: 175px;">
+                        <dl style="display: none; margin-left: 175px;">
                             <dt><span class="eq"></span></dt>
                             <dd>
                                 <li>
@@ -1038,15 +1034,15 @@
                         }
                     },
                     columns: [
-                        {
-                            binding: 'selected', // 데이터의 임시 컬럼
-                            header: '',
-                            width: 40,
-                            align: 'center',
-                            allowSorting: false,
-                            isReadOnly: false, // 체크박스는 편집가능해야함
-                            dataType: 'Boolean'
-                        },
+                        // {
+                        //     binding: 'selected', // 데이터의 임시 컬럼
+                        //     header: '',
+                        //     width: 40,
+                        //     align: 'center',
+                        //     allowSorting: false,
+                        //     isReadOnly: false, // 체크박스는 편집가능해야함
+                        //     dataType: 'Boolean'
+                        // },
                         {binding: 'mat_type_name', header: '품목구분', width: 80, align: 'center'},
                         {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'left'},
                         {binding: 'mat_name', header: '품목명', width: 220, align: 'left'},
@@ -1368,11 +1364,14 @@
 
                 // filter dropdown load
                 AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
+                // 가공품(semi) 제거
+                $('#cboMaterialType option[value="semi"]').remove();
                 AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false);
-
+                $('#cboMaterialGroup option[value="semi"]').remove();
                 $('#cboMaterialType').on('change', function (e) {
                     let mat_type = $('#cboMaterialType').val();
                     AjaxUtil.fillSelectOptions($('#cboMaterialGroup'), 'material_group', 'all', false, mat_type);
+                    $('#cboMaterialGroup option[value="113"]').remove(); // 가공품 그룹 제거
                 });
 
                 $('#keyword').on('keypress', function (e) {
@@ -1416,6 +1415,7 @@
             // 탭 내부 dropdown load
             initForm() {
                 AjaxUtil.fillSelectOptions($('#MaterialGroup_id'), 'material_group', '', false); // 품목그룹
+                $('#MaterialGroup_id option[value="113"]').remove(); // 가공품 그룹 제거
                 AjaxUtil.fillSelectOptions($('#Unit_id'), 'unit', '', false); // 단위
                 AjaxUtil.fillSelectOptions($('#StoreHouse_id'), 'store_house', '', '4'); // 창고
                 setTimeout(() => {

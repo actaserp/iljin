@@ -105,6 +105,7 @@ public class MaterialService {
             where 1=1
             AND m.spjangcd = :spjangcd
             AND m."Useyn" = :UseYn
+            AND mg."MaterialType" != 'semi'
         """;
 		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :mat_type ";
 		if (StringUtils.isEmpty(matGroupId)==false) sql +=" and m.\"MaterialGroup_id\" = (:mat_group_id)::int ";
