@@ -1432,6 +1432,12 @@ public class SujuController {
   // 프로젝트/수주 통합 등록 화면 전용 저장
   //  - 금액 필드 없음 (유니트→SujuQty, SET→Standard, 라인/설비타입→신규 컬럼)
   //  - Material_id 없는 행은 품목 get-or-create 후 수주 저장
+  //
+  //  ★ 외작(make_type='outsource') 이어도 여기서는 발주를 만들지 않는다.
+  //     발주 자동생성은 /excel_save (엑셀 업로드) 에서만 한다.
+  //     이 화면은 같은 수주를 여러 번 수정 저장하는데 balju 에 suju.id 를 담을
+  //     컬럼이 없어, 저장할 때마다 같은 발주가 중복 생성되는 것을 막을 수 없다.
+  //     빠뜨린 게 아니라 의도적으로 뺀 것이므로 임의로 추가하지 말 것.
   // ===================================================================
   @PostMapping("/manual_save_project")
   @Transactional
@@ -1784,7 +1790,9 @@ public class SujuController {
     int bomCount = createLineBoms(bomGroups, spjangcd, user);
 
     // ── 5) 외작 발주 등록 (거래처별 1건) ──
-    int baljuCount = createBaljuForOutsource(baljuGroups, jumunDate, dueDate, spjangcd, user);
+    //  발주 비고(balju_head."Description")에 출처를 남겨 수주에서 자동생성된 건임을 구분한다
+    int baljuCount = createBaljuForOutsource(baljuGroups, jumunDate, dueDate, spjangcd, user,
+      head.getJumunNumber(), projno);
 
     // ── 6) 결과 ──
     Map<String, Object> data = new HashMap<>();
@@ -1802,14 +1810,29 @@ public class SujuController {
   }
 
   /**
+   * 수주(외작)에서 자동생성되는 발주의 발주구분.
+   *  balju_head."SujuType" / balju."SujuType" 에 저장되며
+   *  sys_code."CodeType" = 'Balju_type' 의 코드값이다.
+   *  발주 화면(BaljuOrderController)은 cboBaljuType 으로 같은 컬럼을 채운다.
+   */
+  private static final String BALJU_TYPE_OUTSOURCE = "outsource";
+
+  /**
    * 외작 수주행 → 발주 등록. 제작업체(거래처)가 같은 것끼리 묶어 발주 1건을 만든다.
    *  - 단가 정보가 없으므로 단가/공급가/부가세/합계는 0 으로 두고 발주 화면에서 채운다
+   *  - balju_head."Description" 에 출처 문구를 남긴다. 이 컬럼이 발주 목록 화면의
+   *    '비고' 컬럼이자 발주 상세 팝업의 '특이사항' 이므로, 수주에서 자동으로 만들어진
+   *    발주인지 발주 화면에서 직접 등록한 발주인지 바로 구분된다.
+   *    (품목행 비고 balju."Description" 은 이미 품명이 들어가 있어 건드리지 않는다)
    * @return 생성한 발주 헤더 수
    */
   private int createBaljuForOutsource(Map<Integer, List<Suju>> baljuGroups,
                                       Date jumunDate, Date dueDate,
-                                      String spjangcd, User user) {
+                                      String spjangcd, User user,
+                                      String sujuJumunNumber, String projno) {
     if (baljuGroups == null || baljuGroups.isEmpty()) return 0;
+
+    String sourceMemo = buildBaljuSourceMemo(sujuJumunNumber, projno);
 
     Timestamp now = new Timestamp(System.currentTimeMillis());
     int baljuCount = 0;
@@ -1830,8 +1853,9 @@ public class SujuController {
       head.setDeliveryDate(dueDate);
       head.setCompanyId(companyId);
       head.setSpjangcd(spjangcd);
-      head.setSujuType("balju");
+      head.setSujuType(BALJU_TYPE_OUTSOURCE);   // ★ 발주구분 = 외작
       head.setTotalPrice(0d);
+      head.setDescription(sourceMemo);       // ★ 수주에서 자동생성된 발주 표시
       balJuHeadRepository.save(head);
       baljuCount++;
 
@@ -1856,17 +1880,59 @@ public class SujuController {
         detail.setDueDate(dueDate);
         detail.setSpjangcd(spjangcd);
         detail.setInVatYN("N");
-        detail.setSujuType("balju");
+        detail.setSujuType(BALJU_TYPE_OUTSOURCE);   // 헤더와 동일하게 맞춘다
         detail.setState("draft");
         detail.set_status("manual");
-        bujuRepository.save(detail);
+        Balju savedDetail = bujuRepository.save(detail);
+
+        // ★ 발주행 → 수주행 역추적 고리.
+        //   mat_inout 이 발주를 SourceTableName='balju' / SourceDataPk=balju.id 로
+        //   가리키는 것과 같은 방식으로, 발주는 수주행을 가리킨다.
+        //     suju.id → balju."PlanDataPk" → mat_inout."SourceDataPk" → 입고
+        //   Balju 엔티티에 해당 필드가 없을 수 있어 SqlRunner 로 직접 채운다.
+        MapSqlParameterSource lp = new MapSqlParameterSource();
+        lp.addValue("id", savedDetail.getId());
+        lp.addValue("sujuId", s.getId());
+        this.sqlRunner.execute("""
+          UPDATE balju
+             SET "PlanTableName" = 'suju', "PlanDataPk" = :sujuId
+           WHERE id = :id
+          """, lp);
       }
 
-      log.info("[excel_save] 발주 등록: 거래처 [{}] id={} 품목 {}건",
-        companyName, companyId, rows.size());
+      log.info("[excel_save] 발주 등록: 거래처 [{}] id={} 품목 {}건 / 비고 [{}]",
+        companyName, companyId, rows.size(), sourceMemo);
     }
 
     return baljuCount;
+  }
+
+  /**
+   * 수주에서 자동생성된 발주임을 나타내는 비고 문구.
+   *   수주 SJ20260821-001 / P2026-001
+   *
+   * ★ balju_head."Description" 이 varchar(50) 이므로 반드시 50자 이내여야 한다.
+   *   넘으면 PostgreSQL 이 value too long 으로 저장 전체를 롤백시킨다.
+   *   수주명까지 넣으면 초과하므로 수주번호 + 프로젝트만 담고,
+   *   상세 역추적은 balju."PlanDataPk"(= suju.id) 로 한다.
+   */
+  private static final int BALJU_DESC_MAX = 50;
+
+  private String buildBaljuSourceMemo(String sujuJumunNumber, String projno) {
+    StringBuilder sb = new StringBuilder("수주");
+    if (sujuJumunNumber != null && !sujuJumunNumber.trim().isEmpty()) {
+      sb.append(' ').append(sujuJumunNumber.trim());
+    }
+    if (projno != null && !projno.trim().isEmpty()) {
+      sb.append(" / ").append(projno.trim());
+    }
+    return cut(sb.toString(), BALJU_DESC_MAX);
+  }
+
+  /** varchar 길이 초과로 저장이 롤백되는 것을 막는다. */
+  private static String cut(String v, int max) {
+    if (v == null) return null;
+    return (v.length() <= max) ? v : v.substring(0, max);
   }
 
   /**

@@ -80,18 +80,26 @@
         class PopCompComponent {
             static currentInstance = null;
 
-            constructor(keyword) {
+            /**
+             * @param keyword  거래처명 프리필 (선택)
+             * @param options  { companyType: 'sale' | 'purchase' | 'all', title: '팝업 제목' }
+             *                 companyType 을 주지 않으면 기존과 동일하게 매출처만 조회한다.
+             *                 (기존 호출부를 그대로 두기 위한 하위호환)
+             */
+            constructor(keyword, options) {
                 if (PopCompComponent.currentInstance) {
                     PopCompComponent.currentInstance.close(); // 이전 인스턴스 닫기
                 }
                 PopCompComponent.currentInstance = this;
 
+                const opt = options || {};
                 this.$keyword = keyword;
+                this.companyType = opt.companyType || '';   // '' → 서버 기본값(매출처)
                 this.grid = null;
                 this.viewData = new wijmo.collections.CollectionView();
                 this.selectedItem = null;
                 this.callback = null;
-                this.modalContainer = new PopupDraggable('업체 선택');
+                this.modalContainer = new PopupDraggable(opt.title || '업체 선택');
                 this.$btnCompSearch = null;
                 this.$btnCompSelect = null;
                 this.$businessNumber = null;
@@ -109,6 +117,7 @@
                     'compCode': _this.$compCode.val(),
                     'compName': _this.$compName.val(),
                     'business_number': _this.$business_number.val(),
+                    'companyType': _this.companyType,   // 매출처 / 매입처 구분
                 };
 
                 let result = AjaxUtil.getSyncData(url, data);
@@ -189,7 +198,7 @@
                     this.grid.downloadFileName = '거래처 내역';
 
 
-                    if(this.$keyword){
+                    if (this.$keyword) {
                         $('#compName').val(this.$keyword);
                     }
 
@@ -199,7 +208,6 @@
                     this.$business_number = $content.find('#business_number');
                     this.$btnCompSelect = $content.find('#btnCompSelect');
                     this.$businessNumber = $content.find('#business_number');
-
 
 
                     this.$btnCompSearch.click(function (e) {

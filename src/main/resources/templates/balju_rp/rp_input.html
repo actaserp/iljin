@@ -328,6 +328,11 @@
                                 발주 입고
                             </a>
                         </li>
+                        <li>
+                            <a class="btn" title="외작 입고" id="btnOutsourceInput">
+                                외작 입고
+                            </a>
+                        </li>
 
                         <li>
                             <a class="btn" title="미발주 입고" id="btnInput">
@@ -1172,6 +1177,7 @@
                         {binding: 'Description', header: '비고', width: 150, align: 'left'},
                         {binding: 'inout_state', header: '입고 상태', width: 100, align: 'center'},
                         // {binding: 'state_name', header: '입고검사 결재', width: 100, align: 'center'},
+                        {binding: 'inspect_yn', header: '검사', width: 70, align: 'center'},
                         {binding: 'judge_code', header: '입고검사 판정', width: 100, align: 'center'},
                         {binding: 'lot_use', header: '로트관리유무', width: 100, align: 'center'},
                         {binding: 'inout_type', header: '구분', width: 100, align: 'center'},
@@ -1683,10 +1689,12 @@
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
                             e.cell.style.textAlign = 'center';
 
-                            const binding = s.columns[e.col].binding;
+                            // 가로 스크롤 시 헤더 DOM 재사용으로 색이 눌어붙는 것 방지
+                            e.cell.style.color = '';
 
-                            if (binding === 'StoreHouse_id' || binding === 'returnQty' || binding === 'Description2') {
-                                e.cell.style.color = '#5567ff'; // 글자 색 적용
+                            const col = s.columns[e.col];
+                            if (col && !col.isReadOnly) {
+                                e.cell.style.color = '#5567ff';
                             }
                         }
                     },
@@ -1888,13 +1896,24 @@
             }
 
             // 발주 입고
-            showBaljuInputPopup() {
+            /**
+             * 발주 입고 / 외작 입고 공용 팝업.
+             *  입고처리 로직이 동일해서 목록 필터와 검사여부 컬럼 노출만 다르게 한다.
+             * @param baljuType 'balju' = 외작 제외 / 'outsource' = 외작만
+             */
+            showBaljuInputPopup(baljuType) {
                 let _this = this;
+                const isOutsource = (baljuType === 'outsource');
+                _this.baljuType = baljuType || 'balju';
 
                 let content = tmpl('addBaljuInputPopup', {});
                 let $content = $(content);
-                let modalContainer = new PopupDraggable('발주 입고');
+                let modalContainer = new PopupDraggable(isOutsource ? '외작 입고' : '발주 입고');
                 modalContainer.open({width: 1300, height: 580, $content});
+
+                // 외작 입고 전용 : 검사여부 드롭다운 (Y 검사 / N 미검사)
+                let inspectMap = new wijmo.grid.DataMap(
+                    [{value: 'N', text: '미검사'}, {value: 'Y', text: '검사'}], 'value', 'text');
 
                 this.storeHouseOptions = AjaxUtil.getSelectDataWithNull('store_house', 'choose');
 
@@ -1917,10 +1936,14 @@
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
                             e.cell.style.textAlign = 'center';
 
-                            const binding = s.columns[e.col].binding;
+                            // Wijmo 는 가로 스크롤 시 헤더 DOM 을 재사용한다.
+                            // 매번 초기화하지 않으면 파란색이 엉뚱한 컬럼에 눌어붙는다.
+                            e.cell.style.color = '';
 
-                            if (binding === 'StoreHouse_id' || binding === 'inputQty' || binding === 'Description2') {
-                                e.cell.style.color = '#5567ff'; // 글자 색 적용
+                            const col = s.columns[e.col];
+                            // 편집 가능한 컬럼을 파랗게. 컬럼이 늘어도 자동으로 따라온다
+                            if (col && !col.isReadOnly) {
+                                e.cell.style.color = '#5567ff';
                             }
                         }
                     },
@@ -1949,6 +1972,11 @@
                             align: 'right',
                             format: 'n0',
                             isReadOnly: true
+                        },
+                        {
+                            // 외작 입고에서만 노출. 입고 처리와 함께 mat_inout_inspect 에 저장된다
+                            binding: 'InspectYN', header: '검사여부', width: 90, align: 'center',
+                            dataMap: inspectMap, isReadOnly: false, visible: isOutsource
                         },
                         {binding: 'DueDate', header: '납기예정일', width: 100, align: 'center', isReadOnly: true},
                         {
@@ -2047,6 +2075,8 @@
                                         ?? opts[0]; // 그래도 없으면 0번이라도
                                     if (valid) item.StoreHouse_id = valid.value;
                                 }
+                                // 검사여부 기본값 : 검사
+                                if (!item.InspectYN) item.InspectYN = 'Y';
                             });
                             _this.baljuInputGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
                             selector = new wijmo.grid.selector.Selector(_this.baljuInputGrid);
@@ -2056,7 +2086,8 @@
                     let baljuParam = {
                         'start': start.val(),
                         'end': end.val(),
-                        'action': 'read'
+                        'action': 'read',
+                        'baljuType': _this.baljuType        // balju = 외작 제외 / outsource = 외작만
                     };
                     AjaxUtil.getAsyncData(_this.url + '/read_balju', baljuParam, fnsuccess);
 
@@ -3085,9 +3116,14 @@
             $('#btnMultiInput').on('click', function () {
                 page.addMultiDataPopup('in');
             });
-            // 발주입고
+            // 발주입고 (외작 제외)
             $('#btnBaljuInput').on('click', function () {
-                page.showBaljuInputPopup();
+                page.showBaljuInputPopup('balju');
+            });
+
+            // 외작입고 (외작만)
+            $('#btnOutsourceInput').on('click', function () {
+                page.showBaljuInputPopup('outsource');
             });
 
             // 품목 창고이동 팝업 생성

@@ -501,41 +501,58 @@ public class PopupController {
 
 	}
 
+	// ===================================================================
+//  거래처 검색 팝업 (/common/popup_company :: PopCompComponent)
+//
+//  companyType 파라미터로 매출처 / 매입처를 가른다.
+//    (없음) 또는 'sale'  → 매출처   'sale', 'sale-purchase'   ← 기존 동작
+//    'purchase'          → 매입처   'purchase', 'sale-purchase'
+//    'all'               → 구분 없이 전부
+//
+//  기본값이 기존과 같으므로 companyType 을 넘기지 않는 화면은 영향이 없다.
+// ===================================================================
 	@RequestMapping("/search_Comp")
 	public AjaxResult getSearchComp(
-			@RequestParam(value = "compCode", required = false) String compCode,
-			@RequestParam(value = "compName", required = false) String compName,
-			@RequestParam(value = "keyword", required = false) String keyword,
-			@RequestParam(value = "business_number", required = false) String business_number){
+		@RequestParam(value = "compCode", required = false) String compCode,
+		@RequestParam(value = "compName", required = false) String compName,
+		@RequestParam(value = "keyword", required = false) String keyword,
+		@RequestParam(value = "business_number", required = false) String business_number,
+		@RequestParam(value = "companyType", required = false) String companyType) {
 
 		MapSqlParameterSource paramMap = new MapSqlParameterSource();
-		paramMap.addValue("compCode", compCode);
-		paramMap.addValue("compName", compName);
-		paramMap.addValue("business_number", business_number);
 		AjaxResult result = new AjaxResult();
 
 		String sql = """
-            select id as id
-            , "Name" as compName
-            , "Code" as compCode
-            , "BusinessNumber" as business_number
-            , "TelNumber" as tel_number
-            , "CEOName" as invoiceeceoname
-            , "Address" as invoiceeaddr
-            , "BusinessType" as invoiceebiztype
-            , "BusinessItem" as invoiceebizclass
-            , "AccountManager" as invoiceecontactname1
-            , "AccountManagerPhone" as invoiceetel1
-            , "Email" as invoiceeemail1
-            from company
-            WHERE ("CompanyType" = 'sale'
-            OR "CompanyType" = 'sale-purchase')
-            and "relyn" = '0'
-			""";
+           select id as id
+           , "Name" as compName
+           , "Code" as compCode
+           , "BusinessNumber" as business_number
+           , "TelNumber" as tel_number
+           , "CEOName" as invoiceeceoname
+           , "Address" as invoiceeaddr
+           , "BusinessType" as invoiceebiztype
+           , "BusinessItem" as invoiceebizclass
+           , "AccountManager" as invoiceecontactname1
+           , "AccountManagerPhone" as invoiceetel1
+           , "Email" as invoiceeemail1
+           , "CompanyType" as company_type
+           from company
+           WHERE "relyn" = '0'
+   """;
 
-		if (keyword != null && !keyword.isEmpty()){
-			sql += "AND (\"Code\" LIKE '%' || :keyword || '%' " +
-					"OR \"Name\" LIKE '%' || :keyword || '%')";
+		// 거래처 구분. 'sale-purchase'(매출·매입 겸용)는 양쪽 모두에 노출한다.
+		String type = (companyType == null) ? "" : companyType.trim();
+		if ("purchase".equals(type)) {
+			sql += " AND (\"CompanyType\" = 'purchase' OR \"CompanyType\" = 'sale-purchase') ";
+		} else if ("all".equals(type)) {
+			// 구분 조건 없음
+		} else {
+			sql += " AND (\"CompanyType\" = 'sale' OR \"CompanyType\" = 'sale-purchase') ";
+		}
+
+		if (keyword != null && !keyword.isEmpty()) {
+			sql += " AND (\"Code\" LIKE '%' || :keyword || '%' "
+							 + "OR \"Name\" LIKE '%' || :keyword || '%') ";
 			paramMap.addValue("keyword", keyword);
 		}
 

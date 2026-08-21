@@ -73,6 +73,12 @@ public class MaterialInoutService {
                     , var."StateName" as "state_name"
                     , tir."JudgeCode" as judge_code
                     , m."LotUseYN" as lot_use
+                    -- 외작 입고 검사여부 (mat_inout_inspect). 입고 건 1:1 이라 스칼라 서브쿼리로 붙인다.
+                    --  select distinct 를 쓰는 쿼리라 조인으로 붙이면 행이 늘 수 있다.
+                    , (select case mii."InspectYN" when 'Y' then '검사'
+                                                   when 'N' then '미검사' end
+                         from mat_inout_inspect mii
+                        where mii."MatInout_id" = mi.id) as inspect_yn
                     from mat_inout mi 
                     inner join material m on mi."Material_id" = m.id
                     left join mat_grp mg on mg.id = m."MaterialGroup_id"
@@ -156,6 +162,12 @@ public class MaterialInoutService {
                     , var."StateName" as "state_name"
                     , tir."JudgeCode" as judge_code
                     , m."LotUseYN" as lot_use
+                    -- 외작 입고 검사여부 (mat_inout_inspect). 입고 건 1:1 이라 스칼라 서브쿼리로 붙인다.
+                    --  select distinct 를 쓰는 쿼리라 조인으로 붙이면 행이 늘 수 있다.
+                    , (select case mii."InspectYN" when 'Y' then '검사'
+                                                   when 'N' then '미검사' end
+                         from mat_inout_inspect mii
+                        where mii."MatInout_id" = mi.id) as inspect_yn
                     from mat_inout mi 
                     inner join material m on mi."Material_id" = m.id
                     left join mat_grp mg on mg.id = m."MaterialGroup_id"
@@ -870,7 +882,11 @@ public class MaterialInoutService {
 		return items;
 	}
 
-	public List<Map<String, Object>> getBaljuList(Timestamp start, Timestamp end, String spjangcd) {
+	/**
+	 * 발주 입고 대상 목록.
+	 * @param baljuType 'outsource' = 외작만 / 'balju' = 외작 제외(NULL 포함) / null = 전체
+	 */
+	public List<Map<String, Object>> getBaljuList(Timestamp start, Timestamp end, String spjangcd, String baljuType) {
 
 		MapSqlParameterSource dicParam = new MapSqlParameterSource();
 		dicParam.addValue("start", start);
@@ -907,7 +923,8 @@ public class MaterialInoutService {
           , fn_code_name('shipment_state', b."ShipmentState") as "ShipmentStateName"
           , b."State"
           , to_char(b."_created", 'yyyy-mm-dd') as create_date
-          , case b."PlanTableName" when 'prod_week_term' then '주간계획' when 'bundle_head' then '임의계획' else b."PlanTableName" end as plan_state
+          , b.spjangcd
+          , case b."PlanTableName" when 'prod_week_term' then '주간계획' when 'bundle_head' then '임의계획' when 'suju' then '수주' else b."PlanTableName" end as plan_state
           from balju b
           inner join material m on m.id = b."Material_id"
           inner join mat_grp mg on mg.id = m."MaterialGroup_id"
@@ -934,8 +951,16 @@ public class MaterialInoutService {
           AND COALESCE(mi."SujuQty2", 0) + COALESCE(mi."PreInputQty", 0) < b."SujuQty"
           and b.spjangcd = :spjangcd
           and "State" != 'force_completion'
+          -- 외작 입고 / 발주 입고 분리. SujuType 이 NULL 인 건은 발주 입고 쪽에 둔다
+          AND (
+                CAST(:baljuType AS varchar) IS NULL
+             OR (CAST(:baljuType AS varchar) = 'outsource' AND b."SujuType" = 'outsource')
+             OR (CAST(:baljuType AS varchar) = 'balju'     AND COALESCE(b."SujuType", '') <> 'outsource')
+          )
 			order by b."JumunDate" desc,  m."Name"
 			""";
+
+		dicParam.addValue("baljuType", baljuType);
 
 //    log.info("발주 read SQL: {}", sql);
 //    log.info("SQL Parameters: {}", dicParam.getValues());
@@ -982,7 +1007,7 @@ public class MaterialInoutService {
           , fn_code_name('shipment_state', b."ShipmentState") as "ShipmentStateName"
           , b."State"
           , to_char(b."_created", 'yyyy-mm-dd') as create_date
-          , case b."PlanTableName" when 'prod_week_term' then '주간계획' when 'bundle_head' then '임의계획' else b."PlanTableName" end as plan_state
+          , case b."PlanTableName" when 'prod_week_term' then '주간계획' when 'bundle_head' then '임의계획' when 'suju' then '수주' else b."PlanTableName" end as plan_state
           from balju b
           inner join material m on m.id = b."Material_id"
           inner join mat_grp mg on mg.id = m."MaterialGroup_id"

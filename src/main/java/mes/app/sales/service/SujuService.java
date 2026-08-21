@@ -106,7 +106,12 @@ public class SujuService {
 				       )
 				   END AS product_name,
 			  sss.summary_state AS "State",
-			  sc_ship."Value" AS "ShipmentStateName"
+			  sc_ship."Value" AS "ShipmentStateName",
+			  -- WBS 확정 여부 : wbs_plan 에 이 수주로 복사된 행이 있으면 확정
+			  --   suju_head_id IS NULL = 프로젝트 계획(가안), NOT NULL = 수주 확정분
+			  CASE WHEN EXISTS (
+			         SELECT 1 FROM wbs_plan wp WHERE wp.suju_head_id = sh.id
+			       ) THEN '1' ELSE '0' END AS wbs_fixed
 			   
 			FROM suju_head sh
 			JOIN suju s ON s."SujuHead_id" = sh.id
@@ -193,7 +198,11 @@ public class SujuService {
 				sh."EstimateMemo" ,	
 				sh.suju_name,
 				sh.project_id AS "headProjno",
-				fn_code_name('suju_type', sh."SujuType") AS "SujuTypeName"
+				fn_code_name('suju_type', sh."SujuType") AS "SujuTypeName",
+				-- WBS 확정 여부 (목록과 동일 기준)
+				CASE WHEN EXISTS (
+				       SELECT 1 FROM wbs_plan wp WHERE wp.suju_head_id = sh.id
+				     ) THEN '1' ELSE '0' END AS wbs_fixed
 			FROM suju_head sh
 			LEFT JOIN company c ON c.id = sh."Company_id"
 			WHERE sh.id = :id

@@ -457,38 +457,48 @@
           border-top: 1px solid #eef0f4;
       }
 
-      /* ===== WBS 요약 패널 (임시) — 전용 화면 생기면 이 블록 삭제 ===== */
-      /* flex 컨테이너(#sujuForm) 안에서 눌리지 않도록 고정 크기로 둔다.
-         지정하지 않으면 .item-scroll 이 남은 공간을 다 가져가 헤더만 남는다. */
-      .wbs-panel {
+      /* ===== 목록 그리드 : WBS 확정 여부 뱃지 ===== */
+      .wbs-chip {
+          display: inline-block; min-width: 46px; padding: 1px 8px;
+          border-radius: 10px; font-size: 11px; font-weight: 700; line-height: 17px;
+          background: #f2f4f7; color: #98a2b3; border: 1px solid #e4e7ec;
+      }
+      .wbs-chip.fixed { background: #eaf3ff; color: #1d5d90; border-color: #bcd8f5; }
+
+      /* ===== 비활성 버튼 (a 태그라 disabled 속성이 없다) ===== */
+      .btn.is-disabled {
+          opacity: .45;
+          cursor: default;
+          pointer-events: none;      /* 클릭 자체를 막고, 핸들러에서도 한 번 더 막는다 */
+      }
+
+      /* ===== 수주상세 헤더 접기 =====
+         .write-table 를 숨기면 .item-scroll(flex:1 1 auto) 이 그 높이를 그대로
+         흡수하므로 공정 구성 행이 그만큼 더 보인다. */
+      .hdr-toggle {
+          display: inline-flex; align-items: center; gap: 3px;
+          margin-left: 8px; padding: 1px 7px;
+          border: 1px solid #d3d9e2; border-radius: 4px; background: #fff;
+          color: #55617a; font-size: 11px; font-weight: 600;
+          cursor: pointer; vertical-align: middle;
+      }
+      .hdr-toggle:hover { border-color: #2f6fed; color: #2f6fed; }
+      .hdr-toggle .arrow { font-size: 9px; line-height: 1; }
+
+      /* 접었을 때만 보이는 한 줄 요약 */
+      .hdr-summary {
+          display: none;
           flex: 0 0 auto;
-          margin-top: 12px;
-          border: 1px solid #dfe3e8; border-radius: 8px;
-          background: #fff; overflow: hidden;
+          align-items: center; flex-wrap: wrap; gap: 6px 14px;
+          padding: 5px 10px; margin-bottom: 2px;
+          background: #f7f9fc; border: 1px solid #e4e8ee; border-radius: 5px;
+          font-size: 12px; color: #3a4557;
       }
-      .wbs-panel-head {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #eef0f4;
-          font-weight: 700; font-size: 13px;
-      }
-      .wbs-panel-body { max-height: 200px; overflow: auto; }
-      .wbs-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
-      .wbs-tbl th, .wbs-tbl td { padding: 5px 8px; border-bottom: 1px solid #f0f2f5; }
-      .wbs-tbl thead th { background: #fafbfd; position: sticky; top: 0; text-align: center; font-weight: 600; }
-      .wbs-tbl td.c { text-align: center; }
-      .wbs-tbl tr.step-first td { border-top: 1px solid #e5e7eb; }
-      .wbs-tbl tr.delay { background: #fff5f5; }
-      .wbs-tbl tr.delay td.c.dl { color: #d6336c; font-weight: 700; }
-      .wbs-ms { display: inline-block; color: #b45309; font-weight: 700; }
-      .wbs-empty { padding: 20px; text-align: center; color: #98a2b3; font-size: 12px; }
-      .wbs-note { font-size: 11px; color: #8a94a6; font-weight: 400; }
-      .wbs-toggle {
-          display: inline-block; margin-left: 8px; padding: 0 5px;
-          border: 1px solid #d3d9e2; border-radius: 4px;
-          color: #55617a; font-size: 10px; cursor: pointer; background: #fff;
-      }
-      .wbs-toggle:hover { border-color: #2f6fed; color: #2f6fed; }
-      .wbs-panel.collapsed .wbs-panel-body { display: none; }
+      .hdr-summary .lbl { color: #8a94a6; margin-right: 3px; }
+      .hdr-summary .val { font-weight: 600; }
+      .hdr-summary .empty { color: #98a2b3; font-weight: 400; }
+      #sujuForm.head-collapsed .write-table { display: none; }
+      #sujuForm.head-collapsed .hdr-summary { display: flex; }
   </style>
 </head>
 <th:block layout:fragment="content">
@@ -549,6 +559,13 @@
               <a class="btn btn-excell y_write_auth" title="프로젝트 등록" id="btnProjectNew">
                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">프로젝트 등록
               </a>
+              <a class="btn btn-excell" title="엑셀 업로드" id="btnExcelNew">
+                <img th:src="@{/images/icon/ico-plus.svg}" alt="업로드 아이콘">엑셀 업로드
+              </a>
+              <!-- 선택한 수주 기준으로 동작. 이미 확정된 수주면 .is-disabled 로 잠근다 -->
+              <a class="btn btn-excell y_write_auth" title="WBS 확정" id="btnWbsFix">
+                <img th:src="@{/images/icon/ico-save.svg}" alt="WBS 아이콘"><span class="lbl">WBS 확정</span>
+              </a>
             </div>
             <div id="sujuGrid" style="flex:1 1 auto; min-height:90px;"></div>
           </div>
@@ -559,14 +576,16 @@
           <div class="ps-panel">
             <div class="ps-panel-head">
               <h3>수주상세 <span class="mode-badge" id="sujuModeBadge">신규</span>
+                <a class="hdr-toggle" id="btnHeadToggle" title="헤더 접기/펼치기 (Alt+H)">
+                  <span class="arrow">&#9650;</span><span class="txt">헤더 접기</span>
+                </a>
                 <span class="ps-keyhint">
                   <b>Enter</b> 다음칸 · <b>&larr;&uarr;&darr;&rarr;</b> 이동 · <b>F2</b> 검색 ·
-                  <b>Alt+S</b> 저장 · <b>Alt+N</b> 신규 · <b>Alt+A</b> 행추가 · <b>Esc</b> 목록
+                  <b>Alt+S</b> 저장 · <b>Alt+N</b> 신규 · <b>Alt+A</b> 행추가 ·
+                  <b>Alt+H</b> 헤더접기 · <b>Esc</b> 목록
                 </span>
               </h3>
               <ul>
-                <li><a class="btn btn-excell" id="btnExcelNew" title="엑셀업로드"><img th:src="@{/images/icon/ico-plus.svg}" alt="신규">엑셀 업로드</a></li>
-                <li><a class="btn btn-excell y_write_auth" id="btnWbsFix" title="WBS 확정"><img th:src="@{/images/icon/ico-save.svg}" alt="WBS">WBS 확정</a></li>
                 <li><a class="btn btn-excell" id="btnSujuNew" title="신규"><img th:src="@{/images/icon/ico-plus.svg}" alt="신규">신규</a></li>
                 <li><a class="btn btn-edit y_write_auth" id="btnSujuSave" title="저장"><img th:src="@{/images/icon/ico-save.svg}" alt="저장">저장</a></li>
                 <li><a class="btn btn-delete" id="btnSujuDelete" title="삭제"><img th:src="@{/images/icon/ico-delete.svg}" alt="삭제">삭제</a></li>
@@ -576,6 +595,9 @@
             <form id="sujuForm">
               <input type="hidden" id="sujuId" name="id">
               <input type="hidden" id="sujuProjnm">
+
+              <!-- 헤더를 접었을 때만 보이는 한 줄 요약 -->
+              <div class="hdr-summary" id="sujuHeadSummary"></div>
 
               <table class="write-table">
                 <caption>수주 등록</caption>
@@ -737,35 +759,6 @@
                 </table>
               </div>
 
-              <!-- WBS 요약 시작 — 전용 화면 생기면 이 블록 삭제 -->
-              <div class="wbs-panel" id="wbsPanel">
-                <div class="wbs-panel-head">
-                  <span>확정 WBS <span class="wbs-note" id="wbsPanelCount"></span></span>
-                  <span>
-                    <span class="wbs-note">읽기 전용 · [WBS 확정] 을 누르면 프로젝트 계획이 복사됩니다</span>
-                    <a class="wbs-toggle" id="btnWbsPanelToggle" title="접기/펼치기">&#9650;</a>
-                  </span>
-                </div>
-                <div class="wbs-panel-body">
-                  <table class="wbs-tbl">
-                    <caption class="hide">확정 WBS</caption>
-                    <colgroup>
-                      <col style="width:16%"><col style="width:24%">
-                      <col style="width:15%"><col style="width:15%">
-                      <col style="width:12%"><col style="width:9%"><col style="width:9%">
-                    </colgroup>
-                    <thead>
-                    <tr>
-                      <th>대단계</th><th>세부단계</th>
-                      <th>계획 착수</th><th>계획 완료</th>
-                      <th>담당</th><th>진척</th><th>상태</th>
-                    </tr>
-                    </thead>
-                    <tbody id="wbsPanelBody"></tbody>
-                  </table>
-                </div>
-              </div>
-              <!-- WBS 요약 끝 -->
 
               <div class="ps-form-foot">
                 <span class="warn" id="sujuNotEditable" style="display:none;">* 계획 또는 출하가 진행된 수주는 수정이 불가합니다.</span>
@@ -989,6 +982,7 @@
      this.suppressDirty = false;
      this.suppressSelection = false;  // 데이터 로드 시 자동 선택 무시
      this.projStateCache = {};  // projno → 진행단계 요약 (완료 판정 캐시)
+     this.wbsFixed = false;     // 선택된 수주의 WBS 확정 여부 ([WBS 확정] 버튼 잠금용)
      this._selTimer = null;     // 그리드 방향키 이동 시 상세조회 디바운스
      this.init();
     }
@@ -1007,6 +1001,18 @@
       formatItem: (s, e) => {
        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
         e.cell.style.textAlign = 'center';
+        return;
+       }
+       // WBS 확정 여부는 '1'/'0' 원문 대신 뱃지로 그린다
+       if (e.panel.cellType === wijmo.grid.CellType.Cell) {
+        const col = s.columns[e.col];
+        if (col && col.binding === 'wbs_fixed') {
+         const item = s.rows[e.row] ? s.rows[e.row].dataItem : null;
+         const fixed = item && String(item.wbs_fixed) === '1';
+         e.cell.innerHTML = fixed
+          ? '<span class="wbs-chip fixed">확정</span>'
+          : '<span class="wbs-chip">미확정</span>';
+        }
        }
       },
       columns: [
@@ -1019,7 +1025,8 @@
        {binding: 'DueDate', header: '납기일', width: 100, align: 'center'},
        {binding: 'StateName', header: '작업상태', width: 80, align: 'center'},
        {binding: 'ShipmentStateName', header: '출하상태', width: 80, align: 'center'},
-       {binding: 'SujuTypeName', header: '수주구분', width: 80, align: 'center'}
+       {binding: 'SujuTypeName', header: '수주구분', width: 80, align: 'center'},
+       {binding: 'wbs_fixed', header: 'WBS', width: 80, align: 'center'}
       ],
       itemsSource: this.viewData
      });
@@ -1112,6 +1119,10 @@
      $('#btnSujuNew').click(function (e) {
       e.preventDefault();
       _this.resetForm('new');
+      // 신규 입력은 헤더부터 채워야 하므로 접혀 있으면 펼친다.
+      // persist=false : 사용자가 직접 접어둔 설정은 그대로 두고 이번만 펼친다
+      _this.setHeadCollapsed(false, false);
+      setTimeout(() => $('#sujuProjName').focus(), 60);
      });
      $('#btnSujuSave').click(function (e) {
       e.preventDefault();
@@ -1128,16 +1139,23 @@
       _this.openExcelUpload();
      });
 
-     //WBS 요약 패널 접기/펼치기
-     $(document).on('click', '#btnWbsPanelToggle', function (e) {
+     //수주상세 헤더 접기/펼치기
+     $('#btnHeadToggle').click(function (e) {
       e.preventDefault();
-      const $p = $('#wbsPanel').toggleClass('collapsed');
-      $(this).html($p.hasClass('collapsed') ? '&#9660;' : '&#9650;');
+      _this.toggleHead();
      });
+     // 기본은 접힘. 사용자가 펼쳐두면 그 상태를 세션 동안 기억한다
+     let savedCollapsed = '1';
+     try {
+      const v = sessionStorage.getItem('sujuHeadCollapsed');
+      if (v !== null) savedCollapsed = v;
+     } catch (e) { /* 세션스토리지 차단 환경은 기본값(접힘) 사용 */ }
+     this.setHeadCollapsed(savedCollapsed === '1');
 
-     //WBS 확정
+     //WBS 확정 (확정된 수주면 잠겨 있어 여기까지 오지 않는다)
      $('#btnWbsFix').click(function (e) {
       e.preventDefault();
+      if ($(this).hasClass('is-disabled')) return;
       _this.confirmWbs();
      });
 
@@ -1382,82 +1400,51 @@
 
 
 
-    /* ===== WBS 요약 패널 (임시) — 전용 화면 생기면 이 메서드들 삭제 ===== */
+    /* =========================================================
+       WBS 확정 (수주 단위)
+        - 버튼은 수주목록 검색줄에 있고, 그리드에서 선택된 수주를 대상으로 한다
+        - 이미 확정된 수주는 버튼을 잠근다 (재확정 없음)
+       ========================================================= */
 
-    wbsPanelEsc(v) {
-     return String(v == null ? '' : v)
-     .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-     .replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
+    /** 확정 여부에 맞춰 [WBS 확정] 버튼 잠금/해제 */
+    setWbsFixState(fixed) {
+     this.wbsFixed = !!fixed;
+     const $b = $('#btnWbsFix');
+     const hasSuju = !!$('#sujuId').val();
 
-    wbsPanelDate(v) {
-     const s = String(v == null ? '' : v).trim();
-     if (s.length !== 8) return '';
-     return s.slice(0, 4) + '-' + s.slice(4, 6) + '-' + s.slice(6, 8);
-    }
-
-    wbsPanelClear() {
-     $('#wbsPanelBody').html('<tr><td colspan="7" class="wbs-empty">수주를 선택하면 확정 WBS 가 표시됩니다.</td></tr>');
-     $('#wbsPanelCount').text('');
-    }
-
-    wbsPanelLoad(sujuHeadId) {
-     const _this = this;
-     if (!sujuHeadId) { this.wbsPanelClear(); return; }
-
-     AjaxUtil.getAsyncData('/api/transaction/wbsPlan/fix_list',
-      {suju_head_id: sujuHeadId},
-      function (result) {
-       _this.wbsPanelRender((result && result.data) ? result.data : []);
-      });
-    }
-
-    wbsPanelRender(rows) {
-     const _this = this;
-
-     if (!rows.length) {
-      $('#wbsPanelBody').html(
-       '<tr><td colspan="7" class="wbs-empty">확정된 WBS 가 없습니다. [WBS 확정] 을 누르세요.</td></tr>');
-      $('#wbsPanelCount').text('');
+     if (!hasSuju) {                       // 신규 폼 등 대상 수주가 없을 때
+      $b.removeClass('is-disabled').attr('title', 'WBS 확정');
+      $b.find('.lbl').text('WBS 확정');
       return;
      }
-
-     let html = '';
-     let prevStep = null;
-     let delayCnt = 0;
-
-     rows.forEach(function (r) {
-      const isNewStep = (r.step_no !== prevStep);
-      const delay = (r.delay_yn === '1');
-      if (delay) delayCnt++;
-
-      const cls = [isNewStep ? 'step-first' : '', delay ? 'delay' : ''].filter(Boolean).join(' ');
-      const prog = (r.progress == null) ? 0 : Math.round(Number(r.progress));
-
-      html += '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
-       '<td>' + (isNewStep ? _this.wbsPanelEsc(r.step_name) : '') + '</td>' +
-       '<td>' + _this.wbsPanelEsc(r.task_name) +
-       (r.milestone_yn === '1' ? ' <span class="wbs-ms" title="마일스톤">&#9733;</span>' : '') + '</td>' +
-       '<td class="c">' + _this.wbsPanelDate(r.pl_stdate) + '</td>' +
-       '<td class="c">' + _this.wbsPanelDate(r.pl_eddate) + '</td>' +
-       '<td class="c">' + _this.wbsPanelEsc(r.charge_name) + '</td>' +
-       '<td class="c">' + prog + '%</td>' +
-       '<td class="c dl">' + (delay ? '지연' : (r.ac_eddate ? '완료' : '')) + '</td>' +
-       '</tr>';
-
-      prevStep = r.step_no;
-     });
-
-     $('#wbsPanelBody').html(html);
-     $('#wbsPanelCount').text('· ' + rows.length + '단계' + (delayCnt ? ' · 지연 ' + delayCnt + '건' : ''));
+     if (this.wbsFixed) {
+      $b.addClass('is-disabled').attr('title', '이미 WBS 가 확정된 수주입니다');
+      $b.find('.lbl').text('WBS 확정됨');
+     } else {
+      $b.removeClass('is-disabled').attr('title', 'WBS 확정');
+      $b.find('.lbl').text('WBS 확정');
+     }
     }
 
-    /* ---------- WBS 확정 (수주 단위) ---------- */
+    /** 확정 직후 그리드 뱃지도 같이 갱신 (재조회 없이) */
+    markGridWbsFixed(sujuHeadId) {
+     const src = this.viewData.sourceCollection || [];
+     const row = src.find(r => String(r.id) === String(sujuHeadId));
+     if (row) {
+      row.wbs_fixed = '1';
+      if (this.grid) this.grid.invalidate();
+     }
+    }
+
     async confirmWbs() {
      const _this = this;
      const sujuHeadId = $('#sujuId').val();
      if (!sujuHeadId) {
       Alert.alert('', '수주를 먼저 선택해 주세요.');
+      return;
+     }
+     if (this.wbsFixed) {                  // pointer-events 로도 막지만 한 번 더
+      Alert.alert('', '이미 WBS 가 확정된 수주입니다.');
       return;
      }
 
@@ -1471,7 +1458,8 @@
       function (result) {
        if (result && result.success) {
         Alert.alert('', result.message || 'WBS 를 확정했습니다.');
-        _this.wbsPanelLoad(sujuHeadId);
+        _this.setWbsFixState(true);
+        _this.markGridWbsFixed(sujuHeadId);
        } else {
         Alert.alert('', (result && result.message) ? result.message : 'WBS 확정에 실패했습니다.');
        }
@@ -1895,7 +1883,8 @@
 
      $('#sujuModeBadge').text('수정 - ' + (d.JumunNumber || row.JumunNumber || '')).addClass('edit');
      $('#sujuId').val(d.id || row.id || '');
-     this.wbsPanelLoad(d.id || row.id || '');
+     // 상세 응답 우선, 없으면 목록 행 값으로 [WBS 확정] 버튼 잠금 결정
+     this.setWbsFixState(String(this.pick(d.wbs_fixed, row && row.wbs_fixed, '0')) === '1');
      this.setDetailProject({
       projno: d.projno || row.projno || '',
       projnm: d.projnm || row.projnm || ''
@@ -1952,6 +1941,7 @@
 
      this.calcTotalSum();
      this.applyEditability(d);
+     this.renderHeadSummary();
      this.dirty = false;
      this.suppressDirty = false;
     }
@@ -1967,7 +1957,7 @@
      this.showForm();
      $('#sujuForm')[0].reset();
      $('#sujuId').val('');
-     this.wbsPanelClear();
+     this.setWbsFixState(false);   // 대상 수주 없음 → 버튼 원상태
      // 신규 시 목록에서 선택된 프로젝트가 있으면 기본값으로 연결
      const srchNo = $('#sujuSrchProjno').val() || '';
      if (srchNo) {
@@ -1993,8 +1983,55 @@
      this.clearItemRows();
      this.addItemRows(2);
      this.calcTotalSum();
+     this.renderHeadSummary();
      this.dirty = false;
      this.suppressDirty = false;
+    }
+
+    /* =========================================================
+       수주상세 헤더 접기
+        .write-table 을 숨기면 .item-scroll 이 그 높이를 흡수해
+        공정 구성 행이 그만큼 더 보인다.
+       ========================================================= */
+
+    isHeadCollapsed() {
+     return $('#sujuForm').hasClass('head-collapsed');
+    }
+
+    setHeadCollapsed(collapsed, persist = true) {
+     $('#sujuForm').toggleClass('head-collapsed', !!collapsed);
+     $('#btnHeadToggle').find('.arrow').html(collapsed ? '&#9660;' : '&#9650;');
+     $('#btnHeadToggle').find('.txt').text(collapsed ? '헤더 펼치기' : '헤더 접기');
+     if (persist) {
+      try {
+       sessionStorage.setItem('sujuHeadCollapsed', collapsed ? '1' : '0');
+      } catch (e) { /* 세션스토리지 차단 환경 무시 */ }
+     }
+     if (collapsed) this.renderHeadSummary();
+    }
+
+    toggleHead() {
+     this.setHeadCollapsed(!this.isHeadCollapsed());
+    }
+
+    /** 접었을 때 보이는 한 줄 요약 (프로젝트 / 수주명 / 수주처 / 수주일 / 납기일) */
+    renderHeadSummary() {
+     const esc = (v) => String(v == null ? '' : v)
+     .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+     .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+     const cell = (label, val) =>
+      '<span><span class="lbl">' + label + '</span>' +
+      (val ? '<span class="val">' + esc(val) + '</span>'
+       : '<span class="empty">-</span>') + '</span>';
+
+     $('#sujuHeadSummary').html(
+      cell('프로젝트', $('#sujuProjName').val()) +
+      cell('수주명', $('#sujuName').val()) +
+      cell('수주처', $('#SuJuOrderName').val()) +
+      cell('수주일', $('#JumunDate').val()) +
+      cell('납기일', $('#DueDate').val())
+     );
     }
 
     isDirty() {
@@ -2168,10 +2205,10 @@
       }, 0);
      });
 
-     // 설계 업체 검색 (행별)
+     // 설계 업체 검색 (행별) — 발주 대상이므로 매입처에서 고른다
      $form.on('click', '.btn-design-comp', function () {
       const $row = $(this).closest('tr');
-      const pop = new PopCompComponent();
+      const pop = new PopCompComponent(null, {companyType: 'purchase', title: '설계 업체 선택 (매입처)'});
       pop.show(function (items) {
        $row.find('input[name^="designCompId_"]').val(items.id || '');
        $row.find('input[name^="designCompName_"]').val(items.compname || '');
@@ -2179,10 +2216,10 @@
       });
      });
 
-     // 제작 업체 검색 (행별)
+     // 제작 업체 검색 (행별) — 외작 발주가 여기서 나가므로 매입처에서 고른다
      $form.on('click', '.btn-make-comp', function () {
       const $row = $(this).closest('tr');
-      const pop = new PopCompComponent();
+      const pop = new PopCompComponent(null, {companyType: 'purchase', title: '제작 업체 선택 (매입처)'});
       pop.show(function (items) {
        $row.find('input[name^="makeCompId_"]').val(items.id || '');
        $row.find('input[name^="makeCompName_"]').val(items.compname || '');
@@ -2449,7 +2486,8 @@
         'n': '#btnSujuNew',
         's': '#btnSujuSave',
         'd': '#btnSujuDelete',
-        'f': '#btnSujuSearch'
+        'f': '#btnSujuSearch',
+        'h': '#btnHeadToggle'      // 헤더 접기/펼치기
        };
        if (map[k]) {
         e.preventDefault();
