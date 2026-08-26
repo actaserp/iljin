@@ -54,12 +54,20 @@ public class ProjectRegistrationServicr {
     dicParam.addValue("spjangcd", spjangcd);
     dicParam.addValue("projno", projno);
 
+    // wbs_plan_id 로 WBS 세부단계와 연결된다. 이름으로 맞추지 않는다 —
+    //  `설계` vs `3D 설계`, `1차 검도` vs `1차검도` 처럼 표기가 갈리면 조용히 어긋난다.
     String sql = """
-        SELECT seq, stagenm, pldate, cpdate, endflag, remark
-        FROM tb_da003_stage
-        WHERE spjangcd = :spjangcd
-          AND projno = :projno
-        ORDER BY seq ASC
+        SELECT s.seq, s.stagenm, s.pldate, s.cpdate, s.endflag, s.remark,
+               s.wbs_plan_id, s.charge_id, ps."Name" AS charge_name,
+               w.step_name || ' > ' || w.task_name AS wbs_label,
+               COALESCE(w.auto_source, '')          AS wbs_auto_source,
+               w.workcenter_id
+        FROM tb_da003_stage s
+        LEFT JOIN wbs_plan w  ON w.id = s.wbs_plan_id
+        LEFT JOIN person   ps ON ps.id = s.charge_id
+        WHERE s.spjangcd = :spjangcd
+          AND s.projno = :projno
+        ORDER BY s.seq ASC
     """;
 
     return this.sqlRunner.getRows(sql, dicParam);

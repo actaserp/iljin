@@ -109,9 +109,11 @@ public class WbsFormService {
         SELECT t.id, t.step_id, t.seq, t.task_name,
                t.base_type, t.offset_days, t.duration_days,
                t.workcenter_id, w."Name" AS workcenter_name,
+               t.charge_id, ps."Name" AS charge_name,
                t.milestone_yn, t.remark
           FROM wbs_form_task t
           LEFT JOIN work_center w ON w.id = t.workcenter_id
+          LEFT JOIN person ps ON ps.id = t.charge_id
          WHERE t.step_id IN (SELECT id FROM wbs_form_step WHERE form_id = :formId)
          ORDER BY t.step_id ASC, t.seq ASC
         """, p);
@@ -246,15 +248,17 @@ public class WbsFormService {
 					tp.addValue("offsetDays", asIntOr(t.get("offset_days"), 0));
 					tp.addValue("durationDays", asIntOr(t.get("duration_days"), 0));
 					tp.addValue("workcenterId", asInt(t.get("workcenter_id")));
+					// 템플릿 기본 담당. 계획 전개 시 wbs_plan.charge_id 의 초기값이 된다.
+					tp.addValue("chargeId", asInt(t.get("charge_id")));
 					tp.addValue("milestoneYn", "1".equals(asStr(t.get("milestone_yn"))) ? "1" : "0");
 					tp.addValue("remark", asStr(t.get("remark")));
 
 					this.sqlRunner.execute("""
               INSERT INTO wbs_form_task
                      (step_id, seq, task_name, base_type, offset_days, duration_days,
-                      workcenter_id, milestone_yn, remark)
+                      workcenter_id, charge_id, milestone_yn, remark)
               VALUES (:stepId, :seq, :taskName, :baseType, :offsetDays, :durationDays,
-                      :workcenterId, :milestoneYn, :remark)
+                      :workcenterId, :chargeId, :milestoneYn, :remark)
               """, tp);
 					seq++;
 				}

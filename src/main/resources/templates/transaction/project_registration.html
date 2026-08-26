@@ -91,6 +91,16 @@
           vertical-align: middle;
           background: transparent;
       }
+      /* WBS 연결 열 추가로 폭이 빡빡해졌다. 고정폭 열이 밀리지 않게 잡아둔다. */
+      #stageTable tbody td { overflow: hidden; }
+      #stageTable tbody select.stage-wbs {
+          min-width: 0;
+          max-width: 100%;
+          text-overflow: ellipsis;
+      }
+      #stageTable tbody td.td-center { white-space: nowrap; padding-left: 2px; padding-right: 2px; }
+      #stageTable tbody .mini-btn { margin: 0; }
+      #stageTable tbody .stage-chip { padding: 0 8px; }
       #stageTable tbody tr:nth-child(even) { background: #fbfcfe; }
       #stageTable tbody tr:hover { background: #eef5ff; }
       #stageTable tbody tr.is-done { background: #f1faf3; }
@@ -99,7 +109,8 @@
 
       /* 입력요소 */
       #stageTable tbody input[type="text"],
-      #stageTable tbody input[type="date"] {
+      #stageTable tbody input[type="date"],
+      #stageTable tbody select.stage-wbs {
           width: 100%;
           height: 30px;
           line-height: 30px;
@@ -177,6 +188,10 @@
           cursor: pointer;
       }
       .stage-chip:hover { border-color: #2f6fed; color: #2f6fed; }
+      /* 자동 채움 단계(2D 출도). 고칠 수는 있지만 도면출도일이 바뀌면 되돌아간다.
+         구분이 되게 점선 테두리만 준다. */
+      .stage-chip.is-auto { border-style: dashed; }
+      .stage-chip.is-auto::after { content: " 자동"; font-size: 10px; opacity: .7; }
       .stage-chip.done {
           color: #fff;
           background: #2aa25a;
@@ -204,6 +219,43 @@
           background: #fafbfd;
           border-top: 1px solid #eef0f4;
       }
+
+      /* WBS 계획 팝업 입력요소 */
+      .wbs-tbl input[type="date"], .wbs-tbl input[type="number"],
+      .wbs-tbl input[type="text"], .wbs-tbl select {
+          width: 100%; height: 26px; padding: 0 6px;
+          border: 1px solid #dfe3ea; border-radius: 4px;
+          font-size: 12px; background: #fff; color: #2c3547;
+      }
+      .wbs-tbl input:focus, .wbs-tbl select:focus { border-color: #2f6fed; outline: none; }
+      .wbs-tbl td { overflow: hidden; }
+
+      /* ===== 헤더 접기 =====
+         수주관리(suju_project)의 헤더 접기와 같은 방식.
+         .table-wrap 을 숨기면 진행단계 영역이 그만큼 위로 올라와
+         스크롤 없이 더 많은 단계를 볼 수 있다. */
+      .hdr-toggle {
+          display: inline-flex; align-items: center; gap: 3px;
+          margin-left: 8px; padding: 1px 7px;
+          border: 1px solid #d3d9e2; border-radius: 4px; background: #fff;
+          color: #55617a; font-size: 11px; font-weight: 600;
+          cursor: pointer; vertical-align: middle;
+      }
+      .hdr-toggle:hover { border-color: #2f6fed; color: #2f6fed; }
+      .hdr-toggle .arrow { font-size: 9px; line-height: 1; }
+
+      .hdr-summary {
+          display: none;
+          align-items: center; flex-wrap: wrap; gap: 6px 14px;
+          padding: 5px 10px; margin-bottom: 6px;
+          background: #f7f9fc; border: 1px solid #e4e8ee; border-radius: 5px;
+          font-size: 12px; color: #3a4557;
+      }
+      .hdr-summary .lbl { color: #8a94a6; margin-right: 3px; }
+      .hdr-summary .val { font-weight: 600; }
+      .hdr-summary .empty { color: #98a2b3; font-weight: 400; }
+      #CategoryForm.head-collapsed .table-wrap { display: none; }
+      #CategoryForm.head-collapsed .hdr-summary { display: flex; }
 
       /* ===== WBS 템플릿 관리 모달 ===== */
       .wbsmodal { position: fixed; inset: 0; z-index: 1050; }
@@ -385,7 +437,8 @@
           <div class="col 60">
             <div class="section">
               <form id="CategoryForm">
-                <!-- Hidden Fields -->
+                <!-- 접었을 때만 보이는 한 줄 요약 -->
+                <div class="hdr-summary" id="projHeadSummary"></div>
                 <!-- Table Wrap -->
                 <div class="table-wrap">
                   <table class="view-table" id="selectedData">
@@ -449,9 +502,15 @@
                     <span class="title">
                       진행단계
                       <span class="count-badge" id="stageCount">0</span>
+                      <a class="hdr-toggle" id="btnProjHeadToggle" title="헤더 접기/펼치기">
+                        <span class="arrow">&#9650;</span><span class="txt">헤더 접기</span>
+                      </a>
                       <span class="hint">순번의 ⠿를 끌거나 ▲▼로 순서를 바꿀 수 있습니다.</span>
                     </span>
                     <span class="head-btns">
+                      <a class="btn btn-excell" title="WBS 계획 보기" id="btnWbsPlanView">
+                        WBS 계획 <span class="wbs-note" id="wbsPanelCount"></span>
+                      </a>
                       <a class="btn btn-excell" title="단계추가" id="btnAddStage">
                         <img th:src="@{/images/icon/ico-plus.svg}" alt="추가 아이콘">
                         단계추가
@@ -464,17 +523,21 @@
                     <table id="stageTable">
                       <caption class="hide">진행단계</caption>
                       <colgroup>
-                        <col style="width:13%">   <!-- 순번(드래그) -->
-                        <col style="width:27%">   <!-- 단계명 -->
-                        <col style="width:19%">   <!-- 예정일 -->
-                        <col style="width:19%">   <!-- 완료일 -->
-                        <col style="width:12%">   <!-- 완료 -->
-                        <col style="width:10%">   <!-- 순서/삭제 -->
+                        <col style="width:54px">   <!-- 순번(드래그) -->
+                        <col>                      <!-- 단계명 (가변) -->
+                        <col style="width:24%">    <!-- WBS 연결 -->
+                        <col style="width:112px">  <!-- 담당 -->
+                        <col style="width:126px">  <!-- 예정일 -->
+                        <col style="width:126px">  <!-- 완료일 -->
+                        <col style="width:60px">   <!-- 완료 -->
+                        <col style="width:92px">   <!-- 순서/삭제 -->
                       </colgroup>
                       <thead>
                       <tr>
                         <th>순번</th>
                         <th>단계명</th>
+                        <th>WBS 연결</th>
+                        <th>담당</th>
                         <th>예정일</th>
                         <th>완료일</th>
                         <th>완료</th>
@@ -487,37 +550,14 @@
                     </table>
                   </div>
                   <div class="stage-foot">
-                    내용이 하나도 없는 행은 저장되지 않습니다. (기본 3행 표시)
+                    내용이 하나도 없는 행은 저장되지 않습니다.
+                    WBS 를 연결한 행은 완료를 누르면 WBS 계획의 실적일에도 반영됩니다.
                   </div>
                 </div>
                 <!-- ============================================ -->
 
-                <!-- WBS 요약 시작 — 전용 화면 생기면 이 블록 삭제 -->
-                <div class="wbs-panel" id="wbsPanel">
-                  <div class="wbs-panel-head">
-                    <span>WBS 계획 <span class="wbs-note" id="wbsPanelCount"></span></span>
-                    <span class="wbs-note">읽기 전용 · 템플릿을 다시 적용하면 계획일이 재계산됩니다</span>
-                  </div>
-                  <div class="wbs-panel-body">
-                    <table class="wbs-tbl">
-                      <caption class="hide">WBS 계획</caption>
-                      <colgroup>
-                        <col style="width:16%"><col style="width:24%">
-                        <col style="width:15%"><col style="width:15%">
-                        <col style="width:12%"><col style="width:9%"><col style="width:9%">
-                      </colgroup>
-                      <thead>
-                      <tr>
-                        <th>대단계</th><th>세부단계</th>
-                        <th>계획 착수</th><th>계획 완료</th>
-                        <th>담당</th><th>진척</th><th>상태</th>
-                      </tr>
-                      </thead>
-                      <tbody id="wbsPanelBody"></tbody>
-                    </table>
-                  </div>
-                </div>
-                <!-- WBS 요약 끝 -->
+                <!-- WBS 계획은 팝업으로 본다. 인라인으로 두면 진행단계까지
+                     합쳐 세로가 너무 길어져 스크롤이 과해진다. -->
 
               </form>
             </div>
@@ -526,6 +566,41 @@
       </div>
     </section>
   </div>
+
+  <!-- ===================== WBS 계획 보기 팝업 ===================== -->
+  <script type="text/x-tmpl" id="wbsPlanViewTemplate">
+    <div class="content_wrap popup">
+      <div class="wbs-panel" id="wbsPanel" style="margin:0;">
+        <div class="wbs-panel-head">
+          <span>WBS 계획 <span class="wbs-note" id="wbsPopCount"></span></span>
+          <span class="wbs-note">담당 · 진척 · 실적일 · 비고를 여기서 입력합니다 (계획일은 템플릿에서 재계산)</span>
+        </div>
+        <div class="wbs-panel-body" style="max-height:520px; overflow:auto;">
+          <table class="wbs-tbl">
+            <caption class="hide">WBS 계획</caption>
+            <colgroup>
+              <col style="width:10%"><col style="width:16%">
+              <col style="width:10%"><col style="width:10%"><col style="width:12%">
+              <col style="width:13%"><col style="width:8%"><col style="width:7%">
+              <col style="width:14%">
+            </colgroup>
+            <thead>
+            <tr>
+              <th>대단계</th><th>세부단계</th>
+              <th>계획 착수</th><th>계획 완료</th><th>실적 완료</th>
+              <th>담당</th><th>진척</th><th>상태</th><th>비고</th>
+            </tr>
+            </thead>
+            <tbody id="wbsPanelBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="popup-button">
+        <button type="button" class="btn-popup" id="wbsPlanSave">저장</button>
+        <button type="button" class="btn-popup" id="wbsPlanViewClose">닫기</button>
+      </div>
+    </div>
+  </script>
 
   <!-- ===================== WBS 템플릿 관리 모달 ===================== -->
   <div id="wbsFormModal" class="wbsmodal" style="display:none;">
@@ -590,7 +665,11 @@
   <th:block th:replace="/common/popup_company :: popup_company"></th:block>
   <th:block th:replace="/common/popup_account :: popup_account"/>
 
-  <script type="text/javascript">
+  <!-- ★ th:inline="none" 필수.
+       Thymeleaf 3 은 스크립트 안의 이중 대괄호를 인라인 표현식으로 해석한다.
+       WBS 템플릿 모달의 기준일 옵션 배열이 그 형태라
+       "Could not parse as expression" 으로 템플릿 파싱이 통째로 실패했다. -->
+  <script type="text/javascript" th:inline="none">
    class ProjectRegistrationPage {
     constructor() {
      this.grid = null;
@@ -643,8 +722,15 @@
        $('#contdate').val(this.formatDateDash(selectedItem.contdate));
        $('#remark').val(selectedItem.remark);
 
+       // ★ 적용된 WBS 템플릿을 콤보에 반영한다.
+       //   이게 없으면 이미 템플릿을 적용한 프로젝트도 "선택 안 함" 으로 보이고,
+       //   그 상태로 저장하면 plan_make 가 호출되지 않아 계획이 갱신되지 않는다.
+       //   (tb_da003.wbs_form_id 는 generatePlan 이 적용 시점에 기록해 둔다)
+       this.loadWbsFormOptions(selectedItem.wbs_form_id);
+
        this.loadStages(selectedItem.projno);
        this.wbsPanelLoad(selectedItem.projno);
+       if (this.isProjHeadCollapsed()) this.renderProjHeadSummary();
       }
      });
 
@@ -662,18 +748,17 @@
      this.clearStages();
     }
 
-    // ✅ 진행단계 서버 조회 후 렌더링
+    // 진행단계 서버 조회 후 렌더링.
+    //  ★ WBS 단계 목록을 먼저 받아야 드롭다운을 그릴 수 있다. 순서를 지킬 것.
     loadStages(projno) {
      const _this = this;
-     const data = {
-      projno: projno,
-      spjangcd: this.spjangcd.val()
-     };
-
-     AjaxUtil.getAsyncData(this.url + '/readStages', data, function (result) {
-      if (result != null) {
-       _this.renderStages(result.data || []);
-      }
+     this.loadPersonOptions();
+     this.loadWbsStageOptions(projno, function () {
+      AjaxUtil.getAsyncData(_this.url + '/readStages',
+       {projno: projno, spjangcd: _this.spjangcd.val()},
+       function (result) {
+        if (result != null) _this.renderStages(result.data || []);
+       });
      });
     }
 
@@ -702,8 +787,72 @@
     }
 
     // ✅ 진행단계 행 1개 추가
+    /**
+     * 진행단계 행의 WBS 연결 드롭다운.
+     *
+     *  ★ 이름이 아니라 wbs_plan_id 로 연결한다.
+     *    현장은 `설계` / `출도` 로 쓰고 템플릿은 `3D 설계` / `2D 출도` 라
+     *    이름으로 맞추면 대부분 어긋난다.
+     *
+     *  연결하지 않은 행은 진행단계에만 존재한다 (예: 템플릿에 없는 `2차검도`).
+     *  연결한 행에서 완료를 누르면 wbs_plan.ac_eddate 에 반영된다.
+     */
+    wbsLinkSelect(stage = {}) {
+     const cur = String(stage.wbs_plan_id ?? '');
+     let html = '<select class="stage-wbs"><option value="">(연결 안 함)</option>';
+     (this.wbsStageOptions || []).forEach((o) => {
+      const v = String(o.id);
+      // 2D 출도처럼 수주 도면출도일에서 자동으로 채우는 단계는 고르지 못하게 한다.
+      //  사람이 누른 값으로 덮어도 다음 수주 저장 때 도로 바뀌어 값이 왔다갔다 한다.
+      const auto = String(o.auto_source ?? '') !== '';
+      // 자동 채움 단계도 연결할 수 있다. 다만 도면출도일이 바뀌면 그 값이 이긴다.
+      const label = this.escapeHtml(o.label) + (auto ? ' (자동)' : '');
+      html += `<option value="${v}"${v === cur ? ' selected' : ''}>${label}</option>`;
+     });
+     return html + '</select>';
+    }
+
+    /**
+     * 담당자 드롭다운.
+     *  SPEC 5-2: 해당 워크센터 인원을 위로 올리되 막지는 않는다 (교대·대체 인력).
+     *  서버가 preferred 로 정렬해 내려주므로 여기서는 그 순서를 그대로 쓴다.
+     */
+    chargeSelect(stage = {}) {
+     const cur = String(stage.charge_id ?? '');
+     let html = '<select class="stage-charge"><option value="">(미지정)</option>';
+     (this.personOptions || []).forEach((o) => {
+      const v = String(o.id);
+      html += `<option value="${v}"${v === cur ? ' selected' : ''}>${this.escapeHtml(o.name)}</option>`;
+     });
+     return html + '</select>';
+    }
+
+    // 인원 목록. 화면 진입 시 한 번만 받는다.
+    loadPersonOptions(done) {
+     const _this = this;
+     AjaxUtil.getAsyncData(this.url + '/personOptions', {}, function (r) {
+      _this.personOptions = (r && r.data) ? r.data : [];
+      if (done) done();
+     });
+    }
+
+    // WBS 세부단계 목록을 받아둔다. 프로젝트를 고를 때마다 다시 부른다.
+    loadWbsStageOptions(projno, done) {
+     const _this = this;
+     if (!projno) { this.wbsStageOptions = []; if (done) done(); return; }
+     AjaxUtil.getAsyncData(this.url + '/wbsStageOptions',
+      {projno: projno, spjangcd: this.spjangcd.val()},
+      function (r) {
+       _this.wbsStageOptions = (r && r.data) ? r.data : [];
+       if (done) done();
+      });
+    }
+
     addStageRow(stage = {}) {
      const $tbody = $('#stageTableBody');
+     // 자동 채움(2D 출도) 단계는 표시만 다르게 한다. 고치는 것은 허용한다.
+     //  단 수주 도면출도일이 바뀌면 syncDrawDate 가 다시 덮어쓴다 (자동값이 이긴다).
+     const auto = String(stage.wbs_auto_source ?? '') !== '';
      const row = `
           <tr draggable="false">
             <td class="stage-seq-cell">
@@ -711,10 +860,13 @@
               <span class="stage-seq"></span>
             </td>
             <td><input type="text" class="stage-stagenm" value="${this.escapeHtml(stage.stagenm)}" placeholder="단계명"/></td>
+            <td>${this.wbsLinkSelect(stage)}</td>
+            <td>${this.chargeSelect(stage)}</td>
             <td><input type="date" class="stage-pldate" value="${this.toDateInputValue(stage.pldate)}"/></td>
             <td><input type="date" class="stage-cpdate" value="${this.toDateInputValue(stage.cpdate)}"/></td>
             <td class="td-center">
-              <button type="button" class="stage-chip btn-stage-complete" title="완료일 등록/해제">완료</button>
+              <button type="button" class="stage-chip btn-stage-complete${auto ? ' is-auto' : ''}"
+                      title="${auto ? '수주의 도면출도일에서 자동으로 채워집니다. 여기서 고칠 수 있지만, 도면출도일이 바뀌면 자동값으로 되돌아갑니다.' : '완료일 등록/해제'}">완료</button>
             </td>
             <td class="td-center">
               <button type="button" class="mini-btn btn-stage-up" title="위로 이동">&#9650;</button>
@@ -723,6 +875,9 @@
             </td>
           </tr>`;
      $tbody.append(row);
+     // 비고는 WBS 계획 팝업에서 입력한다. 여기서는 열을 만들지 않되
+     //  값을 잃지 않도록 행에 담아둔다 (저장 시 그대로 되돌려 보낸다).
+     $tbody.children('tr').last().data('remark', stage.remark || '');
      this.renumberStages();
      return $tbody.children('tr').last();
     }
@@ -900,14 +1055,18 @@
       const pldate = ($tr.find('.stage-pldate').val() || '').trim();
       const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
 
-      // ✅ 완전히 빈 행은 저장하지 않음
-      if (!stagenm && !pldate && !cpdate) return;
+      // 완전히 빈 행은 저장하지 않음 (WBS 만 연결한 행은 저장한다)
+      const wbsId = ($tr.find('.stage-wbs').val() || '').trim();
+      if (!stagenm && !pldate && !cpdate && !wbsId) return;
 
       stages.push({
        seq: stages.length + 1,   // 화면에 보이는 순서대로 순번 부여
        stagenm: stagenm,
        pldate: pldate,
-       cpdate: cpdate
+       cpdate: cpdate,
+       wbs_plan_id: ($tr.find('.stage-wbs').val() || '') || null,
+       charge_id: ($tr.find('.stage-charge').val() || '') || null,
+       remark: $tr.data('remark') || null
       });
      });
      return stages;
@@ -1074,10 +1233,18 @@
     }
 
     wbsPanelClear() {
-     $('#wbsPanelBody').html('<tr><td colspan="7" class="wbs-empty">프로젝트를 선택하면 WBS 계획이 표시됩니다.</td></tr>');
+     this.wbsRows = [];
      $('#wbsPanelCount').text('');
+     if ($('#wbsPanelBody').length) {
+      $('#wbsPanelBody').html('<tr><td colspan="9" class="wbs-empty">프로젝트를 선택하면 WBS 계획이 표시됩니다.</td></tr>');
+     }
     }
 
+    /**
+     * WBS 계획을 받아둔다. 화면에는 건수/지연만 표시하고,
+     * 표는 [WBS 계획] 버튼으로 팝업에서 본다.
+     *  (진행단계와 나란히 두면 세로가 너무 길어져 스크롤이 과해진다)
+     */
     wbsPanelLoad(projno) {
      const _this = this;
      if (!projno) { this.wbsPanelClear(); return; }
@@ -1085,17 +1252,134 @@
      AjaxUtil.getAsyncData('/api/transaction/wbsPlan/plan_list',
       {spjangcd: this.spjangcd.val(), projno: projno},
       function (result) {
-       _this.wbsPanelRender((result && result.data) ? result.data : []);
+       _this.wbsRows = (result && result.data) ? result.data : [];
+       _this.wbsPanelBadge();
+       // 팝업이 열려 있으면 그 자리에서 다시 그린다
+       if ($('#wbsPanelBody').length) _this.wbsPanelRender(_this.wbsRows);
       });
+    }
+
+    /** 버튼 옆 요약 배지 (건수 · 지연) */
+    wbsPanelBadge() {
+     const rows = this.wbsRows || [];
+     const delay = rows.filter((r) => r.delay_yn === '1').length;
+     const txt = rows.length
+      ? '· ' + rows.length + '단계' + (delay ? ' · 지연 ' + delay + '건' : '')
+      : '';
+     $('#wbsPanelCount').text(txt);
+    }
+
+    /* =========================================================
+       헤더 접기 — 수주관리와 같은 방식
+        .table-wrap 을 숨기면 진행단계가 그만큼 위로 올라와
+        스크롤 없이 더 많은 단계를 볼 수 있다.
+       ========================================================= */
+
+    isProjHeadCollapsed() {
+     return $('#CategoryForm').hasClass('head-collapsed');
+    }
+
+    setProjHeadCollapsed(collapsed, persist = true) {
+     $('#CategoryForm').toggleClass('head-collapsed', !!collapsed);
+     $('#btnProjHeadToggle').find('.arrow').html(collapsed ? '&#9660;' : '&#9650;');
+     $('#btnProjHeadToggle').find('.txt').text(collapsed ? '헤더 펼치기' : '헤더 접기');
+     if (persist) {
+      try {
+       sessionStorage.setItem('projHeadCollapsed', collapsed ? '1' : '0');
+      } catch (e) { /* 세션스토리지 차단 환경 무시 */ }
+     }
+     if (collapsed) this.renderProjHeadSummary();
+    }
+
+    toggleProjHead() {
+     this.setProjHeadCollapsed(!this.isProjHeadCollapsed());
+    }
+
+    /** 접었을 때 보이는 한 줄 요약 */
+    renderProjHeadSummary() {
+     const esc = (v) => this.escapeHtml(v);
+     const cell = (label, val) =>
+      '<span><span class="lbl">' + label + '</span>' +
+      (val ? '<span class="val">' + esc(val) + '</span>'
+       : '<span class="empty">-</span>') + '</span>';
+
+     $('#projHeadSummary').html(
+      cell('번호', $('#projno').val()) +
+      cell('프로젝트명', $('#projnm').val()) +
+      cell('발주처', $('#balcltnm').val()) +
+      cell('공사일자', $('#stdate').val()) +
+      cell('종료일', $('#eddate').val()) +
+      cell('계약일자', $('#contdate').val())
+     );
+    }
+
+    /** WBS 계획 팝업 열기 */
+    openWbsPlanView() {
+     const _this = this;
+     if (!$('#projno').val()) {
+      Alert.alert('', '프로젝트를 먼저 선택하세요.');
+      return;
+     }
+     if (this.wbsPlanPopup) {
+      this.wbsPlanPopup.close();
+      this.wbsPlanPopup = null;
+     }
+     const content = tmpl('wbsPlanViewTemplate', {});
+     this.wbsPlanPopup = new PopupDraggable('WBS 계획');
+     this.wbsPlanPopup.open({width: 900, height: 620, $content: $(content)});
+
+     this.wbsPanelRender(this.wbsRows || []);
+
+     // 담당 / 진척 / 실적일 / 비고 저장 → /rows_save
+     //  저장하면 연결된 진행단계에도 같은 값이 내려간다 (양방향).
+     $(document).off('click', '#wbsPlanSave').on('click', '#wbsPlanSave', function () {
+      const rows = [];
+      $('#wbsPanelBody tr').each(function () {
+       const $tr = $(this);
+       const id = $tr.data('id');
+       if (!id) return;
+       rows.push({
+        id: id,
+        ac_eddate: ($tr.find('.wbs-aced').val() || '').trim(),
+        progress: parseFloat($tr.find('.wbs-prog').val() || '0') || 0,
+        charge_id: ($tr.find('.wbs-charge').val() || '') || null,
+        remark: ($tr.find('.wbs-remark').val() || '').trim()
+       });
+      });
+      if (rows.length === 0) {
+       Alert.alert('', '저장할 내용이 없습니다.');
+       return;
+      }
+      AjaxUtil.postJsonData('/api/transaction/wbsPlan/rows_save', {rows: rows}, function (r) {
+       if (!r || !r.success) {
+        Alert.alert('저장할 수 없습니다', (r && r.message) ? r.message : '알 수 없는 오류');
+        return;
+       }
+       Notify.success(r.message || '저장되었습니다.');
+       // 진행단계에도 반영됐으므로 둘 다 다시 읽는다
+       const projno = $('#projno').val();
+       _this.wbsPanelLoad(projno);
+       _this.loadStages(projno);
+      });
+     });
+
+     $(document).off('click', '#wbsPlanViewClose').on('click', '#wbsPlanViewClose', function () {
+      if (_this.wbsPlanPopup) {
+       _this.wbsPlanPopup.close();
+       _this.wbsPlanPopup = null;
+      }
+     });
     }
 
     wbsPanelRender(rows) {
      const _this = this;
 
+     if (!$('#wbsPanelBody').length) return;   // 팝업이 닫혀 있으면 그릴 곳이 없다
+
      if (!rows.length) {
       $('#wbsPanelBody').html(
-       '<tr><td colspan="7" class="wbs-empty">WBS 계획이 없습니다. 상단에서 템플릿을 선택하고 저장하세요.</td></tr>');
-      $('#wbsPanelCount').text('');
+       '<tr><td colspan="9" class="wbs-empty">WBS 계획이 없습니다. 상단에서 템플릿을 선택하고 저장하세요.</td></tr>');
+      $('#wbsPopCount').text('');
       return;
      }
 
@@ -1111,22 +1395,35 @@
       const cls = [isNewStep ? 'step-first' : '', delay ? 'delay' : ''].filter(Boolean).join(' ');
       const prog = (r.progress == null) ? 0 : Math.round(Number(r.progress));
 
-      html += '<tr' + (cls ? ' class="' + cls + '"' : '') + '>' +
+      // 담당 / 진척 / 실적 완료 / 비고는 입력 가능하다. 계획일은 템플릿이 소유한다.
+      let chargeOpts = '<option value="">(미지정)</option>';
+      (_this.personOptions || []).forEach(function (o) {
+       const v = String(o.id);
+       chargeOpts += '<option value="' + v + '"'
+        + (v === String(r.charge_id ?? '') ? ' selected' : '') + '>'
+        + _this.wbsPanelEsc(o.name) + '</option>';
+      });
+
+      html += '<tr' + (cls ? ' class="' + cls + '"' : '') + ' data-id="' + r.id + '">' +
        '<td>' + (isNewStep ? _this.wbsPanelEsc(r.step_name) : '') + '</td>' +
        '<td>' + _this.wbsPanelEsc(r.task_name) +
        (r.milestone_yn === '1' ? ' <span class="wbs-ms" title="마일스톤">&#9733;</span>' : '') + '</td>' +
        '<td class="c">' + _this.wbsPanelDate(r.pl_stdate) + '</td>' +
        '<td class="c">' + _this.wbsPanelDate(r.pl_eddate) + '</td>' +
-       '<td class="c">' + _this.wbsPanelEsc(r.charge_name) + '</td>' +
-       '<td class="c">' + prog + '%</td>' +
+       // 실적 완료일. 진행단계의 [완료] 와 같은 값이다 (양방향 동기화).
+       '<td class="c"><input type="date" class="wbs-aced" value="'
+       + _this.wbsPanelDate(r.ac_eddate) + '"></td>' +
+       '<td><select class="wbs-charge">' + chargeOpts + '</select></td>' +
+       '<td class="c"><input type="number" class="wbs-prog" min="0" max="100" value="' + prog + '"></td>' +
        '<td class="c dl">' + (delay ? '지연' : (r.ac_eddate ? '완료' : '')) + '</td>' +
+       '<td><input type="text" class="wbs-remark" value="' + _this.wbsPanelEsc(r.remark) + '"></td>' +
        '</tr>';
 
       prevStep = r.step_no;
      });
 
      $('#wbsPanelBody').html(html);
-     $('#wbsPanelCount').text('· ' + rows.length + '단계' + (delayCnt ? ' · 지연 ' + delayCnt + '건' : ''));
+     $('#wbsPopCount').text('· ' + rows.length + '단계' + (delayCnt ? ' · 지연 ' + delayCnt + '건' : ''));
     }
 
     /* =========================================================
@@ -1151,7 +1448,12 @@
      this.WF = {list: [], cur: null};
      $('#wbsFormModal').show();
      this.bindWbsFormEvents();
-     this.wfLoadList();
+     // 기본 담당 드롭다운용. 목록이 없으면 (미지정) 만 뜨므로 먼저 받는다.
+     if (!this.personOptions) {
+      this.loadPersonOptions(function () { _this.wfLoadList(); });
+     } else {
+      this.wfLoadList();
+     }
     }
 
     closeWbsForm() {
@@ -1233,7 +1535,7 @@
      this.WF.cur = {
       id: null, form_code: '', form_name: '', revision: 1,
       state: 'draft', remark: '', used_count: 0,
-      steps: [{step_name: '', remark: '', tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0'}]}]
+      steps: [{step_name: '', remark: '', tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0', charge_id: null}]}]
      };
      this.wfRenderList();
      this.wfRenderEditor();
@@ -1265,6 +1567,16 @@
       // 주의: 대괄호 두 개가 연달아 붙으면 Thymeleaf 인라인 표현식으로 해석되어 파싱이 깨진다.
       //       배열 리터럴 양끝에 공백을 둘 것.
       const opts = [ ['prev', '이전단계 종료'], ['contract', '계약일'], ['start', '공사일자'], ['end', '종료일'] ];
+
+      const chargeOpts = (cur) => {
+       const c = String(cur ?? '');
+       let h = '<option value="">(미지정)</option>';
+       (page.personOptions || []).forEach(function (o) {
+        const v = String(o.id);
+        h += '<option value="' + v + '"' + (v === c ? ' selected' : '') + '>' + esc(o.name) + '</option>';
+       });
+       return h;
+      };
       return opts.map(o => '<option value="' + o[0] + '"' + (o[0] === (v || 'prev') ? ' selected' : '') + '>' + o[1] + '</option>').join('');
      };
 
@@ -1285,10 +1597,10 @@
        '</div>';
 
       html += '<table class="wf-tasktbl"><colgroup>' +
-       '<col style="width:34px"><col><col style="width:120px"><col style="width:62px">' +
-       '<col style="width:62px"><col style="width:48px"><col style="width:34px">' +
+       '<col style="width:34px"><col><col style="width:110px"><col style="width:110px">' +
+       '<col style="width:56px"><col style="width:56px"><col style="width:40px"><col style="width:34px">' +
        '</colgroup><thead><tr>' +
-       '<th>No</th><th>세부단계</th><th>기준</th><th>오프셋</th><th>소요일</th><th>MS</th><th></th>' +
+       '<th>No</th><th>세부단계</th><th>기준</th><th>기본 담당</th><th>오프셋</th><th>소요일</th><th>MS</th><th></th>' +
        '</tr></thead><tbody>';
 
       (st.tasks || []).forEach(function (t, ti) {
@@ -1296,6 +1608,9 @@
         '<td style="text-align:center;">' + (ti + 1) + '</td>' +
         '<td><input class="wf-t" data-si="' + si + '" data-ti="' + ti + '" data-k="task_name"' + dis + ' value="' + esc(t.task_name) + '" placeholder="예: 3D 설계"></td>' +
         '<td><select class="wf-t" data-si="' + si + '" data-ti="' + ti + '" data-k="base_type"' + dis + '>' + baseOpts(t.base_type) + '</select></td>' +
+        // 기본 담당. 계획 전개 시 wbs_plan.charge_id 초기값이 된다.
+        //  현장이 이미 지정한 담당이 있으면 그쪽이 이긴다 (generatePlan 이 보존).
+        '<td><select class="wf-t" data-si="' + si + '" data-ti="' + ti + '" data-k="charge_id"' + dis + '>' + chargeOpts(t.charge_id) + '</select></td>' +
         '<td><input type="number" class="wf-t" data-si="' + si + '" data-ti="' + ti + '" data-k="offset_days"' + dis + ' value="' + (t.offset_days == null ? 0 : t.offset_days) + '"></td>' +
         '<td><input type="number" class="wf-t" data-si="' + si + '" data-ti="' + ti + '" data-k="duration_days"' + dis + ' value="' + (t.duration_days == null ? 0 : t.duration_days) + '"></td>' +
         '<td style="text-align:center;"><input type="checkbox" class="wf-ms" data-si="' + si + '" data-ti="' + ti + '"' + dis + (t.milestone_yn === '1' ? ' checked' : '') + '></td>' +
@@ -1329,6 +1644,7 @@
       const si = +this.dataset.si, ti = +this.dataset.ti, k = this.dataset.k;
       let v = this.value;
       if (k === 'offset_days' || k === 'duration_days') v = (v === '' ? 0 : parseInt(v, 10));
+      if (k === 'charge_id') v = (v === '' ? null : parseInt(v, 10));
       c.steps[si].tasks[ti][k] = v;
      });
 
@@ -1337,12 +1653,12 @@
      });
 
      $('#wfEditor .wfAddStep').off('click').on('click', function () {
-      c.steps.push({step_name: '', remark: '', tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0'}]});
+      c.steps.push({step_name: '', remark: '', tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0', charge_id: null}]});
       _this.wfRenderEditor();
      });
 
      $('#wfEditor .wfAddTask').off('click').on('click', function () {
-      c.steps[+this.dataset.si].tasks.push({task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0'});
+      c.steps[+this.dataset.si].tasks.push({task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0', charge_id: null});
       _this.wfRenderEditor();
      });
 
@@ -1460,17 +1776,34 @@
     }
 
     /** 등록 폼의 템플릿 콤보 — 적용중인 것만 */
+    /**
+     * WBS 템플릿 콤보 채우기.
+     *
+     * @param selectedId 프로젝트에 적용돼 있던 템플릿 id (tb_da003.wbs_form_id)
+     *
+     *  ★ /active_list 는 적용중(active) 템플릿만 준다. 개정으로 이전 리비전이
+     *    비활성화되면 .val(selectedId) 가 조용히 실패해 "선택 안 함" 으로 보이고,
+     *    그대로 저장하면 plan_make 가 호출되지 않아 계획이 갱신되지 않는다.
+     *    그래서 목록에 없는 id 는 (지난 버전) 항목을 만들어 붙인다.
+     */
     loadWbsFormOptions(selectedId) {
+     const want = (selectedId === null || selectedId === undefined) ? '' : String(selectedId);
+
      AjaxUtil.getAsyncData(this.wfUrl() + '/active_list',
       {spjangcd: this.spjangcd.val()},
       function (result) {
        const rows = (result && result.data) ? result.data : [];
        let html = '<option value="">선택 안 함</option>';
+       let found = false;
        rows.forEach(function (f) {
+        if (String(f.id) === want) found = true;
         html += '<option value="' + f.id + '">' + f.label + '</option>';
        });
+       if (want && !found) {
+        html += '<option value="' + want + '">(지난 버전 템플릿 #' + want + ')</option>';
+       }
        $('#wbsFormId').html(html);
-       if (selectedId) $('#wbsFormId').val(selectedId);
+       $('#wbsFormId').val(want);
       });
     }
 
@@ -1502,6 +1835,25 @@
     page.wbsPanelClear();
     page.searchMainData();
 
+    // 헤더 접기/펼치기
+    $('#btnProjHeadToggle').click(function (e) {
+     e.preventDefault();
+     page.toggleProjHead();
+    });
+    // 이전에 접어둔 상태를 복원한다
+    try {
+     if (sessionStorage.getItem('projHeadCollapsed') === '1') {
+      page.setProjHeadCollapsed(true, false);
+     }
+    } catch (e) { /* 무시 */
+    }
+
+    // WBS 계획 팝업
+    $('#btnWbsPlanView').click(function (e) {
+     e.preventDefault();
+     page.openWbsPlanView();
+    });
+
     // 검색
     $('#btnSearch').click(function (e) {
      page.searchMainData();
@@ -1529,6 +1881,7 @@
      e.preventDefault();
      $('#CategoryForm')[0].reset();
      $('#balcltcd').val('');
+     $('#wbsFormId').val('');      // 신규는 템플릿 미선택으로 시작
      page.clearStages();        // ✅ 신규등록 시 진행단계 초기화 (빈 3행)
      page.resetDefaultDates();
     });
@@ -1562,6 +1915,29 @@
     $('#stageTableBody').on('click', '.btn-stage-complete', function (e) {
      e.preventDefault();
      page.toggleStageComplete($(this).closest('tr'));
+    });
+
+    // ★ 같은 WBS 세부단계를 두 행에 연결하지 못하게 막는다.
+    //   허용하면 applyStageCompletion 의 UPDATE ... FROM 이 어느 행의 완료일을
+    //   쓸지 불확정이 된다 (PostgreSQL 은 매칭이 여러 개면 임의로 하나를 고른다).
+    $('#stageTableBody').on('change', '.stage-wbs', function () {
+     const $me = $(this);
+     const v = ($me.val() || '').trim();
+     if (!v) return;
+     let dup = null;
+     $('#stageTableBody .stage-wbs').each(function () {
+      if (this === $me[0]) return;
+      if (($(this).val() || '').trim() === v) {
+       dup = $(this);
+       return false;
+      }
+     });
+     if (dup) {
+      const nm = dup.closest('tr').find('.stage-stagenm').val() || '';
+      Alert.alert('', '이미 [' + nm + '] 행에 연결된 WBS 단계입니다.\n'
+       + '한 WBS 단계에는 진행단계 한 행만 연결할 수 있습니다.');
+      $me.val('');
+     }
     });
 
     // ✅ 입력값이 바뀌면 상태(완료/빈행/건수) 갱신

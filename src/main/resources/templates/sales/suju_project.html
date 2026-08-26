@@ -353,6 +353,16 @@
           vertical-align: middle;
           background: transparent;
       }
+      /* WBS 연결 열 추가로 폭이 빡빡해졌다. 고정폭 열이 밀리지 않게 잡아둔다. */
+      #pr_stageTable tbody td { overflow: hidden; }
+      #pr_stageTable tbody select.stage-wbs {
+          min-width: 0;
+          max-width: 100%;
+          text-overflow: ellipsis;
+      }
+      #pr_stageTable tbody td.td-center { white-space: nowrap; padding-left: 2px; padding-right: 2px; }
+      #pr_stageTable tbody .mini-btn { margin: 0; }
+      #pr_stageTable tbody .stage-chip { padding: 0 8px; }
       #pr_stageTable tbody tr:nth-child(even) { background: #fbfcfe; }
       #pr_stageTable tbody tr:hover { background: #eef5ff; }
       #pr_stageTable tbody tr.is-done { background: #f1faf3; }
@@ -360,7 +370,8 @@
       #pr_stageTable tbody tr.is-empty .stage-seq { color: #c2c9d4; }
       /* 입력요소 */
       #pr_stageTable tbody input[type="text"],
-      #pr_stageTable tbody input[type="date"] {
+      #pr_stageTable tbody input[type="date"],
+      #pr_stageTable tbody select.stage-wbs {
           width: 100%;
           height: 30px;
           line-height: 30px;
@@ -435,6 +446,10 @@
           cursor: pointer;
       }
       .stage-chip:hover { border-color: #2f6fed; color: #2f6fed; }
+      /* 자동 채움 단계(2D 출도). 고칠 수는 있지만 도면출도일이 바뀌면 되돌아간다.
+         구분이 되게 점선 테두리만 준다. */
+      .stage-chip.is-auto { border-style: dashed; }
+      .stage-chip.is-auto::after { content: " 자동"; font-size: 10px; opacity: .7; }
       .stage-chip.done {
           color: #fff;
           background: #2aa25a;
@@ -499,6 +514,17 @@
       .hdr-summary .empty { color: #98a2b3; font-weight: 400; }
       #sujuForm.head-collapsed .write-table { display: none; }
       #sujuForm.head-collapsed .hdr-summary { display: flex; }
+
+      /* 발주 잠금: 입고가 진행된 행. 유니트만 잠기고 나머지는 수정 가능하다 */
+      #itemTbody tr.balju-locked > td { background: #fdf9ec; }
+      #itemTbody tr.balju-locked input[name^="unit_"] { border-color: #d9b878; }
+
+      /* 발주 잠금 안내줄 */
+      .guard-row {
+          padding: 6px 10px; margin-bottom: 6px;
+          background: #fdf6e3; border-left: 3px solid #b7791f; border-radius: 3px;
+          font-size: 12px; line-height: 1.5;
+      }
   </style>
 </head>
 <th:block layout:fragment="content">
@@ -656,6 +682,11 @@
               </table>
 
               <!-- ===== 공정 구성 ===== -->
+              <!-- 발주 잠금 안내: 입고가 진행된 발주가 있으면 저장 전에 미리 알린다 -->
+              <div id="baljuGuardRow" class="guard-row" style="display:none;">
+                <span id="baljuGuardMsg"></span>
+              </div>
+
               <div class="item-scroll">
                 <table class="item-table">
                   <colgroup>
@@ -910,7 +941,7 @@
             <span class="title">
               진행단계
               <span class="count-badge" id="pr_stageCount">0</span>
-              <span class="hint">순번의 &#10495;를 끌거나 &#9650;&#9660;로 순서를 바꿀 수 있습니다.</span>
+              <span class="hint">WBS 를 연결하면 완료가 WBS 계획에도 반영됩니다.</span>
             </span>
             <span class="head-btns">
               <a class="btn btn-excell" title="단계추가" id="pr_btnAddStage">
@@ -923,19 +954,20 @@
             <table id="pr_stageTable">
               <caption class="hide">진행단계</caption>
               <colgroup>
-                <col style="width:13%"><col style="width:27%"><col style="width:19%">
-                <col style="width:19%"><col style="width:12%"><col style="width:10%">
+                <col style="width:62px"><col><col style="width:30%">
+                <col style="width:132px"><col style="width:132px"><col style="width:64px">
+                <col style="width:96px">
               </colgroup>
               <thead>
                 <tr>
-                  <th>순번</th><th>단계명</th><th>예정일</th>
+                  <th>순번</th><th>단계명</th><th>WBS 연결</th><th>예정일</th>
                   <th>완료일</th><th>완료</th><th>순서/삭제</th>
                 </tr>
               </thead>
               <tbody id="pr_stageTableBody"></tbody>
             </table>
           </div>
-          <div class="stage-foot">내용이 하나도 없는 행은 저장되지 않습니다. (기본 3행 표시)</div>
+          <div class="stage-foot">WBS 를 연결한 행은 완료를 누르면 WBS 계획의 실적일에도 반영됩니다.</div>
         </div>
       </div>
 
@@ -984,6 +1016,7 @@
      this.projStateCache = {};  // projno → 진행단계 요약 (완료 판정 캐시)
      this.wbsFixed = false;     // 선택된 수주의 WBS 확정 여부 ([WBS 확정] 버튼 잠금용)
      this._selTimer = null;     // 그리드 방향키 이동 시 상세조회 디바운스
+     this.baljuGuard = {};      // suju_id → 발주 잠금 정보 (/balju_guard 응답)
      this.init();
     }
 
@@ -1242,6 +1275,8 @@
       const $next = $tr.next('tr');
       if ($next.length) { $tr.insertAfter($next); _this.prRenumberStages(); }
      });
+     // ★ 완료 토글이 WBS 반영의 입력점이다. 여기서 cpdate 를 채우면
+     //   저장 시 applyStageCompletion 이 wbs_plan.ac_eddate 에 그대로 옮긴다.
      $(document).off('click', '#pr_stageTableBody .btn-stage-complete')
      .on('click', '#pr_stageTableBody .btn-stage-complete', function (e) {
       e.preventDefault();
@@ -1249,6 +1284,25 @@
       $cp.val(($cp.val() || '').trim() ? '' : CommonUtil.getYYYYMMDD());
       _this.prRenumberStages();
      });
+     // ★ 같은 WBS 세부단계를 두 행에 연결하지 못하게 막는다.
+     $(document).off('change', '#pr_stageTableBody .stage-wbs')
+     .on('change', '#pr_stageTableBody .stage-wbs', function () {
+      const $me = $(this);
+      const v = ($me.val() || '').trim();
+      if (!v) return;
+      let dup = null;
+      $('#pr_stageTableBody .stage-wbs').each(function () {
+       if (this === $me[0]) return;
+       if (($(this).val() || '').trim() === v) { dup = $(this); return false; }
+      });
+      if (dup) {
+       const nm = dup.closest('tr').find('.stage-stagenm').val() || '';
+       Alert.alert('', '이미 [' + nm + '] 행에 연결된 WBS 단계입니다.\n'
+        + '한 WBS 단계에는 진행단계 한 행만 연결할 수 있습니다.');
+       $me.val('');
+      }
+     });
+
      $(document).off('change input', '#pr_stageTableBody .stage-stagenm, #pr_stageTableBody .stage-pldate, #pr_stageTableBody .stage-cpdate')
      .on('change input', '#pr_stageTableBody .stage-stagenm, #pr_stageTableBody .stage-pldate, #pr_stageTableBody .stage-cpdate', function () {
       _this.prRenumberStages();
@@ -1273,16 +1327,49 @@
      .replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
+    /**
+     * 진행단계 행의 WBS 연결 드롭다운.
+     *  ★ 이름이 아니라 wbs_plan_id 로 연결한다. 현장은 `설계`/`출도`, 템플릿은
+     *    `3D 설계`/`2D 출도` 라 이름으로 맞추면 대부분 어긋난다.
+     */
+    prWbsLinkSelect(stage = {}) {
+     const cur = String(stage.wbs_plan_id ?? '');
+     let html = '<select class="stage-wbs"><option value="">(연결 안 함)</option>';
+     (this.prWbsStageOptions || []).forEach((o) => {
+      const v = String(o.id);
+      const auto = String(o.auto_source ?? '') !== '';
+      // 자동 채움 단계도 연결할 수 있다. 다만 도면출도일이 바뀌면 그 값이 이긴다.
+      const label = this.prEscapeHtml(o.label) + (auto ? ' (자동)' : '');
+      html += `<option value="${v}"${v === cur ? ' selected' : ''}>${label}</option>`;
+     });
+     return html + '</select>';
+    }
+
+    prLoadWbsStageOptions(projno, done) {
+     const _this = this;
+     if (!projno) { this.prWbsStageOptions = []; if (done) done(); return; }
+     AjaxUtil.getAsyncData('/api/transaction/projectRegistration/wbsStageOptions',
+      {projno: projno, spjangcd: $('#spjangcdHidden').val()},
+      function (r) {
+       _this.prWbsStageOptions = (r && r.data) ? r.data : [];
+       if (done) done();
+      });
+    }
+
     prAddStageRow(stage = {}) {
      const $tbody = $('#pr_stageTableBody');
+     // 자동 채움(2D 출도) 단계는 표시만 다르게 한다. 고치는 것은 허용한다.
+     const auto = String(stage.wbs_auto_source ?? '') !== '';
      const row = `
        <tr>
          <td class="stage-seq-cell"><span class="stage-seq"></span></td>
          <td><input type="text" class="stage-stagenm" value="${this.prEscapeHtml(stage.stagenm)}" placeholder="단계명"/></td>
+         <td>${this.prWbsLinkSelect(stage)}</td>
          <td><input type="date" class="stage-pldate" value="${stage.pldate || ''}"/></td>
          <td><input type="date" class="stage-cpdate" value="${stage.cpdate || ''}"/></td>
          <td class="td-center">
-           <button type="button" class="stage-chip btn-stage-complete" title="완료일 등록/해제">완료</button>
+           <button type="button" class="stage-chip btn-stage-complete${auto ? ' is-auto' : ''}"
+                   title="${auto ? '수주의 도면출도일에서 자동으로 채워집니다. 도면출도일이 바뀌면 자동값으로 되돌아갑니다.' : '완료일 등록/해제'}">완료</button>
          </td>
          <td class="td-center">
            <button type="button" class="mini-btn btn-stage-up" title="위로 이동">&#9650;</button>
@@ -1339,8 +1426,16 @@
       const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
       const pldate = ($tr.find('.stage-pldate').val() || '').trim();
       const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
-      if (!stagenm && !pldate && !cpdate) return;   // 빈 행은 저장하지 않음
-      stages.push({seq: stages.length + 1, stagenm: stagenm, pldate: pldate, cpdate: cpdate});
+      const wbsId = ($tr.find('.stage-wbs').val() || '').trim();
+      // 완전히 빈 행은 저장하지 않는다 (WBS 만 연결한 행은 저장한다)
+      if (!stagenm && !pldate && !cpdate && !wbsId) return;
+      stages.push({
+       seq: stages.length + 1,
+       stagenm: stagenm,
+       pldate: pldate,
+       cpdate: cpdate,
+       wbs_plan_id: wbsId || null
+      });
      });
      return stages;
     }
@@ -1351,21 +1446,6 @@
      if (!$('#pr_projnm').val().trim()) {
       Alert.alert('', '프로젝트명을 입력하세요.');
       $('#pr_projnm').focus();
-      return;
-     }
-
-     // 단계명 없이 날짜만 있는 행 방지
-     let invalid = null;
-     $('#pr_stageTableBody tr').each(function () {
-      const $tr = $(this);
-      const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
-      const pldate = ($tr.find('.stage-pldate').val() || '').trim();
-      const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
-      if (!stagenm && (pldate || cpdate)) { invalid = $tr; return false; }
-     });
-     if (invalid) {
-      Alert.alert('', '단계명이 없는 행이 있습니다.\n단계명을 입력하거나 해당 행을 삭제해 주세요.');
-      invalid.find('.stage-stagenm').focus();
       return;
      }
 
@@ -1514,6 +1594,11 @@
       });
      });
 
+     // 파일 선택 → A1 제목으로 수주명 자동 채우기
+     $(document).off('change', '#upload_file').on('change', '#upload_file', function () {
+      _this.peekExcelName();
+     });
+
      // 업로드 저장
      $(document).off('click', '#btn_excel_save').on('click', '#btn_excel_save', function () {
       _this.uploadExcelSave();
@@ -1525,6 +1610,30 @@
        _this.excelPopup = null;
       }
      });
+    }
+
+    /**
+     * 파일을 고를 때 A1 제목을 읽어 수주명을 채운다.
+     *
+     * ★ 수주명은 덮어쓰기 판정의 유일한 키다. 비워두면 재업로드해도
+     *   항상 "새로 등록" 으로 빠져서 수주와 발주가 계속 쌓인다.
+     *   사람이 고칠 수 있게 두되, 기본값은 서버가 A1 에서 뽑은 것과 같게 맞춘다.
+     */
+    peekExcelName() {
+     const _this = this;
+     const fileInput = document.getElementById('upload_file');
+     if (!fileInput || !fileInput.files || fileInput.files.length === 0) return;
+
+     const fd = new FormData();
+     fd.append('upload_file', fileInput.files[0]);
+
+     const res = AjaxUtil.postFileSyncData(_this.url + '/excel_peek', fd);
+     if (!res || !res.success || !res.data) return;
+
+     const title = (res.data.projectTitle || '').trim();
+     const $nm = $('#up_suju_name');
+     // 사용자가 이미 손으로 적은 값은 덮어쓰지 않는다
+     if (title && ($nm.val() || '').trim() === '') $nm.val(title);
     }
 
     uploadExcelSave() {
@@ -1548,36 +1657,121 @@
       return;
      }
 
+     // 수주명이 없으면 덮어쓰기 판정을 할 수 없다. peekExcelName 이 보통 채워주지만
+     // A1 제목이 양식명뿐이면 비어 있을 수 있으므로 여기서 막는다.
+     if (($('#up_suju_name').val() || '').trim() === '') {
+      Alert.alert('', '수주명을 입력하세요.\n\n같은 프로젝트에 여러 모델이 들어가므로,\n수주명이 없으면 재업로드 시 덮어쓰기를 판단할 수 없습니다.');
+      $('#up_suju_name').focus();
+      return;
+     }
+
+     // ── 중복 확인 ──
+     //  같은 프로젝트에 이미 수주가 있으면 사람이 고르게 한다.
+     //  ★ 프로젝트가 같다는 것만으로 중복이 아니다. 한 프로젝트에 모델별로
+     //    여러 수주가 정상적으로 들어간다 (예: 2026-004 에 NQ6 / NQ9).
+     //    수주명까지 같은 것(name_matched)만 덮어쓰기 후보다.
+     const projno = ($('#up_projno').val() || '').trim();
+     const sujuName = ($('#up_suju_name').val() || '').trim();
+
+     let existing = [];
+     if (projno) {
+      const chk = AjaxUtil.getSyncData(_this.url + '/project_suju_list',
+       {projno: projno, suju_name: sujuName});
+      if (chk && chk.success && Array.isArray(chk.data)) existing = chk.data;
+     }
+
+     const matched = existing.filter(function (r) { return r.name_matched; });
+     const others = existing.filter(function (r) { return !r.name_matched; });
+
+     const fmtRow = function (r) {
+      return '  · ' + (r.suju_name || '(수주명 없음)') + '  [' + r.jumun_number + ']'
+       + '  ' + r.line_cnt + '행'
+       + (r.balju_cnt > 0 ? ' · 발주 ' + r.balju_cnt + '건' : '');
+     };
+
+     // 수주명까지 같은 것이 있으면 덮어쓸지 묻는다
+     if (matched.length > 0) {
+      const blocked = matched.filter(function (r) { return !r.deletable; });
+      if (blocked.length > 0) {
+       Alert.alert('덮어쓸 수 없습니다',
+        '같은 수주가 이미 있지만 진행된 작업이 있어 정리할 수 없습니다.\n\n'
+        + blocked.map(function (r) { return r.block_reason; }).join('\n')
+        + '\n\n해당 화면에서 먼저 처리하거나, 수주명을 다르게 하여 새로 등록하세요.');
+       return;
+      }
+      if (matched.length > 1) {
+       Alert.alert('덮어쓸 수 없습니다',
+        '수주명이 같은 수주가 ' + matched.length + '건 있어 어느 것을 덮어쓸지 정할 수 없습니다.\n\n'
+        + matched.map(fmtRow).join('\n')
+        + '\n\n수주 목록에서 정리한 뒤 다시 시도하세요.');
+       return;
+      }
+
+      const t = matched[0];
+      Alert.confirm('기존 수주를 덮어씁니다',
+       '프로젝트 [' + projno + '] 에 같은 수주가 이미 있습니다.\n\n'
+       + fmtRow(t) + '\n\n'
+       + '이 수주를 삭제하고 업로드 내용으로 다시 등록합니다.\n'
+       + (t.balju_cnt > 0
+        ? '★ 걸려 있는 발주 ' + t.balju_cnt + '건이 취소되고 새로 생성됩니다.\n'
+        + '   발주서를 이미 보냈다면 업체에 다시 전달해야 합니다.\n'
+        : '')
+       + '★ 수주번호가 새로 채번됩니다 (' + t.jumun_number + ' → 신규).\n\n'
+       + '계속하시겠습니까?',
+       function () { _this.doExcelUpload(t.id); });
+      return;
+     }
+
+     // 수주명은 다르지만 같은 프로젝트에 다른 수주가 있는 경우 — 새로 등록
+     if (others.length > 0) {
+      Alert.confirm('새 수주로 등록합니다',
+       '프로젝트 [' + projno + '] 에 이미 수주 ' + others.length + '건이 있습니다.\n\n'
+       + others.map(fmtRow).join('\n') + '\n\n'
+       + '수주명 [' + (sujuName || '(비어 있음)') + '] 로 새 수주를 등록합니다.\n'
+       + '기존 수주는 그대로 둡니다. 계속하시겠습니까?',
+       function () { _this.doExcelUpload(null); });
+      return;
+     }
+
+     Alert.confirm('', '업로드한 내용으로 수주를 저장하시겠습니까?', function () {
+      _this.doExcelUpload(null);
+     });
+    }
+
+    /**
+     * 실제 업로드.
+     * @param overwriteHeadId 덮어쓸 기존 수주 헤더 id. 신규면 null.
+     */
+    doExcelUpload(overwriteHeadId) {
+     const _this = this;
+
      const formData = new FormData(document.getElementById('excelUploadForm'));
      // spjangcd 는 AjaxUtil 이 자동으로 붙인다. 여기서 또 넣으면 "ZZ,ZZ" 로 전송돼
      // varchar(2) 컬럼에서 22001 이 난다.
+     if (overwriteHeadId) formData.append('overwrite_head_id', overwriteHeadId);
 
-     Alert.confirm('', '업로드한 내용으로 수주를 저장하시겠습니까?', function () {
-      const res = AjaxUtil.postFileSyncData(_this.url + '/excel_save', formData);
-      if (!res) {
-       Alert.alert('업로드 실패', '서버 응답이 없습니다.');
-       return;
-      }
-      if (!res.success) {
-       const msg = res.message || '엑셀 저장에 실패했습니다.';
-       $('#upload_message').show().val(msg);
-       Alert.alert('업로드 실패', msg);
-       return;
-      }
+     const res = AjaxUtil.postFileSyncData(_this.url + '/excel_save', formData);
+     if (!res) {
+      Alert.alert('업로드 실패', '서버 응답이 없습니다.');
+      return;
+     }
+     if (!res.success) {
+      const msg = res.message || '엑셀 저장에 실패했습니다.';
+      $('#upload_message').show().val(msg);
+      Alert.alert('업로드 실패', msg);
+      return;
+     }
 
-      const cnt = (res.data && res.data.savedCount) || 0;
-      const formName = (res.data && res.data.formName) || '';
-      Notify.success(`${formName ? formName + ' ' : ''}수주 ${cnt}건이 저장되었습니다.`);
+     Notify.success(res.message || '수주가 저장되었습니다.');
 
-      if (res.data && res.data.headId) window.selectedSujuId = res.data.headId;
+     if (res.data && res.data.headId) window.selectedSujuId = res.data.headId;
 
-      if (_this.excelPopup) {
-       _this.excelPopup.close();
-       _this.excelPopup = null;
-      }
-      _this.search();
-      _this.resetForm('new');
-     });
+     if (_this.excelPopup) {
+      _this.excelPopup.close();
+      _this.excelPopup = null;
+     }
+     _this.search();
+     _this.resetForm('new');
     }
 
     /* ---------- 파싱 결과를 품목 테이블에 채움 ---------- */
@@ -1841,6 +2035,8 @@
         d.State = row.State || d.State;
         d.ShipmentStateName = row.ShipmentStateName || d.ShipmentStateName;
         _this.bindForm(d, row);
+        // ★ bindForm 이 행을 다시 그리므로 그 뒤에 잠금 정보를 읽어 적용한다
+        _this.loadBaljuGuard(row.id);
        } finally {
         // 렌더링까지 끝난 뒤 끈다 (행이 많으면 그리는 데도 시간이 걸린다)
         AjaxUtil.hideLoading();
@@ -1850,6 +2046,146 @@
        AjaxUtil.hideLoading();
        AjaxUtil.failureCallback(req, status, error);
       });
+    }
+
+    /* ---------- 발주 잠금 사전조회 ----------
+       작업지시 수정 화면(prod_order_edit)의 /edit_guard 와 같은 역할.
+       "저장 눌렀더니 안 된다" 가 아니라 "왜 안 되는지" 를 먼저 보여준다.
+       하한선은 입고 누계다. 무조건 차단이 아니라 입고량 미만으로만 못 줄인다. */
+    loadBaljuGuard(headId) {
+     const _this = this;
+     _this.baljuGuard = {};
+
+     if (!headId) { _this.renderBaljuGuardNotice(); return; }
+
+     AjaxUtil.getAsyncData(_this.url + '/balju_guard', {head_id: headId}, function (r) {
+      // ★ AjaxUtil 응답은 typeof 로 확인한다 (null 이 올 수 있다)
+      if (typeof r.data === 'undefined' || r.data == null) return;
+
+      $.each(r.data, function (i, g) {
+       _this.baljuGuard[String(g.suju_id)] = g;
+      });
+      _this.renderBaljuGuardNotice();
+      _this.applyBaljuGuardToRows();
+     });
+    }
+
+    /* 행 단위 잠금 적용.
+       ★ 잠그는 것은 유니트 입력칸 하나뿐이다.
+         설계업체 / 도면출도일 / 제작구분 / 제작업체 / 비고 는 수주 문서의 정보이므로
+         입고가 됐어도 자유롭게 고칠 수 있어야 한다. 다만 그 변경은 이미 나간
+         발주에는 반영되지 않으므로, 행에 표시를 남겨 담당자가 알 수 있게 한다. */
+    applyBaljuGuardToRows() {
+     const _this = this;
+
+     $('#itemTbody tr').not('.item-template-row').each(function () {
+      const $row = $(this);
+      const sujuId = $row.find('input[name^="suju_id_"]').val() || '';
+      const g = _this.baljuGuard[String(sujuId)];
+
+      const $unit = $row.find('input[name^="unit_"]');
+      const $make = $row.find('input[name^="makeCompName_"]');
+
+      // 초기화 (다른 수주를 불러왔을 때 잔상이 남지 않게)
+      $row.removeClass('balju-locked');
+      $unit.removeAttr('min').removeAttr('title');
+      $make.removeAttr('title');
+
+      if (!g || !g.balju_locked) return;
+
+      $row.addClass('balju-locked');
+      $unit.attr('min', g.min_qty)
+      .attr('title', '입고 ' + g.min_qty + ' — 이 미만으로 줄일 수 없습니다');
+      $make.attr('title', '발주 ' + g.jumun_number + ' (' + g.company_name + ') 진행 중.'
+       + ' 여기서 업체를 바꿔도 그 발주에는 반영되지 않습니다.');
+     });
+    }
+
+    /* 상단 안내줄. 잠긴 행이 없으면 감춘다.
+       ★ 잠긴 품목을 일일이 나열하지 않는다. 담당자에게 필요한 건 건수와 대응 방법뿐이다. */
+    renderBaljuGuardNotice() {
+     const _this = this;
+     const locked = Object.keys(_this.baljuGuard || {})
+     .map(function (k) { return _this.baljuGuard[k]; })
+     .filter(function (g) { return g.balju_locked; });
+
+     const $row = $('#baljuGuardRow');
+     const $msg = $('#baljuGuardMsg');
+
+     if (locked.length === 0) { $row.hide(); return; }
+
+     $msg.css('color', '#b7791f').text(
+      '입고가 진행된 발주가 ' + locked.length + '건 있습니다(연한 노란색 행). '
+      + '해당 행은 유니트를 입고량 미만으로 줄이거나 삭제할 수 없습니다. '
+      + '제작업체·설계업체·비고 등은 수정할 수 있지만 이미 나간 발주에는 반영되지 않습니다.');
+     $row.show();
+    }
+
+    /* 저장 직전 검증. 서버도 같은 판정을 다시 하므로 이건 UX 용이고 방어선이 아니다. */
+    checkBaljuBeforeSave(items) {
+     const _this = this;
+     const errors = [];    // 저장을 막는 것
+     const changes = [];   // 발주에 반영되는 변경
+     const notes = [];     // 발주에 반영되지 않는 변경 (안내만)
+     const creates = [];   // 새로 나가는 발주
+
+     $.each(items, function (i, it) {
+      const g = _this.baljuGuard[String(it.suju_id)];
+      const label0 = it.txtProductName || it.suju_id || ('' + (i + 1) + '번째 행');
+      const isOut = it.makeType === 'outsource';
+      const hasComp = String(it.makeCompId || '') !== '';
+
+      // ★ 외작인데 제작업체가 없으면 서버가 want=false 로 보고 발주를 만들지 않는다.
+      //   오류도 경고도 없이 저장만 성공해서 사용자는 발주가 나간 줄 알게 된다.
+      //   (엑셀 경로는 업체명으로 서버가 판정하고 없는 업체는 자동 등록하므로 이 구멍이 없다)
+      if (isOut && !hasComp) {
+       errors.push('· ' + label0 + ' : 외작인데 제작업체가 없습니다. 업체를 고르거나 내작으로 바꾸세요.');
+       return;
+      }
+
+      // ★ 발주가 새로 생기는 행. 수량 변경보다 영향이 큰데 예전에는 조용했다.
+      if (!g) {
+       if (isOut && hasComp) {
+        creates.push('· ' + label0 + ' : ' + (it.makeCompName || '업체')
+         + ' 으로 ' + (parseFloat(it.unit) || 0) + ' 발주');
+       }
+       return;   // 발주 없는 행은 아래 검사 대상이 아니다
+      }
+
+      const newQty = parseFloat(it.unit) || 0;
+      const oldQty = parseFloat(g.balju_qty) || 0;
+      const minQty = parseFloat(g.min_qty) || 0;
+      const label = it.txtProductName || it.suju_id;
+
+      // ★ 막는 것은 이것 하나뿐이다 — 입고량 미만으로 유니트를 줄이는 것.
+      //   그 행 하나 때문에 저장 전체가 막히므로, 어느 행인지 반드시 이름으로 알린다.
+      if (newQty < minQty) {
+       errors.push('· ' + label + ' : 입고 ' + minQty + ' 이 있어 유니트를 그 미만으로 줄일 수 없습니다.');
+       return;
+      }
+
+      // 잠긴 행은 발주를 손대지 않는다. 제작업체 등을 바꿔도 저장은 되지만
+      // 이미 나간 발주에는 반영되지 않으므로 그 사실만 알린다.
+      if (g.balju_locked) {
+       if (it.makeType !== 'outsource'
+        || String(it.makeCompId || '') !== String(g.company_id || '')) {
+        notes.push('· ' + label + ' : 발주 ' + g.jumun_number
+         + ' (' + g.company_name + ') 은 입고가 있어 그대로 유지됩니다.');
+       }
+       if (newQty !== oldQty) {
+        changes.push('· ' + label + ' : ' + oldQty + ' → ' + newQty
+         + '  (발주 ' + g.jumun_number + ')');
+       }
+       return;
+      }
+
+      if (newQty !== oldQty) {
+       changes.push('· ' + label + ' : ' + oldQty + ' → ' + newQty
+        + '  (발주 ' + g.jumun_number + ')');
+      }
+     });
+
+     return {errors: errors, changes: changes, notes: notes, creates: creates};
     }
 
     /* ---------- 값 선택 / 세팅 헬퍼 ---------- */
@@ -1954,6 +2290,8 @@
     // mode: 'new'
     resetForm(mode) {
      this.suppressDirty = true;
+     this.baljuGuard = {};              // 신규 모드 → 발주 잠금 정보 초기화
+     this.renderBaljuGuardNotice();
      this.showForm();
      $('#sujuForm')[0].reset();
      $('#sujuId').val('');
@@ -2621,18 +2959,54 @@
         items: items
        };
 
+       // ── 발주 잠금 검증 ──
+       //  서버가 거부할 것을 미리 잡는다. 서버도 같은 판정을 다시 한다.
+       const chk = _this.checkBaljuBeforeSave(items);
+       if (chk.errors.length > 0) {
+        Alert.alert('저장할 수 없습니다', chk.errors.join('\n'));
+        return;
+       }
+
        // ★ 새 화면 전용 엔드포인트 (금액 필드 없는 안전 파싱 버전)
-       AjaxUtil.postJsonData(_this.url + '/manual_save_project', payload, function (res) {
-        if (res.success) {
-         Notify.success('저장되었습니다.');
+       const doPost = function () {
+        AjaxUtil.postJsonData(_this.url + '/manual_save_project', payload, function (res) {
+         // ★ 서버가 거부한 경우 message 를 반드시 띄운다.
+         //   조용히 닫히면 사용자는 저장된 줄 안다.
+         if (!res.success) {
+          Alert.alert('저장할 수 없습니다', res.message || '알 수 없는 오류');
+          return;
+         }
+         Notify.success(res.message || '저장되었습니다.');
          _this.dirty = false;
-         if (res.data && res.data.id) window.selectedSujuId = res.data.id;
+         if (res.data && res.data.headId) window.selectedSujuId = res.data.headId;
          _this.search();
          _this.resetForm('new');
-        } else {
-         Alert.alert('저장 실패', res.message || '알 수 없는 오류');
-        }
-       });
+        });
+       };
+
+       // ★ 발주가 함께 바뀌면 반드시 묻는다. 업체로 나간 문서가 바뀌는 것이므로
+       //   습관적으로 [확인] 을 누르지 않게 변경 내역을 숫자로 보여준다.
+       let ask = '';
+       if (chk.creates.length > 0) {
+        ask += '아래 행은 발주가 새로 생성됩니다.\n\n' + chk.creates.join('\n')
+         + '\n\n단가는 0 으로 들어가므로 발주 화면에서 입력해야 합니다.';
+       }
+       if (chk.changes.length > 0) {
+        if (ask) ask += '\n\n';
+        ask += '발주 수량도 함께 수정됩니다.\n\n' + chk.changes.join('\n')
+         + '\n\n단가는 그대로 두고 금액만 다시 계산합니다.'
+         + '\n발주서를 이미 보냈다면 업체에 다시 전달해야 합니다.';
+       }
+       if (chk.notes.length > 0) {
+        if (ask) ask += '\n\n';
+        ask += '아래 행은 수주만 수정되고 발주는 그대로 둡니다.\n\n' + chk.notes.join('\n');
+       }
+
+       if (ask) {
+        Alert.confirm('', ask + '\n\n저장하시겠습니까?', doPost);
+       } else {
+        doPost();
+       }
       });
      };
 

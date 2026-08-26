@@ -37,4 +37,13 @@ public class tb_da003_stage {
 
 	@Column(name = "inuserid")
 	private String inuserid;  // 등록자 ID
+
+	@Column(name = "wbs_plan_id")
+	private Integer wbsPlanId;
+
+	@Column(name = "wbs_relink")
+	private String wbsRelink;
+
+	@Column(name = "charge_id")
+	private Integer chargeId;
 }

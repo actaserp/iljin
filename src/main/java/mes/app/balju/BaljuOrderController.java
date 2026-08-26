@@ -193,6 +193,13 @@ public class BaljuOrderController {
         detail.setBaljuHeadId(head.getId());
         detail.setJumunNumber(head.getJumunNumber());
         detail.setDueDate(dueDate);
+        // ★ 초기 상태는 신규일 때만 세팅한다.
+        //   예전에는 수정 시에도 아래 두 줄이 실행돼서,
+        //   partial(부분입고)·received(입고) 된 발주를 비고 한 글자만 고쳐도
+        //   draft(미입고) 로 되돌려버렸다. 수주 화면의 입고 판정과
+        //   SujuSyncService.findLiveBalju 가 이 값을 보므로 조용히 틀어졌다.
+        detail.setState("draft");
+        detail.setSujuQty2(0.0d);
       }
       String editedFlag = String.valueOf(item.get("totalEdited")).toUpperCase();
       boolean isManual = "TRUE".equals(editedFlag) || "Y".equals(editedFlag);
@@ -219,8 +226,6 @@ public class BaljuOrderController {
       detail.setDueDate(dueDate);
       detail.setInVatYN("Y".equalsIgnoreCase(isVat) ? "Y" : "N");
       detail.setSujuType(sujuType);
-      detail.setState("draft");
-      detail.setSujuQty2(0.0d);
       detail.set_status("manual");
       detail.setStandard(standard);
 

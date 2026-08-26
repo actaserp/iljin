@@ -208,7 +208,7 @@ public class BaljuOrderService {
           MAX("Description") AS "Description"
         FROM base_data
         GROUP BY "JumunNumber", bh_id
-        ORDER BY MAX("DeliveryDate") DESC, bh_id
+        ORDER BY "JumunDate" DESC, bh_id
         """;
 
 //    log.info("발주 read SQL: {}", sql);

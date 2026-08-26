@@ -2,10 +2,11 @@ package mes.app.sales;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import mes.app.transaction.service.WbsPlanService;
 import mes.app.definition.service.BomService;
-import mes.app.balju.service.BaljuOrderService;
 import mes.app.definition.service.material.UnitPriceService;
 import mes.app.sales.service.SujuService;
+import mes.app.sales.service.SujuSyncService;
 import mes.app.sales.service.SujuUploadService;
 import mes.config.Settings;
 import mes.domain.entity.*;
@@ -30,11 +31,16 @@ import org.apache.poi.ss.usermodel.*;
 import java.util.*;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import javax.transaction.Transactional;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -108,28 +114,50 @@ public class SujuController {
   UserCodeRepository userCodeRepository;
 
   @Autowired
-  BalJuHeadRepository balJuHeadRepository;
+  SujuSyncService sujuSyncService;
 
   @Autowired
-  BujuRepository bujuRepository;
-
-  @Autowired
-  BaljuOrderService baljuOrderService;
+  WbsPlanService wbsPlanService;
 
   private static final String DEFAULT_COMPANY_TYPE = "";
 
   /** 엑셀 업로드로 생성하는 공정 품목의 품목그룹 (mat_grp."Code") — MAKE 가공품 */
   private static final String PROC_MATERIAL_GROUP_CODE = "MAKE";
 
-  /** 엑셀 업로드로 생성하는 LINE(BOM 모품목) 의 품목그룹 (mat_grp."Code") — FG 제품 */
-  private static final String LINE_MATERIAL_GROUP_CODE = "FG";
+  // ===================================================================
+  //  문서 보관 경로
+  //   - 템플릿  : {DOC_PATH}/SujuTemplate*.xlsx        (수동으로 비치)
+  //   - 업로드분: {DOC_PATH}/upload/{수주번호}_{원본파일명}
+  //
+  //   BaljuOrderController 가 발주서 템플릿을 C:/Temp/mes21/문서/BaljuTemplate.xlsx
+  //   로 두고 있어 같은 위치·같은 명명(PascalCase 영문)을 따른다.
+  //   윈도우에서도 '/' 를 쓴다. '\' 는 자바 문자열 이스케이프로 먹혀 경로가 깨진다.
+  // ===================================================================
+  private static final String DOC_PATH        = "C:/Temp/mes21/문서";
+  private static final String DOC_UPLOAD_PATH = DOC_PATH + "/upload";
 
-  /** 라인 BOM 의 종류 / 버전 (SujuController.createOrReuseDefaultBom 과 동일) */
-  private static final String BOM_TYPE = "manufacturing";
-  private static final String BOM_VERSION = "1.0";
+  /** form 파라미터 → 템플릿 파일명 */
+  private static final Map<String, String> EXCEL_TEMPLATES = Map.of(
+    "make", "SujuTemplateMakeList.xlsx",
+    "qty",  "SujuTemplateQtyList.xlsx"
+  );
 
   /** 자사명. 제작/설계 업체가 이 이름이면 제작구분을 내작으로 본다. */
   private static final String INHOUSE_COMPANY_NAME = "일진";
+
+  /**
+   * suju_head 의 수주명 컬럼명.
+   *
+   * <p>★ 확인 필요. 엔티티 setter 는 setSujuName 이지만 실제 컬럼이
+   * {@code "SujuName"}(따옴표 필요) 인지 {@code suju_name}(따옴표 없음) 인지
+   * 확정하지 못했다. 아래로 확인하고 맞춰 둘 것.
+   * <pre>
+   *   SELECT column_name FROM information_schema.columns
+   *    WHERE table_name = 'suju_head' AND column_name ILIKE '%name%';
+   * </pre>
+   * 여기만 고치면 되고, 다른 곳은 JPA 엔티티가 매핑을 갖고 있어 영향 없다.
+   */
+  private static final String SUJU_NAME_COLUMN = "suju_name";
 
   // 수주 목록 조회
   @GetMapping("/read")
@@ -670,16 +698,131 @@ public class SujuController {
     return dateStr + "-" + String.format("%04d", nextVal);
   }
 
+  // ===================================================================
+  //  수주 헤더 삭제 본체
+  //   /delete 와 엑셀 덮어쓰기(excel_save?overwrite_head_id=)가 이것을 공유한다.
+  //   ★ 두 곳에 각각 만들지 말 것. 중복되면 삭제 규칙이 곧 갈라진다.
+  // ===================================================================
+
+  /** 헤더 삭제 결과. ok=false 면 호출부가 롤백하고 message 를 그대로 보여준다. */
+  public static class HeadDeleteResult {
+    public boolean ok = true;
+    public String  message;
+    public int bomRemoved;
+    public int jobRemoved;
+    public int matRemoved;
+
+    static HeadDeleteResult fail(String msg) {
+      HeadDeleteResult r = new HeadDeleteResult();
+      r.ok = false;
+      r.message = msg;
+      return r;
+    }
+
+    public String summary() {
+      return " (BOM " + bomRemoved + "건, 작업지시 " + jobRemoved + "건,"
+               + " 품목 " + matRemoved + "건 정리)";
+    }
+  }
+
+  /**
+   * 수주 헤더 삭제.
+   *
+   * <p><b>수주만 지우면 안 된다.</b> 이 시스템에는 FK 가 하나도 없어서
+   * (balju / bom / bom_comp / material / suju_line_bom 전부 확인됨) DB 가
+   * 정합성을 막아주지 않는다. 예전 구현은 suju / suju_head 만 지웠고,
+   * 그 결과 suju_head 가 사라진 suju_line_bom 8건 + bom 8건 + material 61건이
+   * 실제로 남았다. 반드시 아래 순서를 지킬 것.
+   *
+   * <pre>
+   *  1) 사전검사       발주 입고 / 작업지시 실적이 있으면 삭제 거부 (사유를 모아 보여준다)
+   *  2) 품목 id 확보   ★ suju 를 지우기 전에. 지운 뒤에는 못 읽는다
+   *  3) 발주 취소      입고 0 인 발주만 canceled. 물리삭제하지 않는다
+   *  4) 라인 BOM 정리  bom_comp → bom → LINE 모품목 → 매핑
+   *  5) 작업지시 정리  ★ suju 를 조인하므로 6) 보다 먼저
+   *  6) suju/suju_head 벌크 DELETE 후 flush
+   *  7) 품목 정리      ★ 6) 이후에. suju 가 남아 있으면 참조로 잡혀 안 지워진다
+   * </pre>
+   *
+   * <p>정책(현장 확정): 이미 실체가 생긴 것은 되돌리지 않는다.
+   * 입고가 진행된 발주, 실적이 찍힌 작업지시가 걸린 수주는 <b>삭제 차단</b>.
+   * {@code manual_save_project} 의 행 삭제와 같은 규칙이라 판정 코드를 공유한다.
+   *
+   * <p>호출부는 반드시 트랜잭션 안이어야 한다. 3) 에서 방어선에 걸릴 때
+   * 이미 취소한 발주를 되돌려야 하기 때문이다.
+   *
+   * <p>suju_detail 은 이전 프로젝트 잔재라 다루지 않는다.
+   */
+  private HeadDeleteResult deleteSujuHeadCore(Integer headId, User user) {
+    HeadDeleteResult r = new HeadDeleteResult();
+
+    // ── 1) 사전검사 ──
+    //  발주 입고 / 작업지시 실적이 하나라도 있으면 아무것도 지우지 않는다.
+    //  행마다 하나씩 막히면 사용자가 문제를 여러 번 발견하게 되므로 사유를 모아 보여준다.
+    List<String> blockers = sujuSyncService.checkHeadDeletable(headId);
+    if (!blockers.isEmpty()) {
+      return HeadDeleteResult.fail("이미 진행된 작업이 있어 삭제할 수 없습니다.\n\n"
+                                     + String.join("\n", blockers)
+                                     + "\n\n해당 화면에서 먼저 처리하세요.");
+    }
+
+    // ── 2) 삭제 전에 품목 id 확보 ──
+    //  ★ 순서 주의. suju 를 지운 뒤에는 어떤 품목이 걸려 있었는지 알 수 없다.
+    List<Integer> rowMaterialIds = sujuSyncService.collectRowMaterialIds(headId);
+
+    // ── 3) 발주 취소 ──
+    //  입고 0 인 발주는 canceled 로 내리고 헤더 금액을 다시 계산한다.
+    //  물리삭제하지 않는 것은 SujuSyncService 의 규약 (업체로 이미 나간 문서).
+    for (Suju ex : SujuRepository.findBySujuHeadId(headId)) {
+      String blocked = sujuSyncService.blockOrCancelBaljuBeforeDelete(
+        ex.getId(), ex.getMaterial_Name(), user);
+      if (blocked != null) {
+        // 1) 에서 걸렀어야 하는 경우. 방어선으로 남긴다.
+        return HeadDeleteResult.fail(blocked);
+      }
+    }
+
+    // ── 4) 라인 BOM 정리 ──
+    r.bomRemoved = sujuSyncService.removeAllLineBoms(headId).bomRemoved;
+
+    // ── 5) 작업지시 정리 ──
+    //  ★ suju 를 조인해 찾으므로 6) 보다 먼저여야 한다.
+    //    실적이 있는 지시는 1) 에서 이미 막혔다.
+    r.jobRemoved = sujuSyncService.removeWorkOrders(headId);
+
+    // ── 6) suju / suju_head ──
+    //  ★ flush 필수.
+    //    deleteBySujuHeadId 는 @Modifying 벌크 JPQL 이라 영속성 컨텍스트를 우회하고,
+    //    7) 의 SujuSyncService 는 SqlRunner(순수 JDBC) 로 다시 읽는다.
+    //    sujuHeadRepository.deleteById 는 반대로 커밋 시점까지 미뤄지므로,
+    //    flush 하지 않으면 7) 이 이미 지운 줄 알았던 데이터를 다시 본다.
+    SujuRepository.deleteBySujuHeadId(headId);
+    SujuRepository.flush();
+    sujuHeadRepository.deleteById(headId);
+    sujuHeadRepository.flush();
+
+    // ── 7) 미참조 품목 정리 ──
+    //  반드시 6) 이후. 판정은 suju / balju / bom / bom_comp / mat_inout / job_res 참조.
+    r.matRemoved = sujuSyncService.deleteUnreferencedMaterials(rowMaterialIds);
+
+    log.info("[delete] 수주 삭제 완료: head={} BOM={} 작업지시={} 품목={}",
+      headId, r.bomRemoved, r.jobRemoved, r.matRemoved);
+    return r;
+  }
+
   // 수주 삭제
   @Transactional
   @PostMapping("/delete")
   public AjaxResult deleteSuju(
     @RequestParam("id") Integer id,
     @RequestParam("State") String State,
-    @RequestParam("ShipmentStateName") String ShipmentStateName) {
+    @RequestParam("ShipmentStateName") String ShipmentStateName,
+    Authentication auth) {
 
     AjaxResult result = new AjaxResult();
+    User user = (User) auth.getPrincipal();
 
+    // ── 0) 기존 검증 유지 ──
     if (State.equals("received") == false) {
       //received 아닌것만
       result.success = false;
@@ -692,9 +835,80 @@ public class SujuController {
       return result;
     }
 
-    SujuRepository.deleteBySujuHeadId(id);
-    sujuHeadRepository.deleteById(id);
+    HeadDeleteResult del = deleteSujuHeadCore(id, user);
+    if (!del.ok) {
+      result.success = false;
+      result.message = del.message;
+      TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+      return result;
+    }
 
+    result.success = true;
+    result.message = "삭제되었습니다." + del.summary();
+    return result;
+  }
+
+  // ===================================================================
+  //  엑셀 업로드 전 중복 확인
+  //   화면이 업로드 직전에 물어본다. 같은 프로젝트의 수주를 전부 돌려주고,
+  //   수주명까지 같은 것은 name_matched=true 로 표시한다.
+  //
+  //   ★ projno 만으로 중복 판정하지 말 것.
+  //     한 프로젝트에 모델별로 여러 수주가 정상적으로 들어간다
+  //     (실제 데이터: 프로젝트 2026-004 에 NQ6 / NQ9 각 79행).
+  // ===================================================================
+  @GetMapping("/project_suju_list")
+  public AjaxResult getProjectSujuList(
+    @RequestParam("projno") String projno,
+    @RequestParam(value = "suju_name", required = false) String sujuName) {
+
+    AjaxResult result = new AjaxResult();
+    List<Map<String, Object>> out = new ArrayList<>();
+
+    if (projno == null || projno.trim().isEmpty()) {
+      result.success = true;
+      result.data = out;
+      return result;
+    }
+
+    String sql = """
+      SELECT h.id,
+             h."JumunNumber" AS jumun_number,
+             h."JumunDate"   AS jumun_date,
+             h.%s            AS suju_name,
+             h._created      AS created,
+             (SELECT count(*) FROM suju s WHERE s."SujuHead_id" = h.id) AS line_cnt,
+             (SELECT count(*) FROM balju b
+               WHERE b."PlanTableName" = 'suju'
+                 AND COALESCE(b."State", 'draft') <> 'canceled'
+                 AND b."PlanDataPk" IN (SELECT s.id FROM suju s WHERE s."SujuHead_id" = h.id)
+             ) AS balju_cnt
+        FROM suju_head h
+       WHERE h.project_id = CAST(:projno AS varchar)
+       ORDER BY h._created
+      """.formatted(SUJU_NAME_COLUMN);
+
+    String want = sujuName == null ? "" : sujuName.trim();
+
+    for (Map<String, Object> m : sqlRunner.getRows(sql,
+      new MapSqlParameterSource().addValue("projno", projno.trim()))) {
+
+      Map<String, Object> row = new LinkedHashMap<>(m);
+      Integer headId = toIntegerOrNull(m.get("id"));
+
+      String nm = str(m.get("suju_name"));
+      row.put("name_matched", !want.isEmpty() && want.equalsIgnoreCase(nm));
+
+      // 덮어쓰기 가능 여부 = 삭제 가능 여부. /delete 와 같은 판정을 쓴다.
+      List<String> blockers = sujuSyncService.checkHeadDeletable(headId);
+      row.put("deletable", blockers.isEmpty());
+      row.put("block_reason", blockers.isEmpty() ? null : String.join("\n", blockers));
+
+      out.add(row);
+    }
+
+    result.success = true;
+    result.data = out;
     return result;
   }
 
@@ -1433,12 +1647,36 @@ public class SujuController {
   //  - 금액 필드 없음 (유니트→SujuQty, SET→Standard, 라인/설비타입→신규 컬럼)
   //  - Material_id 없는 행은 품목 get-or-create 후 수주 저장
   //
-  //  ★ 외작(make_type='outsource') 이어도 여기서는 발주를 만들지 않는다.
-  //     발주 자동생성은 /excel_save (엑셀 업로드) 에서만 한다.
-  //     이 화면은 같은 수주를 여러 번 수정 저장하는데 balju 에 suju.id 를 담을
-  //     컬럼이 없어, 저장할 때마다 같은 발주가 중복 생성되는 것을 막을 수 없다.
-  //     빠뜨린 게 아니라 의도적으로 뺀 것이므로 임의로 추가하지 말 것.
+  //  ★ 라인 BOM / 외작 발주를 /excel_save 와 똑같이 동기화한다 (SujuSyncService).
+  //     엑셀은 항상 신규 헤더라 전부 INSERT 가 되고, 이 화면은 저장할 때마다 diff 가 돈다.
+  //     역추적 고리:
+  //       BOM  : suju_line_bom(suju_head_id, line) → bom_id
+  //       발주 : balju."PlanTableName"='suju' / "PlanDataPk"=suju.id
+  //
+  //     발주는 업체로 나가는 문서이므로 다음 규약을 지킨다. 임의로 완화하지 말 것.
+  //       - 라인을 DELETE 하지 않는다. 되돌리기는 State='canceled' 상태전이로만.
+  //       - "UnitPrice" 를 덮어쓰지 않는다. 발주 화면이 소유한다.
+  //       - 입고(mat_inout)가 붙은 발주는 조용히 넘기지 않고 저장 자체를 막는다.
   // ===================================================================
+  /**
+   * 저장 전 발주 잠금 사전조회 (작업지시 수정 화면의 /edit_guard 와 같은 역할).
+   *
+   * <p>화면은 프로젝트/수주를 불러온 직후 이걸 호출해서
+   *  - 발주가 걸린 행의 수량칸에 <code>min</code> 을 걸고
+   *  - 제작업체 셀렉트를 잠그고
+   *  - 사유를 안내줄에 띄운다.
+   *
+   * <p>발주가 하나도 없으면 빈 배열이 온다. 서버는 저장 시 같은 판정을 다시 하므로
+   * 이 응답은 어디까지나 <b>미리 보여주기 위한 것</b>이고 방어선이 아니다.
+   */
+  @GetMapping("/balju_guard")
+  public AjaxResult getBaljuGuard(@RequestParam("head_id") Integer headId) {
+    AjaxResult result = new AjaxResult();
+    result.success = true;
+    result.data = sujuSyncService.getBaljuGuard(headId);
+    return result;
+  }
+
   @PostMapping("/manual_save_project")
   @Transactional
   public AjaxResult SujuSaveProject(@RequestBody Map<String, Object> payload, Authentication auth) {
@@ -1495,6 +1733,15 @@ public class SujuController {
     }
     for (Suju ex : SujuRepository.findBySujuHeadId(head.getId())) {
       if (ex.getId() != null && !incomingIds.contains(ex.getId())) {
+        // 발주가 걸려 있으면 취소로 정리한다. 입고가 진행됐으면 삭제 자체를 막는다.
+        String blocked = sujuSyncService.blockOrCancelBaljuBeforeDelete(
+          ex.getId(), ex.getMaterial_Name(), user);
+        if (blocked != null) {
+          result.success = false;
+          result.message = blocked;
+          TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+          return result;
+        }
         suJuDetailRepository.deleteBySujuId(ex.getId());
         SujuRepository.deleteById(ex.getId());
       }
@@ -1556,6 +1803,46 @@ public class SujuController {
       SujuRepository.save(suju);
     }
 
+    // ---------- 라인 BOM / 외작 발주 동기화 ----------
+    //  suju 저장이 끝난 뒤 DB 를 다시 읽어 diff 를 돌린다. 엑셀 업로드와 같은 경로.
+
+    //  ★ flush 필수.
+    //    SujuRepository.save() 는 JPA 라 영속성 컨텍스트에만 올려두고 UPDATE 를
+    //    커밋 시점에 날린다. SujuSyncService 는 SqlRunner(순수 JDBC) 로 suju 를
+    //    다시 읽으므로, flush 하지 않으면 방금 저장한 값이 아니라 옛 값을 본다.
+    //    (유니트를 8→12 로 고쳐도 발주가 8 그대로 남는 증상)
+    SujuRepository.flush();
+
+    SujuSyncService.SyncResult bomRes =
+      sujuSyncService.syncLineBoms(head.getId(), spjangcd, user);
+
+    SujuSyncService.SyncResult baljuRes = sujuSyncService.syncBalju(
+      head.getId(), jumunDate, dueDate, spjangcd, user,
+      buildBaljuSourceMemo(head.getJumunNumber(), projno, head.getSujuName()));
+
+    // ── WBS 2D 출도 반영 ──
+    //  이 수주 품목들의 draw_date 중 가장 늦은 날을 WBS 의 '2D 출도' 단계 완료일로 넣는다.
+    //  대상은 auto_source='draw_date' 로 표시된 행뿐이다. WBS 확정 전이면 대상이 없어
+    //  아무 일도 하지 않는다. WBS 는 부가 정보이므로 여기서 실패해도 수주 저장은 막지 않는다.
+    try {
+      wbsPlanService.syncDrawDate(head.getId(), user);
+    } catch (Exception e) {
+      log.warn("[WBS] 도면출도일 반영 실패 (수주 저장은 계속): head={} {}", head.getId(), e.getMessage());
+    }
+
+    if (!baljuRes.ok) {
+      result.success = false;
+      result.message = baljuRes.message;
+      TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+      return result;
+    }
+
+    Map<String, Object> data = new HashMap<>();
+    data.put("headId", head.getId());
+    data.put("bomCount", bomRes.bomCreated + bomRes.bomUpdated + bomRes.bomRemoved);
+    data.put("baljuCount", baljuRes.baljuInserted + baljuRes.baljuUpdated + baljuRes.baljuCanceled);
+    result.data = data;
+    result.message = "저장되었습니다." + bomRes.summary() + baljuRes.summary();
     result.success = true;
     return result;
   }
@@ -1609,10 +1896,111 @@ public class SujuController {
   }
 
   // ===================================================================
+  //  수주 엑셀 업로드 양식(템플릿) 다운로드
+  //   {DOC_PATH} 에 비치해 둔 파일을 그대로 내려준다.
+  //   양식이 바뀌면 그 파일만 교체하면 되고 재배포가 필요 없다.
+  // ===================================================================
+  @GetMapping("/excel_template")
+  public void excelTemplate(@RequestParam(value = "form", required = false) String form,
+                            HttpServletResponse response) throws IOException {
+
+    String fileName = EXCEL_TEMPLATES.get(form == null ? "" : form.trim());
+    if (fileName == null) {
+      response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+        "양식 구분이 올바르지 않습니다. (make / qty)");
+      return;
+    }
+
+    Path file = Paths.get(DOC_PATH, fileName);
+    if (!Files.exists(file)) {
+      log.error("[excel_template] 템플릿 파일이 없습니다: {}", file);
+      response.sendError(HttpServletResponse.SC_NOT_FOUND,
+        "양식 파일이 서버에 없습니다. 관리자에게 문의하세요.");
+      return;
+    }
+
+    // 템플릿 파일명은 영문이라 별도 인코딩이 필요 없다.
+    // (한글 파일명을 쓰게 되면 filename*=UTF-8'' 형식으로 바꿔야 브라우저에서 안 깨진다)
+    response.setContentType(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    response.setHeader("Content-Disposition",
+      "attachment; filename=\"" + fileName + "\"");
+    response.setContentLengthLong(Files.size(file));
+
+    Files.copy(file, response.getOutputStream());
+    response.getOutputStream().flush();
+  }
+
+  /**
+   * 업로드한 엑셀 원본을 보관한다.
+   *  {DOC_PATH}/upload/{수주번호}_{원본파일명}
+   *  수주번호를 앞에 붙여 중복을 막고 눈으로도 찾을 수 있게 한다.
+   *  원본 파일명은 사용자가 올린 그대로(한글 포함) 두되, 윈도우 금지문자만 걷어낸다.
+   *  보관 실패가 수주 저장을 막으면 안 되므로 예외를 삼키고 로그만 남긴다.
+   */
+  private void archiveUploadedExcel(MultipartFile file, String jumunNumber) {
+    if (file == null || file.isEmpty()) return;
+    try {
+      String origin = file.getOriginalFilename();
+      if (origin == null || origin.isBlank()) origin = "upload.xlsx";
+      // 경로 구분자가 섞여 들어오는 브라우저가 있어 파일명만 남긴다
+      origin = Paths.get(origin.replace('\\', '/')).getFileName().toString();
+      // 윈도우에서 파일명에 못 쓰는 문자 제거 (\ / : * ? " < > |)
+      origin = origin.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
+      if (origin.isEmpty()) origin = "upload.xlsx";
+
+      Path dir = Paths.get(DOC_UPLOAD_PATH);
+      Files.createDirectories(dir);
+
+      Path target = dir.resolve(jumunNumber + "_" + origin);
+      // 같은 수주에 같은 이름으로 재업로드하면 덮어쓴다 (최신본 유지)
+      Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+      log.info("[excel_save] 업로드 원본 보관: {}", target);
+    } catch (Exception e) {
+      log.error("[excel_save] 업로드 원본 보관 실패. jumunNumber={}", jumunNumber, e);
+    }
+  }
+
+  // ===================================================================
 //  수주 엑셀 업로드 - 즉시 저장
 //   파일 + 헤더(수주처/프로젝트/수주일/납기일) 받아
 //   파싱 → 공정(품목) → 수주 라인 → 라인별 BOM → 외작 발주까지 한 번에 저장
 // ===================================================================
+  /**
+   * 엑셀 미리보기. <b>저장하지 않고</b> A1 제목과 양식명만 돌려준다.
+   *
+   * <p>파일을 고를 때 화면의 수주명 칸을 채우기 위한 것.
+   *
+   * <p>이게 없으면 <b>덮어쓰기가 영원히 발동하지 않는다.</b>
+   * {@code /project_suju_list} 의 name_matched 판정은 화면 입력값만 보는데,
+   * 수주명을 사람이 안 치면 항상 빈 문자열이라 매칭이 실패한다.
+   * 그런데 실제 저장은 A1 에서 뽑은 이름으로 들어가서,
+   * 확인창과 저장이 서로 다른 이름을 보게 된다.
+   * (실제로 NQ6 을 재업로드해도 매번 "새로 등록" 으로 빠졌다)
+   */
+  @PostMapping("/excel_peek")
+  public AjaxResult excelPeek(@RequestParam("upload_file") MultipartFile file) {
+    AjaxResult result = new AjaxResult();
+    try {
+      Map<String, Object> parsed = parseSujuExcel(file);
+      Map<String, Object> data = new HashMap<>();
+      data.put("projectTitle", parsed.get("projectTitle"));   // "NQ10 제작출도리스트" → "NQ10"
+      data.put("formName", parsed.get("formName"));
+      @SuppressWarnings("unchecked")
+      List<Map<String, Object>> its = (List<Map<String, Object>>) parsed.get("items");
+      data.put("itemCount", its == null ? 0 : its.size());
+      result.success = true;
+      result.data = data;
+    } catch (Exception e) {
+      // 미리보기 실패로 업로드를 막지는 않는다. 저장 때 같은 오류로 다시 걸린다.
+      log.warn("[excel_peek] 미리보기 실패: {}", e.getMessage());
+      result.success = false;
+      result.message = e.getMessage();
+    }
+    return result;
+  }
+
   @PostMapping("/excel_save")
   @Transactional
   public AjaxResult excelSave(
@@ -1624,6 +2012,7 @@ public class SujuController {
     @RequestParam("DueDate") String dueDateStr,
     @RequestParam("projno") String projno,
     @RequestParam(value = "suju_name", required = false) String sujuName,
+    @RequestParam(value = "overwrite_head_id", required = false) Integer overwriteHeadId,
     Authentication auth) {
 
     AjaxResult result = new AjaxResult();
@@ -1679,6 +2068,41 @@ public class SujuController {
       return result;
     }
 
+    // ── 1-1) 덮어쓰기 ──
+    //  화면이 /project_suju_list 로 미리 물어보고, 사용자가 [덮어쓰기] 를 고른 경우에만
+    //  overwrite_head_id 가 온다. 기존 수주를 정리한 뒤 아래에서 새로 넣는다.
+    //
+    //  ★ 삭제 규칙은 /delete 와 같은 deleteSujuHeadCore 를 쓴다.
+    //    입고된 발주나 실적이 찍힌 작업지시가 있으면 여기서 막히고 업로드 전체가 롤백된다.
+    //
+    //  ★ 수주번호는 유지되지 않는다. 기존 헤더를 지우고 새로 채번하므로
+    //    20260820-1686 → 20260826-**** 로 바뀐다. 유지가 필요하면 별도 논의.
+    int overwriteRemovedLines = 0;
+    if (overwriteHeadId != null) {
+      // 다른 프로젝트의 수주를 실수로 지우지 않도록 소속을 확인한다.
+      String belongs = queryStringSafe(
+        "SELECT project_id FROM suju_head WHERE id = :id",
+        new MapSqlParameterSource().addValue("id", overwriteHeadId));
+      if (belongs == null || !belongs.trim().equals(projno.trim())) {
+        result.success = false;
+        result.message = "덮어쓸 수주가 이 프로젝트에 속하지 않습니다. 화면을 새로고침한 뒤 다시 시도하세요.";
+        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        return result;
+      }
+
+      overwriteRemovedLines = SujuRepository.findBySujuHeadId(overwriteHeadId).size();
+
+      HeadDeleteResult del = deleteSujuHeadCore(overwriteHeadId, user);
+      if (!del.ok) {
+        result.success = false;
+        result.message = "기존 수주를 정리하지 못해 업로드를 중단했습니다.\n\n" + del.message;
+        TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        return result;
+      }
+      log.info("[excel_save] 덮어쓰기: 기존 head={} ({}행) 정리{}",
+        overwriteHeadId, overwriteRemovedLines, del.summary());
+    }
+
     // ── 2) 수주 헤더 생성 ──
     SujuHead head = new SujuHead();
     head.setJumunNumber(generateJumunNumber(jumunDate));
@@ -1703,8 +2127,6 @@ public class SujuController {
     //  중분류(user_code) 는 사용하지 않는다. 라인은 suju."line" 텍스트로 보관하고,
     //  BOM 등록용으로 라인별 구성품 목록을 함께 모은다.
     Map<String, Integer> compCache = new HashMap<>();   // 업체명 → 매입처 id (null 결과도 캐시)
-    Map<String, List<Object[]>> bomGroups = new LinkedHashMap<>();  // 라인명 → [공정품목id, 수량]
-    Map<Integer, List<Suju>> baljuGroups = new LinkedHashMap<>();   // 제작업체id → 외작 수주행
     int saved = 0;
 
     for (Map<String, Object> it : items) {
@@ -1762,20 +2184,9 @@ public class SujuController {
       suju.setLegSpec(nullIfEmpty(it.get("legSpec")));
       suju.setLegCnt(nullIfEmpty(it.get("legCnt")));
 
-      Suju savedSuju = SujuRepository.save(suju);
+      SujuRepository.save(suju);
       saved++;
-
-      // 외작 행은 거래처별로 모아 발주 생성 대상으로 적재
-      if ("outsource".equals(makeType) && makeCompId != null && matId != null) {
-        baljuGroups.computeIfAbsent(makeCompId, k -> new ArrayList<>())
-          .add(savedSuju);
-      }
-
-      // 라인별 BOM 구성품 후보로 적재 (라인명이 있는 행만)
-      if (!lineName.isEmpty() && matId != null) {
-        bomGroups.computeIfAbsent(lineName, k -> new ArrayList<>())
-          .add(new Object[]{ matId, unitVal });
-      }
+      // BOM / 발주 적재는 하지 않는다. 아래 SujuSyncService 가 DB 를 다시 읽어 처리한다.
     }
 
     if (saved == 0) {
@@ -1785,14 +2196,48 @@ public class SujuController {
       return result;
     }
 
-    // ── 4) 라인별 BOM 등록 ──
-    //  LINE = 모품목(신규 채번), 그 라인의 공정명 품목들 = 구성품, 수량 = UNIT 수량
-    int bomCount = createLineBoms(bomGroups, spjangcd, user);
+    // ── 4) 라인 BOM / 외작 발주 등록 ──
+    //  수동 등록(/manual_save_project)과 똑같이 SujuSyncService 를 탄다.
+    //  여기서는 항상 신규 헤더이므로 diff 결과가 전부 INSERT 가 된다.
+    //  발주 비고(balju_head."Description")에 출처를 남겨 자동생성 건임을 구분한다.
 
-    // ── 5) 외작 발주 등록 (거래처별 1건) ──
-    //  발주 비고(balju_head."Description")에 출처를 남겨 수주에서 자동생성된 건임을 구분한다
-    int baljuCount = createBaljuForOutsource(baljuGroups, jumunDate, dueDate, spjangcd, user,
-      head.getJumunNumber(), projno);
+    //  ★ flush 필수.
+    //    SujuRepository.save() 는 JPA 라 영속성 컨텍스트에만 올려두고 UPDATE 를
+    //    커밋 시점에 날린다. SujuSyncService 는 SqlRunner(순수 JDBC) 로 suju 를
+    //    다시 읽으므로, flush 하지 않으면 방금 저장한 값이 아니라 옛 값을 본다.
+    //    (유니트를 8→12 로 고쳐도 발주가 8 그대로 남는 증상)
+    SujuRepository.flush();
+
+    SujuSyncService.SyncResult bomRes =
+      sujuSyncService.syncLineBoms(head.getId(), spjangcd, user);
+
+    SujuSyncService.SyncResult baljuRes = sujuSyncService.syncBalju(
+      head.getId(), jumunDate, dueDate, spjangcd, user,
+      buildBaljuSourceMemo(head.getJumunNumber(), projno, head.getSujuName()));
+
+    // ── WBS 2D 출도 반영 ──
+    //  이 수주 품목들의 draw_date 중 가장 늦은 날을 WBS 의 '2D 출도' 단계 완료일로 넣는다.
+    //  대상은 auto_source='draw_date' 로 표시된 행뿐이다. WBS 확정 전이면 대상이 없어
+    //  아무 일도 하지 않는다. WBS 는 부가 정보이므로 여기서 실패해도 수주 저장은 막지 않는다.
+    try {
+      wbsPlanService.syncDrawDate(head.getId(), user);
+    } catch (Exception e) {
+      log.warn("[WBS] 도면출도일 반영 실패 (수주 저장은 계속): head={} {}", head.getId(), e.getMessage());
+    }
+
+    if (!baljuRes.ok) {
+      result.success = false;
+      result.message = baljuRes.message;
+      TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+      return result;
+    }
+
+    int bomCount   = bomRes.bomCreated + bomRes.bomUpdated;
+    int baljuCount = baljuRes.baljuHeadCreated;
+
+    // ── 6) 업로드 원본 보관 ──
+    //  실패해도 수주 저장은 그대로 둔다 (내부에서 예외를 삼키고 로그만 남긴다)
+    archiveUploadedExcel(file, head.getJumunNumber());
 
     // ── 6) 결과 ──
     Map<String, Object> data = new HashMap<>();
@@ -1804,121 +2249,38 @@ public class SujuController {
     data.put("headId", head.getId());
     result.success = true;
     result.message = formName + " " + saved + "건이 저장되었습니다."
+                       + (overwriteHeadId != null
+                            ? " (기존 " + overwriteRemovedLines + "행을 덮어썼습니다)" : "")
                        + " (BOM " + bomCount + "건, 발주 " + baljuCount + "건)";
     result.data = data;
     return result;
   }
 
-  /**
-   * 수주(외작)에서 자동생성되는 발주의 발주구분.
-   *  balju_head."SujuType" / balju."SujuType" 에 저장되며
-   *  sys_code."CodeType" = 'Balju_type' 의 코드값이다.
-   *  발주 화면(BaljuOrderController)은 cboBaljuType 으로 같은 컬럼을 채운다.
-   */
-  private static final String BALJU_TYPE_OUTSOURCE = "outsource";
-
-  /**
-   * 외작 수주행 → 발주 등록. 제작업체(거래처)가 같은 것끼리 묶어 발주 1건을 만든다.
-   *  - 단가 정보가 없으므로 단가/공급가/부가세/합계는 0 으로 두고 발주 화면에서 채운다
-   *  - balju_head."Description" 에 출처 문구를 남긴다. 이 컬럼이 발주 목록 화면의
-   *    '비고' 컬럼이자 발주 상세 팝업의 '특이사항' 이므로, 수주에서 자동으로 만들어진
-   *    발주인지 발주 화면에서 직접 등록한 발주인지 바로 구분된다.
-   *    (품목행 비고 balju."Description" 은 이미 품명이 들어가 있어 건드리지 않는다)
-   * @return 생성한 발주 헤더 수
-   */
-  private int createBaljuForOutsource(Map<Integer, List<Suju>> baljuGroups,
-                                      Date jumunDate, Date dueDate,
-                                      String spjangcd, User user,
-                                      String sujuJumunNumber, String projno) {
-    if (baljuGroups == null || baljuGroups.isEmpty()) return 0;
-
-    String sourceMemo = buildBaljuSourceMemo(sujuJumunNumber, projno);
-
-    Timestamp now = new Timestamp(System.currentTimeMillis());
-    int baljuCount = 0;
-
-    for (Map.Entry<Integer, List<Suju>> e : baljuGroups.entrySet()) {
-      Integer companyId = e.getKey();
-      List<Suju> rows = e.getValue();
-      if (companyId == null || rows == null || rows.isEmpty()) continue;
-
-      String companyName = str(rows.get(0).getMakeCompName());
-
-      BaljuHead head = new BaljuHead();
-      head.setCreated(now);
-      head.setCreaterId(user.getId());
-      head.set_status("manual");
-      head.setJumunNumber(baljuOrderService.makeJumunNumber(jumunDate));
-      head.setJumunDate(jumunDate);
-      head.setDeliveryDate(dueDate);
-      head.setCompanyId(companyId);
-      head.setSpjangcd(spjangcd);
-      head.setSujuType(BALJU_TYPE_OUTSOURCE);   // ★ 발주구분 = 외작
-      head.setTotalPrice(0d);
-      head.setDescription(sourceMemo);       // ★ 수주에서 자동생성된 발주 표시
-      balJuHeadRepository.save(head);
-      baljuCount++;
-
-      for (Suju s : rows) {
-        Balju detail = new Balju();
-        detail._created = now;
-        detail._creater_id = user.getId();
-        detail.setBaljuHeadId(head.getId());
-        detail.setJumunNumber(head.getJumunNumber());
-        detail.setMaterialId(s.getMaterialId());
-        detail.setCompanyId(companyId);
-        detail.setCompanyName(companyName);
-        detail.setSujuQty(s.getSujuQty() == null ? 0d : s.getSujuQty());
-        detail.setSujuQty2(0d);
-        detail.setUnitPrice(0d);        // 단가 미정 → 발주 화면에서 입력
-        detail.setPrice(0d);
-        detail.setVat(0d);
-        detail.setTotalAmount(0d);
-        detail.setStandard(str(s.getStandard()));
-        detail.setDescription(str(s.getMaterial_Name()));
-        detail.setJumunDate(jumunDate);
-        detail.setDueDate(dueDate);
-        detail.setSpjangcd(spjangcd);
-        detail.setInVatYN("N");
-        detail.setSujuType(BALJU_TYPE_OUTSOURCE);   // 헤더와 동일하게 맞춘다
-        detail.setState("draft");
-        detail.set_status("manual");
-        Balju savedDetail = bujuRepository.save(detail);
-
-        // ★ 발주행 → 수주행 역추적 고리.
-        //   mat_inout 이 발주를 SourceTableName='balju' / SourceDataPk=balju.id 로
-        //   가리키는 것과 같은 방식으로, 발주는 수주행을 가리킨다.
-        //     suju.id → balju."PlanDataPk" → mat_inout."SourceDataPk" → 입고
-        //   Balju 엔티티에 해당 필드가 없을 수 있어 SqlRunner 로 직접 채운다.
-        MapSqlParameterSource lp = new MapSqlParameterSource();
-        lp.addValue("id", savedDetail.getId());
-        lp.addValue("sujuId", s.getId());
-        this.sqlRunner.execute("""
-          UPDATE balju
-             SET "PlanTableName" = 'suju', "PlanDataPk" = :sujuId
-           WHERE id = :id
-          """, lp);
-      }
-
-      log.info("[excel_save] 발주 등록: 거래처 [{}] id={} 품목 {}건 / 비고 [{}]",
-        companyName, companyId, rows.size(), sourceMemo);
+  /** 단일 문자열 조회. 결과가 없으면 null. */
+  private String queryStringSafe(String sql, MapSqlParameterSource p) {
+    try {
+      return sqlRunner.queryForObject(sql, p, (rs, n) -> rs.getString(1));
+    } catch (Exception e) {
+      return null;
     }
-
-    return baljuCount;
   }
+
+  // createBaljuForOutsource / createLineBoms 는 SujuSyncService 로 옮겼다.
+  //  수동 등록과 엑셀 업로드가 같은 동기화 로직을 쓰게 하기 위한 것으로,
+  //  여기에 다시 만들지 말 것. (중복되면 두 화면의 동작이 곧 갈라진다)
 
   /**
    * 수주에서 자동생성된 발주임을 나타내는 비고 문구.
-   *   수주 SJ20260821-001 / P2026-001
+   *   수주 20260821-0001 / P2026-001 / 3호기 지그
    *
-   * ★ balju_head."Description" 이 varchar(50) 이므로 반드시 50자 이내여야 한다.
-   *   넘으면 PostgreSQL 이 value too long 으로 저장 전체를 롤백시킨다.
-   *   수주명까지 넣으면 초과하므로 수주번호 + 프로젝트만 담고,
-   *   상세 역추적은 balju."PlanDataPk"(= suju.id) 로 한다.
+   * balju_head."Description" / balju."Description" 모두 varchar(500).
+   * 사람이 발주 화면에서 읽는 용도이며, 담당자가 편집할 수 있으므로
+   * 이 문자열을 파싱해서 수주를 역추적하지 말 것.
+   * 기계 역추적은 balju."PlanDataPk"(= suju.id) → "BaljuHead_id" 경로를 쓴다.
    */
-  private static final int BALJU_DESC_MAX = 50;
+  private static final int BALJU_DESC_MAX = 500;
 
-  private String buildBaljuSourceMemo(String sujuJumunNumber, String projno) {
+  private String buildBaljuSourceMemo(String sujuJumunNumber, String projno, String sujuName) {
     StringBuilder sb = new StringBuilder("수주");
     if (sujuJumunNumber != null && !sujuJumunNumber.trim().isEmpty()) {
       sb.append(' ').append(sujuJumunNumber.trim());
@@ -1926,74 +2288,16 @@ public class SujuController {
     if (projno != null && !projno.trim().isEmpty()) {
       sb.append(" / ").append(projno.trim());
     }
+    if (sujuName != null && !sujuName.trim().isEmpty()) {
+      sb.append(" / ").append(sujuName.trim());
+    }
     return cut(sb.toString(), BALJU_DESC_MAX);
   }
 
-  /** varchar 길이 초과로 저장이 롤백되는 것을 막는다. */
+  /** varchar 길이 초과로 저장 전체가 롤백되는 것을 막는다. */
   private static String cut(String v, int max) {
     if (v == null) return null;
     return (v.length() <= max) ? v : v.substring(0, max);
-  }
-
-  /**
-   * 라인별 BOM 등록.
-   *  - LINE 이름으로 모품목을 신규 채번 (품목그룹 LINE_MATERIAL_GROUP_CODE)
-   *  - 그 라인의 공정명 품목들을 bom_comp 로 등록, 수량은 UNIT 수량
-   *  - 품목을 매번 새로 따므로 기존 BOM 과 버전/기간이 충돌할 일이 없다
-   * @return 생성한 BOM 헤더 수
-   */
-  private int createLineBoms(Map<String, List<Object[]>> bomGroups, String spjangcd, User user) {
-    if (bomGroups == null || bomGroups.isEmpty()) return 0;
-
-    java.sql.Timestamp startTs = java.sql.Timestamp.valueOf(java.time.LocalDate.now().toString() + " 00:00:00");
-    java.sql.Timestamp endTs   = java.sql.Timestamp.valueOf("2100-12-31 00:00:00");
-
-    int bomCount = 0;
-
-    for (Map.Entry<String, List<Object[]>> e : bomGroups.entrySet()) {
-      String lineName = e.getKey();
-      List<Object[]> comps = e.getValue();
-      if (comps == null || comps.isEmpty()) continue;
-
-      // 모품목: LINE 이름으로 신규 등록
-      Integer lineMatId = createMaterial(lineName, LINE_MATERIAL_GROUP_CODE, spjangcd, user);
-      if (lineMatId == null) continue;
-
-      Bom bom = new Bom();
-      bom.setName(lineName);
-      bom.setMaterialId(lineMatId);
-      bom.setOutputAmount(1F);
-      bom.setBomType(BOM_TYPE);
-      bom.setVersion(BOM_VERSION);
-      bom.setStartDate(startTs);
-      bom.setEndDate(endTs);
-      bom.setSpjangcd(spjangcd);
-      bom.set_audit(user);
-
-      Bom savedBom = bomService.saveBom(bom);
-      bomCount++;
-
-      int order = 1;
-      for (Object[] c : comps) {
-        Integer compMatId = (Integer) c[0];
-        Double  amount    = (Double) c[1];
-
-        BomComponent bc = new BomComponent();
-        bc.setBomId(savedBom.getId());
-        bc.setMaterialId(compMatId);
-        bc.setAmount(amount == null ? 0F : amount.floatValue());
-        bc.set_order(order++);
-        bc.setDescription(null);
-        bc.setSpjangcd(spjangcd);
-        bc.set_audit(user);
-
-        bomService.saveBomComponent(bc);
-      }
-
-      log.info("[excel_save] BOM 등록: 라인 [{}] 모품목 id={} 구성품 {}건", lineName, lineMatId, comps.size());
-    }
-
-    return bomCount;
   }
 
   /* ---------- 헬퍼 ---------- */

@@ -2,14 +2,17 @@ package mes.app.transaction;
 
 import lombok.extern.slf4j.Slf4j;
 import mes.app.transaction.service.ProjectRegistrationServicr;
+import mes.app.transaction.service.WbsPlanService;
 import mes.domain.entity.TB_DA003;
 import mes.domain.entity.TB_DA003Id;
+import mes.domain.entity.User;
 import mes.domain.entity.iljin.tb_da003_stage;
 import mes.domain.entity.iljin.tb_da003_stage_id;
 import mes.domain.model.AjaxResult;
 import mes.domain.repository.ProjectRepository;
 import mes.domain.repository.iljin.ProjectStageRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +36,29 @@ public class ProjectRegistrationController {  //프로젝트 관리
 
   @Autowired
   ProjectStageRepository projectStageRepository;
+
+  @Autowired
+  WbsPlanService wbsPlanService;
+
+  /** 담당자 드롭다운용 인원 목록 */
+  @GetMapping("/personOptions")
+  public AjaxResult getPersonOptions(
+    @RequestParam(value = "workcenter_id", required = false) Integer workcenterId) {
+    AjaxResult result = new AjaxResult();
+    result.data = this.wbsPlanService.getPersonOptions(workcenterId);
+    result.success = true;
+    return result;
+  }
+
+  /** 진행단계의 WBS 연결 드롭다운용 목록 */
+  @GetMapping("/wbsStageOptions")
+  public AjaxResult getWbsStageOptions(@RequestParam("projno") String projno,
+                                       @RequestParam("spjangcd") String spjangcd) {
+    AjaxResult result = new AjaxResult();
+    result.data = this.wbsPlanService.getStageOptions(spjangcd, projno);
+    result.success = true;
+    return result;
+  }
 
   @GetMapping("/read")
   public AjaxResult getProjectList(@RequestParam(value = "srchStartDt") String srchStartDt,
@@ -65,7 +91,9 @@ public class ProjectRegistrationController {  //프로젝트 관리
   //저장
   @PostMapping("/save")
   @Transactional
-  public AjaxResult ProjectListSave(@RequestBody Map<String, Object> params) {
+  public AjaxResult ProjectListSave(@RequestBody Map<String, Object> params,
+                                    Authentication auth) {
+    User user = (auth == null) ? null : (User) auth.getPrincipal();
 
     AjaxResult result = new AjaxResult();
 
@@ -81,9 +109,16 @@ public class ProjectRegistrationController {  //프로젝트 관리
     String spjangcd = asStr(params.get("spjangcd"));
 
     // ===== 진행단계 배열 추출 =====
+    //  ★ stages 키가 아예 없으면 진행단계를 건드리지 않는다.
+    //    진행단계는 이제 WbsPlanService.syncStagesFromWbs 가 WBS 마일스톤을 요약해
+    //    자동으로 써넣는다. 화면은 읽기전용이라 stages 를 보내지 않는데,
+    //    여기서 빈 배열로 치환해버리면 saveStages 의 delete-all 이
+    //    <b>자동 생성된 단계를 통째로 지운다.</b>
+    //    (빈 배열을 명시적으로 보내는 호출은 "전부 지워라" 로 그대로 존중한다)
     @SuppressWarnings("unchecked")
-    List<Map<String, Object>> stages =
-      (List<Map<String, Object>>) params.getOrDefault("stages", new ArrayList<>());
+    List<Map<String, Object>> stages = params.containsKey("stages")
+                                         ? (List<Map<String, Object>>) params.get("stages")
+                                         : null;
 
     String targetProjNo; // 저장 대상 프로젝트번호 (신규/수정 공통)
 
@@ -131,7 +166,21 @@ public class ProjectRegistrationController {  //프로젝트 관리
     }
 
     // ===== 진행단계 저장 (delete-all + insert-all) =====
-    saveStages(spjangcd, targetProjNo, stages);
+    if (stages != null) {
+      saveStages(spjangcd, targetProjNo, stages);
+
+      // ★ 진행단계의 완료 상태를 연결된 WBS 세부단계에 반영한다 (양방향).
+      //   완료를 누르면 wbs_plan.ac_eddate 가 채워지고, 해제하면 비워진다.
+      //   wbs_plan_id 가 없는 행은 건드리지 않는다.
+      this.wbsPlanService.applyStageCompletion(spjangcd, targetProjNo, user);
+
+      // ★ 자동 채움 단계(2D 출도)를 수주 도면출도일로 다시 맞춘다.
+      //   applyStageCompletion 다음에 불러야 자동값이 이긴다 — 손으로 고친 값은
+      //   도면출도일이 바뀔 때까지만 유효하다는 규칙이 여기서 지켜진다.
+      //   수주 저장 때만 돌게 두면, 진행단계를 고치는 이 화면에서 저장해도
+      //   2D 출도가 갱신되지 않아 영원히 빈칸으로 남는다.
+      this.wbsPlanService.syncDrawDateForProject(spjangcd, targetProjNo, user);
+    }
 
     return result;
   }
@@ -141,7 +190,7 @@ public class ProjectRegistrationController {  //프로젝트 관리
     // 기존 단계 전체 삭제
     this.projectRegistrationServicr.deleteByProject(spjangcd, projno);
 
-    if (stages == null || stages.isEmpty()) return;
+    if (stages.isEmpty()) return;   // 명시적 빈 배열 = 전부 삭제
 
     String today = LocalDate.now().toString().replace("-", ""); // yyyymmdd
     int seq = 1;
@@ -156,6 +205,10 @@ public class ProjectRegistrationController {  //프로젝트 관리
       stage.setStagenm(stagenm);
       stage.setPldate(pldate);
       stage.setCpdate(cpdate);
+      // WBS 세부단계 연결. 비어 있으면 진행단계에만 존재하는 행이다.
+      stage.setWbsPlanId(asInt(s.get("wbs_plan_id")));
+      stage.setChargeId(asInt(s.get("charge_id")));
+      stage.setRemark(asStr(s.get("remark")));
       // 완료일 있으면 완료(1), 없으면 진행중(0)
       stage.setEndflag((cpdate != null && !cpdate.isEmpty()) ? "1" : "0");
       stage.setIndate(today);
