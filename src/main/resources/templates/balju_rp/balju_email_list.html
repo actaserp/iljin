@@ -59,6 +59,22 @@
           color: #d9534f;
           font-weight: bold;
       }
+
+      /* 첨부파일 */
+      .file-link {
+          color: #2f6fd0;
+          text-decoration: underline;
+          cursor: pointer;
+      }
+
+      .file-size {
+          margin-left: 6px;
+          color: #888;
+      }
+
+      .no-file {
+          color: #999;
+      }
   </style>
 </head>
 
@@ -218,6 +234,10 @@
             <td colspan="3"><span class="read-value" id="dtlMailTitle"></span></td>
           </tr>
           <tr>
+            <th style="text-align: center;">첨부파일</th>
+            <td colspan="3"><span class="read-value" id="dtlFileName"></span></td>
+          </tr>
+          <tr>
             <th style="text-align: center;">내용</th>
             <td colspan="3">
               <div class="read-content" id="dtlMailContent"></div>
@@ -249,10 +269,16 @@
     *  GET  /api/balju/balju_mail/detail
     *       param : mail_id, spjangcd
     *       return: data - 위 항목 + MailContent(발송 당시 본문)
+    *  GET  /api/balju/balju_mail/download
+    *       param : mail_id, spjangcd
+    *       return: 발송 당시 첨부(발주서 xlsx) 바이너리
     *
-    * ※ 본문은 반드시 발송 시점에 저장된 값을 그대로 내려줄 것.
+    * ※ 본문과 첨부는 반드시 발송 시점에 저장된 값을 그대로 내려줄 것.
     *    bh_id 로 발주 마스터를 조인해 재구성하면 발주가 수정됐을 때
     *    실제 발송 내용과 화면이 달라진다.
+    * ※ 다운로드는 바이너리 응답이라 AjaxUtil 로 받을 수 없다.
+    *    location.href 로 직접 연다 (GET 이라 CSRF 토큰 불필요).
+    *    서버 경로는 화면으로 내려오지 않는다. mail_id 로만 요청한다.
     */
    class BaljuMailListPage {
     constructor() {
@@ -293,6 +319,7 @@
        {binding: 'BaljuTotalPrice', header: '발주액', width: 110, align: 'right', format: 'n0'},
        {binding: 'SendUserName', header: '발송자', width: 90, align: 'center'},
        {binding: 'SendStateName', header: '발송상태', width: 90, align: 'center'},
+       {binding: 'has_file', header: '첨부', width: 60, align: 'center'},
        {binding: 'ErrorMessage', header: '실패사유', width: 220}
       ],
       itemsSource: this.viewData,
@@ -306,6 +333,11 @@
         if ((column.binding === 'SendStateName' || column.binding === 'ErrorMessage')
          && item.SendState === 'fail') {
          cell.classList.add('grid-cell-red');
+        }
+
+        // 첨부 유무 (1/0 을 그대로 보이지 않게)
+        if (column.binding === 'has_file') {
+         cell.textContent = item.has_file ? 'O' : '';
         }
        }
       }
@@ -401,6 +433,7 @@
     }
 
     renderMailDetail(data) {
+     let _this = this;
      let content = tmpl('BalJuMailDetailTemplate', data);
      let $content = $(content);
 
@@ -417,6 +450,27 @@
      $content.find('#dtlReplyTo').text(data.ReplyTo || '');
      $content.find('#dtlMailTitle').text(data.MailTitle || '');
      $content.find('#dtlMailContent').text(data.MailContent || '');
+
+     // 첨부파일 - 보관 이전에 발송된 건은 파일이 없다
+     let $file = $content.find('#dtlFileName').empty();
+     if (data.has_file) {
+      $('<a></a>')
+      .attr('href', 'javascript:void(0);')
+      .addClass('file-link')
+      .text(data.FileName || '발주서.xlsx')
+      .on('click', function () {
+       _this.downloadMailFile(data.mail_id);
+      })
+      .appendTo($file);
+
+      if (data.FileSize) {
+       $file.append($('<span></span>')
+       .addClass('file-size')
+       .text('(' + _this.formatFileSize(data.FileSize) + ')'));
+      }
+     } else {
+      $file.addClass('no-file').text('첨부 없음');
+     }
 
      // 발송상태 (실패 시 사유 함께 표기)
      let $state = $content.find('#dtlSendStateName');
@@ -440,6 +494,27 @@
      .forEach(email => {
       $recipients.append($('<span></span>').text(email));
      });
+    }
+
+    /*
+     * 첨부 다운로드.
+     * 바이너리 응답이라 AjaxUtil 을 쓰지 않는다. GET 이므로 CSRF 토큰도 필요 없다.
+     * 파일이 유실됐거나 보관 이전 건이면 서버가 404 를 준다.
+     */
+    downloadMailFile(mailId) {
+     let param = $.param({
+      'mail_id': mailId,
+      'spjangcd': this.spjangcd.val() || ''
+     });
+     window.location.href = this.url + '/download?' + param;
+    }
+
+    formatFileSize(bytes) {
+     let size = Number(bytes);
+     if (!size || size < 0) return '';
+     if (size < 1024) return size + ' B';
+     if (size < 1024 * 1024) return Math.round(size / 1024) + ' KB';
+     return (size / 1024 / 1024).toFixed(1) + ' MB';
     }
    }
 

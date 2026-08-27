@@ -18,26 +18,15 @@ public class BalJuOptimalStockService {
   SqlRunner sqlRunner;
 
   /**
-   * 검색조건용 품목그룹 목록
+   * 품목구분 미선택(전체)일 때의 표시 범위 — 원재료 / 부재료
+   *
+   * ※ 이 화면은 발주 대상 품목만 다룬다. 제품(product) / 반제품(semi) 은 제외.
+   *   부재료(sub_mat) 에는 구매품(BUY) 과 표준품(STD) 이 함께 속한다.
+   *   둘 다 발주 대상이므로 그룹 코드로 더 좁히지 않는다.
    */
-  public List<Map<String, Object>> getMatGrpList(String spjangcd) {
-    MapSqlParameterSource paramMap = new MapSqlParameterSource();
-    paramMap.addValue("spjangcd", spjangcd);
+  private static final List<String> DEFAULT_MAT_TYPES = List.of("raw_mat", "sub_mat");
 
-    String sql = """
-      SELECT mg.id       AS value
-           , mg."Name"   AS text
-           , mg."Code"   AS code
-           , mg."MaterialType" AS material_type
-      FROM mat_grp mg
-      WHERE mg.spjangcd = :spjangcd
-      ORDER BY mg.id
-      """;
-
-    return sqlRunner.getRows(sql, paramMap);
-  }
-
-  public List<Map<String, Object>> getList(String matName, String status, String matGrp,
+  public List<Map<String, Object>> getList(String matName, String status, String matType,
                                            Timestamp start, Timestamp end, String spjangcd) {
     MapSqlParameterSource paramMap = new MapSqlParameterSource();
     paramMap.addValue("matName", matName);
@@ -45,21 +34,35 @@ public class BalJuOptimalStockService {
     paramMap.addValue("start", start);
     paramMap.addValue("end", end);
     paramMap.addValue("spjangcd", spjangcd);
+    paramMap.addValue("defaultMatTypes", DEFAULT_MAT_TYPES);
+
+    // 빈 문자열은 NULL 로 정규화 (SQL 에서 CAST(:matType AS varchar) IS NULL 로 판정)
+    paramMap.addValue("matType",
+      (matType == null || matType.isBlank()) ? null : matType.trim());
 
     String sql = """
       WITH
-        -- 0) 자재 마스터(적정재고/현재고/단위/품목그룹)
-        --    ※ Mtyn(자재여부) 조건을 걸면 제품/공정 그룹이 통째로 빠지므로 제외한다.
-        --      (표시 대상은 어차피 아래 orders 와 조인되어 '수주가 있는 품목' 으로 한정됨)
+        -- 0) 자재 마스터(적정재고/현재고/단위/품목구분/품목그룹)
+        --    품목구분은 mat_grp."MaterialType" 이 원천이다.
+        --    품목그룹이 없는 자재는 구분을 판정할 수 없으므로 제외(INNER JOIN).
         mat AS (
           SELECT
             m.id,
             m."Code"  AS material_code,
             m."Name"  AS material_name,
             COALESCE(u."Name",'') AS unit_name,
+            NULLIF(m."Standard1",'') AS mat_standard,
             mg.id     AS mat_grp_id,
             COALESCE(mg."Name",'') AS mat_grp_name,
             COALESCE(mg."Code",'') AS mat_grp_code,
+            COALESCE(mg."MaterialType",'') AS mat_type,
+            CASE mg."MaterialType"
+              WHEN 'product' THEN '제품'
+              WHEN 'semi'    THEN '반제품'
+              WHEN 'raw_mat' THEN '원재료'
+              WHEN 'sub_mat' THEN '부재료'
+              ELSE COALESCE(mg."MaterialType",'')
+            END AS mat_type_name,
             m.spjangcd,
             COALESCE(m."CurrentStock",0)::numeric AS current_stock,
             COALESCE(
@@ -67,10 +70,15 @@ public class BalJuOptimalStockService {
               '0'
             )::numeric AS optimal_stock
           FROM material m
-          LEFT JOIN unit u     ON u.id  = m."Unit_id"
-          LEFT JOIN mat_grp mg ON mg.id = m."MaterialGroup_id"
+          LEFT JOIN unit u ON u.id  = m."Unit_id"
+          JOIN mat_grp mg  ON mg.id = m."MaterialGroup_id"
           WHERE m.spjangcd = :spjangcd
             AND m."Useyn" = '0'
+            AND (
+                  (CAST(:matType AS varchar) IS NULL
+                     AND mg."MaterialType" IN (:defaultMatTypes))
+                  OR mg."MaterialType" = CAST(:matType AS varchar)
+                )
         ),
         -- 1) 수주 집계(납품예정일 기준: head.DeliveryDate 우선, 없으면 line.DueDate)
         orders AS (
@@ -89,7 +97,10 @@ public class BalJuOptimalStockService {
                 BETWEEN CAST(:start AS date) AND CAST(:end AS date)
           GROUP BY s."Material_id", s."Standard"
         ),
-        -- 2) 표시 대상(수주 존재 자재만)  ※ incoming 제외
+        -- 2) 표시 대상
+        --    ※ 자재 기준 LEFT JOIN. 수주가 없는 품목도 수주량 0 으로 표시된다.
+        --      (이 경우 필요수량 = 적정재고 - 현재고)
+        --      수주가 있는 품목만 보려면 아래를 JOIN 으로 바꿀 것.
         base AS (
           SELECT
             m.id AS material_id,
@@ -98,14 +109,16 @@ public class BalJuOptimalStockService {
             m.mat_grp_id,
             m.mat_grp_name,
             m.mat_grp_code,
-            o.standard,
+            m.mat_type,
+            m.mat_type_name,
+            COALESCE(o.standard, m.mat_standard) AS standard,
             m.unit_name,
             COALESCE(o.order_qty,0) AS order_qty,
             0::numeric              AS incoming_qty,   -- ← 계산 제외(표시만 0)
             m.current_stock,
             m.optimal_stock
-          FROM orders o
-          JOIN mat m ON m.id = o.material_id
+          FROM mat m
+          LEFT JOIN orders o ON o.material_id = m.id
         )
         SELECT *
         FROM (
@@ -116,6 +129,8 @@ public class BalJuOptimalStockService {
             mat_grp_id,
             mat_grp_name,
             mat_grp_code,
+            mat_type,
+            mat_type_name,
             standard,
             unit_name,
             order_qty,
@@ -142,12 +157,6 @@ public class BalJuOptimalStockService {
       paramMap.addValue("matName", "%" + matName + "%");
     }
 
-    // 품목그룹 필터 (mat_grp.id)
-    if (matGrp != null && !matGrp.isBlank()) {
-      sql += " AND t.mat_grp_id = CAST(:matGrp AS integer) ";
-      paramMap.addValue("matGrp", matGrp.trim());
-    }
-
     // 상태 필터
     if (status != null && !status.isBlank() && !"전체".equals(status.trim())) {
       String st = status.trim();
@@ -166,7 +175,20 @@ public class BalJuOptimalStockService {
       paramMap.addValue("status", st);
     }
 
-    sql += " ORDER BY t.mat_grp_id, t.material_code, COALESCE(t.standard,'')";
+    // 부족 → 적정 → 여유 순.
+    // 같은 상태 안에서는 필요수량이 큰 것 → 수주가 있는 것 순으로 올린다.
+    sql += """
+        ORDER BY CASE t.state
+                   WHEN '부족' THEN 0
+                   WHEN '적정' THEN 1
+                   ELSE 2
+                 END
+               , t.need_more_qty DESC
+               , (t.order_qty > 0) DESC
+               , t.mat_grp_id
+               , t.material_code
+               , COALESCE(t.standard,'')
+        """;
 
 //    log.info("paramMap:{}", paramMap);
 //    log.info("적정재고 현황(납품예정일 기준) sql:{}", sql);

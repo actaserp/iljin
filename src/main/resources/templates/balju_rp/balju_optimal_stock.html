@@ -58,15 +58,13 @@
           </dl>
           <dl>
             <dt>
-              <label for="cboMatGrp">
-                품목그룹
+              <label for="cboMatType">
+                품목구분
               </label>
             </dt>
             <dd>
               <div class="srch-box">
-                <select id="cboMatGrp" name="cboMatGrp" style="min-width:130px;">
-                  <option value="">전체</option>
-                </select>
+                <select id="cboMatType" name="cboMatType" style="min-width:130px;"></select>
               </div>
             </dd>
           </dl>
@@ -134,10 +132,11 @@
       },
       columns: [
        {binding: 'material_code', header: '자재코드', width: 100, align: 'center', visible: false},
+       {binding: 'mat_type_name', header: '품목구분', width: 90, align: 'center', isReadOnly: true},
        {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center', isReadOnly: true},
        {binding: 'material_name', header: '자재명', width: 300, align: 'left', isReadOnly: true},
-       {binding: 'unit_name', header: '단위', width: 100, align: 'center', isReadOnly: true},
-       {binding: 'standard', header: '규격', width: 100, align: 'center', isReadOnly: true},
+       // {binding: 'unit_name', header: '단위', width: 100, align: 'center', isReadOnly: true},
+       {binding: 'standard', header: '규격', width: 200, align: 'left', isReadOnly: true},
        {binding: 'order_qty', header: '수주량', width: 120, align: 'right', isReadOnly: true},
        //{binding: 'incoming_qty', header: '미입고수량', width: 120, align: 'right', isReadOnly: true},
        {binding: 'current_stock', header: '현재고', width: 120, align: 'right', isReadOnly: true},
@@ -174,17 +173,13 @@
 
     }
 
-    // 품목그룹 옵션 로딩 (mat_grp 테이블 기준)
-    loadMatGrpOptions() {
-     const $sel = $('#cboMatGrp');
-     const result = AjaxUtil.getSyncData(this.url + '/mat_grp_list',
-      {spjangcd: sessionStorage.getItem('spjangcd')});
-
-     const list = (result && result.data) || [];
-     $sel.empty().append('<option value="">전체</option>');
-     list.forEach(function (g) {
-      $sel.append(`<option value="${g.value}">${g.text}</option>`);
-     });
+    // 품목구분 옵션 로딩 (sys_code.CodeType = 'mat_type')
+    // 이 화면은 발주 대상만 다루므로 제품/반제품은 제외하고, 기본값은 부재료.
+    loadMatTypeOptions() {
+     AjaxUtil.fillSelectOptions($('#cboMatType'), 'system_code', 'all', false, 'mat_type');
+     $('#cboMatType option[value="product"]').remove();
+     $('#cboMatType option[value="semi"]').remove();
+     $('#cboMatType').val('sub_mat');
     }
 
     searchDataBind() {
@@ -193,7 +188,7 @@
      let param = {
       'mat_name': $('#txtMatName').val(),
       'Inventory_status': $('#cboState').val(),
-      'matGrp': $('#cboMatGrp').val(),
+      'matType': $('#cboMatType').val(),
       'srchStartDt': $('#srchStartDt').val(),
       'srchEndDt': $('#srchEndDt').val(),
       'spjangcd': sessionStorage.getItem('spjangcd')
@@ -228,16 +223,16 @@
 
     //AjaxUtil.fillSelectOptions($('#cboState'), 'system_code', 'all', false, 'Inventory_status') ;
 
-    // 품목그룹 옵션 로딩
-    page.loadMatGrpOptions();
+    // 품목구분 옵션 로딩
+    page.loadMatTypeOptions();
 
     // 검색버튼
     $('#btnSearch').click(function (e) {
      page.searchDataBind();
     });
 
-    // 품목그룹 변경 시 바로 재조회
-    $('#cboMatGrp').on('change', function () {
+    // 품목구분 변경 시 바로 재조회
+    $('#cboMatType').on('change', function () {
      page.searchDataBind();
     });
 

@@ -395,7 +395,6 @@
   </script>
 
   <!-- ================= 부족재고 선택 팝업 ================= -->
-  <!-- ================= 부족 재고 목록 팝업 ================= -->
   <script type="text/x-tmpl" id="needStockTemplate">
     <style>
     #needStockPopup { display:flex; flex-direction:column; height:100%; }
@@ -483,16 +482,8 @@
       <div class="need-field">
         <label for="needMatType">품목구분</label>
         <div class="need-inputs">
-          <select id="needMatType">
-            <option value="">전체(제품 제외)</option>
-            <option value="semi">반제품</option>
-            <option value="raw_mat" selected>원재료</option>
-            <option value="sub_mat">부재료</option>
-            <option value="sangpum">상품</option>
-            <option value="jajae">자재</option>
-            <option value="commodity">상품(commodity)</option>
-            <option value="product">제품</option>
-          </select>
+          <!-- 옵션은 sys_code.CodeType='mat_type' 에서 채운다 (NeedStockPopup.show) -->
+          <select id="needMatType"></select>
         </div>
       </div>
 
@@ -521,21 +512,21 @@
         <table class="need-table">
           <colgroup>
             <col style="width:40px"><col style="width:100px"><col style="width:*">
-            <col style="width:55px"><col style="width:90px"><col style="width:90px">
-            <col style="width:90px"><col style="width:90px"><col style="width:90px">
-            <col style="width:90px"><col style="width:70px"><col style="width:100px">
+            <col style="width:55px"><col style="width:100px"><col style="width:90px">
+            <col style="width:90px"><col style="width:90px"><col style="width:70px">
+            <col style="width:100px">
           </colgroup>
           <thead>
             <tr>
               <th><input type="checkbox" id="chkAllNeed"></th>
               <th>자재코드</th><th>자재명</th><th>단위</th>
-              <th>수주소요량</th><th>계획소요량</th><th>적용소요량</th>
+              <th>소요량</th>
               <th>현재고</th><th>적정재고</th><th>필요수량</th>
               <th>상태</th><th>발주수량</th>
             </tr>
           </thead>
           <tbody id="needStockBody">
-            <tr><td colspan="12">조회 중...</td></tr>
+            <tr><td colspan="10">조회 중...</td></tr>
           </tbody>
         </table>
       </div>
@@ -695,6 +686,14 @@
      this.$content = $content;
      this.modal = modal;
 
+     // 품목구분 옵션 (sys_code.CodeType = 'mat_type'), 기본값 부재료
+     // 이 팝업은 발주 대상만 다루므로 제품/반제품은 제외한다.
+     const $matType = $content.find('#needMatType');
+     AjaxUtil.fillSelectOptions($matType, 'system_code', 'all', 'sub_mat', 'mat_type');
+     $matType.find('option[value="product"]').remove();
+     $matType.find('option[value="semi"]').remove();
+     if (!$matType.val()) $matType.val('sub_mat');
+
      // 기준일자 기본값: 당월 1일 ~ 말일 (적정재고현황 화면과 동일)
      const today = new Date();
      const yyyy = today.getFullYear();
@@ -733,7 +732,7 @@
       'spjangcd'        : sessionStorage.getItem('spjangcd')
      };
 
-     $c.find('#needStockBody').html('<tr><td colspan="12">조회 중...</td></tr>');
+     $c.find('#needStockBody').html('<tr><td colspan="10">조회 중...</td></tr>');
 
      AjaxUtil.getAsyncData('/api/balju/optimal_stock/read', param, function (res) {
       _this.rows = (res && res.data) ? res.data : [];
@@ -747,7 +746,7 @@
      this.$content.find('#chkAllNeed').prop('checked', false);
 
      if (!list.length) {
-      $body.append('<tr><td colspan="12">부족 재고가 없습니다.</td></tr>');
+      $body.append('<tr><td colspan="10">부족 재고가 없습니다.</td></tr>');
       return;
      }
 
@@ -761,8 +760,6 @@
           <td>${r.material_code || ''}</td>
           <td class="al_l">${r.material_name || ''}</td>
           <td>${r.unit_name || ''}</td>
-          <td class="al_r">${n(r.order_qty)}</td>
-          <td class="al_r">${n(r.plan_qty)}</td>
           <td class="al_r">${n(r.demand_qty)}</td>
           <td class="al_r">${n(r.current_stock)}</td>
           <td class="al_r">${n(r.optimal_stock)}</td>
@@ -1049,11 +1046,11 @@
        $.ajax({
         url: '/api/balju/balju_order/receiverEmail',
         type: 'GET',
-        data: { bhId: bhId },
+        data: {bhId: bhId},
         complete: function () {
          AjaxUtil.hideLoading();
         },
-        success: function(response) {
+        success: function (response) {
          //console.log('서버로부터 받은 이메일 데이터:', response);
 
          const result = {
@@ -1066,7 +1063,7 @@
 
          _this.showBalJuMailForm(result);
         },
-        error: function() {
+        error: function () {
          Alert.alert('', '거래처 이메일 정보를 불러오는 데 실패했습니다.');
         }
        });
@@ -1126,7 +1123,8 @@
         function () {
          _this.deleteSujuData(id, state);
         },
-        function () {}
+        function () {
+        }
        );
       } else {
        Alert.alert('', '삭제할 항목을 선택해주세요.', function () {
@@ -1162,7 +1160,7 @@
       modalContainer = new PopupDraggable('발주서 발송');
      }
 
-     modalContainer.open({ width: 650, height: 360, $content });
+     modalContainer.open({width: 650, height: 360, $content});
 
      // 수신자 필드 렌더링
      const recipientContainer = $content.find('#recipient-container');
@@ -1396,7 +1394,7 @@
        description: $row.find('input[name^="description_"]').val(),
        vatIncluded: $row.find('input[name^="VatIncluded"]').prop('checked') ? 'Y' : 'N',
        cboBaljuType: $row.find('input[name^="BalJuHeadType"]').val(),
-       standard  :$row.find('input[name^="Standard_"]').val()
+       standard: $row.find('input[name^="Standard_"]').val()
       };
 
       console.log("🔍 저장될 항목:", item);
@@ -1414,7 +1412,7 @@
       const company_id = $('#cboCompany').val();
       const JumunDate = $('#JumunDate').val();
 
-      console.log('[단가 조회] 호출됨', { mat_pk, company_id, JumunDate });
+      console.log('[단가 조회] 호출됨', {mat_pk, company_id, JumunDate});
 
       if (!mat_pk || !company_id || !JumunDate) {
        console.warn('[단가 조회] 필수값 누락으로 요청 취소');
@@ -1443,6 +1441,7 @@
        }
       });
      }
+
      // 저장버튼
      let $btnPopBaljuSave = $('#btnPopBaljuSave');
 
@@ -1558,7 +1557,7 @@
         description: $row.find('input[name^="description_"]').val(),
         vatIncluded: $row.find('input[name^="VatIncluded"]').prop('checked') ? 'Y' : 'N',
         cboBaljuType: $row.find('input[name^="BalJuHeadType"]').val(),
-        standard  :$row.find('input[name^="Standard_"]').val()
+        standard: $row.find('input[name^="Standard_"]').val()
        };
 
        itemRows.push(item);
@@ -1696,7 +1695,7 @@
         $newRow.find('a.btn').hide();
        }
 
-       ProductInputHandler.bind({ rowSelector: $newRow, $content: $content, tryShowBaljuPrice });
+       ProductInputHandler.bind({rowSelector: $newRow, $content: $content, tryShowBaljuPrice});
        $tbody.append($newRow);
        itemIndex++;
       }
@@ -1716,7 +1715,7 @@
         }
        });
 
-       ProductInputHandler.bind({ rowSelector: $emptyRow, $content, tryShowBaljuPrice });
+       ProductInputHandler.bind({rowSelector: $emptyRow, $content, tryShowBaljuPrice});
        $tbody.append($emptyRow);
        itemIndex++;
       }
@@ -1725,7 +1724,7 @@
 
      // 품목 행 n개 추가 (버튼 / 기본행 / 자동추가 공용)
      const addItemRows = function (count) {
-      const $tbody    = $content.find('.item-table tbody');
+      const $tbody = $content.find('.item-table tbody');
       const $template = $tbody.find('.item-template-row');
       let $last = null;
 
@@ -1741,7 +1740,7 @@
        });
 
        $tbody.append($newRow);
-       ProductInputHandler.bind({ rowSelector: $newRow, $content, tryShowBaljuPrice });
+       ProductInputHandler.bind({rowSelector: $newRow, $content, tryShowBaljuPrice});
 
        itemIndex++;
        $last = $newRow;
@@ -1771,7 +1770,7 @@
         const merged = Number(($q.val() || '0').replace(/,/g, '')) + Number(item.quantity);
         $q.val(merged);
         formatNumberInput($q.val(), $q[0]);
-        calculateAmount({ row: $dup, $content });
+        calculateAmount({row: $dup, $content});
         return;
        }
 
@@ -1790,10 +1789,11 @@
        formatNumberInput($qty.val(), $qty[0]);
 
        tryShowBaljuPrice($row);   // 구매처가 선택돼 있으면 단가 자동 조회
-       calculateAmount({ row: $row, $content });
+       calculateAmount({row: $row, $content});
       });
       updateBaljuTotalPrice($content);
      }
+
      _this.fillPresetItems = fillPresetItems;
 
      // 품목 신규등록 버튼 클릭
@@ -1808,12 +1808,12 @@
         if (!saved) return;
 
         // ✅ 이 행에서 사용할 input들 캐싱
-        const $productInput    = $row.find('input[name^="txtProductName_"]');     // 품목명
-        const $productId       = $row.find('input[name^="Material_id_"]');        // 품목 ID (hidden)
-        const $productCode     = $row.find('input[name^="product_code_"]');       // 품목 코드 (text/hidden 모두)
-        const $materialGroup   = $row.find('input[name^="MaterialGroupName_"]');  // 품목 그룹명
-        const $standard        = $row.find('input[name^="Standard_"]');           // 규격
-        const $unit            = $row.find('input[name^="unit_"]');               // 단위(있으면)
+        const $productInput = $row.find('input[name^="txtProductName_"]');     // 품목명
+        const $productId = $row.find('input[name^="Material_id_"]');        // 품목 ID (hidden)
+        const $productCode = $row.find('input[name^="product_code_"]');       // 품목 코드 (text/hidden 모두)
+        const $materialGroup = $row.find('input[name^="MaterialGroupName_"]');  // 품목 그룹명
+        const $standard = $row.find('input[name^="Standard_"]');           // 규격
+        const $unit = $row.find('input[name^="unit_"]');               // 단위(있으면)
 
         // 값 세팅 (+ 이벤트 트리거)
         if ($productInput.length) {
@@ -1970,7 +1970,7 @@
 
       // 🔥 모든 행 다시 계산
       $content.find('.item-table tbody tr:not(.item-template-row)').each(function () {
-       calculateAmount({ row: $(this), $content });
+       calculateAmount({row: $(this), $content});
       });
 
       updateBaljuTotalPrice($content);
@@ -2036,13 +2036,13 @@
    }
 
    // ✅ 공통: 한 행에 품목 정보 채우기
-   function fillProductRow({ $row, item, tryShowBaljuPrice }) {
-    const $productInput  = $row.find('input[name^="txtProductName_"]');
-    const $productId     = $row.find('input[name^="Material_id_"]');
-    const $productCode   = $row.find('input[name^="product_code_"]');
+   function fillProductRow({$row, item, tryShowBaljuPrice}) {
+    const $productInput = $row.find('input[name^="txtProductName_"]');
+    const $productId = $row.find('input[name^="Material_id_"]');
+    const $productCode = $row.find('input[name^="product_code_"]');
     const $materialGroup = $row.find('input[name^="MaterialGroupName_"]');
-    const $standard      = $row.find('input[name^="Standard_"]');
-    const $next          = $row.find('input[name^="quantity_"]');
+    const $standard = $row.find('input[name^="Standard_"]');
+    const $next = $row.find('input[name^="quantity_"]');
 
     // 기존 set()에서 하던 동작 그대로
     $productInput.val(item.Name);
@@ -2100,7 +2100,7 @@
     $(targetSelector).val(formatted);// 값 넣기
    }
 
-   function calculateAmount({ row: $row, $content }) {
+   function calculateAmount({row: $row, $content}) {
     const qty = parseFloat($row.find('input[name^="quantity_"]').val().replace(/,/g, '') || '0');
     const unitPrice = parseFloat($row.find('input[name^="BaljuUnitPrice_"]').val().replace(/,/g, '') || '0');
     const isVatIncluded = $row.find('input[name^="VatIncluded"]').prop('checked');

@@ -370,6 +370,11 @@ public class BaljuOrderController {
     String sendState = "success";
     String errorMsg = null;
 
+    // 보관된 첨부 정보. 이력 적재에 쓰이므로 try 밖에 선언한다.
+    // 보관에 실패해도 null 로 남을 뿐 메일 발송은 막지 않는다.
+    String storedRelPath = null;
+    Long storedSize = null;
+
     try {
 
       // 2. 발주서 데이터 및 발신자 정보 조회
@@ -575,6 +580,19 @@ public class BaljuOrderController {
 
         //파일 생성 후 저장
         workbook.write(fos);
+        fos.flush();
+
+        // 첨부 보관 (e메일 발주서 화면에서 다시 내려받기 위함)
+        //   - 메일 발송 "전" 에 복사한다. 발송이 실패해도 무엇을 만들었는지는 남는다.
+        //   - 보관 실패가 메일 발송을 막으면 안 되므로 여기서 삼킨다.
+        //     (이력의 FilePath 가 null 이 되고 화면에는 "첨부 없음" 으로 보인다)
+        try {
+          Path storedFile = balJuMailService.storeMailFile(tempXlsx, jumunNumber, safeCompanyName);
+          storedRelPath = balJuMailService.toRelativePath(storedFile);
+          storedSize = Files.size(storedFile);
+        } catch (Exception se) {
+          log.error("발주서 첨부 보관 실패. bhId={}", bhId, se);
+        }
 
         // 로그 출력
 //      log.info("▶ 생성된 발주서 파일 경로: {}", tempXlsx.toAbsolutePath());
@@ -611,10 +629,10 @@ public class BaljuOrderController {
       }
 
       // 발송 이력 적재 (성공/실패 무관)
-      //   첨부 원본은 보관하지 않는다. 어떤 이름으로 나갔는지만 남긴다.
-      //   (tempXlsx 는 5분 뒤 삭제 예약되어 있다)
+      //   첨부 원본은 보관 루트에 복사해 두고 상대경로를 남긴다.
+      //   (tempXlsx 는 종전대로 5분 뒤 삭제 예약되며, 보관본은 별도 파일이다)
       saveMailHistory(bhId, replyTo, recipients, title, content,
-        fileName, sendState, errorMsg, spjangcd, user);
+        fileName, storedRelPath, storedSize, sendState, errorMsg, spjangcd, user);
 
       if ("fail".equals(sendState)) {
         result.success = false;
@@ -637,7 +655,7 @@ public class BaljuOrderController {
 
       // 발주서 조회 단계에서 터진 경우. 사업장을 못 구했어도 이력은 남긴다.
       saveMailHistory(bhId, replyTo, recipients, title, content,
-        null, "fail", e.getMessage(), null, user);
+        null, storedRelPath, storedSize, "fail", e.getMessage(), null, user);
 
       result.success = false;
       result.message = "메일 전송 중 문제가 발생했습니다: " + e.getMessage();
@@ -652,12 +670,12 @@ public class BaljuOrderController {
    */
   private void saveMailHistory(Integer bhId, String replyTo, List<String> recipients,
                                String title, String content,
-                               String fileName,
+                               String fileName, String filePath, Long fileSize,
                                String sendState, String errorMsg,
                                String spjangcd, User user) {
     try {
       balJuMailService.saveHistory(bhId, replyTo, recipients, title, content,
-        fileName, sendState, errorMsg, spjangcd, user);
+        fileName, filePath, fileSize, sendState, errorMsg, spjangcd, user);
     } catch (Exception ex) {
       log.error("발주서 메일 발송 이력 저장 실패. bhId={}", bhId, ex);
     }

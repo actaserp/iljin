@@ -1747,13 +1747,19 @@ public class SujuController {
       }
     }
 
+    // ---------- 신규 품목에 남길 출처 메모 ----------
+    //  프로젝트 1회성 품목이라 마스터만 보면 어디서 왔는지 알 수 없다.
+    //  루프 밖에서 1번만 조회한다 (행마다 tb_da003 을 때리지 않게).
+    String matSourceMemo = buildMaterialSourceMemo(
+      projno, findProjectNameByNo(projno, spjangcd), head.getSujuName());
+
     // ---------- 라인 저장 ----------
     for (Map<String, Object> item : items) {
       String productName = str(item.get("txtProductName"));
       if (productName.isEmpty()) continue;
 
       // ★ 품목 확정 (없으면 생성)
-      Integer materialId = resolveOrCreateMaterialForProject(item, spjangcd, user);
+      Integer materialId = resolveOrCreateMaterialForProject(item, spjangcd, user, matSourceMemo);
 
       Suju suju;
       Integer sujuId = toIntegerOrNull(item.get("suju_id"));
@@ -1850,7 +1856,8 @@ public class SujuController {
   // ---------- 신규 품목 채번 (BOM 생성 제외) ----------
   //  엑셀 업로드와 동일하게 이름으로 기존 품목을 재사용하지 않는다.
   //  단, 화면에서 이미 품목을 지정했거나 기존 행을 수정하는 경우(Material_id 존재)는 그대로 쓴다.
-  private Integer resolveOrCreateMaterialForProject(Map<String, Object> item, String spjangcd, User user) {
+  private Integer resolveOrCreateMaterialForProject(Map<String, Object> item, String spjangcd, User user,
+                                                    String sourceMemo) {
     // 1) 이미 id 있으면 그대로
     Integer mid = toIntegerOrNull(item.get("Material_id"));
     if (mid != null) return mid;
@@ -1888,6 +1895,7 @@ public class SujuController {
     material.setStoreHouseId(3);
     material.setPurchaseOrderStandard("mrp");
     material.setValidDays(1);
+    material.setDescription(sourceMemo);   // 프로젝트 / 수주명
     // mat_user_code 는 NULL 허용. 장비를 여기에 넣던 코드 제거.
     material.set_audit(user);
 
@@ -2129,13 +2137,17 @@ public class SujuController {
     Map<String, Integer> compCache = new HashMap<>();   // 업체명 → 매입처 id (null 결과도 캐시)
     int saved = 0;
 
+    // 신규 품목에 남길 출처 메모 (루프 밖에서 1번만)
+    String matSourceMemo = buildMaterialSourceMemo(
+      projno, findProjectNameByNo(projno, spjangcd), head.getSujuName());
+
     for (Map<String, Object> it : items) {
       String lineName = str(it.get("line"));
       String procName = str(it.get("procName"));
       if (procName.isEmpty()) continue;
 
       // 행마다 품목 신규 채번 (재사용 안 함)
-      Integer matId = createMaterial(procName, PROC_MATERIAL_GROUP_CODE, spjangcd, user);
+      Integer matId = createMaterial(procName, PROC_MATERIAL_GROUP_CODE, spjangcd, user, matSourceMemo);
 
       Suju suju = new Suju();
       suju.setSujuHeadId(head.getId());
@@ -2280,6 +2292,44 @@ public class SujuController {
    */
   private static final int BALJU_DESC_MAX = 500;
 
+  private static final int MATERIAL_DESC_MAX = 500;
+
+  /**
+   * 품목이 어느 프로젝트/수주에서 생겼는지 남기는 메모.
+   *   P2026-001 3호기 지그 / 수주 2차 발주분
+   *
+   * material."Description" 은 varchar(500) 이고 사람이 품목 화면에서 읽는 용도다.
+   * 담당자가 편집할 수 있으므로 이 문자열을 파싱해서 프로젝트를 역추적하지 말 것.
+   * 기계 역추적은 suju."Material_id" → suju.project_id 경로를 쓴다.
+   */
+  private String buildMaterialSourceMemo(String projno, String projnm, String sujuName) {
+    StringBuilder sb = new StringBuilder();
+    if (projno != null && !projno.trim().isEmpty()) {
+      sb.append(projno.trim());
+    }
+    if (projnm != null && !projnm.trim().isEmpty()) {
+      if (sb.length() > 0) sb.append(' ');
+      sb.append(projnm.trim());
+    }
+    if (sujuName != null && !sujuName.trim().isEmpty()) {
+      if (sb.length() > 0) sb.append(" / ");
+      sb.append("수주 ").append(sujuName.trim());
+    }
+    // 프로젝트도 수주명도 없으면 굳이 빈 문자열을 넣지 않는다.
+    return sb.length() == 0 ? null : cut(sb.toString(), MATERIAL_DESC_MAX);
+  }
+
+  /** projno → tb_da003.projnm. 없으면 null (메모는 부가정보이므로 실패해도 저장은 계속). */
+  private String findProjectNameByNo(String projno, String spjangcd) {
+    if (projno == null || projno.trim().isEmpty()) return null;
+    String sql = "SELECT projnm FROM tb_da003 "
+                   + "WHERE projno = :projno AND spjangcd = :spjangcd LIMIT 1";
+    MapSqlParameterSource p = new MapSqlParameterSource()
+                                .addValue("projno", projno.trim())
+                                .addValue("spjangcd", spjangcd);
+    return queryStringSafe(sql, p);
+  }
+
   private String buildBaljuSourceMemo(String sujuJumunNumber, String projno, String sujuName) {
     StringBuilder sb = new StringBuilder("수주");
     if (sujuJumunNumber != null && !sujuJumunNumber.trim().isEmpty()) {
@@ -2404,7 +2454,8 @@ public class SujuController {
 
   // 품목 신규 등록 후 id 반환
   //  ※ 기존 품목을 이름으로 재사용하지 않는다. 호출할 때마다 새 품목을 채번한다.
-  private Integer createMaterial(String name, String groupCode, String spjangcd, User user) {
+  private Integer createMaterial(String name, String groupCode, String spjangcd, User user,
+                                 String sourceMemo) {
 
     if (name == null || name.trim().isEmpty()) return null;
     String key = name.trim();
@@ -2425,6 +2476,7 @@ public class SujuController {
     m.setStoreHouseId(3);
     m.setPurchaseOrderStandard("mrp");
     m.setValidDays(1);
+    m.setDescription(sourceMemo);   // 프로젝트 / 수주명
     // mat_user_code 는 채우지 않는다 (중분류 미사용)
     m.set_audit(user);
 
