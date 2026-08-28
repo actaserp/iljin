@@ -134,7 +134,7 @@
         <div class="ctx-bar">
             <div class="ctx-title">
                 <h1>조립 키오스크</h1>
-                <span>유닛(완제품) 단위</span>
+                <span>유닛 단위</span>
             </div>
             <div class="ctx-slots">
                 <div class="ctx-slot"><span class="lab">작업자</span>
@@ -208,14 +208,33 @@
          *
          *  동선: 작업자 → 프로젝트 → 품목 → 시작 / 완료(수량)
          *
-         * [단위] 유닛(완제품). 가공 키오스크의 가공품 개수와 다른 축이다.
-         *        완료 누적 = 완제품 재고. 재고가 존재하는 유일한 지점.
+         * [단위] 유닛. 가공 키오스크의 가공품 개수와도, PC 조립의 지그 대수와도 다른 축이다.
+         *        S10 은 지그 1대 안에 서로 다른 유닛이 8개 들어간다.
+         *        여기서 세는 것은 그 8개다.
          *
          * 주의: 전역 $ (jQuery) 를 덮지 않는다. AjaxUtil 내부 $.ajax 가 깨진다.
          */
         (function () {
 
             const API = '/api/production/prod_assembly';
+
+            /*
+             * 조립은 한 단계다. ProcessOrder = 1 고정.
+             *
+             * ★ 예전에는 유닛 조립(1) / 공정 조립(2) 두 단계였는데 공정 조립을 폐기했다.
+             *   현장이 "지그 1개 완료" 를 따로 세지 않았고,
+             *   지그 대수를 담은 suju."Standard" 가 '1/1'(한 쌍) 같은 표기라
+             *   수량으로 쓸 수 없었다.
+             *
+             *   공정 완료 판정은 <b>검사</b>가 가져갔다 —
+             *   검사 수량이 지그 대수(suju."SujuQty")에 도달하면 그 공정은 끝이다.
+             *
+             * [단위] 유닛. 목표는 suju.unit_qty (유닛 총량).
+             *        예: SujuQty 2 · unit_qty 20 → 지그 2대, 유닛 20개 (1대당 10개)
+             *        여기서 세는 것은 20 쪽이다.
+             *
+             * PC 조립 화면(prod_assembly.html)이 같은 API 를 쓴다. 입력 위치만 다르다.
+             */
             let SPJANGCD = 'ZZ';
 
             const el = id => document.getElementById(id);
@@ -297,7 +316,7 @@
                 // 생산일은 등록 시 찍는 값이고 조회 조건이 아니다
                 const res = await getJSON(API + '/log', {
                     spjangcd: SPJANGCD,
-                    projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : ''
+                    projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : '',
                 });
                 LOG = res.data || [];
             }

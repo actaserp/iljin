@@ -23,6 +23,17 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ProdResultService {
 
+	/**
+	 * 가공이 <b>아닌</b> 설비그룹 코드.
+	 *
+	 * equ_grp 에 등록된 것 중 여기 없는 그룹은 전부 가공공정으로 본다.
+	 * 검사 설비(3차원측정)를 이 목록으로 뺀다.
+	 * 조립 작업대는 설비그룹이 없어 JOIN 에서 자동으로 빠진다 —
+	 * 나중에 조립 그룹을 만들면 그 코드를 여기 추가할 것.
+	 */
+	private static final java.util.List<String> NON_MACHINING_GROUPS =
+			java.util.List.of("CMM");
+
 	private final SqlRunner sqlRunner;
 
 	// =================================================================
@@ -40,15 +51,23 @@ public class ProdResultService {
 	 * 설비가 한 대도 없는 워크센터는 나오지 않는다 —
 	 * "공정을 늘리려면 설비만 추가" 가 그대로 성립한다.
 	 *
-	 * 단, 워크센터에는 가공이 아닌 것도 섞여 있다
-	 * (w05 3차원 자동측정 검사, w06 조립, w07 DASH — 유닛 축이라 별도 화면).
-	 * 그래서 가공공정 코드만 남긴다. 워크센터에 구분 플래그가 생기면
-	 * 이 IN 목록을 그 플래그로 바꾸는 게 낫다.
+	 * 단, 워크센터에는 가공이 아닌 것도 섞여 있다 (3차원측정 검사, 조립).
+	 *
+	 * ★ 가공 여부는 <b>설비그룹(equ_grp)</b>으로 가른다.
+	 *   이전에는 wc."Code" IN ('w01'..'w04') 로 박아 두었는데,
+	 *   설비를 한 대 늘릴 때마다 코드를 고쳐 배포해야 해서
+	 *   SPEC 5-2 의 "공정을 늘리려면 설비만 추가" 와 어긋났다.
+	 *
+	 *   판별은 <b>제외 목록</b>으로 한다 (포함 목록이 아니라).
+	 *   새 가공설비를 사면 그룹만 지정하면 자동으로 공정이 늘고,
+	 *   검사·조립 설비는 그룹이 없거나 NON_MACHINING 에 걸려 빠진다.
+	 *   포함 목록이면 새 설비가 조용히 누락되는데, 그쪽이 더 위험하다.
 	 */
 	public List<Map<String, Object>> getOperationList(String spjangcd) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
+		p.addValue("nonMachining", NON_MACHINING_GROUPS);
 
 		String sql = """
             SELECT wc."Name"   AS operation
@@ -60,8 +79,10 @@ public class ProdResultService {
             JOIN equ e ON e."WorkCenter_id" = wc.id
                       AND e.spjangcd = wc.spjangcd
                       AND e."DisposalDate" IS NULL
+            -- 설비그룹이 없는 설비(조립 작업대 등)는 INNER JOIN 에서 빠진다
+            JOIN equ_grp g ON g.id = e."EquipmentGroup_id"
+                          AND g."Code" NOT IN (:nonMachining)
             WHERE wc.spjangcd = :spjangcd
-              AND wc."Code" IN ('w01', 'w02', 'w03', 'w04')   -- 가공공정만
             GROUP BY wc.id, wc."Name", wc."Code"
             ORDER BY wc."Code"
             """;
@@ -75,6 +96,7 @@ public class ProdResultService {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
 		p.addValue("operation", nullIfEmpty(operation));
+		p.addValue("nonMachining", NON_MACHINING_GROUPS);
 
 		String sql = """
             SELECT e.id
@@ -84,6 +106,9 @@ public class ProdResultService {
                  , e."WorkCenter_id" AS workcenter_id
             FROM equ e
             JOIN work_center wc ON wc.id = e."WorkCenter_id"
+            -- 공정을 안 넘기면 전체가 나오므로 여기서도 검사·조립 설비를 뺀다
+            JOIN equ_grp g ON g.id = e."EquipmentGroup_id"
+                          AND g."Code" NOT IN (:nonMachining)
             WHERE e.spjangcd = :spjangcd
               AND e."DisposalDate" IS NULL
               AND (CAST(:operation AS varchar) IS NULL
@@ -101,7 +126,11 @@ public class ProdResultService {
 	 * 워크센터는 작업 단위라 가공공정과 그대로 대응된다.
 	 *
 	 * 담당 워크센터 인원을 위로 올리되 막지는 않는다 (교대·대체 인력 대응).
-	 * 퇴직자는 제외 (rtflag = '2' 가 퇴직. sys_code.rtflag_type 참조)
+	 *
+	 * ★ rtflag 실제 코드값 = 0:재직 / 1:퇴직 / 2:휴직 (sys_code.rtflag_type 확인 결과)
+	 *   이전 조건 COALESCE(rtflag,'1') <> '2' 는 <b>휴직자를 거르고 퇴직자를 통과</b>시키는
+	 *   정반대 조건이었다. 재직('0')만 노출한다.
+	 *   rtflag 가 NULL 인 인원이 실제로 있으므로 COALESCE 기본값은 '0'(재직)으로 둔다.
 	 */
 	public List<Map<String, Object>> getWorkerList(String spjangcd, Integer workCenterId) {
 
@@ -120,7 +149,7 @@ public class ProdResultService {
             FROM person p
             LEFT JOIN work_center wc ON wc.id = p."WorkCenter_id"
             WHERE p.spjangcd = :spjangcd
-              AND COALESCE(p.rtflag, '1') <> '2'
+              AND COALESCE(p.rtflag, '0') = '0'
             ORDER BY CASE WHEN p."WorkCenter_id" = CAST(:workCenterId AS integer) THEN 0 ELSE 1 END
                    , wc."Name", p."Name"
             """;
@@ -161,7 +190,7 @@ public class ProdResultService {
             SELECT s.id                    AS suju_id
                  , s.line                  AS line_name
                  , s."Material_Name"       AS item_name
-                 , s."SujuQty"             AS unit_qty
+                 , COALESCE(s.unit_qty, 0) AS unit_qty
                  , COALESCE(b.part_cnt, 0) AS part_cnt
             FROM suju s
             JOIN job_res j
@@ -174,7 +203,7 @@ public class ProdResultService {
             ) b ON b."Suju_id" = s.id
             WHERE s.spjangcd = :spjangcd
               AND s.project_id = :projNo
-            GROUP BY s.id, s.line, s."Material_Name", s."SujuQty", b.part_cnt
+            GROUP BY s.id, s.line, s."Material_Name", s.unit_qty, b.part_cnt
             ORDER BY s.line, s.id
             """;
 
@@ -186,20 +215,37 @@ public class ProdResultService {
 	//
 	//   여기가 생산지시(BOM)와 만나는 지점이다.
 	//   need_qty : iljin_suju_bom 합계 (이 품목에 필요한 가공품 수)
+	//              ★ 유니트수를 곱하지 않는다. 부품표의 수량이 이미 전체 총량이다.
 	//   done_qty : iljin_prod_result 누적 (지금까지 만든 수)
 	//   재고가 아니므로 차감하지 않는다. 두 숫자를 나란히 보여줄 뿐이다.
+	//
+	//   ★ operation 을 넘기면 <b>그 공정의 실적만</b> 센다.
+	//     한 부품은 절단 → 가공 → 와이어커팅을 거치며 공정마다 다시 세어지므로,
+	//     공정을 합치면 실물보다 큰 수가 나온다
+	//     (plate 를 340개 자르고 120개를 가공했는데 460 으로 표시되는 식).
+	//     키오스크는 공정 단위로 서 있고, 절단 작업자가 보고 싶은 것도
+	//     "내가 오늘 몇 개 잘랐나" 이지 총합이 아니다.
+	//     operation 을 비우면 종전대로 전 공정 합계가 나오므로, 호출부가 반드시 넘길 것.
 	// =================================================================
-	public List<Map<String, Object>> getKindTiles(String spjangcd, String projNo, Integer sujuId) {
+	public List<Map<String, Object>> getKindTiles(String spjangcd, String projNo,
+												  Integer sujuId, String operation) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
 		// 빈 문자열이 오면 "전체" 로 보고 NULL 로 정규화한다
 		p.addValue("projNo", nullIfEmpty(projNo));
 		p.addValue("sujuId", sujuId);
+		p.addValue("operation", nullIfEmpty(operation));
 
 		String sql = """
             WITH need AS (
-                SELECT b."Kind" AS kind, SUM(b."Qty") AS need_qty
+                SELECT b."Kind" AS kind
+                     -- ★ "Qty" 는 공정(품목) 전체 총량이다. 유니트수를 곱하지 않는다.
+                     --  이 계산식은 ProdDesignService 의 kind_summary / kind_need,
+                     --  DashProjectService 의 getKinds / getProjectKinds 와
+                     --  반드시 같아야 한다. 갈리면 생산지시 화면과 키오스크가
+                     --  서로 다른 필요량을 보여준다.
+                     , SUM(b."Qty") AS need_qty
                 FROM iljin_suju_bom b
                 JOIN suju s ON s.id = b."Suju_id"
                 WHERE s.spjangcd = :spjangcd
@@ -213,6 +259,8 @@ public class ProdResultService {
                 WHERE r.spjangcd = :spjangcd
                   AND (CAST(:projNo AS varchar) IS NULL OR r."Project_id" = CAST(:projNo AS varchar))
                   AND (CAST(:sujuId AS integer) IS NULL OR r."Suju_id" = CAST(:sujuId AS integer))
+                  AND (CAST(:operation AS varchar) IS NULL
+                       OR r."Operation" = CAST(:operation AS varchar))
                 GROUP BY r."Kind"
             )
             SELECT COALESCE(n.kind, d.kind)     AS kind
@@ -269,12 +317,16 @@ public class ProdResultService {
 	}
 
 	/** 오늘(또는 지정일) 이 키오스크에서 등록한 내역 */
-	public List<Map<String, Object>> getResultLog(String spjangcd, String prodDate, String equipment) {
+	public List<Map<String, Object>> getResultLog(String spjangcd, String prodDate,
+												  String equipment, String operation) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
 		p.addValue("prodDate", prodDate);
 		p.addValue("equipment", nullIfEmpty(equipment));
+		// ★ 키오스크는 설비 옆에 서 있다. 설비를 아직 안 골랐어도
+		//   다른 공정의 실적이 섞여 보이면 안 된다.
+		p.addValue("operation", nullIfEmpty(operation));
 
 		String sql = """
             SELECT r.id
@@ -291,6 +343,7 @@ public class ProdResultService {
             WHERE r.spjangcd = :spjangcd
               AND r."ProdDate" = CAST(:prodDate AS date)
               AND (CAST(:equipment AS varchar) IS NULL OR r."Equipment" = CAST(:equipment AS varchar))
+              AND (CAST(:operation AS varchar) IS NULL OR r."Operation" = CAST(:operation AS varchar))
             ORDER BY r.id DESC
             LIMIT 50
             """;
@@ -302,11 +355,15 @@ public class ProdResultService {
 	// 작업중 상태
 	//   대시보드의 "현재 진행중인 공정 / 작업자" 를 채운다.
 	// =================================================================
-	public List<Map<String, Object>> getWorkingList(String spjangcd, String equipment) {
+	public List<Map<String, Object>> getWorkingList(String spjangcd, String equipment,
+													String operation, String projNo) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
 		p.addValue("equipment", nullIfEmpty(equipment));
+		// 키오스크는 자기 공정만 본다. 대시보드는 프로젝트로 걸러 본다.
+		p.addValue("operation", nullIfEmpty(operation));
+		p.addValue("projNo", nullIfEmpty(projNo));
 
 		String sql = """
             SELECT w.id
@@ -322,6 +379,8 @@ public class ProdResultService {
             LEFT JOIN suju s ON s.id = w."Suju_id"
             WHERE w.spjangcd = :spjangcd
               AND (CAST(:equipment AS varchar) IS NULL OR w."Equipment" = CAST(:equipment AS varchar))
+              AND (CAST(:operation AS varchar) IS NULL OR w."Operation" = CAST(:operation AS varchar))
+              AND (CAST(:projNo AS varchar) IS NULL OR w."Project_id" = CAST(:projNo AS varchar))
             ORDER BY w."StartTime" DESC
             """;
 

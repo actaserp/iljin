@@ -32,6 +32,7 @@
         .badge { font-size:11px; font-weight:700; padding:2px 8px; border-radius:11px; display:inline-block; }
         .badge.wait { background:#eef0f4; color:#777; }
         .badge.run { background:#f3e6c0; color:#8a6d1b; }
+        .badge.done { background:#dff0e5; color:#1b6b3a; }
         .empty { color:#99a; text-align:center; padding:18px 0; }
         .hint { font-size:11.5px; color:#667; line-height:1.6; margin:10px 0 0; }
 
@@ -166,14 +167,24 @@
         /**
          * 조립 공정 (PC)
          *
-         * [단위] 유닛(품목). 가공 키오스크의 가공품 개수와 다른 축이다.
-         *        조립 완료 누적 = 완제품 재고. 재고가 존재하는 유일한 지점.
-         *        재공 = 유니트수 - 조립완료. 차감이 아니라 두 이벤트의 차이라 항상 참이다.
+         * [단위] 유닛. 목표는 suju.unit_qty (유닛 총량).
+         *        가공 키오스크의 가공품 개수와도, 검사의 지그 대수와도 다른 축이다.
+         *
+         * [키오스크와 같은 데이터]
+         *        현장 키오스크(prod_assembly_kiosk)와 <b>같은 API·같은 단계</b>를 쓴다.
+         *        입력 위치만 다르다 — 현장에서 찍고, 여기서 확인·수정한다.
+         *
+         * [공정 완료는 검사가 판정한다]
+         *        유닛을 다 조립해도 공정이 끝난 것은 아니다.
+         *        검사 수량이 지그 대수(set_target)에 도달해야 끝이다.
+         *        done_yn 이 그 결과이고, 여기서는 표시만 한다.
          */
         class ProdAssemblyPage {
 
             constructor() {
                 this.API = '/api/production/prod_assembly';
+
+                // 조립은 한 단계(ProcessOrder=1)뿐이다. stage 파라미터는 사라졌다.
                 this.spjangcd = $('#spjangcd').val() || 'ZZ';
 
                 this.projects = [];
@@ -260,7 +271,7 @@
                 // 날짜로 자르면 어제 완료분이 안 보여 중복 등록이 생긴다
                 const res = await this.get(`${this.API}/log`, {
                     spjangcd: this.spjangcd,
-                    projNo: this.selProj
+                    projNo: this.selProj,
                 });
                 this.log = res.data || [];
                 this.renderLog();
@@ -283,7 +294,8 @@
                     return `<tr class="asy-row ${this.sel === i ? 'on' : ''} ${run ? 'run' : ''}" data-i="${i}">
                         <td>${it.line_name || ''}</td>
                         <td class="l">${this.esc(it.item_name)}</td>
-                        <td>${it.unit_qty ?? 0}</td>
+                        <td>${(+it.unit_qty > 0) ? it.unit_qty
+                        : '<span style="color:#b3261e" title="수주에 유닛 수량이 없습니다">미등록</span>'}</td>
                         <td>${it.done_qty ?? 0}</td>
                         <td>${it.wip_qty ?? 0}</td>
                         <td>${this.badge(it)}</td>
@@ -298,6 +310,9 @@
             }
 
             badge(it) {
+                // 공정 완료 판정은 검사가 갖는다 (검사 누적 >= 지그 대수).
+                // 유닛을 다 조립했어도 검사 전이면 완료가 아니다.
+                if (it.done_yn === 'Y') return '<span class="badge done">완료</span>';
                 return it.working_id
                     ? `<span class="badge run">진행중 ${it.start_time || ''}</span>`
                     : '<span class="badge wait">대기</span>';
@@ -324,9 +339,11 @@
                     : ''}</div>
                     </div>
                     <div class="stat-row">
-                        <div class="stat"><span class="lab">유니트수</span><span class="v">${it.unit_qty ?? 0}</span></div>
+                        <div class="stat"><span class="lab">유닛 총량</span><span class="v">${it.unit_qty ?? 0}</span></div>
                         <div class="stat"><span class="lab">조립완료</span><span class="v">${it.done_qty ?? 0}</span></div>
-                        <div class="stat wip"><span class="lab">재공</span><span class="v">${it.wip_qty ?? 0}</span></div>
+                        <div class="stat wip"><span class="lab">남음</span><span class="v">${it.wip_qty ?? 0}</span></div>
+                        <div class="stat"><span class="lab">검사</span>
+                            <span class="v">${it.insp_done ?? 0}/${it.set_target ?? 0}</span></div>
                     </div>
                     <div class="qty-line">
                         <span class="lab">완료 수량</span>

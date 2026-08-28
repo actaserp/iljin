@@ -89,10 +89,13 @@ public class ProdResultController {
 	@GetMapping("/kind_tiles")
 	public AjaxResult kindTiles(@RequestParam("spjangcd") String spjangcd,
 								@RequestParam(value = "projNo", required = false) String projNo,
-								@RequestParam(value = "sujuId", required = false) Integer sujuId) {
+								@RequestParam(value = "sujuId", required = false) Integer sujuId,
+								@RequestParam(value = "operation", required = false) String operation) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodResultService.getKindTiles(spjangcd, projNo, sujuId);
+		// 키오스크는 공정 단위로 서 있다. 공정을 넘기지 않으면 전 공정 합계가 나와
+		// 실물보다 큰 수가 표시된다 (절단 340 + 가공 120 = 460).
+		result.data = prodResultService.getKindTiles(spjangcd, projNo, sujuId, operation);
 		return result;
 	}
 
@@ -161,10 +164,11 @@ public class ProdResultController {
 	@GetMapping("/log")
 	public AjaxResult log(@RequestParam("spjangcd") String spjangcd,
 						  @RequestParam("prodDate") String prodDate,
-						  @RequestParam(value = "equipment", required = false) String equipment) {
+						  @RequestParam(value = "equipment", required = false) String equipment,
+						  @RequestParam(value = "operation", required = false) String operation) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodResultService.getResultLog(spjangcd, prodDate, equipment);
+		result.data = prodResultService.getResultLog(spjangcd, prodDate, equipment, operation);
 		return result;
 	}
 
@@ -174,10 +178,12 @@ public class ProdResultController {
 
 	@GetMapping("/working_list")
 	public AjaxResult workingList(@RequestParam("spjangcd") String spjangcd,
-								  @RequestParam(value = "equipment", required = false) String equipment) {
+								  @RequestParam(value = "equipment", required = false) String equipment,
+								  @RequestParam(value = "operation", required = false) String operation,
+								  @RequestParam(value = "projNo", required = false) String projNo) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodResultService.getWorkingList(spjangcd, equipment);
+		result.data = prodResultService.getWorkingList(spjangcd, equipment, operation, projNo);
 		return result;
 	}
 

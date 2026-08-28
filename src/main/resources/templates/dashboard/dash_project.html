@@ -11,7 +11,7 @@
         .view-only{font-size:11px;color:#7e8794;border:1px solid #2a2f38;border-radius:6px;padding:3px 9px;margin-left:10px;}
         @keyframes udblink{0%,100%{opacity:1}50%{opacity:.3}}
 
-        .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;}
+        .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px;}
         .kpi{background:#272f3a;border:1px solid #404a59;border-radius:12px;padding:1vw 1.2vw;}
         .kpi .l{font-size:clamp(13px,0.95vw,20px);color:#aeb7c4;} .kpi .v{font-size:clamp(24px,1.8vw,36px);font-weight:700;color:#f3f6f9;margin-top:3px;}
         .kpi .v small{font-size:13px;color:#aeb7c4;font-weight:600;}
@@ -145,6 +145,51 @@
         .kchip{background:#20262f;border:1px solid #404a59;border-radius:8px;padding:0.45vw 0.8vw;font-size:clamp(13px,1vw,20px);color:#ccd3dc;}
         .kchip .pn{color:#ccd3dc;} .kchip b{color:#a6a0d4;font-weight:700;margin-left:3px;} .kchip .pt{color:#727a87;font-size:clamp(12px,0.95vw,19px);}
         .kchip.etc .pn{color:#7e8794;} .kchip.etc b{color:#9099a7;}
+        /* ── 프로젝트 단위 표 (가공품 / WBS) ──────────────────────────
+           layout 의 table 기본 스타일이 밝은 테마라 헤더가 하얗게 뜬다.
+           대시보드는 벽걸이 다크 화면이므로 배경·글자색을 전부 명시한다.
+           background 를 지정하지 않으면 상속이 아니라 브라우저 기본 흰색이 나온다. */
+        .dtab{width:100%;border-collapse:separate;border-spacing:0;background:#1a1f27;
+            border:1px solid #333c48;border-radius:8px;overflow:hidden;
+            font-size:clamp(13px,1vw,20px);}
+        .dtab th{background:#232a34;color:#8f98a5;font-weight:600;
+            font-size:clamp(12px,0.9vw,18px);padding:0.5vw 0.8vw;
+            border-bottom:1px solid #3a4450;text-align:left;white-space:nowrap;}
+        .dtab td{background:transparent;color:#ccd3dc;padding:0.5vw 0.8vw;
+            border-bottom:1px solid #2c343e;text-align:left;white-space:nowrap;}
+        .dtab tr:last-child td{border-bottom:none;}
+        .dtab .r,.dtab th.r{text-align:right;}
+        .dtab .c,.dtab th.c{text-align:center;}
+        .dtab .mut{color:#8f98a5;}
+
+        /* 가공품 표 */
+        .ktab td.kn{color:#ccd3dc;font-weight:700;}
+        .ktab td.kn.etc{color:#8f98a5;}
+        .ktab td.need{color:#aeb7c4;font-weight:600;}
+        .ktab td.op{color:#6c9fd1;font-weight:600;}
+        .ktab td.op.zero{color:#4d545e;font-weight:400;}
+        .ktab tr.sum td{background:#232a34;color:#aeb7c4;font-weight:700;border-bottom:none;}
+
+        /* WBS 표 */
+        .wtab tr.delay td{background:#33232a;}
+        .wtab td.nm{color:#ccd3dc;}
+        .wtab tr.delay td.nm{color:#d4685f;font-weight:700;}
+        .wtab td.mile{color:#c8b978;font-weight:700;}
+        .wst{display:inline-block;padding:0.12vw 0.55vw;border-radius:6px;
+            font-size:clamp(11px,0.85vw,17px);font-weight:700;}
+        .wst.done{background:#223a31;color:#5cbf9b;} .wst.cur{background:#243447;color:#6c9fd1;}
+        .wst.wait{background:#2a2f38;color:#7e8794;} .wst.delay{background:#3f2a2e;color:#d4685f;}
+
+        /* 마일스톤 칩 */
+        .ms-row{display:flex;flex-wrap:wrap;gap:0.6vw;margin-bottom:0.8vw;}
+        .mschip{background:#20262f;border:1px solid #404a59;border-radius:8px;
+            padding:0.45vw 0.8vw;font-size:clamp(13px,1vw,20px);color:#ccd3dc;}
+        .mschip.done{border-color:#3d6b5a;} .mschip.delay{border-color:#7d4a4a;background:#2e2226;}
+        .mschip .msd{color:#7e8794;margin-left:6px;font-size:clamp(12px,0.9vw,18px);}
+        .mschip.done .msd{color:#5cbf9b;} .mschip.delay .msd{color:#d4685f;}
+
+        .ib.undef{background:rgba(251,191,36,.16);color:#d3aa55;}
+        .kempty{color:#7e8794;font-size:clamp(12px,0.95vw,19px);padding:0.6vw 0;}
         .iu{color:#7e8794;font-size:clamp(11px,0.8vw,15px);font-weight:600;}
         .idwork{color:#d49279;font-weight:700;margin-left:4px;}
     </style>
@@ -187,8 +232,24 @@
 
 <th:block layout:fragment="scripts">
     <script type="text/javascript" th:inline="none">
-        const $ = s => document.querySelector(s);
+        /*
+         * 주의: 전역 $ (jQuery) 를 덮으면 common.js 의 AjaxUtil 이 깨진다.
+         * 최상위 const 는 전역 렉시컬 스코프를 점유해 window.$ 보다 우선한다.
+         * 목업의 `const $ = ...` 를 el 로 바꿨다. 되돌리지 말 것.
+         */
+        const el = s => document.querySelector(s);
         const nf = n => (n || 0).toLocaleString();
+
+        const API = '/api/production/dash_project';
+        const SPJANGCD = sessionStorage.getItem('spjangcd') || 'ZZ';
+
+        // AjaxUtil (common.js) 사용. CSRF / spjangcd / 공통 에러처리를 대신해준다.
+        // 콜백 방식이라 await 로 쓰기 위해 Promise 로 감싼다.
+        const getJSON = (url, data) => new Promise(resolve => {
+            AjaxUtil.getAsyncData(url, data,
+                res => resolve(res || {success: false, data: []}),
+                () => resolve({success: false, data: []}));
+        });
 
         // WBS 표준 단계 + 완료기준(증빙):
         //  설계=도면출도 100% / 제작=가공(내작)+구매(외작) 유닛 100% / 조립=조립완료 / 검사=검사완료
@@ -196,56 +257,36 @@
 
         // 데이터(읽기 전용, 서버 집계). item: out(출도), need/made(유닛), type(내작=가공/외작=구매),
         //  vendor, asm(조립완료), insp(검사완료), working. proj: due, ship(출하), outd(출고)
-        const PROJECTS = [
-            {name: 'HMC-A23', owner: '현대차', due: '2026-07-20', dsteps: [{n:'1차검도',s:'done'},{n:'2차검도',s:'done'},{n:'3차검도',s:'cur'},{n:'출도',s:'wait'}], ship: false, outd: false, lines: [
-                    {name: 'MAIN', items: [
-                            {code: 'RS01', need: 120, made: 78, parts: {kinds: {PLATE: {t: 259, d: 168}, 기타: {t: 1181, d: 768}}, procs: {레이저커팅: 323, 선반밀링: 295, 와이어컷: 211, 머시닝센터: 119}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '가공', machine: 'WC-01', worker: '이종길'}},
-                            {code: 'RS02', need: 80, made: 52, parts: {kinds: {기타: {t: 787, d: 512}}, procs: {레이저커팅: 215, 선반밀링: 197, 와이어컷: 140, 머시닝센터: 80}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null},
-                            {code: 'A9-801', need: 60, made: 0, asm: 0, insp: 0, out: true, type: '외작', vendor: '대성정밀', rcv: false, working: null}
-                        ]},
-                    {name: 'SUB1', items: [
-                            {code: 'LH-01', need: 40, made: 30, parts: {kinds: {기타: {t: 394, d: 296}}, procs: {레이저커팅: 124, 선반밀링: 113, 와이어컷: 81, 머시닝센터: 46}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null},
-                            {code: 'RH-01', need: 40, made: 18, parts: {kinds: {기타: {t: 394, d: 177}}, procs: {레이저커팅: 75, 선반밀링: 68, 와이어컷: 49, 머시닝센터: 28}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '가공', machine: 'LC-02', worker: '채완병'}}
-                        ]}
-                ]},
-            {name: 'KIA-K8', owner: '기아', due: '2026-07-02', dsteps: [{n:'1차검도',s:'done'},{n:'2차검도',s:'done'},{n:'출도',s:'done'}], ship: false, outd: false, lines: [
-                    {name: 'MAIN', items: [
-                            {code: 'K8-RS1', need: 140, made: 140, parts: {kinds: {PLATE: {t: 302, d: 302}, 기타: {t: 1378, d: 1378}}, procs: {레이저커팅: 504, 선반밀링: 504, 와이어컷: 378, 머시닝센터: 214}}, asm: 90, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '조립', machine: '조립1', worker: '우병철'}},
-                            {code: 'K8-RS2', need: 100, made: 100, parts: {kinds: {기타: {t: 984, d: 984}}, procs: {레이저커팅: 360, 선반밀링: 360, 와이어컷: 270, 머시닝센터: 153}}, asm: 70, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null}
-                        ]},
-                    {name: 'SUB1', items: [
-                            {code: 'K8-LH1', need: 60, made: 60, parts: {kinds: {기타: {t: 590, d: 590}}, procs: {레이저커팅: 216, 선반밀링: 216, 와이어컷: 162, 머시닝센터: 92}}, asm: 45, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null},
-                            {code: 'K8-OUT', need: 40, made: 0, asm: 0, insp: 0, out: true, type: '외작', vendor: '동양지그', rcv: true, working: null}
-                        ]}
-                ]},
-            {name: 'GM-크루즈', owner: 'GM', due: '2026-07-06', dsteps: [{n:'1차검도',s:'cur'},{n:'2차검도',s:'wait'},{n:'출도',s:'wait'}], ship: false, outd: false, lines: [
-                    {name: 'MAIN', items: [
-                            {code: 'GM-01', need: 90, made: 12, parts: {kinds: {기타: {t: 886, d: 118}}, procs: {레이저커팅: 50, 선반밀링: 45, 와이어컷: 32, 머시닝센터: 18}}, asm: 0, insp: 0, out: false, type: '내작', vendor: '', rcv: false, working: null},
-                            {code: 'GM-02', need: 50, made: 0, asm: 0, insp: 0, out: false, type: '외작', vendor: '대성정밀', rcv: false, working: null}
-                        ]},
-                    {name: 'SUB1', items: [
-                            {code: 'GM-11', need: 40, made: 5, parts: {kinds: {기타: {t: 394, d: 49}}, procs: {레이저커팅: 21, 선반밀링: 19, 와이어컷: 14, 머시닝센터: 8}}, asm: 0, insp: 0, out: false, type: '내작', vendor: '', rcv: false, working: null}
-                        ]}
-                ]},
-            {name: 'KIA-쏘렌토', owner: '기아', due: '2026-08-25', dsteps: [{n:'1차검도',s:'done'},{n:'출도',s:'done'}], ship: false, outd: false, lines: [
-                    {name: 'MAIN', items: [
-                            {code: 'SR-01', need: 80, made: 80, parts: {kinds: {PLATE: {t: 173, d: 173}, 기타: {t: 787, d: 787}}, procs: {레이저커팅: 288, 선반밀링: 288, 와이어컷: 216, 머시닝센터: 122}}, asm: 80, insp: 80, out: true, type: '내작', vendor: '', rcv: false, working: null},
-                            {code: 'SR-02', need: 60, made: 60, asm: 60, insp: 60, out: true, type: '외작', vendor: '한길테크', rcv: true, working: null}
-                        ]}
-                ]},
-            {name: 'HMC-팰리세이드', owner: '현대차', due: '2026-07-15', dsteps: [{n:'1차검도',s:'done'},{n:'2차검도',s:'done'},{n:'출도',s:'done'}], ship: false, outd: false, lines: [
-                    {name: 'MAIN', items: [
-                            {code: 'PA-01', need: 100, made: 100, parts: {kinds: {PLATE: {t: 216, d: 216}, 기타: {t: 984, d: 984}}, procs: {레이저커팅: 360, 선반밀링: 360, 와이어컷: 270, 머시닝센터: 153}}, asm: 100, insp: 35, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '검사', machine: '검사1', worker: '유현민'}},
-                            {code: 'PA-02', need: 60, made: 60, asm: 60, insp: 20, out: true, type: '외작', vendor: '동양지그', rcv: true, working: null}
-                        ]}
-                ]}
-        ];
+        /*
+         * 데이터는 서버 집계다 (읽기 전용).
+         *   item: out(출도) / need·made(유닛) / type(내작·외작) / vendor
+         *         asm(조립완료) / insp(검사완료) / working / parts{kinds, procs}
+         *   proj: due(납기) / ship(출하) / outd(출고) / dsteps(설계단계)
+         *
+         * ★ made 는 가공 진척을 유닛으로 환산한 <추정값>이다.
+         *   재고·귀속·파기를 기록하지 않으므로 원리상 참값을 낼 수 없고,
+         *   못 쓸 부품이 섞여 있어도 시스템은 모르므로 실제보다 낙관적이다.
+         *   정확한 숫자는 parts.kinds 의 t/d 를 볼 것 — 그쪽은 참값이다.
+         */
+        let PROJECTS = [];
+
+        async function loadData() {
+            const res = await getJSON(API + '/summary', {spjangcd: SPJANGCD});
+            PROJECTS = res.data || [];
+            if (!res.success) {
+                console.warn('[dash_project] API 응답 실패. 컨트롤러 등록과 Network 탭을 확인하세요.');
+            }
+        }
 
         const flat = p => p.lines.reduce((a, l) => a.concat(l.items), []);
         // 외작 제작수량 = 입고완료(rcv) 시 need만큼(공정 통째 입고, 수량재고 없음), 미입고면 0
         const itemMade = x => x.type === '외작' ? (x.rcv ? x.need : 0) : x.made;
+
         function agg(items) {
             const need = items.reduce((s, x) => s + x.need, 0);
+            // 수주에 등록된 양(need) 중 실제로 작업지시가 나간 양.
+            // 차이가 곧 '아직 지시 안 한 물량' 이다.
+            const ordered = items.reduce((s, x) => s + (x.ordered || 0), 0);
             const made = items.reduce((s, x) => s + itemMade(x), 0);
             const asm = items.reduce((s, x) => s + (x.asm || 0), 0);
             const insp = items.reduce((s, x) => s + (x.insp || 0), 0);
@@ -257,16 +298,34 @@
             const outRcv = items.filter(x => x.type === '외작' && x.rcv).length;
             const outWait = items.filter(x => !x.out).length;
             const working = items.filter(x => x.working);
-            return {need, made, asm, insp, rem: Math.max(0, need - made), rate: need ? Math.round(made / need * 100) : 0,
-                inNeed, inMade, outNeed, outMade, outAll, outRcv, outWait, working, cnt: items.length,
-                prog: prodProg(items)};
+            return {
+                need,
+                ordered,
+                made,
+                asm,
+                insp,
+                rem: Math.max(0, need - made),
+                rate: need ? Math.round(made / need * 100) : 0,
+                inNeed,
+                inMade,
+                outNeed,
+                outMade,
+                outAll,
+                outRcv,
+                outWait,
+                working,
+                cnt: items.length,
+                prog: prodProg(items)
+            };
         }
+
         // 생산 진척(%) = 제작 달성 (내작 생산 + 외작 입고) / 전체 필요. ※설계·조립·검사는 %에 안 섞음
         function prodProg(items) {
             const need = items.reduce((s, x) => s + x.need, 0);
             const made = items.reduce((s, x) => s + itemMade(x), 0);
             return need ? Math.round(made / need * 100) : 0;
         }
+
         // 단계별 완료수/대상수.  설계·조립·검사 = 공정(품목) 개수, 제작 = 유니트
         //  조립 공정 = 그 공정 유닛이 모두 조립완료(asm>=need)된 공정 / 검사 = insp>=need
         function stageStats(items) {
@@ -281,8 +340,14 @@
                 insp: {d: inspDone, t: cnt, unit: '공정'}
             };
         }
+
         // 단계 상태: done(d>=t) / cur(0<d<t) / up(0) — 순차 아님(중간검사 등 독립 진행 허용)
-        function stageState(st) { if (st.t > 0 && st.d >= st.t) return 'done'; if (st.d > 0) return 'cur'; return 'up'; }
+        function stageState(st) {
+            if (st.t > 0 && st.d >= st.t) return 'done';
+            if (st.d > 0) return 'cur';
+            return 'up';
+        }
+
         // 설계 상태: 검도 스텝 + 출도 종합 (1차검도만 시작돼도 설계 진행중)
         function designState(items, dsteps) {
             const ss = stageStats(items);
@@ -294,21 +359,34 @@
             if (dzStarted || ss.design.d > 0) return 'cur';
             return 'up';
         }
+
         function isAllDone(p) {
             const ss = stageStats(flat(p));
             return ss.insp.t > 0 && ss.insp.d >= ss.insp.t && ss.asm.d >= ss.asm.t;
         }
+
         const NEAR = 7;   // 납기 임박 기준(일) — 지연위험·출도지연·외주미입고 공통
-        const today = new Date(); today.setHours(0, 0, 0, 0);
-        const dday = due => { const d = new Date(due); d.setHours(0, 0, 0, 0); return Math.round((d - today) / 86400000); };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dday = due => {
+            const d = new Date(due);
+            d.setHours(0, 0, 0, 0);
+            return Math.round((d - today) / 86400000);
+        };
+
         function risk(p) {
             const items = flat(p), a = agg(items), d = dday(p.due), tags = [];
             const allDone = isAllDone(p);
             const near = d >= 0 && d <= NEAR;
             let danger = false;
             if (!allDone) {
-                if (d < 0) { tags.push(['danger', '납기초과']); danger = true; }
-                else if (near) { tags.push(['danger', 'D-' + d + ' 지연위험']); danger = true; }
+                if (d < 0) {
+                    tags.push(['danger', '납기초과']);
+                    danger = true;
+                } else if (near) {
+                    tags.push(['danger', 'D-' + d + ' 지연위험']);
+                    danger = true;
+                }
             }
             // 출도지연 = 임박 + 미출도 공정 존재
             if (near && a.outWait > 0) tags.push(['out', 'D-' + d + ' 출도지연 ' + a.outWait + '공정']);
@@ -317,6 +395,7 @@
             if (outLagNear > 0) tags.push(['warn', '외주 미입고 ' + outLagNear + '(임박)']);
             return {danger, tags, d, prog: a.prog, allDone};
         }
+
         function score(p) {
             const r = risk(p), a = agg(flat(p));
             let s = (100 - a.prog);
@@ -325,8 +404,23 @@
             return s;
         }
 
-        function clock() { $('#udClock').textContent = new Date().toLocaleTimeString('ko-KR'); }
-        setInterval(clock, 1000); clock();
+        function clock() {
+            el('#udClock').textContent = new Date().toLocaleTimeString('ko-KR');
+        }
+
+        setInterval(clock, 1000);
+        clock();
+
+        /*
+         * 최초 로드 + 주기 갱신.
+         * 대시보드는 벽걸이 모니터에 띄워두는 화면이라 사람이 새로고침하지 않는다.
+         * 30초마다 다시 읽는다.
+         */
+        async function refreshAll() {
+            await loadData();
+            renderAll();
+        }
+
         const rateColor = r => r >= 100 ? '#5cbf9b' : '#5f8fc0';
         const fill = (pct, c) => '<div class="f" style="width:' + Math.min(100, pct) + '%;background:' + c + '"></div>';
 
@@ -336,12 +430,20 @@
             const all = PROJECTS.reduce((a, p) => a.concat(flat(p)), []);   // 항상 전체 기준
             const a = agg(all);
             const riskN = PROJECTS.filter(p => risk(p).danger).length;
-            $('#kpiRow').innerHTML =
-                '<div class="kpi"><div class="l">총 필요 유니트(전사)</div><div class="v">' + nf(a.need) + '<small> 개</small></div></div>'
+            // 수주 → 지시 → 생산 순으로 좁혀지는 깔때기.
+            // 지시가 수주보다 적으면 아직 안 내린 물량이 있다는 뜻이라 따로 보여준다.
+            const notOrdered = Math.max(0, a.need - a.ordered);
+            el('#kpiRow').innerHTML =
+                '<div class="kpi"><div class="l">수주 유닛(전사)</div><div class="v">' + nf(a.need) + '<small> 개</small></div></div>'
+                + '<div class="kpi"><div class="l">작업지시 유닛</div><div class="v">' + nf(a.ordered)
+                + '<small> 개</small></div>'
+                + (notOrdered ? '<div class="l" style="color:#d3aa55;margin-top:2px">미지시 '
+                    + nf(notOrdered) + '</div>' : '') + '</div>'
                 + '<div class="kpi made"><div class="l">생산·입고 완료</div><div class="v">' + nf(a.made) + '<small> 개</small></div></div>'
                 + '<div class="kpi"><div class="l">남은 수량</div><div class="v" style="color:#d3aa55">' + nf(a.rem) + '<small> 개</small></div></div>'
                 + '<div class="kpi risk"><div class="l">지연 위험</div><div class="v">' + riskN + '<small> 건</small></div></div>';
         }
+
         function renderAlert() {
             const dangers = [], warns = [], outs = [];
             PROJECTS.forEach(p => risk(p).tags.forEach(t => {
@@ -351,27 +453,44 @@
                 else outs.push(label);
             }));
             if (!dangers.length && !warns.length && !outs.length) {
-                $('#alertBar').innerHTML = '<span class="alert-none">✓ 현재 지연 위험·출도 지연 없음</span>';
+                el('#alertBar').innerHTML = '<span class="alert-none">✓ 현재 지연 위험·출도 지연 없음</span>';
                 return;
             }
-            $('#alertBar').innerHTML = '<span class="at"><span class="ad"></span>조기경보</span>'
+            el('#alertBar').innerHTML = '<span class="at"><span class="ad"></span>조기경보</span>'
                 + dangers.map(x => '<span class="alert-chip danger">🔴 ' + x + '</span>').join('')
                 + warns.map(x => '<span class="alert-chip warn">🟡 ' + x + '</span>').join('')
                 + outs.map(x => '<span class="alert-chip out">📐 ' + x + '</span>').join('');
         }
+
         function renderWorking() {
             const all = PROJECTS.reduce((a, p) => a.concat(flat(p).map(x => ({x, p}))), []).filter(o => o.x.working);
-            $('#workList').innerHTML = all.length
+            el('#workList').innerHTML = all.length
                 ? all.map(o => '<div class="wb-item"><b>' + o.x.code + '</b> <span style="color:#d3aa55">' + (o.x.working.stage || '') + '</span> <span style="color:#aeb7c4">' + o.x.working.machine + '</span><span class="w">👤 ' + o.x.working.worker + '</span><span class="p">· ' + o.p.name + '</span></div>').join('')
                 : '<div class="wb-empty">작업중 없음</div>';
         }
-        function stageDots(items, pi, dsteps) {
+
+        /*
+         * 가공품 실적이 하나라도 있으면 제작은 '진행중'이다.
+         *
+         * ss.make.d 는 유닛 축 환산값이라, 품목 미지정 실적만 있으면 0 이 된다.
+         * (그 실적은 품목에 안 붙어 item.parts.kinds 로 내려오지 않는다)
+         * 실제로는 절단·가공이 돌고 있는데 대시보드만 '대기'로 보이는 상태가 된다.
+         * 프로젝트 단위 kinds 의 공정별 실적을 같이 본다.
+         */
+        function anyMachining(p) {
+            const ks = (p && p.kinds) || {};
+            return Object.keys(ks).some(k =>
+                Object.values(ks[k].ops || {}).some(v => (+v || 0) > 0));
+        }
+
+        function stageDots(items, pi, dsteps, p) {
             const ss = stageStats(items);
             const keys = ['design', 'make', 'asm', 'insp'];
             let html = '';
             STAGES.forEach((s, i) => {
                 const stt = ss[keys[i]];
-                const state = (i === 0) ? designState(items, dsteps) : stageState(stt);
+                let state = (i === 0) ? designState(items, dsteps) : stageState(stt);
+                if (keys[i] === 'make' && state === 'up' && anyMachining(p)) state = 'cur';
                 const mark = state === 'done' ? '●' : state === 'cur' ? '◐' : '○';
                 const cnt = '<div class="pc">' + nf(stt.d) + '/' + nf(stt.t) + '</div>';
                 const isDesign = (i === 0 && dsteps && dsteps.length);
@@ -382,6 +501,128 @@
             });
             return '<div class="stage-dots">' + html + '</div>';
         }
+
+        /*
+         * 프로젝트 단위 가공품 표 (proj.kinds).
+         *
+         * ★ 품목별 칩(item.parts.kinds)과 별개다.
+         *   가공 실적은 품목 없이 프로젝트에만 귀속될 수 있다
+         *   (2D 도면 전에 추정으로 만드는 물량 — 키오스크의 '품목 미지정').
+         *   그런 실적은 품목별 집계에서 빠지므로 여기서만 보인다.
+         *   따라서 이 표의 합계가 품목 칩의 합보다 클 수 있다. 정상이다.
+         *
+         * ★ 공정별로 칸을 나눈다. 합치지 않는다.
+         *   한 부품이 절단 → 가공 → 와이어커팅을 거치며 공정마다 다시 세어지므로
+         *   더하면 실물보다 큰 수가 된다 (절단 340 + 가공 120 = 460 > 실물 340).
+         */
+        function kindTable(kinds) {
+            const ks = kinds || {};
+            const names = Object.keys(ks);
+            if (!names.length) {
+                return '<div class="kempty">등록된 부품이 없습니다. 생산 지시 화면에서 부품을 먼저 등록하세요.</div>';
+            }
+
+            // 실적이 있는 공정만 열로 세운다 (안 쓴 설비는 빈 열이 되므로)
+            const ops = [];
+            names.forEach(k => Object.keys(ks[k].ops || {}).forEach(o => {
+                if (o && ops.indexOf(o) < 0) ops.push(o);
+            }));
+
+            const head = '<tr><th>유형</th><th class="r">필요</th>'
+                + ops.map(o => '<th class="r">' + o + '</th>').join('') + '</tr>';
+
+            const body = names.map(k => {
+                const e = ks[k], o2 = e.ops || {};
+                return '<tr><td class="kn ' + (k === '기타' ? 'etc' : '') + '">' + k + '</td>'
+                    + '<td class="need r">' + nf(e.t) + '</td>'
+                    + ops.map(o => {
+                        const v = o2[o] || 0;
+                        return '<td class="op r ' + (v ? '' : 'zero') + '">' + nf(v) + '</td>';
+                    }).join('') + '</tr>';
+            }).join('');
+
+            const totNeed = names.reduce((s2, k) => s2 + (ks[k].t || 0), 0);
+            const foot = '<tr class="sum"><td>합계</td><td class="r">' + nf(totNeed) + '</td>'
+                + ops.map(o => '<td class="r">'
+                    + nf(names.reduce((s2, k) => s2 + ((ks[k].ops || {})[o] || 0), 0))
+                    + '</td>').join('') + '</tr>';
+
+            return '<table class="dtab ktab">' + head + body + foot + '</table>';
+        }
+
+        // yyyymmdd → MM/DD. 빈 값은 '-'
+        function ymd(v) {
+            const t = (v == null ? '' : String(v)).trim();
+            return /^\d{8}$/.test(t) ? (t.slice(4, 6) + '/' + t.slice(6, 8)) : t;
+        }
+
+        /*
+         * 기간 표기. 한쪽만 있으면 '~' 를 붙이지 않는다.
+         * 실적은 시작일 없이 완료일만 찍히는 경우가 흔한데,
+         * '-~08/20' 은 오류처럼 보인다.
+         */
+        function range(a, b) {
+            const x = ymd(a), y = ymd(b);
+            if (x && y) return x + '~' + y;
+            if (y) return y;
+            if (x) return x + '~';
+            return '-';
+        }
+
+        /*
+         * 마일스톤 칩.
+         * 게이트 판정은 진척률이 아니라 완료 여부(ac_eddate)다.
+         * 가공 진척률은 낙관 편향이 있어 임계값으로 쓰면 경보가 늦게 울린다.
+         */
+        function msRow(ms) {
+            if (!ms || !ms.length) return '';
+            return '<div class="ms-row">' + ms.map(m => {
+                const cls = m.delay ? 'delay' : (m.s === 'done' ? 'done' : '');
+                const dt = m.s === 'done' ? ('완료 ' + (ymd(m.ac) || '-'))
+                    : (m.delay ? ('지연 · 예정 ' + (ymd(m.pl) || '-'))
+                        : ('예정 ' + (ymd(m.pl) || '-')));
+                return '<span class="mschip ' + cls + '">' + m.n
+                    + '<span class="msd">' + dt + '</span></span>';
+            }).join('') + '</div>';
+        }
+
+        /*
+         * WBS 표. 프로젝트 레벨 계획(wbs_plan.suju_head_id IS NULL)만 내려온다.
+         * 지연은 서버가 조회 시 판정한다 (pl_eddate < 오늘 AND ac_eddate 없음).
+         */
+        function wbsTable(wbs) {
+            if (!wbs || !wbs.length) {
+                return '<div class="kempty">WBS 계획이 없습니다. 프로젝트 등록에서 템플릿을 적용하세요.</div>';
+            }
+            const head = '<tr><th>단계</th><th>세부</th><th>담당</th>'
+                + '<th class="c">계획</th><th class="c">실적</th>'
+                + '<th class="r">진척</th><th class="c">상태</th></tr>';
+
+            const body = wbs.map(w => {
+                const dly = w.delay_yn === 'Y';
+                const done = w.state === 'done';
+                const st = dly ? 'delay' : (w.state || 'wait');
+                const lab = dly ? '지연' : (done ? '완료' : (w.state === 'cur' ? '진행' : '대기'));
+
+                // 완료인데 진척 0% 로 보이면 틀린 값처럼 읽힌다.
+                // progress 는 담당자가 채우는 값이라 비어 있는 경우가 흔하므로,
+                // 완료 실적이 찍힌 행은 100% 로 본다.
+                const pg = done ? 100 : Math.round(w.progress || 0);
+
+                return '<tr class="' + (dly ? 'delay' : '') + '">'
+                    + '<td class="mut">' + (w.step_name || '') + '</td>'
+                    + '<td class="nm' + (w.milestone_yn === 'Y' ? ' mile' : '') + '">'
+                    + (w.milestone_yn === 'Y' ? '◆ ' : '') + (w.task_name || '') + '</td>'
+                    + '<td class="mut">' + (w.charge_name || '-') + '</td>'
+                    + '<td class="c mut">' + range(w.pl_stdate, w.pl_eddate) + '</td>'
+                    + '<td class="c">' + range(w.ac_stdate, w.ac_eddate) + '</td>'
+                    + '<td class="r">' + (pg ? pg + '%' : '<span class="mut">-</span>') + '</td>'
+                    + '<td class="c"><span class="wst ' + st + '">' + lab + '</span></td></tr>';
+            }).join('');
+
+            return '<table class="dtab wtab">' + head + body + '</table>';
+        }
+
         function dzPanel(dsteps) {
             if (!dsteps || !dsteps.length) return '';
             const steps = dsteps.map((s, i) => {
@@ -392,18 +633,32 @@
             }).join('');
             return '<div class="dz-panel"><span class="dz-lab">설계 검도 (수주 등록)</span><div class="dz-row">' + steps + '</div></div>';
         }
+
         function lineBlock(p, li, pi) {
             const l = p.lines[li], a = agg(l.items), col = rateColor(a.prog);
             const open = openL[pi] === li;
             const items = l.items.map(it => {
                 const ia = agg([it]), ic = rateColor(ia.prog), im = itemMade(it);
-                const io = '<span class="ib ' + (it.type === '내작' ? 'in' : 'out') + '">' + (it.type === '내작' ? '가공' : '구매') + '</span>';
+                // 라벨을 '가공/구매'로 줄여 두니 자재 구매로 읽혔다.
+                // 이 배지는 <b>이 공정(지그)을 우리가 만드는지 업체가 만드는지</b>를 뜻한다.
+                // 내작 / 외작 / 미지정. 미지정을 내작으로 뭉개면 누가 정한 것처럼 보인다.
+                // 집계는 내작으로 잡되(서버 typeOf 주석 참조) 표기는 구분한다.
+                const tcls = it.type === '외작' ? 'out' : (it.type === '미지정' ? 'undef' : 'in');
+                const ttip = it.type === '외작' ? '외작 — 업체 제작 후 입고'
+                    : (it.type === '미지정' ? '수주에 내작/외작 구분이 없습니다. 집계는 내작으로 처리합니다'
+                        : '내작 — 우리가 가공·조립');
+                const io = '<span class="ib ' + tcls + '" title="' + ttip + '">' + it.type + '</span>';
                 const ob = '<span class="ib ' + (it.out ? 'dok' : 'dno') + '">' + (it.out ? '출도' : '미출도') + '</span>';
-                const rc = it.type === '외작' ? ('<span class="ib ' + (it.rcv ? 'dok' : 'dno') + '">' + (it.rcv ? '입고' : '미입고') + '</span>') : '';
+                // 자재 입고가 아니라 <b>외주 공정이 업체에서 들어왔는지</b>다. 외작에만 붙는다.
+                const rc = it.type === '외작' ? ('<span class="ib ' + (it.rcv ? 'dok' : 'dno')
+                    + '" title="외주 제작품이 업체에서 입고되었는지">'
+                    + (it.rcv ? '외주입고' : '외주 미입고') + '</span>') : '';
                 const wk = it.working ? '<span class="ib work">▶' + (it.working.stage || '') + '·' + it.working.worker + '</span>' : '';
                 // 가공품 단위 상세 (유닛과 별개) — 내작만
                 let detail = '';
-                if (it.type === '내작' && it.parts) {
+                // 미지정도 집계상 내작이므로 가공품 상세를 보여준다.
+                // (외작만 제외 — 업체가 만들어 오므로 우리 가공 실적이 없다)
+                if (it.type !== '외작' && it.parts) {
                     const ks = it.parts.kinds || {}, ps = it.parts.procs || {};
                     const procChips = Object.entries(ps).map(p2 => {
                         return '<span class="pchip"><span class="pn">' + p2[0] + '</span> <b>' + nf(p2[1]) + '</b></span>';
@@ -428,31 +683,46 @@
                 + '<span class="lright">생산 <b>' + nf(a.made) + '</b>/' + nf(a.need) + ' <span class="lpct" style="color:' + col + '">' + a.prog + '%</span></span>'
                 + '</div><div class="litems">' + items + '</div></div>';
         }
+
         function renderRows() {
             let list = PROJECTS.map((p, i) => ({p, i, s: score(p)}));
             if (hideDone) list = list.filter(o => !isAllDone(o.p));
             const ordered = list.sort((a, b) => b.s - a.s);
-            if (!ordered.length) { $('#projRows').innerHTML = '<div style="padding:18px;text-align:center;color:#7e8794;font-size:13px">표시할 프로젝트가 없습니다 (완료건 숨김)</div>'; return; }
-            $('#projRows').innerHTML = ordered.map(o => {
+            if (!ordered.length) {
+                el('#projRows').innerHTML = '<div style="padding:18px;text-align:center;color:#7e8794;font-size:13px">표시할 프로젝트가 없습니다 (완료건 숨김)</div>';
+                return;
+            }
+            el('#projRows').innerHTML = ordered.map(o => {
                 const p = o.p, i = o.i, a = agg(flat(p)), col = rateColor(a.prog), r = risk(p);
                 const d = r.d, dueSoon = d <= 7 && !r.allDone;
                 const dueTxt = d < 0 ? ('납기 ' + (-d) + '일 초과') : ('D-' + d);
                 const tags = r.tags.map(t => '<span class="tag ' + t[0] + '">' + t[1] + '</span>').join('')
-                    + (a.working.length ? '<span class="tag work">작업중 ' + a.working.length + '</span>' : '');
+                    + ((a.working.length + (p.mwork || []).length)
+                        ? '<span class="tag work">작업중 ' + (a.working.length + (p.mwork || []).length) + '</span>' : '')
+                    + (p.delayCnt ? '<span class="tag danger">WBS 지연 ' + p.delayCnt + '</span>' : '');
                 const ss = stageStats(flat(p));
                 const inR = a.inNeed ? Math.round(a.inMade / a.inNeed * 100) : 0;
                 const outR = a.outAll ? Math.round(a.outRcv / a.outAll * 100) : 0;
-                const workLine = '<div class="pc-work">' + (a.working.length
-                    ? '▶ ' + a.working.map(w => (w.working.stage || '') + '·' + w.working.worker).join(', ') : '') + '</div>';
+                // 조립·검사(품목에 붙은 것) + 가공(프로젝트에만 붙은 것)을 함께 보여준다.
+                // 가공은 품목 미지정이 많아 item.working 으로 내려오지 않는다.
+                const wkAsm = a.working.map(w => (w.working.stage || '') + '·' + w.working.worker);
+                const wkMac = (p.mwork || []).map(w =>
+                    (w.machine || '') + '·' + (w.worker || '')
+                    + (w.item_name ? ' (' + w.item_name + ')' : ''));
+                const wkAll = wkAsm.concat(wkMac);
+                const workLine = '<div class="pc-work">'
+                    + (wkAll.length ? '▶ ' + wkAll.join(', ') : '') + '</div>';
                 // ── 컴팩트 카드 ──
                 const card = '<div class="pcard ' + (r.danger ? 'risk' : '') + ' ' + (openP === i ? 'open' : '') + '" data-proj="' + i + '">'
                     + '<div class="pc-head"><div><span class="nm">' + p.name + '</span></div>'
                     + '<span class="pc-due ' + (dueSoon ? 'soon' : '') + '">' + dueTxt + '</span></div>'
-                    + stageDots(flat(p), i, p.dsteps)
+                    + stageDots(flat(p), i, p.dsteps, p)
                     + '<div class="pc-foot">'
                     + '<div class="pc-prog" style="color:' + col + '">' + a.prog + '<small>% 생산진척</small></div>'
                     + '<div class="pc-track">' + fill(a.prog, col) + '</div>'
-                    + '<div class="pc-sub">생산 <span class="m">' + nf(a.made) + '</span>/' + nf(a.need) + ' · 남음 ' + nf(a.rem) + '</div>'
+                    + '<div class="pc-sub">생산 <span class="m">' + nf(a.made) + '</span>/' + nf(a.need) + ' · 남음 ' + nf(a.rem)
+                    + (a.ordered < a.need ? ' · <span style="color:#d3aa55">미지시 ' + nf(a.need - a.ordered) + '</span>' : '')
+                    + '</div>'
                     + workLine
                     + '<div class="pc-tags">' + tags + '</div>'
                     + '</div></div>';
@@ -475,30 +745,40 @@
                 const detail = '<div class="pdetail-full">'
                     + '<div class="pd-title">' + p.name + ' — 상세</div>'
                     + dzPanel(p.dsteps)
+                    + '<div class="sub-h" style="margin-top:22px">WBS — 마일스톤 / 계획 대비 실적'
+                    + (p.delayCnt ? ' <span class="wst delay">지연 ' + p.delayCnt + '</span>' : '') + '</div>'
+                    + msRow(p.milestones)
+                    + wbsTable(p.wbs)
                     + '<div class="sub-h" style="margin-top:22px">단계별 현황 (완료/대상)</div>' + stageStat
                     + '<div class="sub-h" style="margin-top:22px">제작 — 가공(내작 생산) / 구매(외작 입고)</div>' + makeSplit
+                    + '<div class="sub-h" style="margin-top:22px">가공품 — 유형별 필요량 / 공정별 실적</div>'
+                    + kindTable(p.kinds)
                     + '<div class="sub-h" style="margin-top:22px">라인별 (라인 클릭 시 공정 펼침)</div>' + lines
                     + ship
-                    + '<div class="note">※ 단계 증빙: 설계=도면출도(검도→출도, 수주) · 제작=가공+구매 유니트 · 조립=조립완료 공정 · 검사=검사완료 공정. 보기 전용 — 변경은 각 업무화면에서.</div>'
+                    + '<div class="note">※ 단계 증빙: 설계=도면출도(검도→출도, 수주) · 제작=가공+구매 유니트 · 조립=조립완료 공정 · 검사=검사완료 공정. 보기 전용 — 변경은 각 업무화면에서.<br>※ 가공품 표는 공정별로 따로 셉니다. 한 부품이 절단·가공을 거치며 각 공정에서 다시 세어지므로 <b>가로로 더하지 마세요</b>. 품목 미지정 실적이 포함되어 아래 공정별 칩의 합보다 클 수 있습니다.</div>'
                     + '</div>';
                 return card + detail;
             }).join('');
 
-            $('#projRows').querySelectorAll('[data-dz]').forEach(el => el.onclick = (e) => {
+            el('#projRows').querySelectorAll('[data-dz]').forEach(node => node.onclick = (e) => {
                 e.stopPropagation();
-                openP = +el.dataset.dz; renderRows();
+                openP = +node.dataset.dz;
+                renderRows();
             });
-            $('#projRows').querySelectorAll('[data-proj]').forEach(el => el.onclick = () => {
-                const i = +el.dataset.proj; openP = (openP === i) ? -1 : i; renderRows();
+            el('#projRows').querySelectorAll('[data-proj]').forEach(node => node.onclick = () => {
+                const i = +node.dataset.proj;
+                openP = (openP === i) ? -1 : i;
+                renderRows();
                 if (openP === i) requestAnimationFrame(() => {
-                    const d = $('#projRows').querySelector('.pdetail-full');
+                    const d = el('#projRows').querySelector('.pdetail-full');
                     if (d) d.scrollIntoView({behavior: 'smooth', block: 'center'});
                 });
             });
-            $('#projRows').querySelectorAll('[data-line]').forEach(el => el.onclick = (e) => {
+            el('#projRows').querySelectorAll('[data-line]').forEach(node => node.onclick = (e) => {
                 e.stopPropagation();
-                const li = +el.dataset.line;
-                openL[openP] = (openL[openP] === li) ? -1 : li; renderRows();
+                const li = +node.dataset.line;
+                openL[openP] = (openL[openP] === li) ? -1 : li;
+                renderRows();
             });
         }
 
@@ -510,7 +790,14 @@
                 flat(p).forEach(x => {
                     if (x.type !== '외작') return;
                     const v = x.vendor || '(미지정)';
-                    (map[v] = map[v] || []).push({code: x.code, proj: p.name, need: x.need, rcv: x.rcv, due: p.due, d: dday(p.due)});
+                    (map[v] = map[v] || []).push({
+                        code: x.code,
+                        proj: p.name,
+                        need: x.need,
+                        rcv: x.rcv,
+                        due: p.due,
+                        d: dday(p.due)
+                    });
                 });
             });
             const vendors = Object.keys(map).sort();
@@ -540,15 +827,32 @@
                     + '<span class="lright">입고 <b>' + rcvN + '</b>/' + total + ' 공정 <span class="r" style="color:' + col + '">' + rate + '%</span> ' + warn + '</span>'
                     + '</div><div class="litems">' + rows + '</div></div>';
             }).join('');
-            $('#vendorRows').innerHTML = html || '<div style="padding:14px;color:#7e8794;font-size:13px">외작 공정이 없습니다</div>';
-            $('#vendorAlertLab').innerHTML = nearMiss > 0 ? '<span style="color:#d3aa55;font-weight:700">⚠ 임박 미입고 ' + nearMiss + '건</span>' : '<span style="color:#5cbf9b">임박 미입고 없음</span>';
-            $('#vendorRows').querySelectorAll('[data-vendor]').forEach(el => el.onclick = () => {
-                const vi = +el.dataset.vendor; openV = (openV === vi) ? -1 : vi; renderVendors();
+            el('#vendorRows').innerHTML = html || '<div style="padding:14px;color:#7e8794;font-size:13px">외작 공정이 없습니다</div>';
+            el('#vendorAlertLab').innerHTML = nearMiss > 0 ? '<span style="color:#d3aa55;font-weight:700">⚠ 임박 미입고 ' + nearMiss + '건</span>' : '<span style="color:#5cbf9b">임박 미입고 없음</span>';
+            el('#vendorRows').querySelectorAll('[data-vendor]').forEach(node => node.onclick = () => {
+                const vi = +node.dataset.vendor;
+                openV = (openV === vi) ? -1 : vi;
+                renderVendors();
             });
         }
 
-        $('#hideDone').onchange = e => { hideDone = e.target.checked; renderRows(); renderVendors(); };
-        renderKpi(); renderAlert(); renderWorking(); renderRows(); renderVendors();
+        el('#hideDone').onchange = e => {
+            hideDone = e.target.checked;
+            renderRows();
+            renderVendors();
+        };
+
+        function renderAll() {
+            renderKpi();
+            renderAlert();
+            renderWorking();
+            renderRows();
+            renderVendors();
+        }
+
+        // 최초 1회 로드 후 30초마다 갱신 (벽걸이 모니터용 — 사람이 새로고침하지 않는다)
+        refreshAll();
+        setInterval(refreshAll, 30000);
     </script>
 </th:block>
 </html>

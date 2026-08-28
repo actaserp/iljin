@@ -347,7 +347,10 @@
             const res = await getJSON(API + '/kind_tiles', {
                 spjangcd: SPJANGCD,
                 projNo: PROJECTS[st.proj].proj_no,
-                sujuId: st.item >= 0 ? ITEMS[st.item].suju_id : null
+                sujuId: st.item >= 0 ? ITEMS[st.item].suju_id : null,
+                // 이 키오스크 공정의 실적만 센다.
+                // 안 넘기면 절단·가공이 합산되어 실물보다 큰 수가 뜬다.
+                operation: CURRENT_OP
             });
             TILES = res.data || [];
         }
@@ -514,23 +517,34 @@
                     html += `</div>`;
                 }
             } else if (step === 'kind') {
-                if (st.item < 0) {
-                    html = `<p class="pick-empty">먼저 품목을 선택하세요.</p>`;
-                } else {
-                    const ks = visKinds();
-                    html = `<p class="pick-head">유형 — <b>선택하지 않으면 '기타'로 기록됩니다</b></p><div class="tiles">`;
-                    html += ks.length
-                        ? ks.map(k => {
-                            const t = tileOf(k);
-                            return `<button class="tile ${st.kind === k ? 'on' : ''}" data-k="${k}">
-                                <span class="tt">${k}</span>
-                                <span class="ts">필요 ${t.need_qty || 0} · 생산 ${t.done_qty || 0}</span></button>`;
-                        }).join('')
-                        : `<div class="pick-empty" style="grid-column:1/-1">이 품목에 등록된 부품이 없습니다. 생산 지시 화면에서 부품을 먼저 등록하세요.</div>`;
-                    html += `<button class="tile ${st.kind === 'etc' ? 'on' : ''}" data-k="etc">
-                                <span class="tt">기타</span><span class="ts">유형 구분 안 됨</span></button>`;
-                    html += `</div>`;
-                }
+                /*
+                 * ★ 품목을 안 골라도 유형은 나와야 한다.
+                 *   2D 도면 전에 추정으로 미리 만드는 물량은 어느 품목 것인지
+                 *   확정되지 않는다(SPEC 3-1). 그래서 '품목 미지정' 타일이 있는 것이고,
+                 *   그 경로로 온 작업자도 plate·block 중 무엇을 깎았는지는 안다.
+                 *   여기서 막으면 그 물량이 전부 '기타' 로 떨어져 유형 집계가 무너진다.
+                 *
+                 *   서버(getKindTiles)는 sujuId 가 없으면 프로젝트 전체로 집계한다.
+                 *   화면만 막고 있었다.
+                 */
+                const byProj = st.item < 0;
+                const ks = visKinds();
+                html = `<p class="pick-head">유형 — <b>선택하지 않으면 '기타'로 기록됩니다</b>`
+                    + (byProj ? ` <span style="color:#8a6d1b">· 프로젝트 전체 기준</span>` : '')
+                    + `</p><div class="tiles">`;
+                html += ks.length
+                    ? ks.map(k => {
+                        const t = tileOf(k);
+                        return `<button class="tile ${st.kind === k ? 'on' : ''}" data-k="${k}">
+                            <span class="tt">${k}</span>
+                            <span class="ts">필요 ${t.need_qty || 0} · 생산 ${t.done_qty || 0}</span></button>`;
+                    }).join('')
+                    : `<div class="pick-empty" style="grid-column:1/-1">${byProj
+                        ? '이 프로젝트에 등록된 부품이 없습니다.'
+                        : '이 품목에 등록된 부품이 없습니다.'} 생산 지시 화면에서 부품을 먼저 등록하세요.</div>`;
+                html += `<button class="tile ${st.kind === 'etc' ? 'on' : ''}" data-k="etc">
+                            <span class="tt">기타</span><span class="ts">유형 구분 안 됨</span></button>`;
+                html += `</div>`;
             }
             el('#pickBody').innerHTML = html;
             // 바인딩
@@ -731,8 +745,12 @@
 
         async function refreshLog() {
             const [w, l] = await Promise.all([
-                getJSON(API + '/working_list', {spjangcd: SPJANGCD, equipment: st.machine || ''}),
-                getJSON(API + '/log', {spjangcd: SPJANGCD, prodDate: curDate, equipment: st.machine || ''})
+                // 이 키오스크 공정 것만 본다. 설비를 아직 안 골랐어도
+                // 다른 설비(레이저·와이어)의 작업이 섞여 보이면 안 된다.
+                getJSON(API + '/working_list',
+                    {spjangcd: SPJANGCD, equipment: st.machine || '', operation: CURRENT_OP}),
+                getJSON(API + '/log',
+                    {spjangcd: SPJANGCD, prodDate: curDate, equipment: st.machine || '', operation: CURRENT_OP})
             ]);
             working = w.data || [];
             log = l.data || [];

@@ -1,243 +1,548 @@
 <html layout:decorate="~{layout_page}">
 <head>
     <style>
-        /* ===== 미리보기용 공통 (layout_page에 있으면 이 블록 삭제) ===== */
-        body{margin:0;font-family:'Malgun Gothic','Pretendard',sans-serif;background:#eef1f6;color:#222;font-size:13px;}
-        .layout-contents{padding:14px 18px;}
-        .page-title-wrap{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-        .page-title-wrap .left{display:flex;align-items:center;gap:10px;}
-        .page-title-wrap h2{font-size:19px;font-weight:700;margin:0;}
-        .bookmark{font-size:12px;color:#5b6b86;border:1px solid #cfd6e2;background:#fff;border-radius:16px;padding:4px 11px;cursor:pointer;}
-        .page-navi{list-style:none;display:flex;gap:8px;margin:0;padding:0;color:#8b95a7;font-size:12px;}
-        .page-navi li::after{content:'›';margin-left:8px;color:#c2c9d4;}.page-navi li:last-child::after{content:'';}
-        .section{background:#fff;border:1px solid #d7dde7;border-radius:6px;}
-        .section-top{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid #e9edf3;background:#f7f9fc;gap:12px;flex-wrap:wrap;}
-        .search-wrap{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
-        .search-wrap dl{margin:0;}.search-wrap dt{font-size:12px;color:#445;font-weight:600;margin-bottom:5px;}.search-wrap dd{margin:0;}
-        .search-wrap .eq{color:#e0533d;margin-left:2px;}
-        .search-wrap input,.search-wrap select{border:1px solid #cfd6e2;border-radius:5px;font-size:13px;}
-        .date-box{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
-        .button-wrap ul{list-style:none;display:flex;gap:6px;margin:0;padding:0;}
-        .btn{border:1px solid #cfd6e2;background:#fff;border-radius:5px;padding:7px 13px;font-size:12.5px;font-weight:600;cursor:pointer;color:#333;}
-        .btn:disabled{background:#eef0f4;color:#aab;cursor:not-allowed;}
-        .btn-start{background:#1ca36b;border-color:#1ca36b;color:#fff;}
-        .btn-start:hover:not(:disabled){background:#178a5b;}
-        .btn-end{background:#2f57d6;border-color:#2f57d6;color:#fff;}
-        .btn-end:hover:not(:disabled){background:#274ec2;}
-        .container-fluid{padding:12px 13px;}
-        table.work-table{width:100%;border-collapse:collapse;}
-        table.work-table th,table.work-table td{border:1px solid #d7dde7;padding:7px;font-size:12.5px;text-align:center;}
-        table.work-table th{background:#eef2f8;color:#445;font-weight:700;}
-        .table-wrap{padding:12px 13px;}
-        /* ===== 이 페이지 전용 ===== */
-        .aname{text-align:left;font-weight:700;padding-left:6px;}
-        tr.asy-row{cursor:pointer;} tr.asy-row:hover{background:#f4f8ff;} tr.asy-row.on{background:#e6efff;} tr.asy-row.on td:nth-child(1){box-shadow:inset 3px 0 0 #0026ff;}
-        tr.asy-row.run{background:#fffbe8;} tr.asy-row.run.on{background:#fff3c4;}
-        .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:11px;display:inline-block;}
-        .badge.wait{background:#eef0f4;color:#777;}        /* 대기 */
-        .badge.run{background:#f3e6c0;color:#8a6d1b;}      /* 진행중 */
-        .num{text-align:right;font-weight:700;}
-        .empty{color:#99a;text-align:center;padding:18px 0;}
-        .hint{font-size:11.5px;color:#667;line-height:1.6;margin:10px 0 0;}
+        /* 페이지 전용 스타일만. 공통 레이아웃은 layout_page 가 제공한다. */
 
-        /* 우측 선택/상태 카드 */
-        .pick-card{display:flex;flex-direction:column;gap:12px;align-items:flex-start;}
-        .pick-name{font-size:20px;font-weight:800;color:#1d2330;}
-        .pick-status{font-size:13px;font-weight:700;}
-        .pick-status .lab{color:#7a8499;font-weight:600;margin-right:6px;}
-        .big-actions{display:flex;gap:10px;width:100%;}
-        .big-actions .btn{flex:1;padding:16px;font-size:16px;font-weight:800;border-radius:9px;}
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .filter-bar select { min-width: 240px; }
 
-        /* 풀하이트 */
-        html,body{height:100%;}
-        .layout-contents{display:flex;flex-direction:column;min-height:100vh;box-sizing:border-box;}
-        .main-row{display:flex;gap:5px;align-items:stretch;flex:1 1 auto;min-height:0;}
-        .main-row > .section{display:flex;flex-direction:column;min-height:0;overflow:hidden;}
-        .main-row > .section > .container-fluid{flex:1 1 auto;min-height:0;overflow:auto;}
-        .section-top{flex:0 0 auto;}
-        .right-col{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0;min-height:0;}
-        .right-col > .reg-sec{flex:0 0 auto;display:flex;flex-direction:column;overflow:hidden;}
-        .right-col > .log-sec{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
-        .right-col > .log-sec > .table-wrap{flex:1 1 auto;min-height:0;overflow:auto;}
+        .seg { display: inline-flex; border: 1px solid #d7dde7; border-radius: 6px; overflow: hidden; }
+        .seg button {
+            border: 0;
+            background: #fff;
+            padding: 6px 16px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .seg button.on { background: #1c62c9; color: #fff; }
+
+        .row2 { display: flex; gap: 12px; align-items: flex-start; }
+
+        table.work-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.work-table th, table.work-table td {
+            border: 1px solid #e2e7ef;
+            padding: 5px 6px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        table.work-table thead th { background: #f5f7fa; font-weight: 600; white-space: nowrap; }
+        table.work-table tbody tr.pointer { cursor: pointer; }
+        table.work-table tbody tr.on { background: #eef4ff; }
+        table.work-table td.left { text-align: left; }
+
+        .badge {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            line-height: 17px;
+        }
+        .badge.wait { background: #fff2e0; color: #b06a00; }
+        .badge.done { background: #e6f6ec; color: #1e7a45; }
+        .badge.out  { background: #f0edfa; color: #5b46a8; }
+        .badge.exempt { background: #eaf0f6; color: #4a6a8a; }
+        .badge.in   { background: #eef2f7; color: #55647c; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 90px 1fr;
+            gap: 8px 10px;
+            align-items: center;
+            padding: 12px 14px;
+        }
+        .form-grid input, .form-grid select, .form-grid textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #d7dde7;
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 13px;
+        }
+        .form-grid .full { grid-column: 1 / -1; }
+
+        .hint { color: #7b8698; font-size: 12px; margin: 0 0 8px; }
+        .hint.warn { color: #b06a00; }
     </style>
 </head>
+
 <th:block layout:fragment="content">
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>검사 공정</h2>
+                <h2>검사</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
-                <li>생산 관리</li>
-                <li>검사 공정</li>
+                <li>생산관리</li>
+                <li>검사</li>
             </ul>
         </div>
 
-        <div class="main-row">
-            <!-- 좌: 검사 대상(공정/품목) 목록 -->
-            <section class="section" style="flex:1;">
-                <div class="section-top" style="justify-content:left; gap:15px;">
-                    <div class="search-wrap">
-                        <dl><dt>생산일<span class="eq">*</span></dt>
-                            <dd><ul class="date-box"><li><input type="date" id="pdate"></li></ul></dd></dl>
-                        <dl><dt>프로젝트</dt>
-                            <dd><select id="fProject" style="min-width:170px"></select></dd></dl>
-                    </div>
-                    <div class="search-wrap"><dl><dd><li><a class="btn btn-search" id="btnSearch">검색</a></li></dd></dl></div>
+        <div class="filter-bar">
+            <label>프로젝트</label>
+            <select id="projSel"></select>
+            <div class="seg" id="stateSeg">
+                <button type="button" data-state="wait" class="on">미검사</button>
+                <button type="button" data-state="done">검사완료</button>
+                <button type="button" data-state="exempt">검사면제</button>
+                <button type="button" data-state="">전체</button>
+            </div>
+            <span style="flex:1 1 auto;"></span>
+            <span id="cntBadge"></span>
+        </div>
+
+        <div class="row2">
+            <!-- ===== 검사 대상 ===== -->
+            <section class="section" style="flex:1 1 auto; min-width:0;">
+                <div class="section-top">
+                    <div class="search-wrap" style="margin-bottom:0"><h3>검사 대상</h3></div>
                 </div>
                 <div class="container-fluid">
+                    <p class="hint">
+                        검사는 유닛이 아니라 <b>공정(품목) 단위</b>이며,
+                        내작·외작 구분 없이 <b>모든 공정이 검사 대상</b>입니다.
+                        외작 중 업체가 검사를 마치고 보낸 품목만 <b>검사면제</b>로 빠집니다.
+                    </p>
                     <table class="work-table">
-                        <thead><tr>
-                            <th>검사 대상 (공정/품목)</th>
-                            <th style="width:110px">상태</th>
-                            <th style="width:100px">검사완료</th>
-                        </tr></thead>
-                        <tbody id="asyBody"></tbody>
+                        <colgroup>
+                            <col style="width:11%">
+                            <col style="width:22%">
+                            <col style="width:11%">
+                            <col style="width:15%">
+                            <col style="width:11%">
+                            <col style="width:10%">
+                            <col style="width:10%">
+                            <col style="width:10%">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>라인</th>
+                            <th>품목</th>
+                            <th>구분</th>
+                            <th>제작업체</th>
+                            <th>조립완료</th>
+                            <th>검사수량</th>
+                            <th>상태</th>
+                            <th>최근검사</th>
+                        </tr>
+                        </thead>
+                        <tbody id="targetBody"></tbody>
                     </table>
                 </div>
             </section>
 
-            <!-- 우: 검사 시작/종료(위) + 검사 이력(아래) -->
-            <div class="right-col">
-                <section class="section reg-sec">
-                    <div class="section-top">
-                        <span id="selLab" style="font-weight:700;">검사 대상을 선택하세요</span>
-                    </div>
-                    <div class="table-wrap">
-                        <div class="pick-card" id="pickCard">
-                            <div class="empty" style="width:100%">왼쪽에서 검사 대상을 선택하세요</div>
-                        </div>
-                    </div>
-                </section>
+            <!-- ===== 검사 등록 ===== -->
+            <section class="section" style="flex:0 0 340px;">
+                <div class="section-top">
+                    <div class="search-wrap" style="margin-bottom:0"><h3 id="formTitle">검사 등록</h3></div>
+                </div>
+                <div class="form-grid">
+                    <label>검사일</label>
+                    <input type="date" id="inspectDate">
 
-                <section class="section log-sec">
-                    <div class="section-top"><span style="font-weight:700;">검사 이력</span></div>
-                    <div class="table-wrap">
-                        <table class="work-table">
-                            <thead><tr><th style="width:90px">프로젝트</th><th>검사 대상</th><th style="width:78px">시작</th><th style="width:78px">종료</th><th style="width:96px">생산일</th><th style="width:60px">취소</th></tr></thead>
-                            <tbody id="logBody"></tbody>
-                        </table>
+                    <label>검사자</label>
+                    <select id="workerSel"></select>
+
+                    <label>설비</label>
+                    <select id="equSel"></select>
+
+                    <label>판정</label>
+                    <select id="resultSel">
+                        <option value="pass">합격</option>
+                        <option value="fail">불합격</option>
+                    </select>
+
+                    <label>합격</label>
+                    <input type="number" id="goodQty" step="0.01" value="0">
+
+                    <label>불합격</label>
+                    <input type="number" id="defectQty" step="0.01" value="0">
+
+                    <label>비고</label>
+                    <input type="text" id="remark" placeholder="특이사항">
+
+                    <div class="full" style="display:flex;gap:6px;justify-content:flex-end;">
+                        <a class="btn btn-delete" id="saveBtn">검사 등록</a>
                     </div>
-                </section>
-            </div>
+                </div>
+
+                <div class="section-top" style="border-top:1px solid #e9edf3;">
+                    <div class="search-wrap" style="margin-bottom:0"><h3>검사 이력</h3></div>
+                </div>
+                <div class="container-fluid" style="padding:0;">
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:26%">
+                            <col style="width:20%">
+                            <col style="width:18%">
+                            <col style="width:20%">
+                            <col style="width:16%">
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>일자</th>
+                            <th>판정</th>
+                            <th>수량</th>
+                            <th>검사자</th>
+                            <th></th>
+                        </tr>
+                        </thead>
+                        <tbody id="logBody"></tbody>
+                    </table>
+                </div>
+            </section>
         </div>
     </div>
 </th:block>
 
 <th:block layout:fragment="scripts">
-    <script type="text/javascript" th:inline="none">
-        const $ = s => document.querySelector(s);
-        const toYMD = d => { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
-        const nowHM = () => { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${z(d.getHours())}:${z(d.getMinutes())}`; };
+    <script type="text/javascript">
 
-        // 프로젝트 → 검사 대상(공정/품목). 프로젝트로 거른 뒤 그 대상만 목록에 표시.
-        //  st: 'wait'(대기) | 'run'(진행중)   /   stock: 검사 완료 누적 건수
-        //  종료(완료) 시 stock+1 (검사 완료 1건 기록).
-        const PROJECTS = [
-            {code: 'PRJ-A', name: 'A9 FR도어', items: [
-                    {code: 'RS01', st: 'wait', stock: 0, start: ''},
-                    {code: 'RS02', st: 'run',  stock: 0, start: '09:20'},
-                    {code: 'A9-801', st: 'wait', stock: 0, start: ''},
-                    {code: 'LH-03', st: 'wait', stock: 1, start: ''}
-                ]},
-            {code: 'PRJ-B', name: 'A9 센터필러', items: [
-                    {code: 'RS10', st: 'wait', stock: 2, start: ''},
-                    {code: 'RS11', st: 'wait', stock: 0, start: ''}
-                ]},
-            {code: 'PRJ-C', name: '리어플로어', items: [
-                    {code: 'RS20', st: 'wait', stock: 0, start: ''},
-                    {code: 'RS21', st: 'run', stock: 0, start: '10:05'}
-                ]}
-        ];
+        /*
+         * 검사
+         *
+         * [주의] 최상위에 const $ 같은 선언 금지 (jQuery 를 가려 AjaxUtil 이 깨진다).
+         * [통신] AjaxUtil 만 사용. $.ajax 직접 호출은 CSRF 누락으로 403.
+         *
+         * [단위] 검사는 공정(품목) 단위다. 대상의 키는 suju.id.
+         *   내작은 공정 조립 완료, 외작은 입고가 대상이 되며 둘 다 suju.id 로 수렴한다.
+         */
 
-        let selProj = 0;                       // 선택된 프로젝트
-        const ASSY = () => PROJECTS[selProj].items;   // 현재 프로젝트의 대상 목록
-
-        let sel = null, log = [];
-        let curDate = toYMD(new Date());
-        $('#pdate').value = curDate;
-        $('#pdate').onchange = () => { curDate = $('#pdate').value || curDate; };
-
-        // 프로젝트 선택 박스
-        $('#fProject').innerHTML = PROJECTS.map((p, i) => `<option value="${i}">${p.code} ${p.name}</option>`).join('');
-        $('#fProject').onchange = () => { selProj = +$('#fProject').value; sel = null; renderList(); renderDetail(); };
-
-        const statusBadge = a => a.st === 'run'
-            ? '<span class="badge run">진행중</span>'
-            : '<span class="badge wait">대기</span>';
-
-        function renderList() {
-            $('#asyBody').innerHTML = ASSY().map((a, i) => `
-                <tr class="asy-row ${sel === i ? 'on' : ''} ${a.st === 'run' ? 'run' : ''}" data-i="${i}">
-                    <td class="aname">${a.code}</td>
-                    <td>${statusBadge(a)}</td>
-                    <td >${a.stock}</td></tr>`).join('');
-            $('#asyBody').querySelectorAll('.asy-row').forEach(r => r.onclick = () => { sel = +r.dataset.i; renderList(); renderDetail(); });
+        function el(sel) { return document.querySelector(sel); }
+        function els(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+        function esc(v) {
+            return (v === null || v === undefined) ? ''
+                : String(v).replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                });
         }
+        function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
 
-        function renderDetail() {
-            if (sel === null) {
-                $('#selLab').textContent = '검사 대상을 선택하세요';
-                $('#pickCard').innerHTML = '<div class="empty" style="width:100%">왼쪽에서 검사 대상을 선택하세요</div>';
-                return;
+        var API = '/api/production/prod_inspect';
+
+        var page = {
+
+            spjangcd: sessionStorage.getItem('spjangcd') || '',
+            projNo: '',
+            state: 'wait',
+            sujuId: null,
+            target: null,
+            targets: [],
+
+            init: function () {
+                el('#inspectDate').value = new Date().toISOString().slice(0, 10);
+                this.bind();
+                this.loadProjects();
+                this.loadWorkers();
+                this.loadEquipments();
+                this.loadTargets();
+            },
+
+            bind: function () {
+                var _t = this;
+
+                el('#projSel').addEventListener('change', function () {
+                    _t.projNo = this.value;
+                    _t.sujuId = null;
+                    _t.target = null;
+                    _t.loadTargets();
+                    _t.loadLog();
+                });
+
+                els('#stateSeg button').forEach(function (b) {
+                    b.addEventListener('click', function () {
+                        els('#stateSeg button').forEach(function (x) {
+                            x.classList.remove('on');
+                        });
+                        b.classList.add('on');
+                        _t.state = b.getAttribute('data-state');
+                        _t.loadTargets();
+                    });
+                });
+
+                el('#saveBtn').addEventListener('click', function () {
+                    _t.save();
+                });
+
+                // 판정을 바꾸면 수량 칸을 그에 맞게 밀어준다 (입력 실수 방지)
+                el('#resultSel').addEventListener('change', function () {
+                    _t.applyResultDefault();
+                });
+            },
+
+            loadProjects: function () {
+                AjaxUtil.getAsyncData(API + '/project_list', {spjangcd: this.spjangcd},
+                    function (res) {
+                        var rows = (res && res.data) || [];
+                        var html = '<option value="">전체</option>';
+                        rows.forEach(function (r) {
+                            html += '<option value="' + esc(r.proj_no) + '">'
+                                + esc(r.proj_no) + ' · ' + esc(r.proj_name) + '</option>';
+                        });
+                        el('#projSel').innerHTML = html;
+                    },
+                    function () {
+                        Alert.alert('', '프로젝트를 불러오지 못했습니다.');
+                    });
+            },
+
+            loadEquipments: function () {
+                AjaxUtil.getAsyncData(API + '/equipment_list', {spjangcd: this.spjangcd},
+                    function (res) {
+                        var rows = (res && res.data) || [];
+                        // 검사 설비가 없어도 등록은 된다
+                        var html = '<option value="">없음</option>';
+                        rows.forEach(function (r) {
+                            html += '<option value="' + r.equipment_id + '">'
+                                + esc(r.equipment_name) + '</option>';
+                        });
+                        el('#equSel').innerHTML = html;
+                        if (rows.length === 1) el('#equSel').value = rows[0].equipment_id;
+                    },
+                    function () {
+                    });
+            },
+
+            loadWorkers: function () {
+                AjaxUtil.getAsyncData(API + '/worker_list', {spjangcd: this.spjangcd},
+                    function (res) {
+                        var rows = (res && res.data) || [];
+                        var html = '<option value="">선택</option>';
+                        rows.forEach(function (r) {
+                            html += '<option value="' + r.id + '">' + esc(r.name)
+                                + (r.own_area === 'Y' ? '' : ' (' + esc(r.workcenter_name || '타부서') + ')')
+                                + '</option>';
+                        });
+                        el('#workerSel').innerHTML = html;
+                    },
+                    function () {
+                    });
+            },
+
+            // =========================================================
+            // 검사 대상
+            // =========================================================
+            loadTargets: function () {
+                var _t = this;
+                var param = {spjangcd: this.spjangcd};
+                if (this.projNo) param.projNo = this.projNo;
+                if (this.state) param.state = this.state;
+
+                AjaxUtil.getAsyncData(API + '/target_list', param,
+                    function (res) {
+                        _t.targets = (res && res.data) || [];
+                        _t.renderTargets();
+                    },
+                    function () {
+                        Alert.alert('', '검사 대상을 불러오지 못했습니다.');
+                    });
+
+                AjaxUtil.getAsyncData(API + '/state_count',
+                    {spjangcd: this.spjangcd, projNo: this.projNo},
+                    function (res) {
+                        var d = (res && res.data) || {};
+                        el('#cntBadge').innerHTML =
+                            '<span class="badge wait">미검사 ' + (d.wait_cnt || 0) + '</span> '
+                            + '<span class="badge done">완료 ' + (d.done_cnt || 0) + '</span> '
+                            + '<span class="badge exempt">면제 ' + (d.exempt_cnt || 0) + '</span>';
+                    },
+                    function () {
+                    });
+            },
+
+            renderTargets: function () {
+                var _t = this;
+                var body = el('#targetBody');
+
+                if (!this.targets.length) {
+                    body.innerHTML = '<tr><td colspan="8">'
+                        + (this.state === 'wait' ? '미검사 항목이 없습니다.'
+                            : this.state === 'exempt' ? '검사 면제 항목이 없습니다.'
+                                : '검사 대상이 없습니다. 작업 지시된 품목이 있어야 대상이 됩니다.')
+                        + '</td></tr>';
+                    return;
+                }
+
+                var html = '';
+                this.targets.forEach(function (t) {
+                    var isOut = t.make_type === 'outsource';
+                    var st = t.insp_state;   // wait / done / exempt
+                    var stTxt = st === 'exempt' ? '검사면제' : (st === 'done' ? '완료' : '미검사');
+
+                    html += '<tr class="pointer' + (t.suju_id === _t.sujuId ? ' on' : '')
+                        + '" data-id="' + t.suju_id + '">'
+                        + '<td>' + esc(t.line_name) + '</td>'
+                        + '<td class="left">' + esc(t.item_name) + '</td>'
+                        + '<td><span class="badge ' + (isOut ? 'out' : 'in') + '">'
+                        + (isOut ? '외작' : '내작') + '</span></td>'
+                        + '<td class="left">' + esc(t.make_comp || '') + '</td>'
+                        + '<td>' + num(t.ready_qty) + ' / ' + num(t.set_target) + '</td>'
+                        + '<td>' + num(t.insp_qty)
+                        + (num(t.insp_defect_qty) > 0
+                            ? ' <span class="badge wait">불 ' + num(t.insp_defect_qty) + '</span>' : '')
+                        + '</td>'
+                        + '<td><span class="badge ' + st + '">' + stTxt + '</span></td>'
+                        + '<td>' + esc(t.last_inspect_date || '-') + '</td>'
+                        + '</tr>';
+                });
+                body.innerHTML = html;
+
+                els('#targetBody tr[data-id]').forEach(function (tr) {
+                    tr.addEventListener('click', function () {
+                        _t.selectTarget(parseInt(tr.getAttribute('data-id'), 10));
+                    });
+                });
+            },
+
+            selectTarget: function (sujuId) {
+                this.sujuId = sujuId;
+                this.target = this.targets.filter(function (t) {
+                    return t.suju_id === sujuId;
+                })[0] || null;
+
+                this.renderTargets();
+
+                if (this.target) {
+                    var exempt = this.target.insp_state === 'exempt';
+                    el('#formTitle').textContent = this.target.item_name
+                        + (exempt ? ' — 검사면제' : ' 검사');
+
+                    // 검사 가능 수량을 합격 칸에 밀어 넣어 준다. 필요하면 고치면 된다.
+                    // 외작은 조립 실적이 없어 0 일 수 있으므로 목표 수량으로 대신한다.
+                    var base = num(this.target.ready_qty) || num(this.target.set_target) || 1;
+                    el('#goodQty').value = base;
+                    el('#defectQty').value = 0;
+                    el('#resultSel').value = 'pass';
+
+                    // 면제 품목도 필요하면 검사할 수 있게 막지는 않는다 (재검사)
+                    el('#saveBtn').textContent = exempt ? '재검사 등록' : '검사 등록';
+                }
+                this.loadLog();
+            },
+
+            applyResultDefault: function () {
+                var ready = this.target
+                    ? (num(this.target.ready_qty) || num(this.target.set_target) || 1) : 0;
+                if (el('#resultSel').value === 'fail') {
+                    el('#goodQty').value = 0;
+                    el('#defectQty').value = ready;
+                } else {
+                    el('#goodQty').value = ready;
+                    el('#defectQty').value = 0;
+                }
+            },
+
+            // =========================================================
+            // 등록 / 이력
+            // =========================================================
+            save: function () {
+                var _t = this;
+
+                if (!this.sujuId) {
+                    Alert.alert('', '검사 대상을 선택하세요.');
+                    return;
+                }
+                if (!el('#workerSel').value) {
+                    Alert.alert('', '검사자를 선택하세요.');
+                    return;
+                }
+
+                var good = num(el('#goodQty').value);
+                var defect = num(el('#defectQty').value);
+                if (good <= 0 && defect <= 0) {
+                    Alert.alert('', '합격 또는 불합격 수량을 입력하세요.');
+                    return;
+                }
+
+                AjaxUtil.postJsonData(API + '/save', {
+                        spjangcd: this.spjangcd,
+                        sujuId: this.sujuId,
+                        inspectDate: el('#inspectDate').value,
+                        workerId: el('#workerSel').value,
+                        equipmentId: el('#equSel').value,
+                        result: el('#resultSel').value,
+                        goodQty: good,
+                        defectQty: defect,
+                        remark: el('#remark').value
+                    },
+                    function (res) {
+                        if (res && res.success === false) {
+                            Alert.alert('', res.message);
+                            return;
+                        }
+                        Alert.alert('', (res && res.message) || '등록되었습니다.');
+                        el('#remark').value = '';
+                        _t.loadTargets();
+                        _t.loadLog();
+                    },
+                    function () {
+                        Alert.alert('', '등록하지 못했습니다.');
+                    });
+            },
+
+            loadLog: function () {
+                var _t = this;
+                if (!this.sujuId) {
+                    el('#logBody').innerHTML = '';
+                    return;
+                }
+
+                AjaxUtil.getAsyncData(API + '/log',
+                    {spjangcd: this.spjangcd, sujuId: this.sujuId},
+                    function (res) {
+                        var rows = (res && res.data) || [];
+                        if (!rows.length) {
+                            el('#logBody').innerHTML = '<tr><td colspan="5">검사 이력이 없습니다.</td></tr>';
+                            return;
+                        }
+                        var html = '';
+                        rows.forEach(function (r) {
+                            html += '<tr>'
+                                + '<td>' + esc(r.inspect_date) + '</td>'
+                                + '<td><span class="badge ' + (r.result === 'fail' ? 'wait' : 'done') + '">'
+                                + (r.result === 'fail' ? '불합격' : '합격') + '</span></td>'
+                                + '<td>' + num(r.good_qty) + ' / ' + num(r.defect_qty) + '</td>'
+                                + '<td>' + esc(r.worker) + '</td>'
+                                + '<td><a class="btn" data-del="' + r.id + '">취소</a></td>'
+                                + '</tr>';
+                        });
+                        el('#logBody').innerHTML = html;
+
+                        els('#logBody a[data-del]').forEach(function (a) {
+                            a.addEventListener('click', async function () {
+                                var ok = await Alert.confirmAsync('', '이 검사 기록을 취소하시겠습니까?');
+                                if (!ok) return;
+                                AjaxUtil.postJsonData(API + '/delete',
+                                    {id: a.getAttribute('data-del')},
+                                    function (r2) {
+                                        if (r2 && r2.success === false) {
+                                            Alert.alert('', r2.message);
+                                            return;
+                                        }
+                                        _t.loadTargets();
+                                        _t.loadLog();
+                                    },
+                                    function () {
+                                        Alert.alert('', '취소하지 못했습니다.');
+                                    });
+                            });
+                        });
+                    },
+                    function () {
+                    });
             }
-            const a = ASSY()[sel];
-            $('#selLab').textContent = `선택: ${a.code}`;
-            const running = a.st === 'run';
-            $('#pickCard').innerHTML = `
-                <div class="pick-name">${a.code}</div>
-                <div class="pick-status"><span class="lab">상태</span>${statusBadge(a)}${running ? ` <span style="color:#8a6d1b">· ${a.start} 시작</span>` : ''}</div>
-                <div class="pick-status"><span class="lab">검사완료</span>${a.stock}</div>
-                <div class="big-actions">
-                    <button class="btn btn-start" id="btnStart" ${running ? 'disabled' : ''}>시작</button>
-                    <button class="btn btn-end" id="btnEnd" ${running ? '' : 'disabled'}>종료(완료)</button>
-                </div>
-                <p class="hint">${running
-                ? '진행중 — <b>종료(완료)</b> 시 검사 완료로 기록됩니다.'
-                : '대기 — <b>시작</b>을 누르면 검사를 시작합니다. (한 대상을 여러 번 검사할 수 있습니다)'}</p>`;
-            $('#btnStart').onclick = () => start(sel);
-            $('#btnEnd').onclick = () => end(sel);
-        }
+        };
 
-        function start(i) {
-            const a = ASSY()[i];
-            if (a.st === 'run') return;
-            a.st = 'run';
-            a.start = nowHM();
-            renderList(); renderDetail();
-        }
-
-        function end(i) {
-            const a = ASSY()[i];
-            if (a.st !== 'run') return;
-            a.stock += 1;                 // 검사 완료 1건 기록
-            log.unshift({proj: PROJECTS[selProj].code, code: a.code, start: a.start, end: nowHM(), date: curDate});
-            a.st = 'wait';
-            a.start = '';
-            renderList(); renderDetail(); renderLog();
-        }
-
-        function renderLog() {
-            if (!log.length) { $('#logBody').innerHTML = '<tr><td colspan="6" class="empty">검사 내역 없음</td></tr>'; return; }
-            $('#logBody').innerHTML = log.map((l, i) => `
-                <tr>
-                    <td>${l.proj}</td>
-                    <td style="text-align:left;font-weight:700;padding-left:6px">${l.code}</td>
-                    <td>${l.start}</td><td>${l.end}</td><td>${l.date}</td>
-                    <td><a class="btn" style="padding:3px 8px" data-i="${i}">취소</a></td></tr>`).join('');
-            $('#logBody').querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
-                const l = log[+b.dataset.i];
-                const p = PROJECTS.find(x => x.code === l.proj);
-                const a = p && p.items.find(x => x.code === l.code);
-                if (a && a.stock > 0) a.stock -= 1;   // 검사 완료 취소 → 건수 1 감소
-                log.splice(+b.dataset.i, 1);
-                renderList(); renderDetail(); renderLog();
-            });
-        }
-
-        renderList(); renderDetail(); renderLog();
+        document.addEventListener('DOMContentLoaded', function () {
+            page.init();
+        });
     </script>
 </th:block>
 </html>

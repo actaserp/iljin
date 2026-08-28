@@ -10,15 +10,26 @@
         .layout-contents { display:flex; flex-direction:column; min-height:100vh; box-sizing:border-box; }
         .main-row { display:flex; gap:5px; align-items:stretch; flex:1 1 auto; min-height:0; }
         .main-row > .section { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
-        /* 본문만 스크롤 + section-top 과 표가 붙지 않게 여백 */
-        .main-row > .section > .container-fluid { flex:1 1 auto; min-height:0; overflow:auto; padding-top:10px; }
+        /* 본문만 스크롤.
+           ★ 여기에 padding-top 을 주면 안 된다.
+             sticky 헤더는 <b>스크롤포트 기준</b>으로 붙는데, 패딩 영역은 그 위에 남는다.
+             그래서 스크롤할 때 헤더 위쪽 10px 틈으로 다음 행이 잘려 보인다.
+             여백은 스크롤 밖(.section-top)에서 준다. */
+        .main-row > .section > .container-fluid { flex:1 1 auto; min-height:0; overflow:auto; padding-top:0; }
+        .main-row > .section > .section-top { margin-bottom:10px; }
         .main-row > .section.left  { flex:0 0 520px; }
         .main-row > .section.right { flex:1 1 auto; min-width:0; }
         .section-top { flex:0 0 auto; }
 
         table.work-table { width:100%; border-collapse:collapse; }
         table.work-table th, table.work-table td { border:1px solid #d7dde7; padding:6px 7px; font-size:12.5px; text-align:center; }
-        table.work-table th { background:#eef2f8; color:#445; font-weight:700; position:sticky; top:0; z-index:1; }
+        /* border-collapse:collapse 는 sticky 셀의 테두리를 같이 떼어 간다.
+           헤더가 떠 있는 동안 아래·위 선이 사라지므로 inset 그림자로 그린다. */
+        table.work-table th {
+            background:#eef2f8; color:#445; font-weight:700;
+            position:sticky; top:0; z-index:2;
+            box-shadow: inset 0 1px 0 #d7dde7, inset 0 -1px 0 #d7dde7;
+        }
         table.work-table td.l { text-align:left; }
         table.work-table td.r { text-align:right; }
         /* layout_page 의 input 공통 규칙(높이·모서리)이 표 안에서 과하게 커지므로 여기서 눌러준다 */
@@ -109,12 +120,13 @@
                 <div class="container-fluid">
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:14%">
-                            <col style="width:26%">
-                            <col style="width:17%">
-                            <col style="width:11%">
-                            <col style="width:11%">
-                            <col style="width:21%">
+                            <col style="width:12%">
+                            <col style="width:24%">
+                            <col style="width:15%">
+                            <col style="width:10%">
+                            <col style="width:10%">
+                            <col style="width:10%">
+                            <col style="width:19%">
                         </colgroup>
                         <thead>
                         <tr>
@@ -122,6 +134,7 @@
                             <th>품목</th>
                             <th>설비타입</th>
                             <th>유니트</th>
+                            <th>다리발</th>
                             <th>부품</th>
                             <th>작업지시</th>
                         </tr>
@@ -155,12 +168,13 @@
                     <div class="hint" id="bomHint"></div>
                     <table class="work-table bom-table">
                         <colgroup>
-                            <col style="width:8%">
-                            <col style="width:34%">
-                            <col style="width:14%">
-                            <col style="width:18%">
+                            <col style="width:7%">
+                            <col style="width:30%">
+                            <col style="width:12%">
+                            <col style="width:16%">
+                            <col style="width:10%">
                             <col style="width:11%">
-                            <col style="width:13%">
+                            <col style="width:12%">
                             <col style="width:6%">
                         </colgroup>
                         <thead>
@@ -170,12 +184,29 @@
                             <th>구분</th>
                             <th>유형(분류)</th>
                             <th>수량</th>
+                            <th>품목</th>
                             <th>상태</th>
                             <th></th>
                         </tr>
                         </thead>
                         <tbody id="bomBody"></tbody>
                     </table>
+
+                    <!-- 품목 미매칭 패널.
+                         작업자는 품목코드를 모르므로 엑셀은 부품명만 들고 온다.
+                         일단 전부 밀어넣고 붙지 않은 것만 여기 모아 고르게 한다. -->
+                    <div id="unmatchWrap" style="display:none;margin-top:14px;border:1px solid #e6b800;
+                                                 border-radius:6px;background:#fffdf3;padding:10px 12px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                            <b id="unmatchTitle" style="color:#8a6d1b;"></b>
+                            <a class="btn" onclick="prodDesign.rematch()">다시 매칭</a>
+                        </div>
+                        <div class="hint" style="margin:6px 0 8px;">
+                            STD·구매품은 발주 연계 때문에 품목 지정이 필요합니다.
+                            아래에서 골라 두면 <b>다음부터는 같은 부품명이 자동으로 붙습니다.</b>
+                        </div>
+                        <div id="unmatchList"></div>
+                    </div>
                 </div>
             </section>
         </div>
@@ -217,6 +248,37 @@
                 <div class="modal-foot">
                     <a class="btn" onclick="prodDesign.closeBulk()">닫기</a>
                     <a class="btn btn-delete" onclick="prodDesign.applyBulk()">추가</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 품목 선택 모달 (STD·구매품) =====
+             STD 와 구매품에 같은 이름이 많아 이름만으로는 확정할 수 없다.
+             코드가 유일 키이므로 목록에서 코드를 보고 고르게 한다. -->
+        <div id="matModal"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
+            <div class="modal-box" style="background:#fff;border-radius:8px;width:720px;max-width:94vw;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+                <div class="section-top" style="border-radius:8px 8px 0 0;">
+                    <h3>품목 선택</h3>
+                </div>
+                <div class="modal-body" style="overflow:auto;padding:14px 16px;">
+                    <p class="hint" id="matFor" style="margin:0 0 8px;"></p>
+                    <input id="matKw" type="text" placeholder="품목명 또는 품목코드 (빈 칸이면 전체)"
+                           style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cfd6e2;border-radius:5px;"
+                           oninput="prodDesign.searchMat()">
+                    <div class="hint" id="matCount" style="margin:8px 0 6px;"></div>
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:22%"><col style="width:38%">
+                            <col style="width:22%"><col style="width:18%">
+                        </colgroup>
+                        <thead><tr><th>품목코드</th><th>품목명</th><th>규격</th><th>품목그룹</th></tr></thead>
+                        <tbody id="matBody"></tbody>
+                    </table>
+                </div>
+                <div class="modal-foot">
+                    <a class="btn" onclick="prodDesign.clearMat()">연결 해제</a>
+                    <a class="btn" onclick="prodDesign.closeMat()">닫기</a>
                 </div>
             </div>
         </div>
@@ -360,6 +422,7 @@
                         <td class="l" style="font-weight:700;padding-left:9px">${it.item_name || ''}</td>
                         <td>${it.equip_type || ''}</td>
                         <td>${it.unit_qty ?? 0}</td>
+                        <td title="${this.esc(it.leg_spec || '')}">${this.legText(it)}</td>
                         <td>${it.part_cnt ?? 0}</td>
                         <td><span class="badge ${it.ordered_yn === 'Y' ? 'ordered' : 'unordered'}">
                             ${it.ordered_yn === 'Y' ? '지시완료' : '미지시'}</span></td>
@@ -419,6 +482,9 @@
                 const res = await this.get(`${this.API}/part_list`, {sujuId: it.suju_id});
                 this.parts = res.data || [];
                 this.renderPart();
+                // 저장된 것 중에도 품목이 안 붙은 STD·구매품이 있을 수 있다.
+                // 붙일 수 있는 건 붙이고 나머지는 미매칭 패널로 올린다.
+                this.matchAll();
             }
 
             renderPart() {
@@ -432,7 +498,8 @@
 
                 this.el('bomTitle').textContent = `${it.item_name} 부품`;
 
-                const need = this.parts.reduce((s, p) => s + (+p.qty || 0), 0);
+                // 필요량 = 수량 합계. 유니트수를 곱하지 않는다 (needOf 주석 참조).
+                const need = this.parts.reduce((s, p) => s + this.needOf(p), 0);
                 const est = this.parts.filter(p => p.state === '추정').length;
                 this.el('bomHint').innerHTML =
                     `필요량 합계 <b>${need}</b> · 부품 ${this.parts.length}건`
@@ -445,20 +512,80 @@
                         <td>${i + 1}</td>
                         <td class="l"><input list="matDL" value="${this.esc(p.part_name)}"
                                              oninput="prodDesign.suggest(${i}, this.value)"
-                                             onchange="prodDesign.up(${i},'part_name',this.value)"></td>
+                                             onchange="prodDesign.up(${i},'part_name',this.value)"
+                                             onkeydown="prodDesign.nameKey(event, ${i})"></td>
                         <td><select onchange="prodDesign.up(${i},'gubun',this.value)">
                             ${this.GUBUN.map(g => `<option ${p.gubun === g ? 'selected' : ''}>${g}</option>`).join('')}
                         </select></td>
                         <td><select ${isMake ? '' : 'disabled'} onchange="prodDesign.up(${i},'kind',this.value)">
                             ${this.kindOptions(p.kind)}
                         </select></td>
-                        <td><input class="ta-r" value="${p.qty ?? 0}" onchange="prodDesign.up(${i},'qty',this.value)"></td>
+                        <td><input class="ta-r" value="${p.qty ?? 0}" onchange="prodDesign.up(${i},'qty',this.value)"
+                                   title="공정(품목) 전체 필요량"></td>
+                        <td class="l">${this.matCell(p, i)}</td>
                         <td><select onchange="prodDesign.up(${i},'state',this.value)">
                             ${this.STATES.map(s => `<option ${p.state === s ? 'selected' : ''}>${s}</option>`).join('')}
                         </select></td>
                         <td><span class="x" onclick="prodDesign.del(${i})">✕</span></td>
                     </tr>`;
                 }).join('');
+            }
+
+            /**
+             * 부품 1행의 필요량.
+             *
+             * ★ 수량이 곧 필요량이다. 유니트수를 곱하지 않는다.
+             *   현장이 부품표에 적는 것은 "이 지그에 브라켓 300개" 라는 공정 전체 총량이지
+             *   "유닛 1개당 2개" 가 아니다. 서버(ProdDesign/ProdResult/DashProject)도
+             *   같은 기준으로 SUM("Qty") 만 한다. 한쪽만 고치면 화면과 키오스크가 갈린다.
+             *
+             *   "QtyType" 컬럼은 남아 있지만 필요량 계산에 관여하지 않는다.
+             *   다리발 시딩 행을 구분하는 표식으로만 쓰인다(legText).
+             *   그래서 화면에서 '수량기준' 열을 없앴다 — 아무것도 바꾸지 않는
+             *   선택 상자를 두면 나중에 반드시 오해를 만든다.
+             */
+            needOf(p) {
+                return +p.qty || 0;
+            }
+
+            /**
+             * 품목 연결 표시.
+             *
+             * 열이 좁아 이름을 다 못 보여준다. 코드만 띄우고 전체는 title 로 넘긴다.
+             * 클릭하면 선택 모달이 열린다 — STD 와 구매품에 같은 이름이 많아
+             * 이름만으로는 확정할 수 없기 때문이다.
+             */
+            matCell(p, i) {
+                if (p.gubun === '제작품') {
+                    return '<span style="color:#9aa3ad">-</span>';
+                }
+                const open = `onclick="prodDesign.openMat(${i})" style="cursor:pointer;`;
+                if (p.material_id) {
+                    const full = `[${p.material_code || ''}] ${p.material_name || ''}`;
+                    return `<span ${open}color:#1b6b3a;text-decoration:underline"`
+                        + ` title="${this.esc(full)}">${this.esc(p.material_code || '연결됨')}</span>`;
+                }
+                if (p._ambig) {
+                    return `<span ${open}color:#8a6d1b;font-weight:600"`
+                        + ` title="같은 이름의 품목이 여러 건입니다. 눌러서 고르세요">여러 건 ▾</span>`;
+                }
+                return `<span ${open}color:#b3261e;font-weight:600"`
+                    + ` title="눌러서 품목을 선택하세요">미연결 ▾</span>`;
+            }
+
+            /**
+             * 다리발 표시.
+             * 수주 원본(leg_cnt)과 부품표의 공정당 총량(qty_total)이 다르면 표시한다.
+             * 시딩 이후로는 부품표가 원본이므로 자동으로 맞추지 않고 눈에 보이게만 한다.
+             */
+            legText(it) {
+                const src = parseFloat(String(it.leg_cnt || '').replace(/[^0-9.]/g, '')) || 0;
+                const bom = +it.qty_total || 0;
+                if (!src && !bom) return '-';
+                const v = src || bom;
+                return (src && bom && src !== bom)
+                    ? `${v} <span class="badge unordered" title="수주 ${src} / 부품표 ${bom}">≠</span>`
+                    : String(v);
             }
 
             /**
@@ -566,6 +693,187 @@
                     .join('');
             }
 
+            /**
+             * 부품명으로 품목마스터를 확정한다 (STD·구매품 전용).
+             *
+             * ★ 여기가 "선택했는데도 품목을 선택하라고 나온다" 의 원인이었다.
+             *   이전 코드는 자동완성 캐시(this._sug)에서만 찾았는데,
+             *   그 캐시는 200ms 디바운스 뒤 비동기로 채워진다.
+             *   datalist 에서 항목을 고르면 input → change 가 연달아 터지므로
+             *   change 시점에 캐시가 비어 있거나 옛 키워드 결과인 경우가 있고,
+             *   그러면 material_id 가 조용히 null 로 남는다.
+             *   화면에는 이름이 그대로 보이니 사용자는 연결된 줄 안다.
+             *
+             *   캐시에 없으면 이름으로 다시 조회한다. 정확히 1건이면 확정,
+             *   여러 건이면 사용자가 다시 고르게 둔다 (임의로 첫 건을 잡지 않는다).
+             */
+            /**
+             * 붙지 않은 STD·구매품을 <b>한 번에</b> 매칭한다.
+             *
+             * 서버가 과거 이력 → 코드 → 이름 순으로 붙이고,
+             * 안 붙는 것만 후보와 함께 돌려준다 (ProdDesignService.matchMaterials).
+             * 이름이 여러 품목에 걸리면 <b>임의로 고르지 않는다</b> —
+             * 엉뚱한 품목이 발주로 넘어가는 게 미연결보다 나쁘다.
+             */
+            async matchAll() {
+                const targets = this.parts.filter(
+                    p => p.gubun !== '제작품' && (p.part_name || '').trim() && !p.material_id);
+
+                if (!targets.length) {
+                    this.renderUnmatch([]);
+                    return [];
+                }
+
+                const res = await this.post(`${this.API}/material_match`, {
+                    spjangcd: this.spjangcd,
+                    names: targets.map(p => p.part_name)
+                });
+
+                const byName = new Map();
+                (res.data || []).forEach(r => byName.set((r.partName || '').toUpperCase(), r));
+
+                const left = [];
+                targets.forEach(p => {
+                    const r = byName.get((p.part_name || '').trim().toUpperCase());
+                    if (!r) return;
+                    if (r.matched) {
+                        this.bindMat(p, {id: r.materialId, code: r.code, name: r.name});
+                    } else {
+                        p._ambig = (r.candidates || []).length > 1;
+                        p._cand = r.candidates || [];
+                        left.push(p);
+                    }
+                });
+
+                this.renderPart();
+                this.renderUnmatch(left);
+                return left;
+            }
+
+            /** 미매칭 건만 모아 보여준다. 후보가 있으면 바로 고를 수 있게 한다 */
+            renderUnmatch(left) {
+                const wrap = this.el('unmatchWrap');
+                if (!left || !left.length) {
+                    wrap.style.display = 'none';
+                    return;
+                }
+
+                wrap.style.display = 'block';
+                this.el('unmatchTitle').textContent = `품목 미매칭 ${left.length}건`;
+
+                this.el('unmatchList').innerHTML = left.map(p => {
+                    const i = this.parts.indexOf(p);
+                    const cand = p._cand || [];
+                    const pick = cand.length
+                        ? `<select onchange="prodDesign.pickCand(${i}, this.value)"
+                                   style="max-width:340px;padding:4px 6px;border:1px solid #cfd6e2;border-radius:4px;">
+                             <option value="">후보 ${cand.length}건 — 선택</option>
+                             ${cand.map(c => `<option value="${c.id}">[${this.esc(c.code || '')}] `
+                            + `${this.esc(c.name || '')}${c.group_name ? ' · ' + this.esc(c.group_name) : ''}</option>`).join('')}
+                           </select>`
+                        : '<span style="color:#b3261e">일치하는 품목이 없습니다</span>';
+
+                    return `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-top:1px solid #f0e6c0;">
+                        <b style="min-width:180px">${this.escHtml(p.part_name)}</b>
+                        <span class="hint" style="min-width:60px">${this.escHtml(p.gubun)}</span>
+                        ${pick}
+                        <a class="btn" onclick="prodDesign.openMat(${i})">직접 찾기</a>
+                    </div>`;
+                }).join('');
+            }
+
+            pickCand(i, id) {
+                const p = this.parts[i];
+                if (!p || !id) return;
+                const m = (p._cand || []).find(c => String(c.id) === String(id));
+                if (!m) return;
+                this.bindMat(p, m);
+                p.part_name = m.name;   // 품목명이 원본. 다음부터 이력으로 자동 매칭된다
+                this.renderPart();
+                this.renderUnmatch(this.parts.filter(
+                    x => x.gubun !== '제작품' && (x.part_name || '').trim() && !x.material_id));
+            }
+
+            async rematch() {
+                await this.matchAll();
+            }
+
+            bindMat(p, m) {
+                p.material_id = m.id;
+                p.material_code = m.code;
+                p.material_name = m.name;
+                p._ambig = false;
+            }
+
+            // ===== 품목 선택 모달 =====
+
+            openMat(i) {
+                const p = this.parts[i];
+                if (!p || p.gubun === '제작품') return;
+                this._matIdx = i;
+                this.el('matFor').innerHTML =
+                    `<b>${this.escHtml(p.part_name || '(이름 없음)')}</b> · ${this.escHtml(p.gubun)}`
+                    + ' — 품목코드로 확정합니다. 같은 이름이 여러 개일 수 있으니 코드를 확인하세요.';
+                this.el('matKw').value = p.part_name || '';
+                this.el('matModal').style.display = 'flex';
+                this.searchMat();
+                this.el('matKw').focus();
+                this.el('matKw').select();
+            }
+
+            closeMat() {
+                this.el('matModal').style.display = 'none';
+                this._matIdx = -1;
+            }
+
+            searchMat() {
+                clearTimeout(this._matT);
+                this._matT = setTimeout(async () => {
+                    const kw = (this.el('matKw').value || '').trim();
+                    const res = await this.get(`${this.API}/material_search`,
+                        {spjangcd: this.spjangcd, keyword: kw});
+                    const rows = res.data || [];
+                    this._matRows = rows;
+
+                    this.el('matCount').innerHTML = rows.length
+                        ? `<b>${rows.length}건</b> — 행을 클릭하면 연결됩니다`
+                        : '검색 결과가 없습니다';
+
+                    this.el('matBody').innerHTML = rows.length
+                        ? rows.map((m, k) => `
+                            <tr style="cursor:pointer" onclick="prodDesign.pickMat(${k})">
+                                <td>${this.escHtml(m.code || '')}</td>
+                                <td class="l">${this.escHtml(m.name || '')}</td>
+                                <td class="l">${this.escHtml(m.standard || '')}</td>
+                                <td>${this.escHtml(m.group_name || '')}</td>
+                            </tr>`).join('')
+                        : '<tr><td colspan="4" class="empty">검색 결과가 없습니다</td></tr>';
+                }, 200);
+            }
+
+            pickMat(k) {
+                const p = this.parts[this._matIdx];
+                const m = (this._matRows || [])[k];
+                if (!p || !m) return;
+                this.bindMat(p, m);
+                // 품목명이 원본이다. 부품명을 품목명으로 맞춰 두면 다음 조회에서도 붙는다.
+                p.part_name = m.name;
+                this.closeMat();
+                this.renderPart();
+            }
+
+            clearMat() {
+                const p = this.parts[this._matIdx];
+                if (p) {
+                    p.material_id = null;
+                    p.material_code = null;
+                    p.material_name = null;
+                    p._ambig = false;
+                }
+                this.closeMat();
+                this.renderPart();
+            }
+
             up(i, k, v) {
                 const p = this.parts[i];
                 p[k] = v;
@@ -584,14 +892,9 @@
                     }
                 }
 
-                if (k === 'part_name' && this._sug && p.gubun !== '제작품') {
-                    const m = this._sug.find(x => x.name === v);
-                    if (m) {
-                        p.material_id = m.id;
-                        p.material_code = m.code;
-                        p.material_name = m.name;
-                        this.renderPart();
-                    }
+                if (k === 'part_name' && p.gubun !== '제작품') {
+                    p.material_id = null;   // 이름이 바뀌었으니 옛 연결은 무효
+                    this.matchAll();
                 }
 
                 // 구분 변경 시: 제작품이면 품목 연결 해제, 아니면 유형 무의미
@@ -603,11 +906,14 @@
                         if (!p.kind || p.kind === 'etc') p.kind = this.guessKind(p.part_name);
                     } else {
                         p.kind = 'etc';
+                        // 이름을 먼저 넣고 구분을 나중에 바꾸는 순서가 흔하다.
+                        // 그 경우 위 part_name 분기를 이미 지나쳤으므로 여기서 다시 건다.
+                        this.matchAll();
                     }
                 }
 
 
-                if (k === 'gubun' || k === 'kind') this.renderPart();
+                if (k === 'gubun' || k === 'kind' || k === 'qty_type') this.renderPart();
             }
 
 
@@ -619,7 +925,7 @@
                 }
                 this.parts.push({
                     id: null, part_no: '', part_name: '', gubun: '제작품',
-                    kind: 'etc', qty: 1, state: '추정'
+                    kind: 'etc', qty: 1, qty_type: 'unit', state: '추정'
                 });
                 this.renderPart();
             }
@@ -646,6 +952,19 @@
                     return;
                 }
 
+                /*
+                 * STD·구매품은 발주 대상이라 서버가 품목 지정을 강제한다.
+                 * 서버 오류로 튕기기 전에 여기서 한 번 붙여 본다 —
+                 * 이름은 맞는데 연결만 안 된 행이 대부분이라, 사용자가 다시
+                 * 고르지 않아도 되는 경우가 많다.
+                 */
+                const bad = await this.matchAll();
+                if (bad.length) {
+                    Alert.alert('', `품목 미매칭 ${bad.length}건이 있습니다. `
+                        + '표 아래 노란 칸에서 지정한 뒤 다시 저장하세요.');
+                    return;
+                }
+
                 const res = await this.post(`${this.API}/part_save`, {
                     spjangcd: this.spjangcd,
                     sujuId: it.suju_id,
@@ -657,6 +976,7 @@
                         materialId: p.material_id,
                         kind: p.kind,
                         qty: p.qty,
+                        qtyType: p.qty_type || 'unit',
                         state: p.state,
                         remark: p.remark
                     }))
@@ -742,7 +1062,7 @@
                     : '<tr><td colspan="5" class="empty">붙여넣은 내용이 없습니다</td></tr>';
             }
 
-            applyBulk() {
+            async applyBulk() {
                 const rows = this._bulk || [];
                 if (!rows.length) {
                     Alert.alert('', '추가할 내용이 없습니다.');
@@ -750,13 +1070,19 @@
                 }
 
                 rows.forEach(r => this.parts.push({
-                    id: null, part_no: '', part_name: r.name, gubun: r.gubun,
+                    id: null, part_no: '', part_name: r.name, gubun: r.gubun, qty_type: 'unit',
                     kind: r.kind || 'etc', qty: r.qty, state: '추정'
                 }));
 
                 this.closeBulk();
                 this.renderPart();
-                Alert.alert('', `${rows.length}건을 추가했습니다. 확인 후 저장하세요.`);
+
+                // 일단 다 밀어넣고 붙일 수 있는 것만 붙인다.
+                // 작업자가 품목코드를 알 리 없으므로 매칭은 여기서 대신 해 준다.
+                const left = await this.matchAll();
+                Alert.alert('', `${rows.length}건을 추가했습니다.`
+                    + (left.length ? ` 품목 미매칭 ${left.length}건은 표 아래에서 지정하세요.`
+                        : ' 확인 후 저장하세요.'));
             }
 
             // ===== 유형(분류) =====

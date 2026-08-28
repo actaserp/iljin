@@ -72,50 +72,34 @@
 <div class="wb-grid" id="wbGrid"></div>
 
 <script>
-    const PROJECTS = [
-        {name: 'HMC-A23', owner: '현대차', due: '2026-07-20', dsteps: [{n:'1차검도',s:'done'},{n:'2차검도',s:'done'},{n:'3차검도',s:'cur'},{n:'출도',s:'wait'}], ship: false, outd: false, lines: [
-                {name: 'MAIN', items: [
-                        {code: 'RS01', need: 120, made: 78, parts: {kinds: {PLATE: {t: 259, d: 168}, 기타: {t: 1181, d: 768}}, procs: {레이저커팅: 323, 선반밀링: 295, 와이어컷: 211, 머시닝센터: 119}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '가공', machine: 'WC-01', worker: '이종길'}},
-                        {code: 'RS02', need: 80, made: 52, parts: {kinds: {기타: {t: 787, d: 512}}, procs: {레이저커팅: 215, 선반밀링: 197, 와이어컷: 140, 머시닝센터: 80}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null},
-                        {code: 'A9-801', need: 60, made: 0, asm: 0, insp: 0, out: true, type: '외작', vendor: '대성정밀', rcv: false, working: null}
-                    ]},
-                {name: 'SUB1', items: [
-                        {code: 'LH-01', need: 40, made: 30, parts: {kinds: {기타: {t: 394, d: 296}}, procs: {레이저커팅: 124, 선반밀링: 113, 와이어컷: 81, 머시닝센터: 46}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null},
-                        {code: 'RH-01', need: 40, made: 18, parts: {kinds: {기타: {t: 394, d: 177}}, procs: {레이저커팅: 75, 선반밀링: 68, 와이어컷: 49, 머시닝센터: 28}}, asm: 0, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '가공', machine: 'LC-02', worker: '채완병'}}
-                    ]}
-            ]},
-        {name: 'KIA-K8', owner: '기아', due: '2026-07-02', dsteps: [{n:'1차검도',s:'done'},{n:'2차검도',s:'done'},{n:'출도',s:'done'}], ship: false, outd: false, lines: [
-                {name: 'MAIN', items: [
-                        {code: 'K8-RS1', need: 140, made: 140, parts: {kinds: {PLATE: {t: 302, d: 302}, 기타: {t: 1378, d: 1378}}, procs: {레이저커팅: 504, 선반밀링: 504, 와이어컷: 378, 머시닝센터: 214}}, asm: 90, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '조립', machine: '조립1', worker: '우병철'}},
-                        {code: 'K8-RS2', need: 100, made: 100, parts: {kinds: {기타: {t: 984, d: 984}}, procs: {레이저커팅: 360, 선반밀링: 360, 와이어컷: 270, 머시닝센터: 153}}, asm: 70, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null}
-                    ]},
-                {name: 'SUB1', items: [
-                        {code: 'K8-LH1', need: 60, made: 60, parts: {kinds: {기타: {t: 590, d: 590}}, procs: {레이저커팅: 216, 선반밀링: 216, 와이어컷: 162, 머시닝센터: 92}}, asm: 45, insp: 0, out: true, type: '내작', vendor: '', rcv: false, working: null},
-                        {code: 'K8-OUT', need: 40, made: 0, asm: 0, insp: 0, out: true, type: '외작', vendor: '동양지그', rcv: true, working: null}
-                    ]}
-            ]},
-        {name: 'GM-크루즈', owner: 'GM', due: '2026-07-06', dsteps: [{n:'1차검도',s:'cur'},{n:'2차검도',s:'wait'},{n:'출도',s:'wait'}], ship: false, outd: false, lines: [
-                {name: 'MAIN', items: [
-                        {code: 'GM-01', need: 90, made: 12, parts: {kinds: {기타: {t: 886, d: 118}}, procs: {레이저커팅: 50, 선반밀링: 45, 와이어컷: 32, 머시닝센터: 18}}, asm: 0, insp: 0, out: false, type: '내작', vendor: '', rcv: false, working: null},
-                        {code: 'GM-02', need: 50, made: 0, asm: 0, insp: 0, out: false, type: '외작', vendor: '대성정밀', rcv: false, working: null}
-                    ]},
-                {name: 'SUB1', items: [
-                        {code: 'GM-11', need: 40, made: 5, parts: {kinds: {기타: {t: 394, d: 49}}, procs: {레이저커팅: 21, 선반밀링: 19, 와이어컷: 14, 머시닝센터: 8}}, asm: 0, insp: 0, out: false, type: '내작', vendor: '', rcv: false, working: null}
-                    ]}
-            ]},
-        {name: 'KIA-쏘렌토', owner: '기아', due: '2026-08-25', dsteps: [{n:'1차검도',s:'done'},{n:'출도',s:'done'}], ship: false, outd: false, lines: [
-                {name: 'MAIN', items: [
-                        {code: 'SR-01', need: 80, made: 80, parts: {kinds: {PLATE: {t: 173, d: 173}, 기타: {t: 787, d: 787}}, procs: {레이저커팅: 288, 선반밀링: 288, 와이어컷: 216, 머시닝센터: 122}}, asm: 80, insp: 80, out: true, type: '내작', vendor: '', rcv: false, working: null},
-                        {code: 'SR-02', need: 60, made: 60, asm: 60, insp: 60, out: true, type: '외작', vendor: '한길테크', rcv: true, working: null}
-                    ]}
-            ]},
-        {name: 'HMC-팰리세이드', owner: '현대차', due: '2026-07-15', dsteps: [{n:'1차검도',s:'done'},{n:'2차검도',s:'done'},{n:'출도',s:'done'}], ship: false, outd: false, lines: [
-                {name: 'MAIN', items: [
-                        {code: 'PA-01', need: 100, made: 100, parts: {kinds: {PLATE: {t: 216, d: 216}, 기타: {t: 984, d: 984}}, procs: {레이저커팅: 360, 선반밀링: 360, 와이어컷: 270, 머시닝센터: 153}}, asm: 100, insp: 35, out: true, type: '내작', vendor: '', rcv: false, working: {stage: '검사', machine: '검사1', worker: '유현민'}},
-                        {code: 'PA-02', need: 60, made: 60, asm: 60, insp: 20, out: true, type: '외작', vendor: '동양지그', rcv: true, working: null}
-                    ]}
-            ]}
-    ];
+    /*
+     * 생산 현황판 (벽걸이 전용, 읽기 전용).
+     *
+     * 이 페이지는 layout_page 를 쓰지 않는 <독립 HTML> 이다.
+     * jQuery / AjaxUtil 이 없으므로 fetch 를 직접 쓴다.
+     * 조회(GET)만 하므로 CSRF 토큰이 필요 없다. POST 를 추가하지 말 것.
+     *
+     * ★ made 는 가공 진척을 유닛으로 환산한 <추정값>이며 실제보다 낙관적이다.
+     *   참값이 필요하면 parts.kinds 의 t/d 를 볼 것.
+     */
+    const API = '/api/production/dash_project';
+    const SPJANGCD = new URLSearchParams(location.search).get('spjangcd')
+        || sessionStorage.getItem('spjangcd') || 'ZZ';
+
+    let PROJECTS = [];
+
+    async function loadData() {
+        try {
+            const r = await fetch(`${API}/summary?spjangcd=${encodeURIComponent(SPJANGCD)}`,
+                {credentials: 'same-origin'});
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            const res = await r.json();
+            PROJECTS = res.data || [];
+        } catch (e) {
+            // 현황판은 사람이 붙어 있지 않다. 화면을 비우지 말고 직전 데이터를 유지한다.
+            console.error('[dash_project_kind] 데이터 로드 실패', e);
+        }
+    }
 
     const flat = p => p.lines.reduce((a, l) => a.concat(l.items), []);
     // 외작 제작수량 = 입고완료(rcv) 시 need만큼(공정 통째 입고, 수량재고 없음), 미입고면 0
@@ -208,14 +192,15 @@
 
 
     const STAGES = ["설계","제작","조립","검사"];
-    const $ = s => document.querySelector(s);
+    // 전역 $ 를 덮지 않는다 (이 페이지엔 jQuery 가 없지만 관행을 맞춘다)
+    const el = s => document.querySelector(s);
     const nf = n => (n||0).toLocaleString();
 
     function renderKpi(){
         const all = PROJECTS.reduce((a,p)=>a.concat(flat(p)),[]);
         const a = agg(all);
         const riskN = PROJECTS.filter(p=>risk(p).danger).length;
-        $('#wbKpi').innerHTML =
+        el('#wbKpi').innerHTML =
             '<div class="wk"><div class="l">총 필요 유니트</div><div class="v">'+nf(a.need)+'<small>개</small></div></div>'
             +'<div class="wk made"><div class="l">생산·입고 완료</div><div class="v">'+nf(a.made)+'<small>개</small></div></div>'
             +'<div class="wk"><div class="l">남은 수량</div><div class="v" style="color:#d8b25f">'+nf(a.rem)+'<small>개</small></div></div>'
@@ -228,9 +213,9 @@
             else if(t[0]==='warn') items.push(['w',p.name+' · '+t[1]]);
             else items.push(['o',p.name+' · '+t[1]]);
         }));
-        if(!items.length){$('#wbAlert').innerHTML='<div class="wb-alert none"><span class="at">✓ 지연 위험·출도 지연 없음</span></div>';return;}
+        if(!items.length){el('#wbAlert').innerHTML='<div class="wb-alert none"><span class="at">✓ 지연 위험·출도 지연 없음</span></div>';return;}
         items.sort((a,b)=>({d:0,w:1,o:2}[a[0]]-{d:0,w:1,o:2}[b[0]]));
-        $('#wbAlert').innerHTML='<div class="wb-alert"><span class="at">⚠ 조기경보</span>'
+        el('#wbAlert').innerHTML='<div class="wb-alert"><span class="at">⚠ 조기경보</span>'
             +items.map(x=>'<span class="ac '+x[0]+'">'+x[1]+'</span>').join('')+'</div>';
     }
     function stageDots(items,dsteps){
@@ -247,7 +232,7 @@
     }
     function render(){
         const list=PROJECTS.map((p,i)=>({p,i,s:score(p)})).filter(o=>!isAllDone(o.p)).sort((a,b)=>b.s-a.s);
-        $('#wbGrid').innerHTML=list.map(o=>{
+        el('#wbGrid').innerHTML=list.map(o=>{
             const p=o.p, a=agg(flat(p)), col=rateColor(a.prog), r=risk(p);
             const d=r.d, soon=d<=7&&!r.allDone;
             const dueTxt=d<0?('납기 '+(-d)+'일 초과'):('D-'+d);
@@ -263,10 +248,15 @@
                 +'</div>';
         }).join('') || '<div style="padding:3vw;text-align:center;color:#9aa4b2;font-size:1.4vw">진행 중인 프로젝트가 없습니다</div>';
     }
-    function tick(){ $('#wbClock').textContent=new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
-    renderKpi(); renderAlert(); render(); tick();
-    setInterval(tick,1000);
-    setInterval(()=>{renderKpi();renderAlert();render();},30000);
+    function tick(){ el('#wbClock').textContent=new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+    function renderAll(){ renderKpi(); renderAlert(); render(); }
+
+    async function refreshAll(){ await loadData(); renderAll(); }
+
+    tick();
+    refreshAll();
+    setInterval(tick, 1000);
+    setInterval(refreshAll, 30000);   // 벽걸이 모니터라 사람이 새로고침하지 않는다
 </script>
 </body>
 </html>

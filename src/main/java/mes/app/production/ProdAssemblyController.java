@@ -16,10 +16,26 @@ import java.util.Map;
  *
  *  동선: 작업자 → 프로젝트 → 품목 → 시작 / 완료(수량)
  *
+ * [저장 위치]  신규 테이블 없음. 표준 mat_produce 에 쌓는다.
+ *
+ * [조립은 한 단계]
+ *   mat_produce."ProcessOrder" = 1, LastProcessYN = 'N'
+ *   부품 → 유닛. 목표는 suju.unit_qty (유닛 총량)
+ *
+ *   예전에는 유닛 조립(1) / 공정 조립(2) 두 단계였는데 공정 조립을 폐기했다.
+ *   현장이 "지그 1개 완료" 를 따로 세지 않았고,
+ *   지그 대수를 담은 "Standard" 가 '1/1'(한 쌍) 같은 표기라 수량으로 쓸 수 없었다.
+ *   <b>공정 완료 판정은 검사(ProcessOrder=3)가 가져간다</b> —
+ *   검사 수량이 지그 대수(suju."SujuQty")에 도달하면 그 공정은 끝이다.
+ *
+ *   축이 둘로 줄었다.  유닛(조립) / 지그(검사).  환산이 없다.
+ *
  * [설계 메모]
- *  - 단위는 유닛(품목)이다. 가공 키오스크의 가공품 개수와 다른 축이다.
- *  - 조립 완료 누적이 곧 완제품 재고. 재고가 존재하는 유일한 지점이다.
- *  - 조립에는 설비가 없다. 작업중 상태의 키는 품목(suju).
+ *  - 진행중은 별도 테이블이 아니라 mat_produce."State" <> 'finished' 로 표현한다.
+ *  - 부품을 소모하는 공정은 없다. mat_consu 를 만들지 않는다.
+ *  - 재고를 만들지 않는다. mat_lot / mat_inout 생성 경로를 타지 않는다.
+ *  - 검사는 유닛이 아니라 <b>공정(set) 단위</b>다.
+ *    LastProcessYN='Y' 완료 건이 검사 대상이 된다.
  */
 @Slf4j
 @RestController
@@ -41,6 +57,7 @@ public class ProdAssemblyController {
 		return result;
 	}
 
+	/** 조립 작업자 (재직자만. 조립 워크센터 인원이 위로) */
 	@GetMapping("/worker_list")
 	public AjaxResult workerList(@RequestParam("spjangcd") String spjangcd) {
 		AjaxResult result = new AjaxResult();
@@ -49,7 +66,12 @@ public class ProdAssemblyController {
 		return result;
 	}
 
-	/** 조립 대상 품목 (지시된 것만. 유니트수 / 완료 / 재공 / 진행중) */
+	/**
+	 * 조립 대상 품목 (지시된 것만).
+	 *
+	 * target_qty / done_qty / wip_qty 는 <b>유닛 축</b>이다 (suju.unit_qty 기준).
+	 * set_target / insp_done / done_yn 은 검사 축이며 공정 완료 여부를 알려 준다.
+	 */
 	@GetMapping("/item_list")
 	public AjaxResult itemList(@RequestParam("spjangcd") String spjangcd,
 							   @RequestParam(value = "projNo", required = false) String projNo) {
@@ -82,6 +104,10 @@ public class ProdAssemblyController {
 	// 작업 시작 / 완료
 	// =================================================================
 
+	/**
+	 * 조립 시작.
+	 * 작업지시가 없는 품목은 실적을 붙일 job_res 가 없으므로 막는다.
+	 */
 	@PostMapping("/working_start")
 	@Transactional
 	public AjaxResult workingStart(@RequestBody Map<String, Object> payload, Authentication auth) {
@@ -89,14 +115,20 @@ public class ProdAssemblyController {
 		User user = (User) auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
 
-		if (toInt(payload.get("sujuId")) == null) {
+		Integer sujuId = toInt(payload.get("sujuId"));
+		if (sujuId == null) {
 			result.success = false;
 			result.message = "품목을 선택하세요.";
 			return result;
 		}
-		if (str(payload.get("worker")).isEmpty()) {
+		if (toInt(payload.get("workerId")) == null) {
 			result.success = false;
 			result.message = "작업자를 선택하세요.";
+			return result;
+		}
+		if (prodAssemblyService.getOrderInfo(sujuId) == null) {
+			result.success = false;
+			result.message = "작업 지시가 없는 품목입니다. 생산 지시 화면에서 먼저 지시하세요.";
 			return result;
 		}
 
@@ -107,7 +139,14 @@ public class ProdAssemblyController {
 		return result;
 	}
 
-	/** 조립 완료 — 수량을 입력받아 실적을 남기고 작업중에서 내린다 */
+	/**
+	 * 조립 완료 — 수량을 입력받아 실적을 마감한다.
+	 *
+	 * 시작을 누르지 않고 바로 완료해도 동작한다 (현장이 시작을 자주 건너뛴다).
+	 *
+	 * 초과 완료는 <b>막지 않는다.</b> 목표보다 더 만드는 경우가 있고,
+	 * 여기서 막으면 실적을 아예 입력하지 않게 되어 데이터가 더 나빠진다.
+	 */
 	@PostMapping("/complete")
 	@Transactional
 	public AjaxResult complete(@RequestBody Map<String, Object> payload, Authentication auth) {
@@ -128,9 +167,14 @@ public class ProdAssemblyController {
 			result.message = "완료 수량을 입력하세요.";
 			return result;
 		}
-		if (str(payload.get("worker")).isEmpty()) {
+		if (toInt(payload.get("workerId")) == null) {
 			result.success = false;
 			result.message = "작업자를 선택하세요.";
+			return result;
+		}
+		if (prodAssemblyService.getOrderInfo(sujuId) == null) {
+			result.success = false;
+			result.message = "작업 지시가 없는 품목입니다. 생산 지시 화면에서 먼저 지시하세요.";
 			return result;
 		}
 
@@ -141,7 +185,7 @@ public class ProdAssemblyController {
 		return result;
 	}
 
-	/** 작업 취소 (실적 없이 작업중만 해제) */
+	/** 작업 취소 (실적 없이 진행중만 해제) */
 	@PostMapping("/working_cancel")
 	@Transactional
 	public AjaxResult workingCancel(@RequestBody Map<String, Object> payload) {
@@ -163,7 +207,9 @@ public class ProdAssemblyController {
 	/** 실적 취소 */
 	@PostMapping("/delete")
 	@Transactional
-	public AjaxResult delete(@RequestBody Map<String, Object> payload) {
+	public AjaxResult delete(@RequestBody Map<String, Object> payload, Authentication auth) {
+
+		User user = (User) auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
 
 		Integer id = toInt(payload.get("id"));
@@ -173,7 +219,7 @@ public class ProdAssemblyController {
 			return result;
 		}
 
-		prodAssemblyService.deleteResult(id);
+		prodAssemblyService.deleteResult(id, user);
 		result.success = true;
 		result.message = "취소되었습니다.";
 		return result;
@@ -182,9 +228,6 @@ public class ProdAssemblyController {
 	// =================================================================
 	// helper
 	// =================================================================
-	private String str(Object o) {
-		return o == null ? "" : o.toString().trim();
-	}
 
 	private Integer toInt(Object o) {
 		if (o == null || o.toString().isBlank()) return null;
