@@ -340,6 +340,21 @@ public class SujuSyncService {
 			headByCompany.putIfAbsent(s.makeCompId, b.headId);
 			double newQty = s.qty == null ? 0d : s.qty;
 
+			// ★ 입고가 이미 발주수량에 도달/초과한 행은 수량을 동기화하지 않고 넘긴다.
+			//   발주 수량 단위를 유니트 → JIG SET 으로 바꾸면서 생긴 상황이다.
+			//   (예: 발주 8 / 입고 8 인 행의 수주가 JIG SET 1 로 재계산됨)
+			//   여기서 수량을 줄이면
+			//     - 발주 상태가 자동으로 'received' 로 뒤집히고 (입고합계 >= "SujuQty")
+			//     - 입고 화면 목록에서 사라지며 (입고합계 < "SujuQty" 조건)
+			//     - 잔량이 음수가 된다
+			//   이미 받은 물건의 발주는 그대로 두고, 되돌리기는 발주 화면에서 사람이 판단한다.
+			if (b.inQty > 0 && newQty < b.inQty) {
+				log.warn("[sync] 입고 {} 가 있어 발주 수량 동기화를 건너뜀: suju={} balju={} ({} → {})",
+					fmt(b.inQty), s.id, b.id, fmt(b.qty == null ? 0d : b.qty), fmt(newQty));
+				r.baljuSkipped++;
+				continue;
+			}
+
 			// ★ 하한선은 입고 누계. 증량과 (입고량까지의) 감량은 허용한다.
 			//   무조건 차단하면 3/10 입고 상태에서 10→12 증량까지 막혀 현장이 못 쓴다.
 			//   이것과 행 삭제만이 저장을 되돌리는 유일한 두 경우다.

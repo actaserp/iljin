@@ -150,4 +150,7 @@ public class Suju extends AbstractAuditModel {
 	@Column(name = "item_remark")
 	String itemRemark;
 
+	@Column(name = "unit_qty")
+	Integer UnitQty;
+
 }

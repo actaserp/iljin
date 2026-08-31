@@ -2,6 +2,7 @@ package mes.app.sales;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import mes.app.sales.service.JigSetParser;
 import mes.app.transaction.service.WbsPlanService;
 import mes.app.definition.service.BomService;
 import mes.app.definition.service.material.UnitPriceService;
@@ -1702,6 +1703,23 @@ public class SujuController {
     List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
     if (items == null) items = new ArrayList<>();
 
+    // ---------- JIG SET 사전 검증 ----------
+    //  ★ 반드시 헤더 save() 앞에 둔다. 뒤로 가면 rollbackOnly 처리가 필요해진다.
+    //  ★ JIG SET 이 곧 생산 수량이므로 빈 값을 0 으로 넘기면 그 품목이
+    //    생산지시·BOM·발주에서 통째로 사라진다. 저장 자체를 막는다.
+    List<String[]> jigCheck = new ArrayList<>();
+    for (Map<String, Object> it : items) {
+      String nm = str(it.get("txtProductName"));
+      if (nm.isEmpty()) continue;                    // 빈 행은 아래 저장 루프에서도 skip 된다
+      jigCheck.add(new String[]{ str(it.get("setCnt")), nm });
+    }
+    String jigError = JigSetParser.validateAll(jigCheck);
+    if (jigError != null) {
+      result.success = false;
+      result.message = jigError;
+      return result;
+    }
+
     // ---------- 헤더 (신규/수정) ----------
     SujuHead head;
     if (payload.get("id") != null && !payload.get("id").toString().isEmpty()) {
@@ -1796,11 +1814,19 @@ public class SujuController {
       suju.setMaterial_Name(productName);
       suju.setProject_id(projno);
 
-      // 유니트 → SujuQty (NOT NULL 2개), SET → Standard
-      Double unitVal = dnum(item.get("unit"));   // 빈값/문자면 0
-      suju.setSujuQty(unitVal);
-      suju.setSujuQty2(unitVal);
-      suju.setStandard(str(item.get("setCnt")));
+      // ★ JIG SET → "SujuQty"(환산값, NOT NULL 2개) + "Standard"(원문 보존)
+      //   유니트 → unit_qty
+      //
+      //   생산은 유니트가 아니라 JIG SET 수량으로 한다.
+      //   예) A16 : JIG SET "1/1" → 2벌 생산 / 유니트 8 은 그 지그가 담당하는 유니트 수.
+      //   "Standard" 에 원문을 남겨야 환산 규칙이 바뀌어도 다시 계산할 수 있다.
+      //   위에서 사전 검증했으므로 여기서는 예외가 나지 않는다.
+      String jigSetRaw = str(item.get("setCnt"));
+      double jigSetQty = JigSetParser.parse(jigSetRaw, productName);
+      suju.setSujuQty(jigSetQty);
+      suju.setSujuQty2(jigSetQty);
+      suju.setStandard(jigSetRaw);
+      suju.setUnitQty(toIntegerOrNull(item.get("unit")));
 
       // 라인 / 설비타입 → 신규 컬럼 (Suju 엔티티에 필드 있어야 함)
       suju.setLine(nullIfEmpty(item.get("line")));
@@ -2076,6 +2102,27 @@ public class SujuController {
       return result;
     }
 
+    // ── JIG SET 사전 검증 ──
+    //  엑셀은 화면 검증을 우회하는 유일한 입구이므로 여기서도 같은 파서를 태운다.
+    //  ★ 헤더 생성/덮어쓰기 삭제보다 앞에 둔다 (롤백 없이 빠져나가기 위해).
+    //  ★ 엑셀은 몇 번째 행인지 알려주지 않으면 사용자가 찾지 못한다.
+    {
+      List<String[]> jigCheck = new ArrayList<>();
+      int jigRowNo = 0;
+      for (Map<String, Object> it : items) {
+        jigRowNo++;
+        String nm = str(it.get("procName"));
+        if (nm.isEmpty()) continue;
+        jigCheck.add(new String[]{ str(it.get("jigSet")), jigRowNo + "행 " + nm });
+      }
+      String jigError = JigSetParser.validateAll(jigCheck);
+      if (jigError != null) {
+        result.success = false;
+        result.message = jigError;
+        return result;
+      }
+    }
+
     // ── 1-1) 덮어쓰기 ──
     //  화면이 /project_suju_list 로 미리 물어보고, 사용자가 [덮어쓰기] 를 고른 경우에만
     //  overwrite_head_id 가 온다. 기존 수주를 정리한 뒤 아래에서 새로 넣는다.
@@ -2166,11 +2213,14 @@ public class SujuController {
       suju.setMaterial_Name(procName);
       suju.setProject_id(projno);
 
-      // 유니트 → SujuQty (NOT NULL 2개), JIG SET → Standard
-      Double unitVal = dnum(it.get("unitQty"));
-      suju.setSujuQty(unitVal);
-      suju.setSujuQty2(unitVal);
-      suju.setStandard(str(it.get("jigSet")));
+      // ★ JIG SET → "SujuQty"(환산값, NOT NULL 2개) + "Standard"(원문 보존)
+      //   유니트 → unit_qty.  /manual_save_project 와 동일 규칙.
+      String jigSetRaw = str(it.get("jigSet"));
+      double jigSetQty = JigSetParser.parse(jigSetRaw, procName);
+      suju.setSujuQty(jigSetQty);
+      suju.setSujuQty2(jigSetQty);
+      suju.setStandard(jigSetRaw);
+      suju.setUnitQty(toIntegerOrNull(it.get("unitQty")));
 
       // 라인 / 설비타입 → 신규 컬럼
       suju.setLine(nullIfEmpty(lineName));

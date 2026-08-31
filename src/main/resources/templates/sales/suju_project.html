@@ -515,9 +515,9 @@
       #sujuForm.head-collapsed .write-table { display: none; }
       #sujuForm.head-collapsed .hdr-summary { display: flex; }
 
-      /* 발주 잠금: 입고가 진행된 행. 유니트만 잠기고 나머지는 수정 가능하다 */
+      /* 발주 잠금: 입고가 진행된 행. JIG SET(생산 수량)만 잠기고 나머지는 수정 가능하다 */
       #itemTbody tr.balju-locked > td { background: #fdf9ec; }
-      #itemTbody tr.balju-locked input[name^="unit_"] { border-color: #d9b878; }
+      #itemTbody tr.balju-locked input[name^="setCnt_"] { border-color: #d9b878; }
 
       /* 발주 잠금 안내줄 */
       .guard-row {
@@ -709,8 +709,8 @@
                   <tr>
                     <th>라인</th>
                     <th>공정명</th>
-                    <th>JIG SET</th>
-                    <th>유니트</th>
+                    <th title="생산 수량의 원천. 1/1 이면 2벌 생산">JIG SET</th>
+                    <th title="그 지그가 담당하는 유니트 수. 생산 수량이 아니다">유니트</th>
                     <th>PIN SHIFT UNIT</th>
                     <th>설비타입</th>
                     <th>다리발 사양</th>
@@ -996,6 +996,7 @@
     const n = Number.parseFloat(String(v ?? '').replace(/,/g, ''));
     return Number.isFinite(n) ? n : d;
    }
+
    function fmtComma(n) {
     const x = toNum(n);
     return x ? x.toLocaleString('ko-KR') : '';
@@ -1182,7 +1183,8 @@
      try {
       const v = sessionStorage.getItem('sujuHeadCollapsed');
       if (v !== null) savedCollapsed = v;
-     } catch (e) { /* 세션스토리지 차단 환경은 기본값(접힘) 사용 */ }
+     } catch (e) { /* 세션스토리지 차단 환경은 기본값(접힘) 사용 */
+     }
      this.setHeadCollapsed(savedCollapsed === '1');
 
      //WBS 확정 (확정된 수주면 잠겨 있어 여기까지 오지 않는다)
@@ -1266,14 +1268,20 @@
       e.preventDefault();
       const $tr = $(this).closest('tr');
       const $prev = $tr.prev('tr');
-      if ($prev.length) { $tr.insertBefore($prev); _this.prRenumberStages(); }
+      if ($prev.length) {
+       $tr.insertBefore($prev);
+       _this.prRenumberStages();
+      }
      });
      $(document).off('click', '#pr_stageTableBody .btn-stage-down')
      .on('click', '#pr_stageTableBody .btn-stage-down', function (e) {
       e.preventDefault();
       const $tr = $(this).closest('tr');
       const $next = $tr.next('tr');
-      if ($next.length) { $tr.insertAfter($next); _this.prRenumberStages(); }
+      if ($next.length) {
+       $tr.insertAfter($next);
+       _this.prRenumberStages();
+      }
      });
      // ★ 완료 토글이 WBS 반영의 입력점이다. 여기서 cpdate 를 채우면
      //   저장 시 applyStageCompletion 이 wbs_plan.ac_eddate 에 그대로 옮긴다.
@@ -1293,7 +1301,10 @@
       let dup = null;
       $('#pr_stageTableBody .stage-wbs').each(function () {
        if (this === $me[0]) return;
-       if (($(this).val() || '').trim() === v) { dup = $(this); return false; }
+       if (($(this).val() || '').trim() === v) {
+        dup = $(this);
+        return false;
+       }
       });
       if (dup) {
        const nm = dup.closest('tr').find('.stage-stagenm').val() || '';
@@ -1347,7 +1358,11 @@
 
     prLoadWbsStageOptions(projno, done) {
      const _this = this;
-     if (!projno) { this.prWbsStageOptions = []; if (done) done(); return; }
+     if (!projno) {
+      this.prWbsStageOptions = [];
+      if (done) done();
+      return;
+     }
      AjaxUtil.getAsyncData('/api/transaction/projectRegistration/wbsStageOptions',
       {projno: projno, spjangcd: $('#spjangcdHidden').val()},
       function (r) {
@@ -1406,8 +1421,13 @@
 
       const cpdate = ($tr.find('.stage-cpdate').val() || '').trim();
       const $chip = $tr.find('.btn-stage-complete');
-      if (cpdate) { $tr.addClass('is-done'); $chip.addClass('done').text('완료됨'); }
-      else { $tr.removeClass('is-done'); $chip.removeClass('done').text('완료'); }
+      if (cpdate) {
+       $tr.addClass('is-done');
+       $chip.addClass('done').text('완료됨');
+      } else {
+       $tr.removeClass('is-done');
+       $chip.removeClass('done').text('완료');
+      }
 
       const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
       const pldate = ($tr.find('.stage-pldate').val() || '').trim();
@@ -1477,7 +1497,6 @@
       }
      });
     }
-
 
 
     /* =========================================================
@@ -1680,8 +1699,12 @@
       if (chk && chk.success && Array.isArray(chk.data)) existing = chk.data;
      }
 
-     const matched = existing.filter(function (r) { return r.name_matched; });
-     const others = existing.filter(function (r) { return !r.name_matched; });
+     const matched = existing.filter(function (r) {
+      return r.name_matched;
+     });
+     const others = existing.filter(function (r) {
+      return !r.name_matched;
+     });
 
      const fmtRow = function (r) {
       return '  · ' + (r.suju_name || '(수주명 없음)') + '  [' + r.jumun_number + ']'
@@ -1691,11 +1714,15 @@
 
      // 수주명까지 같은 것이 있으면 덮어쓸지 묻는다
      if (matched.length > 0) {
-      const blocked = matched.filter(function (r) { return !r.deletable; });
+      const blocked = matched.filter(function (r) {
+       return !r.deletable;
+      });
       if (blocked.length > 0) {
        Alert.alert('덮어쓸 수 없습니다',
         '같은 수주가 이미 있지만 진행된 작업이 있어 정리할 수 없습니다.\n\n'
-        + blocked.map(function (r) { return r.block_reason; }).join('\n')
+        + blocked.map(function (r) {
+         return r.block_reason;
+        }).join('\n')
         + '\n\n해당 화면에서 먼저 처리하거나, 수주명을 다르게 하여 새로 등록하세요.');
        return;
       }
@@ -1718,7 +1745,9 @@
         : '')
        + '★ 수주번호가 새로 채번됩니다 (' + t.jumun_number + ' → 신규).\n\n'
        + '계속하시겠습니까?',
-       function () { _this.doExcelUpload(t.id); });
+       function () {
+        _this.doExcelUpload(t.id);
+       });
       return;
      }
 
@@ -1729,7 +1758,9 @@
        + others.map(fmtRow).join('\n') + '\n\n'
        + '수주명 [' + (sujuName || '(비어 있음)') + '] 로 새 수주를 등록합니다.\n'
        + '기존 수주는 그대로 둡니다. 계속하시겠습니까?',
-       function () { _this.doExcelUpload(null); });
+       function () {
+        _this.doExcelUpload(null);
+       });
       return;
      }
 
@@ -2056,7 +2087,10 @@
      const _this = this;
      _this.baljuGuard = {};
 
-     if (!headId) { _this.renderBaljuGuardNotice(); return; }
+     if (!headId) {
+      _this.renderBaljuGuardNotice();
+      return;
+     }
 
      AjaxUtil.getAsyncData(_this.url + '/balju_guard', {head_id: headId}, function (r) {
       // ★ AjaxUtil 응답은 typeof 로 확인한다 (null 이 올 수 있다)
@@ -2084,18 +2118,22 @@
       const g = _this.baljuGuard[String(sujuId)];
 
       const $unit = $row.find('input[name^="unit_"]');
+      const $set = $row.find('input[name^="setCnt_"]');
       const $make = $row.find('input[name^="makeCompName_"]');
 
       // 초기화 (다른 수주를 불러왔을 때 잔상이 남지 않게)
       $row.removeClass('balju-locked');
       $unit.removeAttr('min').removeAttr('title');
+      $set.removeAttr('min').removeAttr('title');
       $make.removeAttr('title');
 
       if (!g || !g.balju_locked) return;
 
       $row.addClass('balju-locked');
-      $unit.attr('min', g.min_qty)
-      .attr('title', '입고 ' + g.min_qty + ' — 이 미만으로 줄일 수 없습니다');
+      // ★ 잠기는 것은 JIG SET(생산 수량)이지 유니트가 아니다.
+      //   발주 수량은 이제 JIG SET 환산값으로 나간다.
+      $set.attr('title', '입고 ' + g.min_qty + ' — 이 미만으로 줄일 수 없습니다');
+      $unit.attr('title', '발주/입고는 JIG SET 수량 기준입니다');
       $make.attr('title', '발주 ' + g.jumun_number + ' (' + g.company_name + ') 진행 중.'
        + ' 여기서 업체를 바꿔도 그 발주에는 반영되지 않습니다.');
      });
@@ -2106,17 +2144,24 @@
     renderBaljuGuardNotice() {
      const _this = this;
      const locked = Object.keys(_this.baljuGuard || {})
-     .map(function (k) { return _this.baljuGuard[k]; })
-     .filter(function (g) { return g.balju_locked; });
+     .map(function (k) {
+      return _this.baljuGuard[k];
+     })
+     .filter(function (g) {
+      return g.balju_locked;
+     });
 
      const $row = $('#baljuGuardRow');
      const $msg = $('#baljuGuardMsg');
 
-     if (locked.length === 0) { $row.hide(); return; }
+     if (locked.length === 0) {
+      $row.hide();
+      return;
+     }
 
      $msg.css('color', '#b7791f').text(
       '입고가 진행된 발주가 ' + locked.length + '건 있습니다(연한 노란색 행). '
-      + '해당 행은 유니트를 입고량 미만으로 줄이거나 삭제할 수 없습니다. '
+      + '해당 행은 수량을 입고량 미만으로 줄이거나 삭제할 수 없습니다. '
       + '제작업체·설계업체·비고 등은 수정할 수 있지만 이미 나간 발주에는 반영되지 않습니다.');
      $row.show();
     }
@@ -2157,10 +2202,15 @@
       const minQty = parseFloat(g.min_qty) || 0;
       const label = it.txtProductName || it.suju_id;
 
-      // ★ 막는 것은 이것 하나뿐이다 — 입고량 미만으로 유니트를 줄이는 것.
+      // ★ 막는 것은 이것 하나뿐이다 — 입고량 미만으로 수량을 줄이는 것.
       //   그 행 하나 때문에 저장 전체가 막히므로, 어느 행인지 반드시 이름으로 알린다.
-      if (newQty < minQty) {
-       errors.push('· ' + label + ' : 입고 ' + minQty + ' 이 있어 유니트를 그 미만으로 줄일 수 없습니다.');
+      //
+      //   ★ minQty >= oldQty 인 행(전량입고)은 제외한다.
+      //     발주 수량 단위를 유니트 → JIG SET 으로 바꾸면서 생긴 행이라,
+      //     서버(SujuSyncService)가 동기화를 건너뛴다. 여기서 막으면 서버가
+      //     처리할 수 있는 건인데도 저장이 안 된다.
+      if (newQty < minQty && minQty < oldQty) {
+       errors.push('· ' + label + ' : 입고 ' + minQty + ' 이 있어 수량을 그 미만으로 줄일 수 없습니다.');
        return;
       }
 
@@ -2251,8 +2301,12 @@
        _this.setCell($row, 'txtProductName_', _this.pick(it.txtProductName, it.product_name));
 
        // --- JIG SET / 유니트 ---
+       //  ★ setCnt 는 "Standard" 원문("1/1"). 환산값("SujuQty")이 아니다.
+       //  ★ unit_ 의 폴백에서 quantity/SujuQty 를 반드시 뺀다.
+       //    "SujuQty" 는 이제 JIG SET 환산값이라, unit_qty 가 비어 있는 구 데이터에서
+       //    그 값이 유니트칸에 들어와 그대로 저장되어 버린다.
        _this.setCell($row, 'setCnt_', _this.pick(it.setCnt, it.standard, it.Standard));
-       _this.setCell($row, 'unit_', _this.pick(it.unitQty, it.quantity, it.SujuQty));
+       _this.setCell($row, 'unit_', _this.pick(it.unit_qty, it.unitQty));
 
        // ================= 추가 컬럼 =================
        _this.setCell($row, 'line_', _this.pick(it.line, it.lineId));
@@ -2343,7 +2397,8 @@
      if (persist) {
       try {
        sessionStorage.setItem('sujuHeadCollapsed', collapsed ? '1' : '0');
-      } catch (e) { /* 세션스토리지 차단 환경 무시 */ }
+      } catch (e) { /* 세션스토리지 차단 환경 무시 */
+      }
      }
      if (collapsed) this.renderHeadSummary();
     }
@@ -2895,6 +2950,28 @@
       const productName = ($row.find('input[name^="txtProductName_"]').val() || '').trim();
       if (!productName) return;   // 공정명 없는 빈 행 스킵
 
+      // ── JIG SET 검증 ──
+      //  ★ JIG SET 이 곧 생산 수량이다 ("1/1" → 2벌). 비면 그 품목이
+      //    생산지시·BOM·발주에서 통째로 사라지므로 저장을 막는다.
+      //  ★ 서버(JigSetParser)도 같은 판정을 다시 한다. 여기는 UX 용이고 방어선이 아니다.
+      //  ★ if (!rowError) 로 감싼 것은 첫 번째 오류 행에 포커스를 남기기 위해서다.
+      const setCntRaw = ($row.find('input[name^="setCnt_"]').val() || '').trim();
+      if (!setCntRaw) {
+       if (!rowError) {
+        rowError = '· ' + productName + ' : JIG SET 을 입력하세요.';
+        $row.find('input[name^="setCnt_"]').focus();
+       }
+       return;
+      }
+      if (!/^\d{1,4}(?:\/\d{1,4})*$/.test(setCntRaw)) {
+       if (!rowError) {
+        rowError = '· ' + productName
+         + ' : JIG SET 은 숫자 또는 1/1 형식만 됩니다. (입력값: ' + setCntRaw + ')';
+        $row.find('input[name^="setCnt_"]').focus();
+       }
+       return;
+      }
+
       const equip = $row.find('input[name^="equiptype_"]').val() || '';
 
       // 라인 + factory_id 추출 (라인 option의 data에 Factory_id가 실려 있어야 함)
@@ -2917,8 +2994,8 @@
        lineId: lineVal,                                   // workcenter id
        factoryId: factoryId,                              // 신규 품목 생성용
 
-       setCnt: ($row.find('input[name^="setCnt_"]').val() || '').trim(),         // JIG SET → Standard
-       unit: ($row.find('input[name^="unit_"]').val() || '').trim(),             // 유니트 → SujuQty
+       setCnt: ($row.find('input[name^="setCnt_"]').val() || '').trim(),         // JIG SET → Standard(원문) + SujuQty(환산값)
+       unit: ($row.find('input[name^="unit_"]').val() || '').trim(),             // 유니트 → unit_qty
        pinShiftUnit: ($row.find('input[name^="pinShiftUnit_"]').val() || '').trim(), // PIN SHIFT UNIT
        legSpec: ($row.find('input[name^="legSpec_"]').val() || '').trim(),
        legCnt: ($row.find('input[name^="legCnt_"]').val() || '').trim(),
@@ -2935,7 +3012,7 @@
      });
 
      if (rowError) {
-      Alert.alert('', rowError);
+      Alert.alert('저장할 수 없습니다', rowError);
       return;
      }
      if (items.length === 0) {
