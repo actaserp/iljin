@@ -296,6 +296,7 @@
         let EQUIPMENTS = [];   // [{code, operation, workcenter_id}]
         let WORKERS = [];      // [{name, area, own_area}]
         let PROJECTS = [];     // [{proj_no, proj_name}]
+        let HEADS = [];        // 선택 프로젝트의 수주 [{suju_head_id, jumun_date, company, suju_type, item_cnt}]
         let ITEMS = [];        // 선택 프로젝트의 품목 [{suju_id, item_name, unit_qty, part_cnt}]
         let TILES = [];        // 선택 품목의 유형 타일 [{kind, need_qty, done_qty}]
 
@@ -333,10 +334,28 @@
             if (EQUIPMENTS.length === 1) st.machine = EQUIPMENTS[0].code;
         }
 
-        async function loadItems() {
-            if (st.proj < 0) { ITEMS = []; return; }
-            const res = await getJSON(API + '/item_list',
+        /*
+         * 수주 목록. 프로젝트당 여러 건이다 (2026-004 는 5건).
+         * 수주가 다르면 같은 품목명(S10)이 여러 번 나오므로 구분이 필요하다.
+         */
+        async function loadHeads() {
+            if (st.proj < 0) { HEADS = []; return; }
+            const res = await getJSON(API + '/suju_head_list',
                 {spjangcd: SPJANGCD, projNo: PROJECTS[st.proj].proj_no});
+            HEADS = res.data || [];
+        }
+
+        /*
+         * 품목 목록.
+         * 프로젝트·수주는 목록을 좁히는 필터일 뿐 필수가 아니다.
+         * 둘 다 안 골랐으면 전체가 나오고, 품목을 고르면 서버가 상위를 역으로 채운다.
+         */
+        async function loadItems() {
+            const res = await getJSON(API + '/item_list', {
+                spjangcd: SPJANGCD,
+                projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : '',
+                sujuHeadId: st.head >= 0 ? HEADS[st.head].suju_head_id : ''
+            });
             ITEMS = res.data || [];
         }
 
@@ -346,11 +365,8 @@
             if (st.proj < 0) { TILES = []; return; }
             const res = await getJSON(API + '/kind_tiles', {
                 spjangcd: SPJANGCD,
-                projNo: PROJECTS[st.proj].proj_no,
-                sujuId: st.item >= 0 ? ITEMS[st.item].suju_id : null,
-                // 이 키오스크 공정의 실적만 센다.
-                // 안 넘기면 절단·가공이 합산되어 실물보다 큰 수가 뜬다.
-                operation: CURRENT_OP
+                projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : '',
+                sujuId: st.item >= 0 ? ITEMS[st.item].suju_id : null
             });
             TILES = res.data || [];
         }
@@ -365,6 +381,7 @@
             workerId: null,
             machine: null,
             proj: -1,
+            head: -1,      // 수주. 프로젝트당 여러 건이라 같은 품목명이 여럿 나온다
             item: -1,
             kind: null,
             good: 0,
@@ -389,10 +406,18 @@
             return `${p.proj_no || ''}${p.proj_name ? ' ' + p.proj_name : ''}`.trim();
         }
 
+        // 수주는 번호가 없다. 주문일 + 업체로 구분한다
+        function headLabel(h) {
+            if (!h) return '';
+            const t = h.suju_type === 'plan' ? ' (계획)' : '';
+            return `${h.jumun_date || ''} ${h.company || ''}${t}`.trim();
+        }
+
         const STEPS = [
             {key: 'worker', t: '작업자'},
             {key: 'machine', t: '설비'},
             {key: 'proj', t: '프로젝트'},
+            {key: 'head', t: '수주'},
             {key: 'item', t: '품목'},
             {key: 'kind', t: '유형'}
         ];
@@ -401,14 +426,24 @@
             if (k === 'worker') return st.worker;
             if (k === 'machine') return st.machine ? `${st.machine} · ${procName(machineProc(st.machine))}` : null;
             if (k === 'proj') return st.proj >= 0 ? projLabel(PROJECTS[st.proj]) : null;
-            if (k === 'item') return (st.proj >= 0 && st.item >= 0 && ITEMS[st.item])
+            if (k === 'head') return (st.head >= 0 && HEADS[st.head]) ? headLabel(HEADS[st.head]) : null;
+            if (k === 'item') return (st.item >= 0 && ITEMS[st.item])
                 ? (ITEMS[st.item].item_name || '') : null;
             if (k === 'kind') return st.kind;
             return null;
         }
 
         function stepDone(k) {
-            if (k === 'item') return true;   // 품목은 선택사항이라 항상 통과
+            /*
+             * ★ 프로젝트·수주·품목은 전부 선택사항이다.
+             *   계층이 프로젝트 > 수주 > 공정(품목) 이라 아래를 고르면 위가 정해진다.
+             *   품목만 고르면 서버가 수주·프로젝트를 역으로 채운다(ProdResultService.headOf).
+             *   그래서 이 셋은 '아는 만큼만' 고르면 된다.
+             *
+             *   단 품목까지 건너뛰면 프로젝트는 있어야 한다 — 실적이 붙을 데가 없어진다.
+             *   그 검사는 canSave() 가 한다.
+             */
+            if (k === 'proj' || k === 'head' || k === 'item') return true;
             return stepValue(k) != null;
         }
 
@@ -436,10 +471,11 @@
         }
 
         // 품목 선택 상단에 올릴 '최근' 인덱스 (현재 프로젝트 기준)
+        // 최근 키는 `proj|head|item`. 프로젝트·수주 조합이 같을 때만 인덱스가 유효하다
         function priorityItemIdx() {
-            if (st.proj < 0) return [];
-            return recentItems.filter(k => k.startsWith(st.proj + '|'))
-                .map(k => +k.split('|')[1])
+            const pre = `${st.proj}|${st.head}|`;
+            return recentItems.filter(k => k.startsWith(pre))
+                .map(k => +k.split('|')[2])
                 .filter(i => i >= 0 && i < ITEMS.length);
         }
 
@@ -476,15 +512,33 @@
                 html = `<p class="pick-head">프로젝트를 선택하세요</p><div class="tiles">` +
                     PROJECTS.map((p, i) => `<button class="tile ${st.proj === i ? 'on' : ''}" data-p="${i}">
                         <span class="tt">${p.proj_no}</span><span class="ts">${p.proj_name || ''}</span></button>`).join('') + `</div>`;
-            } else if (step === 'item') {
+            } else if (step === 'head') {
                 if (st.proj < 0) {
                     html = `<p class="pick-empty">먼저 프로젝트를 선택하세요.</p>`;
                 } else {
+                    html = `<p class="pick-head">수주 — <b>모르면 건너뛰어도 됩니다</b>`
+                        + ` (품목을 고르면 자동으로 정해집니다)</p><div class="tiles">`;
+                    html += HEADS.map((h, i) => `<button class="tile ${st.head === i ? 'on' : ''}" data-h="${i}">
+                        <span class="tt">${h.suju_name || h.jumun_date || ''}</span>
+                        <span class="ts">${h.jumun_date || ''}${
+                        h.suju_type === 'plan' ? ' · 계획' : ''} · 품목 ${h.item_cnt || 0}</span></button>`).join('');
+                    html += `<button class="tile ${st.head < 0 ? 'on' : ''}" data-h="-1">
+                        <span class="tt">전체</span><span class="ts">수주 구분 없이</span></button>`;
+                    html += `</div>`;
+                }
+            } else if (step === 'item') {
+                {
                     const items = ITEMS;
                     const active = qTokens.length > 0;
+                    // 수주를 안 좁혔으면 같은 품목명이 여러 번 나온다. 수주일·업체로 구분한다
+                    const showHead = st.head < 0;
+                    const showProj = st.proj < 0;   // 프로젝트를 안 좁혔으면 어느 프로젝트인지 보여준다
                     const tile = (it, i) => `<button class="tile ${st.item === i ? 'on' : ''}" data-it="${i}">
                             <span class="tt">${it.item_name}</span>
-                            <span class="ts">유니트 ${it.unit_qty || 0} · 부품 ${it.part_cnt || 0}종</span></button>`;
+                            <span class="ts">${showProj && it.proj_no ? `${it.proj_no} · ` : ''}유닛 ${
+                        it.unit_qty || 0} · 부품 ${it.part_cnt || 0}종${
+                        showHead && (it.suju_name || it.jumun_date)
+                            ? ` · ${it.suju_name || it.jumun_date}` : ''}</span></button>`;
                     const chips = active
                         ? qTokens.map(t => `<span class="qchip">${t.face}</span>`).join('')
                         : `<span class="srch-txt ph">${searchMode
@@ -524,24 +578,43 @@
                  *   그 경로로 온 작업자도 plate·block 중 무엇을 깎았는지는 안다.
                  *   여기서 막으면 그 물량이 전부 '기타' 로 떨어져 유형 집계가 무너진다.
                  *
-                 *   서버(getKindTiles)는 sujuId 가 없으면 프로젝트 전체로 집계한다.
-                 *   화면만 막고 있었다.
+                 *   서버(getKindTiles)는 sujuId 가 없으면 상위 범위로 집계한다.
                  */
-                const byProj = st.item < 0;
+                /*
+                 * 프로젝트도 품목도 없으면 필요량을 계산할 범위가 없다.
+                 * 전 프로젝트 합계를 띄워 봐야 작업자에게 의미 없는 숫자이고,
+                 * 어차피 canReg() 가 등록을 막으므로 무엇을 해야 하는지 알려 준다.
+                 * (품목을 고르면 프로젝트는 서버가 역산하므로 둘 중 하나면 된다)
+                 */
+                if (st.proj < 0 && st.item < 0) {
+                    el('#pickBody').innerHTML =
+                        `<p class="pick-empty">프로젝트 또는 품목을 먼저 선택하세요.<br>
+                         <span style="font-size:.85em">품목을 고르면 프로젝트는 자동으로 정해집니다.</span></p>`;
+                    return;
+                }
+                /*
+                 * ★ '필요' 를 여기 두지 않는다.
+                 *   필요량(BOM 340)은 부품 개수이고, 이 화면의 실적은
+                 *   <b>이 설비가 처리한 횟수</b>다. 같은 부품이 절단·가공을 거치면
+                 *   공정마다 다시 세어지므로 두 숫자는 단위가 다르다.
+                 *   나란히 놓으면 작업자가 "300개 더 해야 한다" 로 읽는데,
+                 *   340개 중 이 공정이 몇 개를 맡는지는 아무도 모른다
+                 *   (라우팅이 없다 — SPEC 3-2).
+                 *
+                 *   그래서 <b>이 공정 누적</b>만 보여준다. 그건 참값이다.
+                 *   '필요 vs 생산' 비교는 대시보드가 공정별로 갈라서 맡는다.
+                 */
                 const ks = visKinds();
-                html = `<p class="pick-head">유형 — <b>선택하지 않으면 '기타'로 기록됩니다</b>`
-                    + (byProj ? ` <span style="color:#8a6d1b">· 프로젝트 전체 기준</span>` : '')
-                    + `</p><div class="tiles">`;
+                html = `<p class="pick-head">유형 — <b>선택하지 않으면 '기타'로 기록됩니다</b></p>`
+                    + `<div class="tiles">`;
                 html += ks.length
                     ? ks.map(k => {
                         const t = tileOf(k);
                         return `<button class="tile ${st.kind === k ? 'on' : ''}" data-k="${k}">
                             <span class="tt">${k}</span>
-                            <span class="ts">필요 ${t.need_qty || 0} · 생산 ${t.done_qty || 0}</span></button>`;
+                            <span class="ts">이 공정 누적 ${t.done_qty || 0}</span></button>`;
                     }).join('')
-                    : `<div class="pick-empty" style="grid-column:1/-1">${byProj
-                        ? '이 프로젝트에 등록된 부품이 없습니다.'
-                        : '이 품목에 등록된 부품이 없습니다.'} 생산 지시 화면에서 부품을 먼저 등록하세요.</div>`;
+                    : `<div class="pick-empty" style="grid-column:1/-1">등록된 부품이 없습니다. 생산 지시 화면에서 부품을 먼저 등록하세요.</div>`;
                 html += `<button class="tile ${st.kind === 'etc' ? 'on' : ''}" data-k="etc">
                             <span class="tt">기타</span><span class="ts">유형 구분 안 됨</span></button>`;
                 html += `</div>`;
@@ -552,6 +625,7 @@
                 b.onclick = () => pickWorker(b.dataset.w, +b.dataset.wid));
             el('#pickBody').querySelectorAll('[data-m]').forEach(b => b.onclick = () => pickMachine(b.dataset.m));
             el('#pickBody').querySelectorAll('[data-p]').forEach(b => b.onclick = () => pickProj(+b.dataset.p));
+            el('#pickBody').querySelectorAll('[data-h]').forEach(b => b.onclick = () => pickHead(+b.dataset.h));
             el('#pickBody').querySelectorAll('[data-it]').forEach(b => b.onclick = () => pickItem(+b.dataset.it));
             el('#pickBody').querySelectorAll('[data-k]').forEach(b => b.onclick = () => pickKind(b.dataset.k));
             const sc = el('#srchClr');
@@ -582,19 +656,63 @@
 
         async function pickProj(i) {
             st.proj = i;
+            st.head = -1;
             st.item = -1;
             st.kind = null;
             qTokens = [];
+            await loadHeads();
+            // 수주가 1건뿐이면 자동 선택 (터치 한 번 절약)
+            if (HEADS.length === 1) st.head = 0;
             await loadItems();
             await loadTiles();
             advanceFrom('proj');
             renderAll();
         }
 
+        async function pickHead(i) {
+            st.head = (i >= 0 ? i : -1);   // -1 = 수주 미지정(프로젝트 전체)
+            st.item = -1;
+            qTokens = [];
+            await loadItems();
+            await loadTiles();
+            advanceFrom('head');
+            renderAll();
+        }
+
+        /*
+         * 품목을 고르면 <b>프로젝트·수주를 화면에서도 채운다.</b>
+         *
+         * 계층이 프로젝트 > 수주 > 공정(품목) 이라 아래가 정해지면 위는 하나뿐이다.
+         * 서버는 이미 역산해서 저장하지만(headOf), 화면이 '선택하세요' 로 남아 있으면
+         * 작업자는 아직 덜 골랐다고 생각한다. 실제로 도면에는 품목(DWG.NO)만 적혀 있어
+         * 품목부터 고르는 경로가 기본이 될 가능성이 크다.
+         *
+         * ★ 여기서 loadItems() 를 다시 부르면 안 된다.
+         *   목록이 좁혀지면서 인덱스가 바뀌어 방금 고른 품목을 놓친다.
+         *   목록은 그대로 두고 선택 상태만 맞춘다.
+         */
+        async function syncOwnerFromItem() {
+            const it = st.item >= 0 ? ITEMS[st.item] : null;
+            if (!it) return;
+
+            if (st.proj < 0 && it.proj_no) {
+                const pi = PROJECTS.findIndex(p => p.proj_no === it.proj_no);
+                if (pi >= 0) {
+                    st.proj = pi;
+                    await loadHeads();   // 그 프로젝트의 수주 목록을 확보한다
+                }
+            }
+            if (st.head < 0 && it.suju_head_id != null) {
+                const hi = HEADS.findIndex(h => String(h.suju_head_id) === String(it.suju_head_id));
+                if (hi >= 0) st.head = hi;
+            }
+        }
+
         async function pickItem(i) {
             st.item = (i >= 0 ? i : -1);   // -1 = 품목 미지정
             searchMode = false;          // 품목을 고르면 수량 패드로 돌아온다
             qTokens = [];
+            await syncOwnerFromItem();   // 프로젝트·수주 자동 채움
             await loadTiles();           // 품목별 필요량/생산량
             if (st.kind && st.kind !== 'etc' && !visKinds().includes(st.kind)) st.kind = null;
             advanceFrom('item');
@@ -606,10 +724,23 @@
             renderAll();
         }  // 유형은 선택사항(다시 누르면 해제)
 
+        /*
+         * 다음 단계로 이동한다.
+         *
+         * ★ stepDone() 을 쓰면 안 된다.
+         *   프로젝트·수주·품목은 <b>선택사항</b>이라 stepDone 이 항상 true 다.
+         *   그걸로 건너뛰면 작업자를 고른 순간 유형까지 날아가 버린다 —
+         *   정작 유형은 프로젝트나 품목이 있어야 나오므로 빈 화면이 된다.
+         *
+         *   '충족했는가'(stepDone, 배지 표시용)와
+         *   '값이 들어왔는가'(stepValue, 이동 판단용)는 다른 질문이다.
+         *   여기서는 <b>아직 값이 없는 첫 단계</b>로 간다.
+         *   이미 고른 단계(설비 자동선택 등)는 자연스럽게 지나친다.
+         */
         function advanceFrom(key) {
             const i = STEPS.findIndex(s => s.key === key);
             let next = i + 1;
-            while (next < STEPS.length && stepDone(STEPS[next].key)) next++;
+            while (next < STEPS.length && stepValue(STEPS[next].key) != null) next++;
             st.step = next < STEPS.length ? next : i;
             renderAll();
         }
@@ -624,42 +755,55 @@
             m.classList.toggle('empty', !st.machine);
             el('#cxProc').textContent = st.machine ? procName(machineProc(st.machine)) : '';
             // 프로젝트 · 공정(품목)
+            // 품목을 고르면 syncOwnerFromItem 이 프로젝트·수주를 채워 둔다.
+            // 그래도 못 찾은 경우(목록에 없는 프로젝트)에는 품목의 값을 그대로 보여준다.
             const pj = el('#cxProj');
-            pj.textContent = st.proj >= 0 ? projLabel(PROJECTS[st.proj]) : '선택하세요';
-            pj.classList.toggle('empty', st.proj < 0);
-            el('#cxItem').textContent = (st.proj >= 0 && st.item >= 0 && ITEMS[st.item])
-                ? (ITEMS[st.item].item_name || '') : '';
+            const it0 = st.item >= 0 ? ITEMS[st.item] : null;
+            const derived = (st.proj < 0 && it0 && it0.proj_no) ? it0.proj_no : null;
+            pj.textContent = st.proj >= 0 ? projLabel(PROJECTS[st.proj])
+                : (derived || '선택하세요');
+            pj.classList.toggle('empty', st.proj < 0 && !derived);
+            el('#cxItem').textContent = it0 ? (it0.item_name || '') : '';
             // 작업 버튼 (작업자+설비+프로젝트+공정 선택 시 활성)
             const wa = el('#workArea');
             const can = !!(st.worker && st.machine && st.proj >= 0);
             wa.classList.toggle('disabled', !can);
             const cur = currentWorking();
+            // 종료할 때 수량 패드의 값이 실적이 된다. 버튼에 미리 보여 준다.
+            // (0 이면 실적 없이 종료 — 잘못 누른 시작을 취소하는 경우)
             el('#workBtns').innerHTML = cur
-                ? '<button class="wbtn done" data-act="end">작업 종료</button>'
+                ? `<button class="wbtn done" data-act="end">작업 종료${
+                    st.good > 0 ? ` · 실적 ${st.good}` : ' (실적 없음)'}</button>`
                 : '<button class="wbtn start" data-act="start">작업 시작</button>';
             el('#workBtns').querySelectorAll('[data-act]').forEach(b => b.onclick = () => workAct(b.dataset.act));
         }
 
         /** 지금 선택된 설비·프로젝트·품목으로 진행중인 작업 (서버 목록에서 찾는다) */
         function currentWorking() {
-            if (!(st.machine && st.proj >= 0)) return null;
-            const projNo = PROJECTS[st.proj].proj_no;
+            // 프로젝트나 품목 중 하나만 있어도 성립한다 (canReg 와 같은 기준)
+            if (!st.machine || (st.proj < 0 && st.item < 0)) return null;
             const sujuId = (st.item >= 0 && ITEMS[st.item]) ? ITEMS[st.item].suju_id : null;
+            // 품목이 있으면 품목으로, 없으면 프로젝트로 찾는다
+            if (sujuId != null) {
+                return working.find(w => w.equipment === st.machine
+                    && String(w.suju_id ?? '') === String(sujuId)) || null;
+            }
+            const projNo = st.proj >= 0 ? PROJECTS[st.proj].proj_no : null;
             return working.find(w => w.equipment === st.machine
                 && w.proj_no === projNo
-                && String(w.suju_id ?? '') === String(sujuId ?? '')) || null;
+                && (w.suju_id == null || w.suju_id === '')) || null;
         }
 
         // 작업중 상태는 서버가 들고 있다. 화면 메모리에 담으면 다른 키오스크와 어긋난다
         async function workAct(act) {
-            if (!(st.worker && st.machine && st.proj >= 0)) return;
+            if (!st.worker || !st.machine || (st.proj < 0 && st.item < 0)) return;
 
             let res;
             if (act === 'start') {
                 res = await postJSON(API + '/working_start', {
                     spjangcd: SPJANGCD,
                     equipment: st.machine,
-                    projNo: PROJECTS[st.proj].proj_no,
+                    projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : '',
                     sujuId: (st.item >= 0 && ITEMS[st.item]) ? ITEMS[st.item].suju_id : null,
                     kind: st.kind || '',
                     worker: st.worker || '',
@@ -668,12 +812,27 @@
             } else {
                 const cur = currentWorking();
                 if (!cur) return;
-                res = await postJSON(API + '/working_end', {id: cur.id});
+                /*
+                 * 종료하면서 실적을 만든다. 수량은 패드 값을 그대로 보낸다.
+                 * 프로젝트·수주·품목·유형은 <b>서버가 작업중 행의 선언</b>을 쓴다 —
+                 * 시작한 뒤 화면에서 프로젝트를 바꿔 놓았을 수 있어서,
+                 * 만든 물건은 시작 시점의 선언에 속한다고 본다.
+                 *
+                 * 나중에 PLC 가 붙으면 이 자리에 누적 카운트가 채워지고,
+                 * 작업자는 초물·재작업만 보정하게 된다.
+                 */
+                res = await postJSON(API + '/working_end', {id: cur.id, goodQty: st.good});
             }
 
             if (!res.success) { Alert.alert('', res.message || '처리에 실패했습니다.'); return; }
 
             flash(res.message || (act === 'start' ? '작업 시작' : '작업 종료'));
+            if (act === 'end' && st.good > 0) {
+                st.good = 0;              // 실적으로 넘어갔으므로 비운다
+                renderQty();
+                renderRegBtn();
+                await loadTiles();        // 누적 생산량 갱신
+            }
             await refreshLog();
             renderCtx();
         }
@@ -686,8 +845,15 @@
         // 품목(suju)은 선택사항이다.
         // 2D 도면 전에 추정으로 미리 만드는 물량은 어느 품목 것인지 확정되지 않는다.
         // 그런 실적은 Suju_id 없이 프로젝트 단위로만 쌓인다 (나중에 매칭하지 않는다).
+        /*
+         * ★ 프로젝트와 품목 중 <b>하나는</b> 있어야 한다.
+         *   품목을 고르면 서버가 프로젝트·수주를 역으로 채우므로 프로젝트는 필요 없다.
+         *   반대로 품목을 건너뛰었다면 프로젝트가 있어야 실적이 붙을 데가 생긴다.
+         *   둘 다 없으면 어디에도 안 붙는 실적이 되어 집계에서 영영 사라진다.
+         */
         function canReg() {
-            return !!(st.worker && st.machine && st.proj >= 0 && st.good > 0);
+            const owner = st.proj >= 0 || st.item >= 0;
+            return !!(st.worker && st.machine && owner && st.good > 0);
         }
 
         function renderRegBtn() {
@@ -710,6 +876,7 @@
             st.good = parseInt(cur || '0', 10);
             renderQty();
             renderRegBtn();
+            renderCtx();      // 종료 버튼의 '실적 N' 표시 갱신
         }
 
         el('#btnReg').onclick = async () => {
@@ -718,7 +885,9 @@
             const item = ITEMS[st.item];
             const res = await postJSON(API + '/save', {
                 prodDate: curDate,
-                projNo: PROJECTS[st.proj].proj_no,
+                // 품목이 있으면 서버가 이 값을 무시하고 품목에서 역산한다.
+                // 화면에서 프로젝트를 바꿔도 품목과 어긋나지 않게 하기 위함이다.
+                projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : '',
                 sujuId: item ? item.suju_id : null,
                 kind: st.kind || 'etc',      // 미선택은 기타
                 equipment: st.machine,
@@ -730,7 +899,7 @@
             if (!res.success) { Alert.alert('', res.message || '등록에 실패했습니다.'); return; }
 
             flash(`등록됨 · ${item ? item.item_name : '품목 미지정'} ${st.kind || '기타'} ${st.good}`);
-            const rk = `${st.proj}|${st.item}`;
+            const rk = `${st.proj}|${st.head}|${st.item}`;
             recentItems = [rk, ...recentItems.filter(k => k !== rk)].slice(0, 8);
             st.good = 0;
             renderQty();
@@ -745,12 +914,8 @@
 
         async function refreshLog() {
             const [w, l] = await Promise.all([
-                // 이 키오스크 공정 것만 본다. 설비를 아직 안 골랐어도
-                // 다른 설비(레이저·와이어)의 작업이 섞여 보이면 안 된다.
-                getJSON(API + '/working_list',
-                    {spjangcd: SPJANGCD, equipment: st.machine || '', operation: CURRENT_OP}),
-                getJSON(API + '/log',
-                    {spjangcd: SPJANGCD, prodDate: curDate, equipment: st.machine || '', operation: CURRENT_OP})
+                getJSON(API + '/working_list', {spjangcd: SPJANGCD, equipment: st.machine || ''}),
+                getJSON(API + '/log', {spjangcd: SPJANGCD, prodDate: curDate, equipment: st.machine || ''})
             ]);
             working = w.data || [];
             log = l.data || [];
@@ -758,7 +923,15 @@
         }
 
         function renderLog() {
-            el('#logHead').textContent = `작업 현황 · ${curDate}`;
+            /*
+             * ★ 오늘 합계를 헤더에 띄운다.
+             *   작업자가 잘못 넣었는지 확인할 유일한 근거는 자기가 넣은 것의 합이다.
+             *   행만 나열하면 눈으로 더해야 하고, 그러면 아무도 확인하지 않는다.
+             *   (BOM 필요량은 여기 놓지 않는다 — 단위가 다르다. 유형 타일 주석 참조)
+             */
+            const daySum = log.reduce((a, l) => a + (+l.good_qty || 0), 0);
+            el('#logHead').innerHTML = `작업 현황 · ${curDate}`
+                + (daySum ? ` <span style="color:#2f7d55;font-weight:700">· 오늘 합계 ${daySum}</span>` : '');
 
             if (!working.length && !log.length) {
                 el('#logBody').innerHTML = '<tr><td colspan="6" class="log-empty">작업중·등록 내역이 없습니다.</td></tr>';
@@ -941,6 +1114,9 @@
             st.worker = null;
             st.step = 0;                                     // 작업자 단계부터
             await loadMasters();
+            // 프로젝트를 안 골라도 품목 단계가 비어 보이지 않게 전체를 미리 받아 둔다.
+            // 품목만 골라도 서버가 프로젝트·수주를 역산하므로 이 경로가 유효하다.
+            await loadItems();
             renderAll();
             await refreshLog();
         };

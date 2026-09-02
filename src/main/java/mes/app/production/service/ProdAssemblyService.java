@@ -36,10 +36,20 @@ import java.util.Map;
  *     'finished' : 완료 (GoodQty 입력, EndTime 기록)
  *   시작 시 INSERT, 완료 시 같은 행을 UPDATE 하므로 시작시각을 옮길 필요가 없다.
  *
- * [수량 축]  두 개다. 절대 섞지 않는다.
- *   조립 목표 = suju.unit_qty   (유닛 총량).  이 화면이 세는 것
- *   검사 목표 = suju."SujuQty"  (지그 대수).  공정 완료 판정용
- *   예) SujuQty 2 · unit_qty 20 → 지그 2대, 유닛 20개 (1대당 10개)
+ * [수량 축]
+ *   가공 실적 = 가공품(부품) 개수        iljin_prod_result. 별개 화면
+ *   유닛      = suju.unit_qty            <b>실적을 기록하지 않는다.</b> 구성 정보일 뿐
+ *   조립 실적 = suju."SujuQty" (지그 대수) ← <b>이 화면이 세는 것</b>
+ *   검사 목표 = suju."SujuQty" (지그 대수)   조립과 같은 축
+ *
+ *   예) SujuQty 2 · unit_qty 24
+ *      → 유닛 24개로 이루어진 지그를 <b>2대</b> 만든다.
+ *      → 조립 실적은 0·1·2 로 센다. 24 가 아니다.
+ *
+ * ★ 한때 조립 목표를 unit_qty(24)로 잡았다가 되돌렸다.
+ *   유닛 조립은 현장이 따로 세지 않는 단계라 실적이 없고,
+ *   조립이라는 작업은 <b>유닛들을 모아 지그 1대를 완성하는 것</b>이기 때문이다.
+ *   유닛수는 화면에 참고로만 보여준다.
  *
  *   suju."Standard" 는 수량으로 쓰지 않는다.
  *   '1' · '2' · '1/1' · '2/2' 가 섞여 있고 '1/1' 은 한 쌍(2개)이라
@@ -180,14 +190,15 @@ public class ProdAssemblyService {
 	/**
 	 * 조립 대상 품목.
 	 *
-	 *  unit_qty / target_qty  조립 목표 = suju.unit_qty (유닛 총량)
-	 *  done_qty               완료 누적 (PO=1)
-	 *  wip_qty                남은 수량
-	 *  set_target             지그 대수 = suju."SujuQty". 검사 목표이자 공정 완료 기준
-	 *  insp_done              검사 누적 (PO=3). 공정이 끝났는지 여기서 본다
-	 *  working_id             진행중인 mat_produce.id
+	 *  target_qty  조립 목표 = suju."SujuQty" (지그 대수)
+	 *  done_qty    조립 완료 누적 (PO=1). 단위는 지그 대수
+	 *  wip_qty     남은 대수
+	 *  unit_qty    이 지그를 이루는 유닛 수. <b>참고 표시용</b>이며 목표가 아니다
+	 *  set_target  검사 목표 = 지그 대수. 조립과 같은 값
+	 *  insp_done   검사 누적 (PO=3). 공정이 끝났는지 여기서 본다
+	 *  working_id  진행중인 mat_produce.id
 	 *
-	 * ★ 목표가 0 인 품목(unit_qty 미등록)은 화면에서 '유닛수 미등록' 으로 드러낸다.
+	 * ★ 목표가 0 인 품목(SujuQty 미등록)은 화면에서 '대수 미등록' 으로 드러낸다.
 	 *   0/0 을 완료로 처리하면 아무것도 안 했는데 끝난 것으로 보인다.
 	 *
 	 * 완료 누적은 mat_produce."GoodQty" 중 State='finished' 인 것만 센다.
@@ -215,14 +226,15 @@ public class ProdAssemblyService {
                  , j.id                     AS job_res_id
                  , j."WorkOrderNumber"      AS work_order_number
 
-                 -- ★ 축 두 개. 절대 섞지 않는다.
-                 --   unit_qty  = 유닛 총량 (조립이 세는 것).  예: 20
-                 --   SujuQty   = 지그 대수 (검사가 세는 것).  예: 2  → 1대당 유닛 10개
-                 --   "Standard" 는 '1/1'(한 쌍) 같은 표기가 섞여 수량으로 쓰지 않는다.
-                 , COALESCE(s.unit_qty, 0)                            AS unit_qty
-                 , COALESCE(s.unit_qty, 0)                            AS target_qty
-                 , COALESCE(u.done_qty, 0)                            AS done_qty
-                 , COALESCE(s.unit_qty, 0) - COALESCE(u.done_qty, 0)  AS wip_qty
+                 -- ★ 조립이 세는 것은 <b>지그 대수</b>다.
+                 --   조립 = 유닛들을 모아 지그 1대를 완성하는 작업이다.
+                 --   유닛 조립은 현장이 따로 세지 않아 실적이 없다.
+                 --   unit_qty(24)는 그 지그가 몇 유닛으로 이루어지는지일 뿐 목표가 아니다.
+                 --   "Standard" 는 '1/1'(한 쌍) 표기가 섞여 수량으로 쓰지 않는다.
+                 , COALESCE(s.unit_qty, 0)                             AS unit_qty   -- 참고
+                 , COALESCE(s."SujuQty", 0)                            AS target_qty
+                 , COALESCE(u.done_qty, 0)                             AS done_qty
+                 , COALESCE(s."SujuQty", 0) - COALESCE(u.done_qty, 0)  AS wip_qty
 
                  -- 검사 축: 지그 대수와 검사 누적. 공정 완료 여부를 여기서 본다
                  , COALESCE(s."SujuQty", 0)                           AS set_target
@@ -473,9 +485,9 @@ public class ProdAssemblyService {
 	/**
 	 * job_res 의 누적/상태를 조립 실적에 맞춘다.
 	 *
-	 * job_res 는 <b>유닛 축</b>이다.
-	 *   "OrderQty" = suju.unit_qty (유닛 총량)
-	 *   "GoodQty"  = 조립(ProcessOrder=1) 누적
+	 * job_res 는 <b>지그 대수 축</b>이다.
+	 *   "OrderQty" = suju."SujuQty" (지그 대수)
+	 *   "GoodQty"  = 조립(ProcessOrder=1) 누적. 같은 축이다
 	 *
 	 * ★ 완료 판정만 다른 축에서 온다.
 	 *   검사(ProcessOrder=3) 누적이 지그 대수(suju."SujuQty")에 도달하면 'finished'.

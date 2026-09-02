@@ -410,16 +410,42 @@
             async loadItems() {
                 const res = await this.get(`${this.API}/item_list`,
                     {spjangcd: this.spjangcd, projNo: this.selProj});
-                this.items = res.data || [];
+                /*
+                 * ★ 맨 위에 '프로젝트 공통' 행을 끼운다.
+                 *   2D 도면이 나오기 전에는 "plate 400개 만들어 놔" 처럼
+                 *   어느 품목 것인지 모르는 상태로 지시가 나간다(SPEC 3-1).
+                 *   그걸 아무 품목에나 넣으면 "A12 에 plate 400개" 라는 거짓이 남고,
+                 *   2D 가 나와도 갈라낼 방법이 없다.
+                 *
+                 *   suju_id 가 없는 가상 행이다. 서버는 Suju_id 를 NULL 로,
+                 *   Project_id 를 채워 저장한다. 필요량 합계에는 그대로 들어간다.
+                 */
+                this.items = [{
+                    suju_id: null,
+                    common: true,
+                    item_name: '프로젝트 공통',
+                    line_name: '',
+                    unit_qty: null,
+                    part_cnt: res.commonCnt ?? null
+                }].concat(res.data || []);
                 this.renderItem();
             }
 
             renderItem() {
                 const body = this.el('itemBody');
-                body.innerHTML = this.items.map((it, i) => `
+                body.innerHTML = this.items.map((it, i) => it.common ? `
+                    <tr class="item-row common ${this.selItemIdx === i ? 'on' : ''}" data-i="${i}">
+                        <td>-</td>
+                        <td class="l" style="font-weight:700;padding-left:9px;color:#8a6d1b">프로젝트 공통
+                            <span style="color:#8b95a7;font-weight:400;font-size:11.5px;margin-left:6px">
+                            2D 전 추정 물량</span></td>
+                        <td>-</td><td>-</td><td>-</td>
+                        <td>${it.part_cnt ?? '-'}</td>
+                        <td>-</td>
+                    </tr>` : `
                     <tr class="item-row ${this.selItemIdx === i ? 'on' : ''}" data-i="${i}">
                         <td>${it.line_name || ''}</td>
-                        <td class="l" style="font-weight:700;padding-left:9px">${it.item_name || ''}</td>
+                        <td class="l" style="font-weight:700;padding-left:9px">${it.item_name || ''}${this.headTag(it)}</td>
                         <td>${it.equip_type || ''}</td>
                         <td>${it.unit_qty ?? 0}</td>
                         <td title="${this.esc(it.leg_spec || '')}">${this.legText(it)}</td>
@@ -447,6 +473,7 @@
                 const btn = this.el('orderBtn');
                 if (!btn) return;
                 const ordered = it && it.ordered_yn === 'Y';
+                btn.disabled = !it || !!it.common;
                 btn.textContent = ordered ? '지시취소' : '작업지시';
                 btn.title = ordered ? '선택 품목의 작업 지시 취소' : '선택 품목에 작업 지시';
             }
@@ -455,6 +482,11 @@
                 const it = this.item();
                 if (!it) {
                     Alert.alert('', '품목을 선택하세요.');
+                    return;
+                }
+                // 공통 행은 품목이 아니라 작업지시 대상이 아니다
+                if (it.common) {
+                    Alert.alert('', '프로젝트 공통은 작업 지시 대상이 아닙니다. 품목을 선택하세요.');
                     return;
                 }
 
@@ -479,7 +511,12 @@
                     return;
                 }
 
-                const res = await this.get(`${this.API}/part_list`, {sujuId: it.suju_id});
+                // 공통 행이면 sujuId 없이 프로젝트로 조회한다
+                const res = await this.get(`${this.API}/part_list`, {
+                    sujuId: it.suju_id ?? '',
+                    spjangcd: this.spjangcd,
+                    projNo: this.selProj
+                });
                 this.parts = res.data || [];
                 this.renderPart();
                 // 저장된 것 중에도 품목이 안 붙은 STD·구매품이 있을 수 있다.
@@ -496,7 +533,8 @@
                     return;
                 }
 
-                this.el('bomTitle').textContent = `${it.item_name} 부품`;
+                this.el('bomTitle').textContent = it.common
+                    ? '프로젝트 공통 부품' : `${it.item_name} 부품`;
 
                 // 필요량 = 수량 합계. 유니트수를 곱하지 않는다 (needOf 주석 참조).
                 const need = this.parts.reduce((s, p) => s + this.needOf(p), 0);
@@ -967,7 +1005,9 @@
 
                 const res = await this.post(`${this.API}/part_save`, {
                     spjangcd: this.spjangcd,
-                    sujuId: it.suju_id,
+                    // 공통 행이면 sujuId 가 없다. 서버가 Project_id 로 저장한다
+                    sujuId: it.suju_id ?? null,
+                    projNo: this.selProj,
                     items: this.parts.map((p, i) => ({
                         id: p.id,
                         partNo: String(i + 1),   // 순번. 화면 표시 순서를 그대로 저장
@@ -1176,6 +1216,19 @@
                         res => resolve(res || {success: false}),
                         () => resolve({success: false, message: ''}));
                 });
+            }
+
+
+            /*
+             * 수주 표기. 프로젝트당 수주가 여러 건이라 같은 품목명이 여러 번 나온다.
+             * 번호가 없으므로 주문일 + 업체로 구분한다.
+             */
+            headTag(it) {
+                // 수주명이 원칙. 업체명은 프로젝트 안에서 대부분 같아 구분이 안 된다
+                if (!it || !(it.suju_name || it.jumun_date)) return '';
+                const plan = it.suju_type === 'plan' ? ' (계획)' : '';
+                return `<span style="color:#8b95a7;font-weight:400;font-size:11.5px;margin-left:6px">`
+                    + `${this.escHtml(it.suju_name || it.jumun_date)}${plan}</span>`;
             }
 
             escHtml(s) {

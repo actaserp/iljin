@@ -64,12 +64,20 @@ public class ProdDesignController {
 		return result;
 	}
 
-	/** 부품(BOM) 목록 — qty(유닛당) 와 need_qty(전체) 를 함께 내려준다 */
+	/**
+	 * 부품(BOM) 목록.
+	 *
+	 * sujuId 를 주면 그 품목의 부품, 안 주면 <b>프로젝트 공통</b> 부품이다.
+	 * 2D 도면 전에는 "plate 400개 만들어 놔" 처럼 어느 품목 것인지 모르는
+	 * 상태로 지시가 나가므로, 그런 물량이 들어갈 자리가 따로 필요하다.
+	 */
 	@GetMapping("/part_list")
-	public AjaxResult partList(@RequestParam("sujuId") Integer sujuId) {
+	public AjaxResult partList(@RequestParam(value = "sujuId", required = false) Integer sujuId,
+							   @RequestParam(value = "spjangcd", required = false) String spjangcd,
+							   @RequestParam(value = "projNo", required = false) String projNo) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodDesignService.getPartList(sujuId);
+		result.data = prodDesignService.getPartList(sujuId, spjangcd, projNo);
 		return result;
 	}
 
@@ -181,10 +189,12 @@ public class ProdDesignController {
 
 		String spjangcd = str(payload.get("spjangcd"));
 		Integer sujuId = toInt(payload.get("sujuId"));
+		String projNo = str(payload.get("projNo"));
 
-		if (sujuId == null) {
+		// sujuId 가 없으면 프로젝트 공통 부품이다. 그때는 projNo 가 있어야 한다.
+		if (sujuId == null && projNo.isEmpty()) {
 			result.success = false;
-			result.message = "품목이 지정되지 않았습니다.";
+			result.message = "품목 또는 프로젝트가 지정되지 않았습니다.";
 			return result;
 		}
 
@@ -249,7 +259,7 @@ public class ProdDesignController {
 
 		int order = 0;
 		for (Map<String, Object> it : targets) {
-			prodDesignService.savePart(it, spjangcd, sujuId, order++,
+			prodDesignService.savePart(it, spjangcd, sujuId, projNo, order++,
 					str(it.get("_kind")), toInt(it.get("_materialId")), user);
 		}
 

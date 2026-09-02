@@ -134,7 +134,7 @@
         <div class="ctx-bar">
             <div class="ctx-title">
                 <h1>조립 키오스크</h1>
-                <span>유닛 단위</span>
+                <span>지그 대수 단위</span>
             </div>
             <div class="ctx-slots">
                 <div class="ctx-slot"><span class="lab">작업자</span>
@@ -183,7 +183,7 @@
             <div class="entry-col">
                 <div class="qty-row">
                     <div class="qty-box">
-                        <div class="ql">완료 수량 (유닛)</div>
+                        <div class="ql">완료 수량 (지그 대수)</div>
                         <div class="qv" id="qvQty">1</div>
                     </div>
                 </div>
@@ -208,9 +208,13 @@
          *
          *  동선: 작업자 → 프로젝트 → 품목 → 시작 / 완료(수량)
          *
-         * [단위] 유닛. 가공 키오스크의 가공품 개수와도, PC 조립의 지그 대수와도 다른 축이다.
-         *        S10 은 지그 1대 안에 서로 다른 유닛이 8개 들어간다.
-         *        여기서 세는 것은 그 8개다.
+         * [단위] <b>지그 대수</b> (suju."SujuQty"). 가공 키오스크의 가공품 개수와 다른 축이다.
+         *        조립은 유닛들을 모아 지그 1대를 완성하는 작업이다.
+         *        SujuQty 2 · unit_qty 24 라면 → 유닛 24개짜리 지그를 2대 만든다.
+         *        여기서 세는 것은 2 쪽이다. 24 가 아니다.
+         *
+         *        유닛 조립은 현장이 따로 세지 않아 실적이 없다.
+         *        unit_qty 는 구성 정보로 화면에 참고 표시만 한다.
          *
          * 주의: 전역 $ (jQuery) 를 덮지 않는다. AjaxUtil 내부 $.ajax 가 깨진다.
          */
@@ -229,9 +233,9 @@
              *   공정 완료 판정은 <b>검사</b>가 가져갔다 —
              *   검사 수량이 지그 대수(suju."SujuQty")에 도달하면 그 공정은 끝이다.
              *
-             * [단위] 유닛. 목표는 suju.unit_qty (유닛 총량).
-             *        예: SujuQty 2 · unit_qty 20 → 지그 2대, 유닛 20개 (1대당 10개)
-             *        여기서 세는 것은 20 쪽이다.
+             * [단위] 지그 대수. 목표는 suju."SujuQty".
+             *        한때 unit_qty(유닛 총량)로 잡았다가 되돌렸다 —
+             *        조립은 유닛을 세는 게 아니라 지그를 완성하는 작업이다.
              *
              * PC 조립 화면(prod_assembly.html)이 같은 API 를 쓴다. 입력 위치만 다르다.
              */
@@ -376,8 +380,8 @@
                                 <button class="tile ${st.item === i ? 'on' : ''} ${it.working_id ? 'run' : ''}" data-it="${i}">
                                     ${it.working_id && st.item !== i ? `<span class="busy">진행중</span>` : ''}
                                     <span class="tt">${esc(it.item_name)}</span>
-                                    <span class="ts">완료 ${it.done_qty ?? 0} / ${it.unit_qty ?? 0}
-                                        · 재공 ${it.wip_qty ?? 0}</span></button>`).join('')
+                                    <span class="ts">완료 ${it.done_qty ?? 0} / ${it.target_qty ?? 0} 대
+                                        ${it.unit_qty ? `· 유닛 ${it.unit_qty}` : ''}</span></button>`).join('')
                             + `</div>`;
                     }
                 }
@@ -403,7 +407,8 @@
                 i.textContent = it ? it.item_name : '선택하세요';
                 i.classList.toggle('empty', !it);
                 el('cxItemSub').textContent = it
-                    ? `완료 ${it.done_qty ?? 0} / ${it.unit_qty ?? 0} · 재공 ${it.wip_qty ?? 0}` : '';
+                    ? `완료 ${it.done_qty ?? 0} / ${it.target_qty ?? 0} 대`
+                    + (it.unit_qty ? ` · 유닛 ${it.unit_qty}` : '') : '';
             }
 
             function renderQty() {

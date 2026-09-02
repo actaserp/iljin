@@ -22,8 +22,10 @@ import org.springframework.web.bind.annotation.*;
  *
  * [숫자의 성격]
  *   parts.kinds 의 t/d 는 참값이다.
- *   item.made 는 가공 진척을 유닛으로 <b>환산한 추정값</b>이며 실제보다 낙관적이다.
- *   자세한 이유는 DashProjectService 주석 참조.
+ *   item.made 는 <b>조립(유닛) 실적</b>이다. 가공 실적에서 환산하지 않는다 —
+ *   필요량은 부품 개수이고 가공 실적은 설비 처리 횟수라 단위가 다르기 때문이다.
+ *   가공은 kinds / procs 에 공정별 작업량으로만 실린다.
+ *   자세한 이유는 DashProjectService.madeOf 주석 참조.
  */
 @Slf4j
 @RestController

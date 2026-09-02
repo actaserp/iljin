@@ -32,7 +32,8 @@ import java.util.*;
  *
  * [단위 환산에 대한 정직한 설명]  ★ 이 화면은 축이 서로 다른 값을 한 줄에 세운다.
  *
- *   need  유닛 총량 (suju.unit_qty)                       — 유닛 축
+ *   need  지그 대수 (suju."SujuQty")  — 조립·검사 축
+ *   unit  구성 유닛 수 (suju.unit_qty) — 참고 표시. 실적 없음
  *   made  <b>가공 진척을 유닛으로 환산한 추정값</b>      — 원래는 가공품 축
  *   asm   유닛 조립 완료 (ProcessOrder=1)                — 유닛 축. 참값
  *   insp  검사 진척을 유닛으로 환산                      — 원래는 공정(세트) 축
@@ -86,6 +87,10 @@ public class DashProjectService {
 		Map<String, List<Map<String, Object>>> mworkByProj =
 				groupProjectWorking(getProjectWorking(spjangcd, projNo));
 
+		// 날짜별 가공 실적 (최근 14일). 작업량 지표이며 진척률에는 안 쓴다
+		Map<String, List<Map<String, Object>>> dailyByProj =
+				groupDaily(getDailyResults(spjangcd, projNo));
+
 		// 프로젝트 → 라인 → 품목 으로 접는다
 		Map<String, List<Map<String, Object>>> itemsByProj = new LinkedHashMap<>();
 		for (Map<String, Object> it : items) {
@@ -133,6 +138,7 @@ public class DashProjectService {
 			proj.put("milestones", milestonesOf(wbs));
 			proj.put("delayCnt", wbs.stream().filter(w -> "Y".equals(str(w.get("delay_yn")))).count());
 			proj.put("mwork", mworkByProj.getOrDefault(pno, new ArrayList<>()));
+			proj.put("daily", dailyByProj.getOrDefault(pno, new ArrayList<>()));
 			proj.put("lines", lines);
 			out.add(proj);
 		}
@@ -150,7 +156,9 @@ public class DashProjectService {
 										  Map<Integer, Map<String, Object>> workingByItem) {
 
 		Integer sujuId = toInt(r.get("suju_id"));
-		double need = toDouble(r.get("unit_qty"));
+		// ★ need 는 <b>지그 대수</b>다. 조립·검사가 그 축으로 세기 때문이다.
+		//   유닛(unit_qty)은 실적을 기록하지 않는 구성 정보라 분모가 될 수 없다.
+		double need = toDouble(r.get("jig_qty"));
 		boolean isOut = isOutsource(r.get("make_type"));
 
 		@SuppressWarnings("unchecked")
@@ -167,14 +175,15 @@ public class DashProjectService {
 		Map<String, Object> item = new LinkedHashMap<>();
 		item.put("code", str(r.get("item_name")));
 		item.put("sujuId", sujuId);
-		item.put("need", need);                                // 수주 유닛 총량
-		item.put("jig", toDouble(r.get("jig_qty")));           // 지그 대수 (검사 목표)
+		item.put("need", need);                                // 지그 대수 (조립·검사 목표)
+		item.put("unit", toDouble(r.get("unit_qty")));         // 구성 유닛 수 (참고 표시)
 		// ★ 지시된 수량. 작업지시가 없으면 0 이다.
 		//   need 는 수주에 등록된 양이고 ordered 는 실제로 지시가 나간 양이라
 		//   둘의 차이가 곧 "아직 지시 안 한 물량" 이다.
 		boolean ordered = toInt(r.get("job_res_id")) != null;
 		item.put("ordered", ordered ? need : 0d);
-		item.put("made", estimateMade(kinds, need, isOut));
+		// ★ made 는 가공 실적으로 만들지 않는다. 아래 madeOf 주석 참조.
+		item.put("made", madeOf(r, need, isOut));
 		item.put("asm", toDouble(r.get("asm_qty")));           // 유닛 조립. 참값
 		item.put("insp", estimateInsp(r, need));
 		item.put("out", r.get("draw_date") != null);           // 2D 출도 여부
@@ -188,32 +197,32 @@ public class DashProjectService {
 	}
 
 	/**
-	 * 가공 진척을 유닛으로 환산.  ★ 추정값이다.
+	 * 제작 진척(유닛 축).
 	 *
-	 * 유형별 필요량 합계 대비 생산량 합계의 비율에 유닛수를 곱한다.
-	 * 재고·귀속을 기록하지 않으므로 "이 plate 가 몇 번 유닛 것인가"는 알 수 없고,
-	 * 못 쓸 부품이 섞여 있어도 시스템은 모른다. 따라서 실제보다 낙관적이다.
+	 * ★ 가공 실적으로 계산하지 않는다. 예전에는 그렇게 했다가 걷어냈다.
 	 *
-	 * 여기서 쓰는 유형별 d 는 <b>공정 합이 아니라 최댓값</b>이다 (kindDone 참조).
-	 * 합으로 계산하던 이전 버전은 절단만 끝나도 100% 가 나왔다.
+	 *   유형별 (생산합 ÷ 필요합) 에 유닛수를 곱하는 방식이었는데,
+	 *   분자와 분모의 <b>단위가 다르다.</b>
+	 *     필요량(BOM 340) = 부품 개수
+	 *     생산량          = 설비가 처리한 횟수
+	 *   같은 plate 가 절단·가공·와이어를 거치면 공정마다 다시 세어진다.
+	 *   어느 부품이 어느 공정을 거치는지 모르므로(라우팅 없음 — SPEC 3-2)
+	 *   그 둘로 완성 개수를 만들 수 없다.
+	 *   최댓값(kindDone)으로 바꿔 봐도 "몇 개가 절단됐다" 이지 완성이 아니다.
 	 *
-	 * 외작은 가공 개념이 없다 (공정 통째 입고). 화면이 rcv 로 계산하므로 0 을 준다.
-	 * BOM 이 없으면 비율을 낼 수 없으므로 0 이다 — 화면이 "부품 미등록"으로 읽는다.
+	 *   게다가 현장은 가공 수량을 세는 습관 자체가 없어 값이 기억에 의존한다.
+	 *   추정을 추정으로 나눈 비율이라 진척률로 쓸 수 없었다.
+	 *
+	 *   그래서 제작 진척은 <b>조립(유닛 실적)</b>이 대신한다. 그쪽은 참값이다.
+	 *   가공 실적은 kinds / procs 에 공정별로 그대로 실려 나가며,
+	 *   "오늘 얼마나 했나" 를 보는 작업량 지표로만 쓴다.
+	 *   비어 있는 가공 구간은 WBS 계획일이 메운다.
+	 *
+	 *   외작은 공정을 통째로 입고하므로 화면이 rcv 로 계산한다. 여기서는 0.
 	 */
-	private double estimateMade(Map<String, Object> kinds, double need, boolean isOutsource) {
-		if (isOutsource || need <= 0 || kinds.isEmpty()) return 0d;
-
-		double totalNeed = 0d, totalDone = 0d;
-		for (Object v : kinds.values()) {
-			@SuppressWarnings("unchecked")
-			Map<String, Object> k = (Map<String, Object>) v;
-			totalNeed += toDouble(k.get("t"));
-			totalDone += toDouble(k.get("d"));
-		}
-		if (totalNeed <= 0) return 0d;
-
-		double ratio = Math.min(1d, totalDone / totalNeed);
-		return Math.floor(need * ratio);
+	private double madeOf(Map<String, Object> r, double need, boolean isOutsource) {
+		if (isOutsource || need <= 0) return 0d;
+		return Math.min(need, toDouble(r.get("asm_qty")));
 	}
 
 	/**
@@ -345,6 +354,47 @@ public class DashProjectService {
 			m.put("s", str(w.get("state")));
 			m.put("delay", "Y".equals(str(w.get("delay_yn"))));
 			out.add(m);
+		}
+		return out;
+	}
+
+	/**
+	 * 날짜별 · 공정별 가공 실적 (최근 14일).
+	 *
+	 * ★ 이 숫자는 <b>그 설비가 처리한 횟수</b>다. 완성 개수가 아니다.
+	 *   한 부품이 절단·가공을 거치면 공정마다 다시 세어지므로
+	 *   가로로 더하면 실물보다 커진다. 화면이 공정별로 갈라서 보여준다.
+	 *
+	 *   진척률에는 쓰지 않는다. "오늘 얼마나 돌았나" 를 보는 작업량 지표다.
+	 */
+	private List<Map<String, Object>> getDailyResults(String spjangcd, String projNo) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("projNo", nullIfEmpty(projNo));
+
+		return rows("daily", """
+            SELECT r."Project_id"                        AS proj_no
+                 , TO_CHAR(r."ProdDate", 'MM-DD')        AS d
+                 , COALESCE(r."Operation", '')           AS operation
+                 , SUM(COALESCE(r."GoodQty", 0))         AS qty
+                 , COUNT(DISTINCT r."Worker")            AS worker_cnt
+            FROM iljin_prod_result r
+            WHERE r.spjangcd = :spjangcd
+              AND r."ProdDate" >= CURRENT_DATE - 13
+              AND (CAST(:projNo AS varchar) IS NULL
+                   OR r."Project_id" = CAST(:projNo AS varchar))
+            GROUP BY r."Project_id", r."ProdDate", r."Operation"
+            ORDER BY r."ProdDate" DESC, r."Operation"
+            """, p);
+	}
+
+	/** projno → 날짜별 실적 */
+	private Map<String, List<Map<String, Object>>> groupDaily(List<Map<String, Object>> rows) {
+		Map<String, List<Map<String, Object>>> out = new LinkedHashMap<>();
+		for (Map<String, Object> r : rows) {
+			String pno = str(r.get("proj_no"));
+			if (pno.isEmpty()) continue;
+			out.computeIfAbsent(pno, k -> new ArrayList<>()).add(r);
 		}
 		return out;
 	}

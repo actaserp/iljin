@@ -72,13 +72,32 @@ public class ProdResultController {
 		return result;
 	}
 
-	/** 품목 목록 (작업 지시된 것만) */
-	@GetMapping("/item_list")
-	public AjaxResult itemList(@RequestParam("spjangcd") String spjangcd,
-							   @RequestParam("projNo") String projNo) {
+	/**
+	 * 수주 목록 (프로젝트 하위).
+	 * 프로젝트 하나에 수주가 여러 건이라, 수주를 안 거치면
+	 * 같은 품목명이 여러 번 나와 어느 쪽인지 알 수 없다.
+	 */
+	@GetMapping("/suju_head_list")
+	public AjaxResult sujuHeadList(@RequestParam("spjangcd") String spjangcd,
+								   @RequestParam(value = "projNo", required = false) String projNo) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodResultService.getItemList(spjangcd, projNo);
+		result.data = prodResultService.getSujuHeadList(spjangcd, projNo);
+		return result;
+	}
+
+	/**
+	 * 품목 목록 (작업 지시된 것만).
+	 * projNo · sujuHeadId 는 <b>목록을 좁히는 필터</b>일 뿐 필수가 아니다.
+	 * 품목을 고르면 서버가 상위 계층을 역으로 확정한다.
+	 */
+	@GetMapping("/item_list")
+	public AjaxResult itemList(@RequestParam("spjangcd") String spjangcd,
+							   @RequestParam(value = "projNo", required = false) String projNo,
+							   @RequestParam(value = "sujuHeadId", required = false) Integer sujuHeadId) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = prodResultService.getItemList(spjangcd, projNo, sujuHeadId);
 		return result;
 	}
 
@@ -90,12 +109,13 @@ public class ProdResultController {
 	public AjaxResult kindTiles(@RequestParam("spjangcd") String spjangcd,
 								@RequestParam(value = "projNo", required = false) String projNo,
 								@RequestParam(value = "sujuId", required = false) Integer sujuId,
-								@RequestParam(value = "operation", required = false) String operation) {
+								@RequestParam(value = "operation", required = false) String operation,
+								@RequestParam(value = "sujuHeadId", required = false) Integer sujuHeadId) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
 		// 키오스크는 공정 단위로 서 있다. 공정을 넘기지 않으면 전 공정 합계가 나와
 		// 실물보다 큰 수가 표시된다 (절단 340 + 가공 120 = 460).
-		result.data = prodResultService.getKindTiles(spjangcd, projNo, sujuId, operation);
+		result.data = prodResultService.getKindTiles(spjangcd, projNo, sujuId, operation, sujuHeadId);
 		return result;
 	}
 
@@ -217,9 +237,20 @@ public class ProdResultController {
 		return result;
 	}
 
+	/**
+	 * 작업 종료.
+	 *
+	 * goodQty 를 함께 보내면 <b>실적까지 만들고</b> 종료한다.
+	 * 안 보내면 종료만 한다 (잘못 누른 시작을 취소하는 경우).
+	 *
+	 * 실적의 프로젝트·수주·품목·유형은 <b>작업중 행의 선언</b>을 쓴다.
+	 * 시작한 뒤 화면에서 프로젝트를 바꿔 놓았을 수 있어서,
+	 * 화면이 다시 보내온 값을 믿지 않는다.
+	 */
 	@PostMapping("/working_end")
 	@Transactional
-	public AjaxResult workingEnd(@RequestBody Map<String, Object> payload) {
+	public AjaxResult workingEnd(@RequestBody Map<String, Object> payload, Authentication auth) {
+		User user = (User) auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
 
 		Integer id = toInt(payload.get("id"));
@@ -229,9 +260,13 @@ public class ProdResultController {
 			return result;
 		}
 
-		prodResultService.endWorking(id);
+		double qty = toDouble(payload.get("goodQty"));
+		prodResultService.endWorking(id, qty > 0 ? qty : null, user);
+
 		result.success = true;
-		result.message = "작업을 종료했습니다.";
+		result.message = qty > 0
+				? "작업을 종료하고 실적 " + (long) qty + " 을(를) 등록했습니다."
+				: "작업을 종료했습니다.";
 		return result;
 	}
 

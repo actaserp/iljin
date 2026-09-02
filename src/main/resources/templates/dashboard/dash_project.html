@@ -12,6 +12,10 @@
         @keyframes udblink{0%,100%{opacity:1}50%{opacity:.3}}
 
         .kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px;}
+        .kpi .sub{font-size:.5em;color:#8f98a5;font-weight:600;}
+        .kpi .kl{font-size:clamp(11px,0.8vw,15px);color:#8f98a5;margin-top:2px;line-height:1.5;}
+        .kpi .kl b{color:#6c9fd1;font-weight:700;margin-left:3px;}
+        .kpi .kl.warn{color:#d3aa55;}
         .kpi{background:#272f3a;border:1px solid #404a59;border-radius:12px;padding:1vw 1.2vw;}
         .kpi .l{font-size:clamp(13px,0.95vw,20px);color:#aeb7c4;} .kpi .v{font-size:clamp(24px,1.8vw,36px);font-weight:700;color:#f3f6f9;margin-top:3px;}
         .kpi .v small{font-size:13px;color:#aeb7c4;font-weight:600;}
@@ -252,18 +256,18 @@
         });
 
         // WBS 표준 단계 + 완료기준(증빙):
-        //  설계=도면출도 100% / 제작=가공(내작)+구매(외작) 유닛 100% / 조립=조립완료 / 검사=검사완료
+        //  설계=도면출도 100% / 제작=조립(내작)+입고(외작) 지그 100% / 조립=조립완료 / 검사=검사완료
         const STAGES = ['설계', '제작', '조립', '검사'];
 
-        // 데이터(읽기 전용, 서버 집계). item: out(출도), need/made(유닛), type(내작=가공/외작=구매),
+        // 데이터(읽기 전용, 서버 집계). item: out(출도), need/made(지그 대수), unit(구성 유닛수), type(내작/외작),
         //  vendor, asm(조립완료), insp(검사완료), working. proj: due, ship(출하), outd(출고)
         /*
          * 데이터는 서버 집계다 (읽기 전용).
-         *   item: out(출도) / need·made(유닛) / type(내작·외작) / vendor
+         *   item: out(출도) / need·made(지그 대수) / unit(구성 유닛수) / type / vendor
          *         asm(조립완료) / insp(검사완료) / working / parts{kinds, procs}
          *   proj: due(납기) / ship(출하) / outd(출고) / dsteps(설계단계)
          *
-         * ★ made 는 가공 진척을 유닛으로 환산한 <추정값>이다.
+         * ★ made 는 조립 완료 지그 대수다 (참값). 가공 실적에서 환산하지 않는다.
          *   재고·귀속·파기를 기록하지 않으므로 원리상 참값을 낼 수 없고,
          *   못 쓸 부품이 섞여 있어도 시스템은 모르므로 실제보다 낙관적이다.
          *   정확한 숫자는 parts.kinds 의 t/d 를 볼 것 — 그쪽은 참값이다.
@@ -279,19 +283,31 @@
         }
 
         const flat = p => p.lines.reduce((a, l) => a.concat(l.items), []);
-        // 외작 제작수량 = 입고완료(rcv) 시 need만큼(공정 통째 입고, 수량재고 없음), 미입고면 0
-        const itemMade = x => x.type === '외작' ? (x.rcv ? x.need : 0) : x.made;
+        /*
+         * 제작 달성 수량 (지그 대수 축).
+         *   내작·미지정 : x.made = 조립 완료 지그 대수 (참값)
+         *   외작        : 입고 완료면 need 만큼 (공정 통째 입고, 수량 재고 없음)
+         *
+         * ★ 가공 실적은 여기 안 들어간다.
+         *   필요량(BOM)은 부품 개수이고 가공 실적은 설비 처리 횟수라 단위가 다르며,
+         *   어느 부품이 어느 공정을 거치는지 모른다(라우팅 없음 — SPEC 3-2).
+         *   그 둘로 만든 비율은 진척률이 아니다.
+         *   가공 구간은 WBS 계획일이 메우고, 가공 실적은 작업량으로만 본다.
+         */
+        const itemMade = x => x.type === '외작' ? (x.rcv ? x.need : 0) : (x.made || 0);
 
         function agg(items) {
             const need = items.reduce((s, x) => s + x.need, 0);
             // 수주에 등록된 양(need) 중 실제로 작업지시가 나간 양.
             // 차이가 곧 '아직 지시 안 한 물량' 이다.
             const ordered = items.reduce((s, x) => s + (x.ordered || 0), 0);
+            // 구성 유닛 수. 실적이 없는 참고 값이라 진척률에는 안 쓴다
+            const unit = items.reduce((s, x) => s + (x.unit || 0), 0);
             const made = items.reduce((s, x) => s + itemMade(x), 0);
             const asm = items.reduce((s, x) => s + (x.asm || 0), 0);
             const insp = items.reduce((s, x) => s + (x.insp || 0), 0);
-            const inNeed = items.filter(x => x.type === '내작').reduce((s, x) => s + x.need, 0);
-            const inMade = items.filter(x => x.type === '내작').reduce((s, x) => s + x.made, 0);
+            const inNeed = items.filter(x => x.type !== '외작').reduce((s, x) => s + x.need, 0);
+            const inMade = items.filter(x => x.type !== '외작').reduce((s, x) => s + (x.made || 0), 0);
             const outNeed = items.filter(x => x.type === '외작').reduce((s, x) => s + x.need, 0);
             const outMade = items.filter(x => x.type === '외작').reduce((s, x) => s + itemMade(x), 0);
             const outAll = items.filter(x => x.type === '외작').length;
@@ -319,15 +335,18 @@
             };
         }
 
-        // 생산 진척(%) = 제작 달성 (내작 생산 + 외작 입고) / 전체 필요. ※설계·조립·검사는 %에 안 섞음
+        // 생산 진척(%) = 조립 완료 지그(내작) + 입고 공정(외작) / 전체 필요 지그 대수.
+        // 가공 실적은 안 섞는다 (itemMade 주석 참조). 설계·검사도 %에 안 섞는다.
         function prodProg(items) {
             const need = items.reduce((s, x) => s + x.need, 0);
             const made = items.reduce((s, x) => s + itemMade(x), 0);
             return need ? Math.round(made / need * 100) : 0;
         }
 
-        // 단계별 완료수/대상수.  설계·조립·검사 = 공정(품목) 개수, 제작 = 유니트
-        //  조립 공정 = 그 공정 유닛이 모두 조립완료(asm>=need)된 공정 / 검사 = insp>=need
+        // 단계별 완료수/대상수.  설계·조립·검사 = 공정(품목) 개수, 제작 = 지그 대수
+        //  조립 공정 = 지그를 모두 조립완료(asm>=need)한 공정 / 검사 = insp>=need
+        //  ※ 제작(make)은 조립 지그 대수 기준이다. anyMachining 이 가공 실적을 따로 보고
+        //    '대기'로만 남지 않게 진행중 표시를 올려 준다.
         function stageStats(items) {
             const need = items.reduce((s, x) => s + x.need, 0);
             const cnt = items.length;
@@ -335,7 +354,7 @@
             const inspDone = items.filter(x => x.need > 0 && (x.insp || 0) >= x.need).length;
             return {
                 design: {d: items.filter(x => x.out).length, t: cnt, unit: '공정'},
-                make: {d: items.reduce((s, x) => s + itemMade(x), 0), t: need, unit: '유니트'},
+                make: {d: items.reduce((s, x) => s + itemMade(x), 0), t: need, unit: '대'},
                 asm: {d: asmDone, t: cnt, unit: '공정'},
                 insp: {d: inspDone, t: cnt, unit: '공정'}
             };
@@ -433,15 +452,57 @@
             // 수주 → 지시 → 생산 순으로 좁혀지는 깔때기.
             // 지시가 수주보다 적으면 아직 안 내린 물량이 있다는 뜻이라 따로 보여준다.
             const notOrdered = Math.max(0, a.need - a.ordered);
+
+            /*
+             * 총 가공품 = BOM 합계 (참값). 그 아래 <b>설비별 작업량</b>을 붙인다.
+             *
+             * ★ 두 줄은 단위가 다르다.
+             *   필요량 = 부품 개수 / 설비 숫자 = 그 설비가 처리한 횟수.
+             *   한 부품이 절단·가공을 거치면 공정마다 다시 세어지므로
+             *   설비 숫자를 세로로 더하면 필요량보다 커질 수 있다. 정상이다.
+             *   그래서 '필요 대비 몇 %' 를 만들지 않고 나란히만 놓는다.
+             */
+            let partNeed = 0;
+            const opTotal = {};
+            PROJECTS.forEach(p => {
+                const ks = p.kinds || {};
+                Object.keys(ks).forEach(k => {
+                    partNeed += (+ks[k].t || 0);
+                    const ops = ks[k].ops || {};
+                    Object.keys(ops).forEach(o => {
+                        opTotal[o] = (opTotal[o] || 0) + (+ops[o] || 0);
+                    });
+                });
+            });
+            const opLines = Object.keys(opTotal).sort()
+                .map(o => '<div class="kl">' + o + ' <b>' + nf(opTotal[o]) + '</b></div>').join('');
+
+            /*
+             * 조립이 끝난 지그의 유닛 수.
+             * 유닛 조립 실적이 없으므로 <b>지그 완료 비율로 환산</b>한다.
+             * 참값이 아니라 파생값이라 라벨에 그렇게 적는다.
+             */
+            const unitDone = a.need > 0 ? Math.round(a.unit * (a.made / a.need)) : 0;
+
             el('#kpiRow').innerHTML =
-                '<div class="kpi"><div class="l">수주 유닛(전사)</div><div class="v">' + nf(a.need) + '<small> 개</small></div></div>'
-                + '<div class="kpi"><div class="l">작업지시 유닛</div><div class="v">' + nf(a.ordered)
+                '<div class="kpi"><div class="l">지그 (전사)</div><div class="v">' + nf(a.need)
+                + '<small> 대</small> <span class="sub">/ ' + nf(a.made) + ' 완료</span></div>'
+                + (notOrdered ? '<div class="kl warn">미지시 ' + nf(notOrdered) + '대</div>'
+                    : '<div class="kl">지시 완료</div>') + '</div>'
+
+                + '<div class="kpi"><div class="l">총 유닛</div><div class="v">' + nf(a.unit)
+                + '<small> 개</small> <span class="sub">/ ' + nf(unitDone) + ' 완료</span></div>'
+                + '<div class="kl">지그 완료분 환산 · 유닛 실적 없음</div></div>'
+
+                + '<div class="kpi"><div class="l">총 가공품</div><div class="v">' + nf(partNeed)
                 + '<small> 개</small></div>'
-                + (notOrdered ? '<div class="l" style="color:#d3aa55;margin-top:2px">미지시 '
-                    + nf(notOrdered) + '</div>' : '') + '</div>'
-                + '<div class="kpi made"><div class="l">생산·입고 완료</div><div class="v">' + nf(a.made) + '<small> 개</small></div></div>'
-                + '<div class="kpi"><div class="l">남은 수량</div><div class="v" style="color:#d3aa55">' + nf(a.rem) + '<small> 개</small></div></div>'
-                + '<div class="kpi risk"><div class="l">지연 위험</div><div class="v">' + riskN + '<small> 건</small></div></div>';
+                + (opLines || '<div class="kl">설비 실적 없음</div>') + '</div>'
+
+                + '<div class="kpi made"><div class="l">조립·입고 완료</div><div class="v">' + nf(a.made)
+                + '<small> 대</small></div><div class="kl">남은 지그 ' + nf(a.rem) + '대</div></div>'
+
+                + '<div class="kpi risk"><div class="l">지연 위험</div><div class="v">' + riskN
+                + '<small> 건</small></div></div>';
         }
 
         function renderAlert() {
@@ -472,11 +533,81 @@
         /*
          * 가공품 실적이 하나라도 있으면 제작은 '진행중'이다.
          *
-         * ss.make.d 는 유닛 축 환산값이라, 품목 미지정 실적만 있으면 0 이 된다.
+         * ss.make.d 는 조립(지그) 실적이라, 가공만 돌고 있으면 0 이 된다.
          * (그 실적은 품목에 안 붙어 item.parts.kinds 로 내려오지 않는다)
          * 실제로는 절단·가공이 돌고 있는데 대시보드만 '대기'로 보이는 상태가 된다.
          * 프로젝트 단위 kinds 의 공정별 실적을 같이 본다.
          */
+        /*
+         * 날짜별 · 공정별 가공 실적 (최근 14일).
+         * 세로가 날짜, 가로가 설비. 가로로 더하지 않는다 —
+         * 한 부품이 공정마다 다시 세어지므로 합은 실물보다 크다.
+         */
+        function dailyTable(daily) {
+            const rows = daily || [];
+            if (!rows.length) return '<div class="kempty">최근 14일 가공 실적이 없습니다.</div>';
+
+            const ops = [];
+            rows.forEach(r => { if (r.operation && ops.indexOf(r.operation) < 0) ops.push(r.operation); });
+            ops.sort();
+
+            const byDate = {};
+            rows.forEach(r => {
+                const d = r.d || '-';
+                (byDate[d] = byDate[d] || {})[r.operation] = (+r.qty || 0);
+            });
+            const dates = Object.keys(byDate).sort().reverse();
+
+            const head = '<tr><th>일자</th>'
+                + ops.map(o => '<th class="r">' + o + '</th>').join('')
+                + '<th class="r">계</th></tr>';
+
+            const body = dates.map(d => {
+                const row = byDate[d];
+                const sum = ops.reduce((n, o) => n + (row[o] || 0), 0);
+                return '<tr><td class="mut">' + d + '</td>'
+                    + ops.map(o => {
+                        const v = row[o] || 0;
+                        return '<td class="op r ' + (v ? '' : 'zero') + '">' + (v ? nf(v) : '-') + '</td>';
+                    }).join('')
+                    + '<td class="r need">' + nf(sum) + '</td></tr>';
+            }).join('');
+
+            return '<table class="dtab ktab">' + head + body + '</table>';
+        }
+
+        /* 가동 현황 — 어느 설비가 돌고 누가 하고 있나 */
+        function runTable(p) {
+            const mw = (p && p.mwork) || [];
+            const asm = [];
+            (p.lines || []).forEach(l => (l.items || []).forEach(it => {
+                if (it.working) asm.push(it.working);
+            }));
+            if (!mw.length && !asm.length) {
+                return '<div class="kempty">현재 진행중인 작업이 없습니다.</div>';
+            }
+            const head = '<tr><th>구분</th><th>설비</th><th>작업자</th><th>대상</th><th class="c">시작</th></tr>';
+            const body = mw.map(w =>
+                    '<tr><td class="mut">' + (w.stage || '가공') + '</td>'
+                    + '<td class="nm">' + (w.machine || '') + '</td>'
+                    + '<td>' + (w.worker || '') + '</td>'
+                    + '<td class="mut">' + (w.item_name || '품목 미지정')
+                    + (w.kind ? ' · ' + w.kind : '') + '</td>'
+                    + '<td class="c mut">' + (w.start_time || '') + '</td></tr>').join('')
+                + asm.map(w =>
+                    '<tr><td class="mut">' + (w.stage || '조립') + '</td>'
+                    + '<td class="nm">' + (w.machine || '-') + '</td>'
+                    + '<td>' + (w.worker || '') + '</td>'
+                    + '<td class="mut">-</td><td class="c mut">-</td></tr>').join('');
+            return '<table class="dtab wtab">' + head + body + '</table>';
+        }
+
+        // 그 프로젝트의 총 가공품 필요량 (BOM 합계). 참값이다
+        function kindNeedOf(p) {
+            const ks = (p && p.kinds) || {};
+            return Object.keys(ks).reduce((n, k) => n + (+ks[k].t || 0), 0);
+        }
+
         function anyMachining(p) {
             const ks = (p && p.kinds) || {};
             return Object.keys(ks).some(k =>
@@ -654,7 +785,7 @@
                     + '" title="외주 제작품이 업체에서 입고되었는지">'
                     + (it.rcv ? '외주입고' : '외주 미입고') + '</span>') : '';
                 const wk = it.working ? '<span class="ib work">▶' + (it.working.stage || '') + '·' + it.working.worker + '</span>' : '';
-                // 가공품 단위 상세 (유닛과 별개) — 내작만
+                // 가공품 단위 상세 (지그·유닛과 별개 축) — 내작만
                 let detail = '';
                 // 미지정도 집계상 내작이므로 가공품 상세를 보여준다.
                 // (외작만 제외 — 업체가 만들어 오므로 우리 가공 실적이 없다)
@@ -671,7 +802,8 @@
                         + '</div>';
                 }
                 return '<div class="irow"><span class="icode">' + it.code + '</span>'
-                    + '<span class="inum"><span class="m">' + nf(im) + '</span>/' + nf(it.need) + ' <span class="iu">유닛</span></span>'
+                    + '<span class="inum"><span class="m">' + nf(im) + '</span>/' + nf(it.need) + ' <span class="iu">대</span>'
+                    + (it.unit ? '<span class="iu"> · 유닛 ' + nf(it.unit) + '</span>' : '') + '</span>'
                     + '<div class="imini">' + fill(ia.prog, ic) + '</div>'
                     + '<span class="ipct" style="color:' + ic + '">' + ia.prog + '%</span>'
                     + '<span class="ibadges">' + io + ob + rc + wk + '</span></div>' + detail;
@@ -720,7 +852,10 @@
                     + '<div class="pc-foot">'
                     + '<div class="pc-prog" style="color:' + col + '">' + a.prog + '<small>% 생산진척</small></div>'
                     + '<div class="pc-track">' + fill(a.prog, col) + '</div>'
-                    + '<div class="pc-sub">생산 <span class="m">' + nf(a.made) + '</span>/' + nf(a.need) + ' · 남음 ' + nf(a.rem)
+                    + '<div class="pc-sub">조립 <span class="m">' + nf(a.made) + '</span>/' + nf(a.need) + '대 · 남음 ' + nf(a.rem)
+                    // 유닛·가공품은 실적이 아니라 <b>필요량</b>이다. 규모를 가늠하는 값.
+                    + (a.unit ? ' · 유닛 ' + nf(a.unit) : '')
+                    + (kindNeedOf(p) ? ' · 가공품 ' + nf(kindNeedOf(p)) : '')
                     + (a.ordered < a.need ? ' · <span style="color:#d3aa55">미지시 ' + nf(a.need - a.ordered) + '</span>' : '')
                     + '</div>'
                     + workLine
@@ -729,12 +864,12 @@
                 if (openP !== i) return card;
                 // ── 펼침: 전체폭 상세 ──
                 const makeSplit = '<div class="make-split">'
-                    + '<div class="ms-card"><div class="mh"><span class="in">가공 (내작 생산)</span><span>' + nf(a.inMade) + '/' + nf(a.inNeed) + ' · ' + inR + '%</span></div><div class="mt">' + fill(inR, '#6c9fd1') + '</div></div>'
-                    + '<div class="ms-card"><div class="mh"><span class="out">구매 (외작 입고)</span><span>' + a.outRcv + '/' + a.outAll + ' 공정 · ' + outR + '%</span></div><div class="mt">' + fill(outR, '#d49279') + '</div></div>'
+                    + '<div class="ms-card"><div class="mh"><span class="in">조립 (내작 유닛)</span><span>' + nf(a.inMade) + '/' + nf(a.inNeed) + ' · ' + inR + '%</span></div><div class="mt">' + fill(inR, '#6c9fd1') + '</div></div>'
+                    + '<div class="ms-card"><div class="mh"><span class="out">입고 (외작 공정)</span><span>' + a.outRcv + '/' + a.outAll + ' 공정 · ' + outR + '%</span></div><div class="mt">' + fill(outR, '#d49279') + '</div></div>'
                     + '</div>';
                 const stageStat = '<div class="stage-stat">'
                     + '<span class="ss"><span class="l">설계(출도)</span><b>' + ss.design.d + '/' + ss.design.t + '</b> 공정</span>'
-                    + '<span class="ss"><span class="l">제작</span><b>' + nf(ss.make.d) + '/' + nf(ss.make.t) + '</b> 유니트</span>'
+                    + '<span class="ss"><span class="l">제작</span><b>' + nf(ss.make.d) + '/' + nf(ss.make.t) + '</b> 대</span>'
                     + '<span class="ss"><span class="l">조립</span><b>' + ss.asm.d + '/' + ss.asm.t + '</b> 공정</span>'
                     + '<span class="ss"><span class="l">검사</span><b>' + ss.insp.d + '/' + ss.insp.t + '</b> 공정</span>'
                     + '</div>';
@@ -750,12 +885,17 @@
                     + msRow(p.milestones)
                     + wbsTable(p.wbs)
                     + '<div class="sub-h" style="margin-top:22px">단계별 현황 (완료/대상)</div>' + stageStat
-                    + '<div class="sub-h" style="margin-top:22px">제작 — 가공(내작 생산) / 구매(외작 입고)</div>' + makeSplit
-                    + '<div class="sub-h" style="margin-top:22px">가공품 — 유형별 필요량 / 공정별 실적</div>'
+                    + '<div class="sub-h" style="margin-top:22px">제작 — 조립(내작 유닛) / 입고(외작 공정)</div>' + makeSplit
+                    + '<div class="sub-h" style="margin-top:22px">가공품 — 유형별 필요량 / 설비 작업량'
+                    + ' <span style="font-size:.72em;font-weight:400;color:#8f98a5">참고 · 진척률에는 포함하지 않음</span></div>'
                     + kindTable(p.kinds)
+                    + '<div class="sub-h" style="margin-top:22px">가동 현황 — 진행중인 설비 / 작업자</div>'
+                    + runTable(p)
+                    + '<div class="sub-h" style="margin-top:22px">일자별 가공 실적 <span style="font-size:.72em;font-weight:400;color:#8f98a5">최근 14일 · 설비 작업량</span></div>'
+                    + dailyTable(p.daily)
                     + '<div class="sub-h" style="margin-top:22px">라인별 (라인 클릭 시 공정 펼침)</div>' + lines
                     + ship
-                    + '<div class="note">※ 단계 증빙: 설계=도면출도(검도→출도, 수주) · 제작=가공+구매 유니트 · 조립=조립완료 공정 · 검사=검사완료 공정. 보기 전용 — 변경은 각 업무화면에서.<br>※ 가공품 표는 공정별로 따로 셉니다. 한 부품이 절단·가공을 거치며 각 공정에서 다시 세어지므로 <b>가로로 더하지 마세요</b>. 품목 미지정 실적이 포함되어 아래 공정별 칩의 합보다 클 수 있습니다.</div>'
+                    + '<div class="note">※ 단계 증빙: 설계=도면출도(검도→출도, 수주) · 제작=조립완료+외작입고 지그 대수 · 조립=조립완료 공정 · 검사=검사완료 공정. 보기 전용 — 변경은 각 업무화면에서.<br>※ 가공품 표의 <b>필요</b>는 부품 개수(BOM 합계)이고, 공정별 숫자는 <b>그 설비가 처리한 횟수</b>입니다. 한 부품이 절단·가공을 거치며 공정마다 다시 세어지므로 <b>가로로 더하지 마세요</b>. 어느 부품이 어느 공정을 거치는지 시스템은 모르므로 필요량과 직접 비교할 수 없고, 진척률에도 넣지 않습니다. 진척은 위 단계(설계·조립·검사)와 WBS로 봅니다. 품목 미지정 실적이 포함되어 품목별 칩의 합보다 클 수 있습니다.</div>'
                     + '</div>';
                 return card + detail;
             }).join('');

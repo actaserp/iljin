@@ -132,7 +132,15 @@ public class ProdDesignService {
                  , COALESCE(b.qty_sum, 0)      AS need_qty       -- 전체 필요량
                  , CASE WHEN j.cnt > 0 THEN 'Y' ELSE 'N' END AS ordered_yn
                  , j.work_order_number        AS work_order_number
+                 -- 수주가 여럿이면 같은 품목명이 여러 번 나온다. 수주일·업체로 구분한다
+                 , s."SujuHead_id"             AS suju_head_id
+                 , COALESCE(sh.suju_name, '')  AS suju_name
+                 , TO_CHAR(sh."JumunDate", 'MM-DD') AS jumun_date
+                 , COALESCE(c."Name", '')      AS company
+                 , COALESCE(sh."SujuType", '') AS suju_type
             FROM suju s
+            LEFT JOIN suju_head sh ON sh.id = s."SujuHead_id"
+            LEFT JOIN company c    ON c.id = sh."Company_id"
             LEFT JOIN material m ON m.id = s."Material_id"
             LEFT JOIN (
                 SELECT "Suju_id"
@@ -171,7 +179,8 @@ public class ProdDesignService {
             SELECT s.id
                  , s."Material_id"   AS material_id
                  , s."Material_Name" AS item_name
-                 , COALESCE(s.unit_qty, 0) AS unit_qty
+                 , COALESCE(s.unit_qty, 0)  AS unit_qty   -- 구성 유닛 수 (참고)
+                 , COALESCE(s."SujuQty", 0) AS jig_qty    -- 지그 대수. 작업지시 수량
                  , s.project_id      AS proj_no
                  , s.spjangcd        AS spjangcd
                  , s.leg_spec        AS leg_spec
@@ -185,13 +194,27 @@ public class ProdDesignService {
 
 	// =================================================================
 	// 부품(BOM) 목록 - 화면 오른쪽 표
-	//   qty        = 유닛 1개당 개수 (사용자가 입력하는 값)
-	//   need_qty   = qty × 유니트수 (읽기 전용. 화면에 회색으로 같이 보여줄 것)
+	//   qty        = 공정(품목) 전체 총량 (사용자가 입력하는 값)
+	//   need_qty   = qty 그대로. 유닛수를 곱하지 않는다
 	// =================================================================
-	public List<Map<String, Object>> getPartList(Integer sujuId) {
+	/**
+	 * 부품 목록.
+	 *
+	 * ★ sujuId 가 없으면 <b>프로젝트 공통</b> 부품이다.
+	 *   2D 도면이 나오기 전에는 "plate 400개 만들어 놔" 처럼
+	 *   어느 품목 것인지 모르는 상태로 지시가 나간다 (SPEC 3-1).
+	 *   그걸 아무 품목에나 붙이면 "A12 에 plate 400개" 라는 거짓이 남고,
+	 *   나중에 2D 가 나와도 갈라낼 방법이 없다.
+	 *
+	 *   실적(iljin_prod_result)은 이미 "Suju_id" 를 비울 수 있는데
+	 *   필요량만 못 비우고 있었다. 짝을 맞춘 것이다.
+	 */
+	public List<Map<String, Object>> getPartList(Integer sujuId, String spjangcd, String projNo) {
 
 		MapSqlParameterSource params = new MapSqlParameterSource();
 		params.addValue("sujuId", sujuId);
+		params.addValue("spjangcd", spjangcd);
+		params.addValue("projNo", nullIfEmpty(projNo));
 
 		String sql = """
             SELECT b.id
@@ -214,7 +237,12 @@ public class ProdDesignService {
             FROM iljin_suju_bom b
             LEFT JOIN suju s     ON s.id = b."Suju_id"
             LEFT JOIN material m ON m.id = b."Material_id"
-            WHERE b."Suju_id" = :sujuId
+            WHERE (CAST(:sujuId AS integer) IS NOT NULL
+                   AND b."Suju_id" = CAST(:sujuId AS integer))
+               OR (CAST(:sujuId AS integer) IS NULL
+                   AND b."Suju_id" IS NULL
+                   AND b.spjangcd = :spjangcd
+                   AND b."Project_id" = CAST(:projNo AS varchar))
             ORDER BY b."_order", b.id
             """;
 
@@ -231,7 +259,7 @@ public class ProdDesignService {
 	// =================================================================
 	@Transactional
 	public void savePart(Map<String, Object> item, String spjangcd, Integer sujuId,
-						 Integer order, String kind, Integer materialId, User user) {
+						 String projNo, Integer order, String kind, Integer materialId, User user) {
 
 		// 수량 축. 화면이 안 보내거나 이상한 값이면 기본값 'unit'
 		String qtyType = QTY_TYPE_TOTAL.equals(str(item.get("qtyType")))
@@ -251,17 +279,19 @@ public class ProdDesignService {
 		p.addValue("remark", str(item.get("remark")));
 		p.addValue("order", order);
 		p.addValue("userId", user.getId());
+		// sujuId 가 null 이면 프로젝트 공통 부품이다. 그때만 Project_id 가 쓰인다
+		p.addValue("projNo", nullIfEmpty(projNo));
 
 		Integer id = toInt(item.get("id"));
 
 		if (id == null) {
 			sqlRunner.execute("""
                 INSERT INTO iljin_suju_bom (
-                     spjangcd, "Suju_id", "PartNo", "PartName", "Gubun"
+                     spjangcd, "Suju_id", "Project_id", "PartNo", "PartName", "Gubun"
                    , "Material_id", "Kind", "Qty", "QtyType", "State"
                    , "Remark", "_order", "_created", "_creater_id"
                 ) VALUES (
-                     :spjangcd, :sujuId, :partNo, :partName, :gubun
+                     :spjangcd, :sujuId, :projNo, :partNo, :partName, :gubun
                    , :materialId, :kind, :qty, :qtyType, :state
                    , :remark, :order, now(), :userId
                 )
@@ -529,7 +559,10 @@ public class ProdDesignService {
 		p.addValue("workOrderNumber", workOrderNumber);
 		p.addValue("sujuId", toInt(item.get("id")));
 		p.addValue("materialId", toInt(item.get("material_id")));
-		p.addValue("orderQty", toDouble(item.get("unit_qty")));
+		// ★ 작업지시 수량은 <b>지그 대수</b>다.
+		//   조립·검사가 그 축으로 세므로 job_res 도 같은 축이어야 진척률이 맞는다.
+		//   유닛수(unit_qty)는 그 지그가 몇 유닛으로 이루어지는지일 뿐 목표가 아니다.
+		p.addValue("orderQty", toDouble(item.get("jig_qty")));
 		p.addValue("spjangcd", str(item.get("spjangcd")));
 		p.addValue("description", str(item.get("proj_no")) + " / " + str(item.get("item_name")));
 		p.addValue("userId", user.getId());
@@ -797,9 +830,11 @@ public class ProdDesignService {
                  , SUM(b."Qty") AS qty_per_unit
                  , COUNT(*)     AS part_cnt
             FROM iljin_suju_bom b
-            JOIN suju s ON s.id = b."Suju_id"
-            WHERE s.spjangcd = :spjangcd
-              AND s.project_id = :projNo
+            -- ★ 프로젝트 공통 부품(Suju_id IS NULL)도 함께 센다.
+            --   2D 전 추정 물량이라 품목에 안 붙지만 필요량에는 들어가야 한다.
+            LEFT JOIN suju s ON s.id = b."Suju_id"
+            WHERE b.spjangcd = :spjangcd
+              AND COALESCE(s.project_id, b."Project_id") = :projNo
               AND b."Gubun" = '제작품'
             GROUP BY b."Kind"
             ORDER BY 2 DESC
@@ -896,9 +931,10 @@ public class ProdDesignService {
                      , SUM(b."Qty") AS qty_per_unit
                      , COUNT(*)     AS part_cnt
                 FROM iljin_suju_bom b
-                JOIN suju s ON s.id = b."Suju_id"
-                WHERE s.spjangcd = :spjangcd
-                  AND s.project_id = :projNo
+                -- 프로젝트 공통 부품(Suju_id IS NULL)도 필요량에 포함한다
+                LEFT JOIN suju s ON s.id = b."Suju_id"
+                WHERE b.spjangcd = :spjangcd
+                  AND COALESCE(s.project_id, b."Project_id") = :projNo
                   AND b."Gubun" = '제작품'
                 GROUP BY b."Kind"
             ) k

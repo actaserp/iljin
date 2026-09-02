@@ -176,15 +176,58 @@ public class ProdResultService {
 	}
 
 	/**
+	 * 수주 목록 (프로젝트 하위).
+	 *
+	 * ★ 프로젝트 하나에 수주가 여러 건이다. 실제로 2026-004 는 5건이다.
+	 *   수주가 다르면 같은 품목명(S10)이 여러 번 나타나므로,
+	 *   수주를 안 거치면 키오스크에서 어느 쪽을 고를지 알 수 없다.
+	 *
+	 * 계획(SujuType='plan')도 포함한다 —
+	 * 도면이 나왔으면 확정 전이라도 현장이 작업을 시작한다.
+	 */
+	public List<Map<String, Object>> getSujuHeadList(String spjangcd, String projNo) {
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("projNo", nullIfEmpty(projNo));
+
+		String sql = """
+            SELECT sh.id                       AS suju_head_id
+                 -- ★ 화면에 보여줄 것은 <b>수주명</b>이다.
+                 --   업체명은 프로젝트 안에서 대부분 같아 구분에 도움이 안 된다
+                 --   (2026-004 는 5건 중 3건이 대우공업).
+                 , COALESCE(sh.suju_name, '')   AS suju_name
+                 , TO_CHAR(sh."JumunDate", 'YYYY-MM-DD') AS jumun_date
+                 , COALESCE(c."Name", '')      AS company
+                 , COALESCE(sh."SujuType", '') AS suju_type
+                 , COUNT(s.id)                 AS item_cnt
+            FROM suju_head sh
+            JOIN suju s ON s."SujuHead_id" = sh.id
+            LEFT JOIN company c ON c.id = sh."Company_id"
+            WHERE sh.spjangcd = :spjangcd
+              AND (CAST(:projNo AS varchar) IS NULL
+                   OR s.project_id = CAST(:projNo AS varchar))
+            GROUP BY sh.id, sh.suju_name, sh."JumunDate", c."Name", sh."SujuType"
+            ORDER BY sh."JumunDate", sh.id
+            """;
+
+		return sqlRunner.getRows(sql, p);
+	}
+
+	/**
 	 * 품목 목록.
 	 * 작업 지시된 품목만 보여준다 — 지시 없이 실적이 찍히면 관리 밖의 작업이 된다.
 	 * 부품(BOM)이 등록된 품목만 유형 타일을 그릴 수 있으므로 부품 수도 같이 준다.
 	 */
-	public List<Map<String, Object>> getItemList(String spjangcd, String projNo) {
+	public List<Map<String, Object>> getItemList(String spjangcd, String projNo,
+												 Integer sujuHeadId) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
-		p.addValue("projNo", projNo);
+		// ★ 프로젝트·수주 모두 선택 항목이다.
+		//   둘 다 비면 전체가 나오고, 품목을 고르는 순간 서버가 역으로 채운다(headOf).
+		p.addValue("projNo", nullIfEmpty(projNo));
+		p.addValue("sujuHeadId", sujuHeadId);
 
 		String sql = """
             SELECT s.id                    AS suju_id
@@ -192,9 +235,17 @@ public class ProdResultService {
                  , s."Material_Name"       AS item_name
                  , COALESCE(s.unit_qty, 0) AS unit_qty
                  , COALESCE(b.part_cnt, 0) AS part_cnt
+                 -- 수주가 여럿이면 같은 품목명이 여러 번 나온다. 구분할 정보를 같이 준다
+                 , s."SujuHead_id"         AS suju_head_id
+                 , s.project_id            AS proj_no
+                 , COALESCE(sh.suju_name, '') AS suju_name
+                 , TO_CHAR(sh."JumunDate", 'MM-DD') AS jumun_date
+                 , COALESCE(c."Name", '')  AS company
             FROM suju s
             JOIN job_res j
               ON j."SourceTableName" = 'suju' AND j."SourceDataPk" = s.id
+            LEFT JOIN suju_head sh ON sh.id = s."SujuHead_id"
+            LEFT JOIN company c    ON c.id = sh."Company_id"
             LEFT JOIN (
                 SELECT "Suju_id", COUNT(*) AS part_cnt
                 FROM iljin_suju_bom
@@ -202,9 +253,13 @@ public class ProdResultService {
                 GROUP BY "Suju_id"
             ) b ON b."Suju_id" = s.id
             WHERE s.spjangcd = :spjangcd
-              AND s.project_id = :projNo
+              AND (CAST(:projNo AS varchar) IS NULL
+                   OR s.project_id = CAST(:projNo AS varchar))
+              AND (CAST(:sujuHeadId AS integer) IS NULL
+                   OR s."SujuHead_id" = CAST(:sujuHeadId AS integer))
             GROUP BY s.id, s.line, s."Material_Name", s.unit_qty, b.part_cnt
-            ORDER BY s.line, s.id
+                   , s."SujuHead_id", s.project_id, sh.suju_name, sh."JumunDate", c."Name"
+            ORDER BY sh."JumunDate", s.line, s.id
             """;
 
 		return sqlRunner.getRows(sql, p);
@@ -228,7 +283,8 @@ public class ProdResultService {
 	//     operation 을 비우면 종전대로 전 공정 합계가 나오므로, 호출부가 반드시 넘길 것.
 	// =================================================================
 	public List<Map<String, Object>> getKindTiles(String spjangcd, String projNo,
-												  Integer sujuId, String operation) {
+												  Integer sujuId, String operation,
+												  Integer sujuHeadId) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
@@ -236,6 +292,8 @@ public class ProdResultService {
 		p.addValue("projNo", nullIfEmpty(projNo));
 		p.addValue("sujuId", sujuId);
 		p.addValue("operation", nullIfEmpty(operation));
+		// 수주까지만 고른 상태에서도 유형 타일이 나와야 한다 (품목은 선택 항목)
+		p.addValue("sujuHeadId", sujuHeadId);
 
 		String sql = """
             WITH need AS (
@@ -247,10 +305,14 @@ public class ProdResultService {
                      --  서로 다른 필요량을 보여준다.
                      , SUM(b."Qty") AS need_qty
                 FROM iljin_suju_bom b
-                JOIN suju s ON s.id = b."Suju_id"
-                WHERE s.spjangcd = :spjangcd
-                  AND (CAST(:projNo AS varchar) IS NULL OR s.project_id = CAST(:projNo AS varchar))
+                -- 프로젝트 공통 부품(Suju_id IS NULL)도 필요량에 포함한다
+                LEFT JOIN suju s ON s.id = b."Suju_id"
+                WHERE b.spjangcd = :spjangcd
+                  AND (CAST(:projNo AS varchar) IS NULL
+                       OR COALESCE(s.project_id, b."Project_id") = CAST(:projNo AS varchar))
                   AND (CAST(:sujuId AS integer) IS NULL OR b."Suju_id" = CAST(:sujuId AS integer))
+                  AND (CAST(:sujuHeadId AS integer) IS NULL
+                       OR s."SujuHead_id" = CAST(:sujuHeadId AS integer))
                   AND b."Gubun" = '제작품'
                 GROUP BY b."Kind"
             ), done AS (
@@ -259,6 +321,8 @@ public class ProdResultService {
                 WHERE r.spjangcd = :spjangcd
                   AND (CAST(:projNo AS varchar) IS NULL OR r."Project_id" = CAST(:projNo AS varchar))
                   AND (CAST(:sujuId AS integer) IS NULL OR r."Suju_id" = CAST(:sujuId AS integer))
+                  AND (CAST(:sujuHeadId AS integer) IS NULL
+                       OR r."SujuHead_id" = CAST(:sujuHeadId AS integer))
                   AND (CAST(:operation AS varchar) IS NULL
                        OR r."Operation" = CAST(:operation AS varchar))
                 GROUP BY r."Kind"
@@ -277,14 +341,48 @@ public class ProdResultService {
 	// =================================================================
 	// 실적 등록 / 취소
 	// =================================================================
+	/**
+	 * 품목(suju.id) 하나로 상위 계층을 역으로 확정한다.
+	 *
+	 * ★ 계층이 프로젝트 &gt; 수주 &gt; 공정(품목) 이므로 <b>아래를 고르면 위가 정해진다.</b>
+	 *   suju 한 행이 project_id 와 "SujuHead_id" 를 모두 갖고 있어 조회 한 번이면 끝이다.
+	 *
+	 *   그래서 키오스크에서 프로젝트·수주를 <b>건너뛰어도 된다.</b>
+	 *   그 둘은 목록을 좁히는 필터일 뿐이고, 품목만 고르면 서버가 채운다.
+	 *   화면이 보내온 projNo 를 믿지 않는 이유도 같다 —
+	 *   목록을 좁힌 뒤 다른 프로젝트로 바꾸면 화면 값과 품목이 어긋난다.
+	 *
+	 *   품목을 안 고른 경우(품목 미지정)에는 화면이 보낸 projNo 를 쓴다.
+	 *   그때는 수주를 알 수 없으므로 "SujuHead_id" 가 비고, 그게 사실이다.
+	 */
+	private Map<String, Object> headOf(Integer sujuId) {
+		if (sujuId == null) return null;
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("sujuId", sujuId);
+		return sqlRunner.getRow("""
+            SELECT s.project_id AS proj_no, s."SujuHead_id" AS suju_head_id
+            FROM suju s WHERE s.id = :sujuId
+            """, p);
+	}
+
+	/** 실적/작업중 저장 전에 프로젝트·수주를 확정해 파라미터에 넣는다 */
+	private void bindOwner(MapSqlParameterSource p, Map<String, Object> payload) {
+		Integer sujuId = toInt(payload.get("sujuId"));
+		Map<String, Object> h = headOf(sujuId);
+
+		p.addValue("sujuId", sujuId);
+		p.addValue("projNo", h != null ? str(h.get("proj_no"))
+				: nullIfEmpty(payload.get("projNo")));
+		p.addValue("sujuHeadId", h != null ? toInt(h.get("suju_head_id")) : null);
+	}
+
 	@Transactional
 	public void saveResult(Map<String, Object> payload, String operation, User user) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", str(payload.get("spjangcd")));
 		p.addValue("prodDate", str(payload.get("prodDate")));
-		p.addValue("projNo", nullIfEmpty(payload.get("projNo")));
-		p.addValue("sujuId", toInt(payload.get("sujuId")));
+		bindOwner(p, payload);
 		// 유형 미선택은 '기타(etc)' 로 정규화한다.
 		// (회의록: 구분이 안 되면 전부 기타로 묶어 총 집계)
 		p.addValue("kind", defaultIfEmpty(payload.get("kind"), "etc"));
@@ -298,11 +396,11 @@ public class ProdResultService {
 
 		sqlRunner.execute("""
             INSERT INTO iljin_prod_result (
-                 spjangcd, "ProdDate", "Project_id", "Suju_id", "Kind"
+                 spjangcd, "ProdDate", "Project_id", "SujuHead_id", "Suju_id", "Kind"
                , "Operation", "Equipment", "Worker", "Worker_id", "GoodQty"
                , "_created", "_creater_id"
             ) VALUES (
-                 :spjangcd, CAST(:prodDate AS date), :projNo, :sujuId, :kind
+                 :spjangcd, CAST(:prodDate AS date), :projNo, :sujuHeadId, :sujuId, :kind
                , :operation, :equipment, :worker, :workerId, :goodQty
                , now(), :userId
             )
@@ -394,33 +492,103 @@ public class ProdResultService {
 		p.addValue("spjangcd", str(payload.get("spjangcd")));
 		p.addValue("equipment", str(payload.get("equipment")));
 		p.addValue("operation", operation);
-		p.addValue("projNo", nullIfEmpty(payload.get("projNo")));
-		p.addValue("sujuId", toInt(payload.get("sujuId")));
+		bindOwner(p, payload);   // 품목으로 프로젝트·수주를 역으로 확정
 		p.addValue("kind", nullIfEmpty(payload.get("kind")));
 		p.addValue("worker", str(payload.get("worker")));
+		// 이름만 남기면 동명이인·개명 시 추적이 끊긴다. 종료 시 실적으로 그대로 옮긴다
+		p.addValue("workerId", toInt(payload.get("workerId")));
 		p.addValue("userId", user.getId());
 
 		// 같은 설비 × 프로젝트 × 품목이면 갱신 (중복 작업중 방지)
 		sqlRunner.execute("""
             INSERT INTO iljin_prod_working (
-                 spjangcd, "Equipment", "Operation", "Project_id", "Suju_id"
-               , "Kind", "Worker", "StartTime", "_created", "_creater_id"
+                 spjangcd, "Equipment", "Operation", "Project_id", "SujuHead_id", "Suju_id"
+               , "Kind", "Worker", "Worker_id", "StartTime", "_created", "_creater_id"
             ) VALUES (
-                 :spjangcd, :equipment, :operation, :projNo, :sujuId
-               , :kind, :worker, now(), now(), :userId
+                 :spjangcd, :equipment, :operation, :projNo, :sujuHeadId, :sujuId
+               , :kind, :worker, :workerId, now(), now(), :userId
             )
             ON CONFLICT ("Equipment", "Project_id", "Suju_id")
             DO UPDATE SET "Kind" = EXCLUDED."Kind"
                         , "Worker" = EXCLUDED."Worker"
                         , "Operation" = EXCLUDED."Operation"
+                        , "SujuHead_id" = EXCLUDED."SujuHead_id"
+                        , "Worker_id" = EXCLUDED."Worker_id"
             """, p);
 	}
 
 	@Transactional
-	public void endWorking(Integer id) {
+	/** 작업중 1건 (종료 시 실적으로 옮기기 위해 선언 내용을 읽는다) */
+	public Map<String, Object> getWorking(Integer id) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("id", id);
-		sqlRunner.execute("DELETE FROM iljin_prod_working WHERE id = :id", p);
+		return sqlRunner.getRow("""
+            SELECT w.id
+                 , w.spjangcd
+                 , w."Equipment"    AS equipment
+                 , w."Operation"    AS operation
+                 , w."Project_id"   AS proj_no
+                 , w."SujuHead_id"  AS suju_head_id
+                 , w."Suju_id"      AS suju_id
+                 , w."Kind"         AS kind
+                 , w."Worker"       AS worker
+                 , w."Worker_id"    AS worker_id
+                 , w."StartTime"    AS start_time
+            FROM iljin_prod_working w WHERE w.id = :id
+            """, p);
+	}
+
+	/**
+	 * 작업 종료.
+	 *
+	 * ★ 수량을 주면 <b>실적을 만들고</b> 종료한다. 0 이거나 없으면 그냥 종료한다.
+	 *
+	 *   예전에는 무조건 DELETE 였다. 그러면 시작~종료 사이에 실제로 만든 것이
+	 *   아무 기록도 남기지 않고 사라진다. 작업자는 종료를 눌렀으니 입력했다고
+	 *   생각하는데 실적은 0 인 상태가 된다.
+	 *
+	 *   실적은 <b>작업중 행의 선언</b>을 그대로 쓴다 (설비·공정·프로젝트·수주·품목·유형).
+	 *   화면이 다시 보내온 값을 쓰지 않는 이유는, 시작한 뒤 화면에서 프로젝트를
+	 *   바꿔 놓았을 수 있기 때문이다. 만든 물건은 시작 시점의 선언에 속한다.
+	 *
+	 *   나중에 PLC 가 붙으면 이 자리에 누적 카운트가 들어온다.
+	 *   그때도 작업자가 수량을 고칠 수 있어야 하므로(초물·재작업) 인자는 그대로 둔다.
+	 */
+	@Transactional
+	public void endWorking(Integer id, Double goodQty, User user) {
+
+		Map<String, Object> w = getWorking(id);
+
+		if (w != null && goodQty != null && goodQty > 0) {
+			MapSqlParameterSource p = new MapSqlParameterSource();
+			p.addValue("spjangcd", str(w.get("spjangcd")));
+			p.addValue("projNo", nullIfEmpty(w.get("proj_no")));
+			p.addValue("sujuHeadId", toInt(w.get("suju_head_id")));
+			p.addValue("sujuId", toInt(w.get("suju_id")));
+			p.addValue("kind", defaultIfEmpty(w.get("kind"), "etc"));
+			p.addValue("operation", str(w.get("operation")));
+			p.addValue("equipment", str(w.get("equipment")));
+			p.addValue("worker", str(w.get("worker")));
+			p.addValue("workerId", toInt(w.get("worker_id")));
+			p.addValue("goodQty", goodQty);
+			p.addValue("userId", user == null ? null : user.getId());
+
+			sqlRunner.execute("""
+                INSERT INTO iljin_prod_result (
+                     spjangcd, "ProdDate", "Project_id", "SujuHead_id", "Suju_id", "Kind"
+                   , "Operation", "Equipment", "Worker", "Worker_id", "GoodQty"
+                   , "_created", "_creater_id"
+                ) VALUES (
+                     :spjangcd, CURRENT_DATE, :projNo, :sujuHeadId, :sujuId, :kind
+                   , :operation, :equipment, :worker, :workerId, :goodQty
+                   , now(), :userId
+                )
+                """, p);
+		}
+
+		MapSqlParameterSource d = new MapSqlParameterSource();
+		d.addValue("id", id);
+		sqlRunner.execute("DELETE FROM iljin_prod_working WHERE id = :id", d);
 	}
 
 	/** 설비 코드로 가공공정 결정 (실적의 공정은 화면이 아니라 설비가 정한다) */

@@ -245,7 +245,15 @@ public class ProdInspectService {
                  , CASE WHEN x.exempt_yn = 'Y'         THEN 'exempt'
                         WHEN COALESCE(i.insp_cnt, 0) > 0 THEN 'done'
                         ELSE 'wait' END      AS insp_state
+                 -- 수주가 여럿이면 같은 품목명이 여러 번 나온다. 수주일·업체로 구분한다
+                 , s."SujuHead_id"             AS suju_head_id
+                 , COALESCE(sh.suju_name, '')  AS suju_name
+                 , TO_CHAR(sh."JumunDate", 'MM-DD') AS jumun_date
+                 , COALESCE(c."Name", '')      AS company
+                 , COALESCE(sh."SujuType", '') AS suju_type
             FROM suju s
+            LEFT JOIN suju_head sh ON sh.id = s."SujuHead_id"
+            LEFT JOIN company c    ON c.id = sh."Company_id"
             LEFT JOIN job_res j
               ON j."SourceTableName" = 'suju' AND j."SourceDataPk" = s.id
             -- 공정 조립 완료 = 검사 가능 수량
