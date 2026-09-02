@@ -87,4 +87,77 @@ public class ProjectRegistrationServicr {
 
     this.sqlRunner.execute(sql, dicParam);
   }
+
+  /**
+   * 진행단계 1행 저장 (완료 버튼 즉시저장용).
+   *
+   *  ★ 대상 행은 seq 로 특정한다. seq 는 /save 의 delete-all + insert-all 이
+   *    돌 때마다 화면 순서로 재발급되므로, 화면은 <b>조회 시점의 seq</b> 를
+   *    행에 담아뒀다가 그대로 되돌려 보내야 한다.
+   *    화면에 보이는 순번을 보내면 드래그로 순서를 바꾼 뒤 엉뚱한 행이 완료된다.
+   *
+   * @return 실제로 바뀐 행 수. 0 이면 그 seq 의 행이 DB 에 없다 (= 미저장 행)
+   */
+  public int updateStageRow(String spjangcd, String projno, Integer seq,
+                            String stagenm, String pldate, String cpdate,
+                            Integer wbsPlanId, Integer chargeId, String remark) {
+    MapSqlParameterSource dicParam = new MapSqlParameterSource();
+    dicParam.addValue("spjangcd", spjangcd);
+    dicParam.addValue("projno", projno);
+    dicParam.addValue("seq", seq);
+    dicParam.addValue("stagenm", stagenm);
+    dicParam.addValue("pldate", pldate);
+    dicParam.addValue("cpdate", cpdate);
+    // 완료일이 있으면 완료(1), 없으면 진행중(0). saveStages 와 같은 규칙
+    dicParam.addValue("endflag", (cpdate != null && !cpdate.isEmpty()) ? "1" : "0");
+    dicParam.addValue("wbsPlanId", wbsPlanId);
+    dicParam.addValue("chargeId", chargeId);
+    dicParam.addValue("remark", remark);
+
+    // ★ NULL 만 들어올 수 있는 파라미터는 전부 CAST.
+    //   없으면 "매개 변수의 자료형을 알 수 없습니다" 로 실패한다.
+    String sql = """
+        UPDATE tb_da003_stage
+           SET stagenm     = CAST(:stagenm   AS varchar),
+               pldate      = CAST(:pldate    AS varchar),
+               cpdate      = CAST(:cpdate    AS varchar),
+               endflag     = CAST(:endflag   AS varchar),
+               wbs_plan_id = CAST(:wbsPlanId AS integer),
+               charge_id   = CAST(:chargeId  AS integer),
+               remark      = CAST(:remark    AS varchar)
+         WHERE spjangcd = :spjangcd
+           AND projno   = :projno
+           AND seq      = :seq
+    """;
+
+    return this.sqlRunner.execute(sql, dicParam);
+  }
+
+  /**
+   * 같은 프로젝트의 <b>다른</b> 행이 이미 그 WBS 세부단계를 물고 있는가.
+   *
+   *  허용하면 applyStageCompletion 의 UPDATE ... FROM 이 어느 행의 완료일을
+   *  쓸지 불확정이 된다. 화면에서도 막지만 서버에서도 한 번 접는다.
+   */
+  public boolean isWbsPlanLinkedByOther(String spjangcd, String projno,
+                                        Integer seq, Integer wbsPlanId) {
+    if (wbsPlanId == null) return false;
+
+    MapSqlParameterSource dicParam = new MapSqlParameterSource();
+    dicParam.addValue("spjangcd", spjangcd);
+    dicParam.addValue("projno", projno);
+    dicParam.addValue("seq", seq);
+    dicParam.addValue("wbsPlanId", wbsPlanId);
+
+    Integer n = this.sqlRunner.queryForObject("""
+        SELECT count(*)
+          FROM tb_da003_stage
+         WHERE spjangcd = :spjangcd
+           AND projno   = :projno
+           AND seq     <> :seq
+           AND wbs_plan_id = :wbsPlanId
+    """, dicParam, (rs, i) -> rs.getInt(1));
+
+    return n != null && n > 0;
+  }
 }

@@ -551,7 +551,7 @@
                   </div>
                   <div class="stage-foot">
                     내용이 하나도 없는 행은 저장되지 않습니다.
-                    WBS 를 연결한 행은 완료를 누르면 WBS 계획의 실적일에도 반영됩니다.
+                    완료를 누르면 바로 저장됩니다. WBS 를 연결한 행은 WBS 계획의 실적일에도 함께 반영됩니다.
                   </div>
                 </div>
                 <!-- ============================================ -->
@@ -839,7 +839,11 @@
     // WBS 세부단계 목록을 받아둔다. 프로젝트를 고를 때마다 다시 부른다.
     loadWbsStageOptions(projno, done) {
      const _this = this;
-     if (!projno) { this.wbsStageOptions = []; if (done) done(); return; }
+     if (!projno) {
+      this.wbsStageOptions = [];
+      if (done) done();
+      return;
+     }
      AjaxUtil.getAsyncData(this.url + '/wbsStageOptions',
       {projno: projno, spjangcd: this.spjangcd.val()},
       function (r) {
@@ -875,11 +879,19 @@
             </td>
           </tr>`;
      $tbody.append(row);
+     const $new = $tbody.children('tr').last();
+
      // 비고는 WBS 계획 팝업에서 입력한다. 여기서는 열을 만들지 않되
      //  값을 잃지 않도록 행에 담아둔다 (저장 시 그대로 되돌려 보낸다).
-     $tbody.children('tr').last().data('remark', stage.remark || '');
+     $new.data('remark', stage.remark || '');
+
+     // ★ DB 행을 가리키는 키. 화면에 보이는 순번(.stage-seq)이 아니다.
+     //   드래그로 순서를 바꿔도 이 값은 그 행을 따라다녀야 한다.
+     //   조회로 만든 행에만 있고, 사용자가 방금 추가한 행에는 없다(= 미저장).
+     $new.data('seq', (stage.seq === undefined || stage.seq === null) ? null : Number(stage.seq));
+
      this.renumberStages();
-     return $tbody.children('tr').last();
+     return $new;
     }
 
     // ✅ 진행단계 전체 다시 그리기 (조회 시)
@@ -943,6 +955,7 @@
     }
 
     // ✅ 완료 토글 : 비어있으면 오늘 날짜, 이미 있으면 해제
+    //   ★ 화면 값만 바꾼다. 저장은 completeStageNow 가 한다.
     toggleStageComplete($tr) {
      const $cp = $tr.find('.stage-cpdate');
      if (($cp.val() || '').trim()) {
@@ -952,6 +965,168 @@
       $cp.val(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`);
      }
      this.renumberStages();
+    }
+
+    /**
+     * 완료 칩 클릭 → 화면 토글 + 즉시 저장.
+     *
+     *  저장 버튼을 누르지 않아도 tb_da003_stage 와 wbs_plan 두 곳에 반영된다.
+     *  wbs_plan 쪽은 서버가 applyStageCompletion 으로 맞춘다.
+     *
+     *  ★ 실패하면 화면 값을 원래대로 되돌린다. 안 되돌리면 사용자는
+     *    저장된 줄 알고 창을 닫는다.
+     */
+    completeStageNow($tr) {
+     const _this = this;
+     const $chip = $tr.find('.btn-stage-complete');
+     if ($chip.prop('disabled')) return;   // 전송 중 연타 방지
+
+     const before = ($tr.find('.stage-cpdate').val() || '').trim();
+     this.toggleStageComplete($tr);
+
+     const rollback = function (msg) {
+      $tr.find('.stage-cpdate').val(before);
+      _this.renumberStages();
+      if (msg) Alert.alert('', msg);
+     };
+
+     const stagenm = ($tr.find('.stage-stagenm').val() || '').trim();
+     if (!stagenm) {
+      rollback('단계명을 먼저 입력해 주세요.');
+      $tr.find('.stage-stagenm').focus();
+      return;
+     }
+
+     const projno = ($('#projno').val() || '').trim();
+     const seq = $tr.data('seq');
+
+     // 아직 저장된 적 없는 프로젝트이거나, 방금 추가해 DB 에 없는 행이면
+     //  프로젝트·진행단계를 통째로 먼저 저장한 뒤 완료를 건다.
+     if (!projno || seq === null || seq === undefined) {
+      this.saveAllThenComplete($tr, rollback);
+      return;
+     }
+
+     $chip.prop('disabled', true);
+     this.postStageComplete(projno, seq, $tr,
+      function () {
+       $chip.prop('disabled', false);
+      },
+      function (msg) {
+       $chip.prop('disabled', false);
+       rollback(msg);
+      });
+    }
+
+    /** 완료 1건 서버 전송. 성공은 조용히, 실패만 알린다 */
+    postStageComplete(projno, seq, $tr, onDone, onFail) {
+     const _this = this;
+     const param = {
+      spjangcd: this.spjangcd.val(),
+      projno: projno,
+      seq: seq,
+      // 그 행의 현재 화면값을 통째로 보낸다. 완료일만 저장하고 옆칸 수정을
+      //  버리면 "저장했는데 단계명이 안 바뀌었다" 가 된다.
+      stagenm: ($tr.find('.stage-stagenm').val() || '').trim(),
+      pldate: ($tr.find('.stage-pldate').val() || '').trim(),
+      cpdate: ($tr.find('.stage-cpdate').val() || '').trim(),
+      wbs_plan_id: ($tr.find('.stage-wbs').val() || '') || null,
+      charge_id: ($tr.find('.stage-charge').val() || '') || null,
+      remark: $tr.data('remark') || null
+     };
+
+     AjaxUtil.postJsonData(this.url + '/stage_complete', param,
+      function (result) {
+       if (result && result.success) {
+        _this.renumberStages();
+        _this.wbsPanelLoad(projno);   // WBS 패널의 실적일도 같이 갱신
+        if (onDone) onDone();
+       } else {
+        if (onFail) onFail((result && result.message) ? result.message : '완료 저장에 실패했습니다.');
+       }
+      },
+      function () {
+       if (onFail) onFail('완료 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      });
+    }
+
+    /**
+     * 미저장 상태에서 완료를 눌렀을 때.
+     *  프로젝트 + 진행단계를 먼저 저장하고, 그 행의 새 seq 로 완료를 다시 건다.
+     *
+     *  ★ 새 seq = collectStages() 안에서의 위치 + 1.
+     *    /save 가 delete-all 후 화면 순서로 다시 채번하기 때문이다.
+     *  ★ saveMainData 와 달리 폼을 비우지 않는다 —
+     *    사용자는 계속 그 프로젝트를 보고 있는 중이다.
+     */
+    saveAllThenComplete($tr, rollback) {
+     const _this = this;
+
+     if (!($('#projnm').val() || '').trim()) {
+      rollback('프로젝트명을 먼저 입력해 주세요.');
+      $('#projnm').focus();
+      return;
+     }
+     if (!this.validateStages()) {
+      rollback(null);
+      return;
+     }
+
+     // 저장 후 이 행이 받게 될 seq 를 미리 계산 (collectStages 와 같은 조건으로 센다)
+     let targetSeq = null;
+     let idx = 0;
+     $('#stageTableBody tr').each(function () {
+      const $row = $(this);
+      const stagenm = ($row.find('.stage-stagenm').val() || '').trim();
+      const pldate = ($row.find('.stage-pldate').val() || '').trim();
+      const cpdate = ($row.find('.stage-cpdate').val() || '').trim();
+      const wbsId = ($row.find('.stage-wbs').val() || '').trim();
+      if (!stagenm && !pldate && !cpdate && !wbsId) return;
+      idx++;
+      if (this === $tr[0]) targetSeq = idx;
+     });
+
+     if (targetSeq === null) {
+      rollback('저장 대상 행을 찾지 못했습니다.');
+      return;
+     }
+
+     const data = {
+      projno: ($('#projno').val() || '').trim(),
+      projnm: $('#projnm').val(),
+      balcltnm: $('#balcltnm').val(),
+      balcltcd: $('#balcltcd').val(),
+      stdate: $('#stdate').val(),
+      eddate: $('#eddate').val(),
+      contdate: $('#contdate').val(),
+      remark: $('#remark').val(),
+      spjangcd: this.spjangcd.val(),
+      stages: this.collectStages()
+     };
+
+     AjaxUtil.postJsonData(this.url + '/save', data, function (result) {
+      if (!(result && result.success)) {
+       rollback((result && result.message) ? result.message : '저장에 실패했습니다.');
+       return;
+      }
+      // 신규면 result.data 에 채번된 projno 가 온다
+      const projno = result.data ? String(result.data) : ($('#projno').val() || '').trim();
+      $('#projno').val(projno);
+
+      // ★ /save 는 syncDrawDateForProject 를 부르므로 2D 출도 행은 여기서 자동값으로
+      //   되돌아간다. 이어서 stage_complete 를 불러 수동값을 다시 얹는다.
+      _this.postStageComplete(projno, targetSeq, $tr,
+       function () {
+        _this.searchMainData();     // 목록에 신규 프로젝트 반영
+        _this.loadStages(projno);   // 서버가 채번한 seq 로 다시 그린다
+       },
+       function (msg) {
+        rollback(msg);
+        _this.loadStages(projno);
+       });
+     }, function () {
+      rollback('저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+     });
     }
 
     // ✅ 순서 이동 (dir : -1 위 / 1 아래)
@@ -1247,7 +1422,10 @@
      */
     wbsPanelLoad(projno) {
      const _this = this;
-     if (!projno) { this.wbsPanelClear(); return; }
+     if (!projno) {
+      this.wbsPanelClear();
+      return;
+     }
 
      AjaxUtil.getAsyncData('/api/transaction/wbsPlan/plan_list',
       {spjangcd: this.spjangcd.val(), projno: projno},
@@ -1286,7 +1464,8 @@
      if (persist) {
       try {
        sessionStorage.setItem('projHeadCollapsed', collapsed ? '1' : '0');
-      } catch (e) { /* 세션스토리지 차단 환경 무시 */ }
+      } catch (e) { /* 세션스토리지 차단 환경 무시 */
+      }
      }
      if (collapsed) this.renderProjHeadSummary();
     }
@@ -1430,7 +1609,9 @@
        WBS 표준 템플릿 관리 (모달)
        draft --[적용]--> active --[개정]--> 새 draft
        ========================================================= */
-    wfUrl() { return '/api/transaction/wbsForm'; }
+    wfUrl() {
+     return '/api/transaction/wbsForm';
+    }
 
     wfEsc(v) {
      return String(v == null ? '' : v)
@@ -1450,7 +1631,9 @@
      this.bindWbsFormEvents();
      // 기본 담당 드롭다운용. 목록이 없으면 (미지정) 만 뜨므로 먼저 받는다.
      if (!this.personOptions) {
-      this.loadPersonOptions(function () { _this.wfLoadList(); });
+      this.loadPersonOptions(function () {
+       _this.wfLoadList();
+      });
      } else {
       this.wfLoadList();
      }
@@ -1466,13 +1649,20 @@
      const _this = this;
      const off = (sel, ev) => $(document).off(ev, sel);
 
-     off('#btnWfClose', 'click');  $(document).on('click', '#btnWfClose',  () => _this.closeWbsForm());
-     off('#btnWfCancel', 'click'); $(document).on('click', '#btnWfCancel', () => _this.closeWbsForm());
-     off('#btnWfNew', 'click');    $(document).on('click', '#btnWfNew',    () => _this.wfNew());
-     off('#btnWfSave', 'click');   $(document).on('click', '#btnWfSave',   () => _this.wfSave());
-     off('#btnWfRevise', 'click'); $(document).on('click', '#btnWfRevise', () => _this.wfRevise());
-     off('#btnWfApply', 'click');  $(document).on('click', '#btnWfApply',  () => _this.wfApply());
-     off('#btnWfDrop', 'click');   $(document).on('click', '#btnWfDrop',   () => _this.wfDrop());
+     off('#btnWfClose', 'click');
+     $(document).on('click', '#btnWfClose', () => _this.closeWbsForm());
+     off('#btnWfCancel', 'click');
+     $(document).on('click', '#btnWfCancel', () => _this.closeWbsForm());
+     off('#btnWfNew', 'click');
+     $(document).on('click', '#btnWfNew', () => _this.wfNew());
+     off('#btnWfSave', 'click');
+     $(document).on('click', '#btnWfSave', () => _this.wfSave());
+     off('#btnWfRevise', 'click');
+     $(document).on('click', '#btnWfRevise', () => _this.wfRevise());
+     off('#btnWfApply', 'click');
+     $(document).on('click', '#btnWfApply', () => _this.wfApply());
+     off('#btnWfDrop', 'click');
+     $(document).on('click', '#btnWfDrop', () => _this.wfDrop());
 
      off('#wfList tr', 'click');
      $(document).on('click', '#wfList tr', function () {
@@ -1535,7 +1725,11 @@
      this.WF.cur = {
       id: null, form_code: '', form_name: '', revision: 1,
       state: 'draft', remark: '', used_count: 0,
-      steps: [{step_name: '', remark: '', tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0', charge_id: null}]}]
+      steps: [{
+       step_name: '',
+       remark: '',
+       tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0', charge_id: null}]
+      }]
      };
      this.wfRenderList();
      this.wfRenderEditor();
@@ -1566,18 +1760,22 @@
      const baseOpts = (v) => {
       // 주의: 대괄호 두 개가 연달아 붙으면 Thymeleaf 인라인 표현식으로 해석되어 파싱이 깨진다.
       //       배열 리터럴 양끝에 공백을 둘 것.
-      const opts = [ ['prev', '이전단계 종료'], ['contract', '계약일'], ['start', '공사일자'], ['end', '종료일'] ];
+      const opts = [['prev', '이전단계 종료'], ['contract', '계약일'], ['start', '공사일자'], ['end', '종료일']];
 
-      const chargeOpts = (cur) => {
-       const c = String(cur ?? '');
-       let h = '<option value="">(미지정)</option>';
-       (page.personOptions || []).forEach(function (o) {
-        const v = String(o.id);
-        h += '<option value="' + v + '"' + (v === c ? ' selected' : '') + '>' + esc(o.name) + '</option>';
-       });
-       return h;
-      };
       return opts.map(o => '<option value="' + o[0] + '"' + (o[0] === (v || 'prev') ? ' selected' : '') + '>' + o[1] + '</option>').join('');
+     };
+
+     // 기본 담당 콤보.
+     //  ★ baseOpts 안에 두면 안 된다. 바깥에서 안 보여 ReferenceError 가 난다.
+     //  cur 를 c 로 받으면 위쪽 `const c = this.WF.cur` 를 가리므로 cv 로 둔다.
+     const chargeOpts = (cur) => {
+      const cv = String(cur ?? '');
+      let h = '<option value="">(미지정)</option>';
+      (_this.personOptions || []).forEach(function (o) {
+       const v = String(o.id);
+       h += '<option value="' + v + '"' + (v === cv ? ' selected' : '') + '>' + esc(o.name) + '</option>';
+      });
+      return h;
      };
 
      let html = '<table class="wf-tasktbl" style="margin-bottom:10px;"><tbody>' +
@@ -1633,8 +1831,12 @@
      const _this = this;
      const c = this.WF.cur;
 
-     $('#wfFormCode').off('input').on('input', function () { c.form_code = this.value; });
-     $('#wfFormName').off('input').on('input', function () { c.form_name = this.value; });
+     $('#wfFormCode').off('input').on('input', function () {
+      c.form_code = this.value;
+     });
+     $('#wfFormName').off('input').on('input', function () {
+      c.form_name = this.value;
+     });
 
      $('#wfEditor .wf-stepnm').off('input').on('input', function () {
       c.steps[+this.dataset.si].step_name = this.value;
@@ -1653,12 +1855,23 @@
      });
 
      $('#wfEditor .wfAddStep').off('click').on('click', function () {
-      c.steps.push({step_name: '', remark: '', tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0', charge_id: null}]});
+      c.steps.push({
+       step_name: '',
+       remark: '',
+       tasks: [{task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0', charge_id: null}]
+      });
       _this.wfRenderEditor();
      });
 
      $('#wfEditor .wfAddTask').off('click').on('click', function () {
-      c.steps[+this.dataset.si].tasks.push({task_name: '', base_type: 'prev', offset_days: 0, duration_days: 0, milestone_yn: '0', charge_id: null});
+      c.steps[+this.dataset.si].tasks.push({
+       task_name: '',
+       base_type: 'prev',
+       offset_days: 0,
+       duration_days: 0,
+       milestone_yn: '0',
+       charge_id: null
+      });
       _this.wfRenderEditor();
      });
 
@@ -1678,14 +1891,18 @@
      $('#wfEditor .wfStepUp').off('click').on('click', function () {
       const si = +this.dataset.si;
       if (si <= 0) return;
-      const t = c.steps[si - 1]; c.steps[si - 1] = c.steps[si]; c.steps[si] = t;
+      const t = c.steps[si - 1];
+      c.steps[si - 1] = c.steps[si];
+      c.steps[si] = t;
       _this.wfRenderEditor();
      });
 
      $('#wfEditor .wfStepDown').off('click').on('click', function () {
       const si = +this.dataset.si;
       if (si >= c.steps.length - 1) return;
-      const t = c.steps[si + 1]; c.steps[si + 1] = c.steps[si]; c.steps[si] = t;
+      const t = c.steps[si + 1];
+      c.steps[si + 1] = c.steps[si];
+      c.steps[si] = t;
       _this.wfRenderEditor();
      });
     }
@@ -1695,8 +1912,14 @@
      const c = this.WF.cur;
      if (!c) return;
 
-     if (!String(c.form_code || '').trim()) { Alert.alert('', '템플릿 코드를 입력하세요.'); return; }
-     if (!String(c.form_name || '').trim()) { Alert.alert('', '템플릿명을 입력하세요.'); return; }
+     if (!String(c.form_code || '').trim()) {
+      Alert.alert('', '템플릿 코드를 입력하세요.');
+      return;
+     }
+     if (!String(c.form_name || '').trim()) {
+      Alert.alert('', '템플릿명을 입력하세요.');
+      return;
+     }
 
      const payload = Object.assign({}, c, {spjangcd: this.spjangcd.val()});
      AjaxUtil.postJsonData(this.wfUrl() + '/form_save', payload, function (result) {
@@ -1911,10 +2134,11 @@
      page.moveStageRow($(this).closest('tr'), 1);
     });
 
-    // ✅ 진행단계 행별 완료 버튼 (토글)
+    // ✅ 진행단계 행별 완료 버튼 (토글 + 즉시저장)
+    //   저장 버튼을 누르지 않아도 tb_da003_stage / wbs_plan 두 곳에 반영된다.
     $('#stageTableBody').on('click', '.btn-stage-complete', function (e) {
      e.preventDefault();
-     page.toggleStageComplete($(this).closest('tr'));
+     page.completeStageNow($(this).closest('tr'));
     });
 
     // ★ 같은 WBS 세부단계를 두 행에 연결하지 못하게 막는다.

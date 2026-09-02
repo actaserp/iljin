@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -183,6 +184,89 @@ public class ProjectRegistrationController {  //프로젝트 관리
     }
 
     return result;
+  }
+
+  /**
+   * 진행단계 완료 즉시저장. 저장 버튼을 거치지 않는다.
+   *
+   *  화면의 [완료] 칩을 누르면 이 경로로 들어온다.
+   *  tb_da003_stage 를 1행 고치고, 그 결과를 wbs_plan 에 반영한다.
+   *
+   *  ★ syncDrawDateForProject 는 <b>부르지 않는다.</b>
+   *    그쪽은 auto_source='draw_date' 행의 ac_eddate 를 수주 도면출도일 MAX 로
+   *    되돌리므로, 여기서 부르면 2D 출도 행은 완료를 눌러도 같은 트랜잭션 안에서
+   *    원복돼 "눌렀는데 아무 일도 안 일어나는" 화면이 된다.
+   *
+   *    다만 /save 와 수주 저장은 여전히 자동값이 이긴다. 같은 행이 경로에 따라
+   *    다르게 동작하는 비대칭이 남아 있다 — 완전히 맞추려면 wbs_plan 에
+   *    "손으로 고쳤음" 플래그를 두고 자동 동기화에서 제외해야 한다.
+   */
+  @PostMapping("/stage_complete")
+  @Transactional
+  public AjaxResult stageComplete(@RequestBody Map<String, Object> params,
+                                  Authentication auth) {
+    User user = (auth == null) ? null : (User) auth.getPrincipal();
+    AjaxResult result = new AjaxResult();
+
+    String spjangcd = asStr(params.get("spjangcd"));
+    String projno   = asStr(params.get("projno"));
+    Integer seq     = asInt(params.get("seq"));
+
+    if (projno == null || projno.isEmpty() || seq == null) {
+      result.success = false;
+      result.message = "저장 대상을 찾지 못했습니다. 먼저 저장한 뒤 다시 시도해 주세요.";
+      return result;
+    }
+
+    // 단계명 없는 행은 저장 버튼 쪽 validateStages 와 같은 이유로 막는다
+    String stagenm = asStr(params.get("stagenm"));
+    if (stagenm == null || stagenm.isEmpty()) {
+      result.success = false;
+      result.message = "단계명이 없는 행은 완료 처리할 수 없습니다.";
+      return result;
+    }
+
+    String pldate = emptyToNull(formatDate8(asStr(params.get("pldate"))));
+    String cpdate = emptyToNull(formatDate8(asStr(params.get("cpdate"))));
+    Integer wbsPlanId = asInt(params.get("wbs_plan_id"));
+    Integer chargeId  = asInt(params.get("charge_id"));
+    String  remark    = asStr(params.get("remark"));
+
+    // 한 WBS 단계에 두 행이 물리면 applyStageCompletion 이 어느 값을 쓸지 불확정이 된다
+    if (this.projectRegistrationServicr.isWbsPlanLinkedByOther(spjangcd, projno, seq, wbsPlanId)) {
+      result.success = false;
+      result.message = "이미 다른 진행단계 행에 연결된 WBS 단계입니다.";
+      return result;
+    }
+
+    int n = this.projectRegistrationServicr.updateStageRow(
+      spjangcd, projno, seq, stagenm, pldate, cpdate, wbsPlanId, chargeId, remark);
+
+    if (n == 0) {
+      // 화면에만 있고 DB 에 없는 행. 화면이 /save 를 먼저 태우므로 정상 경로에선 안 온다
+      result.success = false;
+      result.message = "저장된 진행단계를 찾지 못했습니다. 저장 버튼으로 먼저 저장해 주세요.";
+      return result;
+    }
+
+    // tb_da003_stage → wbs_plan.ac_eddate 반영.
+    //  완료를 해제했으면 cpdate 가 NULL 이라 ac_eddate 도 비워진다
+    //  (delay_yn 판정이 ac_eddate IS NULL 을 보므로 지연 목록에 다시 들어온다)
+    int wbsCnt = this.wbsPlanService.applyStageCompletion(spjangcd, projno, user);
+
+    Map<String, Object> data = new HashMap<>();
+    data.put("cpdate", cpdate);
+    data.put("endflag", (cpdate == null) ? "0" : "1");
+    data.put("wbs_updated", wbsCnt);
+
+    result.success = true;
+    result.message = (cpdate == null) ? "완료를 해제했습니다." : "완료로 저장했습니다.";
+    result.data = data;
+    return result;
+  }
+
+  private String emptyToNull(String s) {
+    return (s == null || s.isEmpty()) ? null : s;
   }
 
   // 진행단계 저장 로직
