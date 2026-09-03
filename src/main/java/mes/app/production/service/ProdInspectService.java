@@ -191,7 +191,11 @@ public class ProdInspectService {
 	 * 작업 지시된 품목 전체가 대상이다. 내작·외작을 가리지 않는다.
 	 *
 	 *   exempt_yn  외작 + mat_inout_inspect."InspectYN"='Y' → 업체 검사 완료분
-	 *   ready_qty  <b>조립(ProcessOrder=1) 완료 유닛수</b>.
+	 *   ready_qty  <b>공정 조립(ProcessOrder=2) 완료 지그 대수</b>.
+	 *              검사와 같은 축이라 set_target 과 나란히 놓을 수 있다.
+	 *              한때 PO=1(유닛)을 넣었다가 되돌렸다 — 분자는 유닛,
+	 *              분모는 지그 대수라 A12(지그 2대·유닛 24)가 '2/2 완료'로 보였다.
+	 *   unit_done / unit_qty  유닛 조립 진척. 축이 달라 <b>따로</b> 보여준다.
 	 *              검사는 이 값을 보지 않고 막지도 않는다 — 실물을 보고 하는 일이라
 	 *              시스템이 앞서 판단할 근거가 없다. 다만 화면에 같이 띄워
 	 *              "조립 3/20 인데 검사 완료" 같은 오입력이 눈에 띄게 한다.
@@ -236,7 +240,9 @@ public class ProdInspectService {
                  --   검사 누적이 대수에 도달하면 그 공정(품목)은 끝난 것이다.
                  --   공정 조립(PO=2) 단계를 없앤 뒤 그 역할이 여기로 왔다.
                  , COALESCE(s."SujuQty", 0) AS set_target
-                 , COALESCE(a.ready_qty, 0)  AS ready_qty
+                 , COALESCE(a.ready_qty, 0)  AS ready_qty      -- 공정 조립 (지그)
+                 , COALESCE(au.ready_qty, 0) AS unit_done      -- 유닛 조립
+                 , COALESCE(s.unit_qty, 0)   AS unit_qty       -- 구성 유닛 수
                  , COALESCE(i.insp_qty, 0)   AS insp_qty
                  , COALESCE(i.defect_qty, 0) AS insp_defect_qty
                  , COALESCE(i.insp_cnt, 0)   AS insp_cnt
@@ -260,9 +266,16 @@ public class ProdInspectService {
             LEFT JOIN (
                 SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS ready_qty
                 FROM mat_produce
-                WHERE "ProcessOrder" = 1 AND "State" = 'finished'
+                WHERE "ProcessOrder" = 2 AND "State" = 'finished'
                 GROUP BY "JobResponse_id"
             ) a ON a."JobResponse_id" = j.id
+            -- 유닛 조립. 축이 달라 검사 목표와 비교하지 않고 참고로만 보여준다
+            LEFT JOIN (
+                SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS ready_qty
+                FROM mat_produce
+                WHERE "ProcessOrder" = 1 AND "State" = 'finished'
+                GROUP BY "JobResponse_id"
+            ) au ON au."JobResponse_id" = j.id
             -- 검사 실적
             LEFT JOIN (
                 SELECT "JobResponse_id"

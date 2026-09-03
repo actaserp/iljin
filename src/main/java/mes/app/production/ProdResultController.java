@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -189,6 +190,34 @@ public class ProdResultController {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
 		result.data = prodResultService.getResultLog(spjangcd, prodDate, equipment, operation);
+		return result;
+	}
+
+	/**
+	 * 가공 실적 조회 (PC 관리 화면).
+	 *
+	 * 키오스크의 /log 는 그날 그 설비 것만 보여 준다.
+	 * 여기서는 기간·프로젝트·공정·설비·작업자·유형으로 좁혀 전체를 훑는다.
+	 * 잘못 찍은 실적을 나중에 고칠 데가 필요해서 만들었다.
+	 */
+	@GetMapping("/search")
+	public AjaxResult search(@RequestParam("spjangcd") String spjangcd,
+							 @RequestParam(value = "dateFrom", required = false) String dateFrom,
+							 @RequestParam(value = "dateTo", required = false) String dateTo,
+							 @RequestParam(value = "projNo", required = false) String projNo,
+							 @RequestParam(value = "operation", required = false) String operation,
+							 @RequestParam(value = "equipment", required = false) String equipment,
+							 @RequestParam(value = "workerId", required = false) Integer workerId,
+							 @RequestParam(value = "kind", required = false) String kind) {
+		AjaxResult result = new AjaxResult();
+		Map<String, Object> data = new HashMap<>();
+		data.put("rows", prodResultService.searchResults(
+				spjangcd, dateFrom, dateTo, projNo, operation, equipment, workerId, kind));
+		// 공정 × 유형 소계. 공정을 합치지 않는다 (한 부품이 공정마다 다시 세어진다)
+		data.put("summary", prodResultService.searchSummary(
+				spjangcd, dateFrom, dateTo, projNo, operation, equipment, workerId, kind));
+		result.success = true;
+		result.data = data;
 		return result;
 	}
 

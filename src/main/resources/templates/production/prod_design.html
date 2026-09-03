@@ -81,6 +81,10 @@
         .modal-box .section-top .search-wrap dt { margin:0; white-space:nowrap; }
         .modal-box .section-top .search-wrap dd { margin:0; }
         .modal-box .section-top .button-wrap { margin:0; }
+        /* 표준 BOM 에서 불러온 행. 아직 저장 전이라는 걸 눈으로 알린다 */
+        tr.tpl > td { background:#f2f7ff; }
+        tr.tpl > td:first-child::after { content:'T'; margin-left:4px; color:#1f4e8c;
+            font-size:10px; font-weight:800; vertical-align:top; }
     </style>
 </head>
 <th:block layout:fragment="content">
@@ -152,6 +156,7 @@
                     </div>
                     <div class="button-wrap" style="margin-bottom: 0">
                         <ul>
+                            <li><a class="btn" title="설비타입별 표준 BOM 관리" onclick="prodDesign.openTpl()">표준 BOM</a></li>
                             <li><a class="btn" title="유형(분류) 관리" onclick="prodDesign.openKindManager()">유형 관리</a></li>
                             <li><a class="btn" title="엑셀에서 붙여넣기" onclick="prodDesign.openBulk()">일괄 입력</a></li>
                             <li>
@@ -261,12 +266,17 @@
                 <div class="section-top" style="border-radius:8px 8px 0 0;">
                     <h3>품목 선택</h3>
                 </div>
-                <div class="modal-body" style="overflow:auto;padding:14px 16px;">
+                <!-- ★ 검색창과 표를 다른 영역으로 나눈다.
+                     한 컨테이너에 두고 통째로 스크롤하면, sticky 헤더가
+                     스크롤포트 맨 위(검색창 자리)에 붙어 행이 그 위로 지나간다. -->
+                <div style="padding:14px 16px 0;flex:0 0 auto;">
                     <p class="hint" id="matFor" style="margin:0 0 8px;"></p>
                     <input id="matKw" type="text" placeholder="품목명 또는 품목코드 (빈 칸이면 전체)"
                            style="width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #cfd6e2;border-radius:5px;"
                            oninput="prodDesign.searchMat()">
                     <div class="hint" id="matCount" style="margin:8px 0 6px;"></div>
+                </div>
+                <div class="modal-body" style="overflow:auto;padding:0 16px 14px;flex:1 1 auto;min-height:0;">
                     <table class="work-table">
                         <colgroup>
                             <col style="width:22%"><col style="width:38%">
@@ -284,6 +294,36 @@
         </div>
 
         <!-- ===== 유형(분류) 관리 모달 ===== -->
+        <!-- ===== 표준 BOM 관리 =====
+             설비타입(고정지그·모다턴…)마다 가공품 구성이 반복되므로 뼈대를 등록해 둔다.
+             품목을 클릭했을 때 가공품이 하나도 없으면 화면이 이걸 깔아 준다. -->
+        <div id="tplModal"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
+            <div class="modal-box" style="background:#fff;border-radius:8px;width:900px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+                <div class="section-top" style="border-radius:8px 8px 0 0;">
+                    <h3>표준 BOM (설비타입별 가공품)</h3>
+                </div>
+                <div style="display:flex;gap:12px;padding:12px 16px 0;flex:1 1 auto;min-height:0;">
+                    <!-- 좌: 템플릿 목록 -->
+                    <div style="flex:0 0 250px;display:flex;flex-direction:column;min-height:0;">
+                        <div class="hint" style="margin-bottom:6px;">템플릿</div>
+                        <div style="flex:1 1 auto;overflow:auto;border:1px solid #e3e8f0;border-radius:6px;">
+                            <table class="work-table"><tbody id="tplList"></tbody></table>
+                        </div>
+                        <a class="btn" style="margin-top:6px;text-align:center" onclick="prodDesign.tplNew()">+ 템플릿 추가</a>
+                    </div>
+
+                    <!-- 우: 상세 -->
+                    <div style="flex:1 1 auto;display:flex;flex-direction:column;min-height:0;" id="tplDetail"></div>
+                </div>
+                <div class="modal-foot">
+                    <a class="btn btn-delete" onclick="prodDesign.tplDelete()">삭제</a>
+                    <a class="btn" onclick="prodDesign.tplSave()">저장</a>
+                    <a class="btn" onclick="prodDesign.closeTpl()">닫기</a>
+                </div>
+            </div>
+        </div>
+
         <div id="kindModal"
              style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
             <div class="modal-box" style="background:#fff;border-radius:8px;width:560px;max-width:92vw;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
@@ -497,9 +537,27 @@
                     ordered ? '작업 지시를 취소하시겠습니까?' : '작업 지시를 생성하시겠습니까?');
                 if (!ok) return;
 
-                const res = await this.post(url, {sujuId: it.suju_id});
+                const sujuId = it.suju_id;
+                const res = await this.post(url, {sujuId: sujuId});
                 Alert.alert('', res.message || (res.success ? '처리되었습니다.' : '실패했습니다.'));
-                if (res.success) await this.loadItems();
+                if (!res.success) return;
+
+                /*
+                 * ★ 부품 목록도 같이 새로 읽는다.
+                 *   작업 지시를 만들 때 다리발 1행이 부품표에 시딩되는데(seedLegPart),
+                 *   목록만 갱신하면 그 행이 화면에 안 나타나 사용자가
+                 *   품목을 다시 클릭해야 확인할 수 있었다.
+                 *
+                 *   loadItems() 가 배열을 새로 만들어 selItemIdx 가 가리키는 대상이
+                 *   바뀔 수 있으므로, suju_id 로 다시 찾아 선택을 유지한다.
+                 */
+                await this.loadItems();
+                const i = this.items.findIndex(x => x.suju_id === sujuId);
+                if (i >= 0) {
+                    this.selItemIdx = i;
+                    this.renderItem();   // updateOrderBtn 은 그 안에서 호출된다
+                }
+                await this.loadParts();
             }
 
             // ===== 부품(BOM) =====
@@ -518,6 +576,39 @@
                     projNo: this.selProj
                 });
                 this.parts = res.data || [];
+                this.tplName = null;
+
+                /*
+                 * ★ 표준 BOM.
+                 *   부품표에 <b>가공품이 없으면</b> 그 설비타입의 템플릿을 깔아 준다.
+                 *   2D 도면 전에도 "고정지그면 plate·block·pin" 은 아니까,
+                 *   뼈대를 미리 놓고 수량만 고치게 하는 것이다.
+                 *
+                 *   저장하지 않는다. 사용자가 [저장] 을 눌러야 DB 로 가고,
+                 *   그냥 나가면 사라진다. 그래서 지운 행이 되살아나는 문제가 없다.
+                 *
+                 *   판정을 '부품 0건' 이 아니라 '가공품 0건' 으로 하는 이유:
+                 *   작업지시 때 다리발 1행이 먼저 들어가는데(QtyType='total'),
+                 *   그것 때문에 템플릿이 안 깔리면 정작 필요한 뼈대를 못 얻는다.
+                 */
+                const hasMake = this.parts.some(x => x.gubun === '제작품'
+                    && (x.qty_type || 'unit') !== 'total');
+                if (!it.common && !hasMake && it.equip_type) {
+                    const t = await this.get(`${this.API}/bom_template_by_type`,
+                        {spjangcd: this.spjangcd, equipType: it.equip_type});
+                    const rows = t.data || [];
+                    if (rows.length) {
+                        this.tplName = rows[0].template_name || it.equip_type;
+                        // 템플릿은 유형만 담는다. part_name 에는 서버가 유형명을 넣어 준다
+                        rows.forEach(r => this.parts.push({
+                            id: null, part_no: '', part_name: r.part_name || r.kind,
+                            gubun: r.gubun || '제작품', kind: r.kind || 'etc',
+                            qty: r.qty, qty_type: 'unit', state: '추정',
+                            _fromTpl: true
+                        }));
+                    }
+                }
+
                 this.renderPart();
                 // 저장된 것 중에도 품목이 안 붙은 STD·구매품이 있을 수 있다.
                 // 붙일 수 있는 건 붙이고 나머지는 미매칭 패널로 올린다.
@@ -539,14 +630,18 @@
                 // 필요량 = 수량 합계. 유니트수를 곱하지 않는다 (needOf 주석 참조).
                 const need = this.parts.reduce((s, p) => s + this.needOf(p), 0);
                 const est = this.parts.filter(p => p.state === '추정').length;
+                const tplCnt = this.parts.filter(p => p._fromTpl).length;
                 this.el('bomHint').innerHTML =
                     `필요량 합계 <b>${need}</b> · 부품 ${this.parts.length}건`
-                    + (est ? ` · <b style="color:#8a6d1b">추정 ${est}건</b>` : '');
+                    + (est ? ` · <b style="color:#8a6d1b">추정 ${est}건</b>` : '')
+                    // 템플릿에서 온 값은 아직 저장 전이다. 안 알려주면 저장된 줄 알고 지나친다
+                    + (tplCnt ? `<br><b style="color:#1f4e8c">표준 BOM(${this.escHtml(this.tplName || '')})</b>`
+                        + ` 에서 ${tplCnt}건을 불러왔습니다 — <b>저장해야 반영됩니다</b>` : '');
 
                 this.el('bomBody').innerHTML = this.parts.map((p, i) => {
                     const isEst = p.state === '추정';
                     const isMake = p.gubun === '제작품';
-                    return `<tr class="${isEst ? 'est' : ''}">
+                    return `<tr class="${isEst ? 'est' : ''} ${p._fromTpl ? 'tpl' : ''}">
                         <td>${i + 1}</td>
                         <td class="l"><input list="matDL" value="${this.esc(p.part_name)}"
                                              oninput="prodDesign.suggest(${i}, this.value)"
@@ -594,14 +689,16 @@
              * 이름만으로는 확정할 수 없기 때문이다.
              */
             matCell(p, i) {
-                if (p.gubun === '제작품') {
+                // 제작품과 구분 미지정은 품목 연결 대상이 아니다
+                if (!(p.gubun || '').trim() || p.gubun === '제작품') {
                     return '<span style="color:#9aa3ad">-</span>';
                 }
                 const open = `onclick="prodDesign.openMat(${i})" style="cursor:pointer;`;
                 if (p.material_id) {
+                    // 품목명을 보여준다. 코드(PUR-008)는 사람이 못 알아본다
                     const full = `[${p.material_code || ''}] ${p.material_name || ''}`;
                     return `<span ${open}color:#1b6b3a;text-decoration:underline"`
-                        + ` title="${this.esc(full)}">${this.esc(p.material_code || '연결됨')}</span>`;
+                        + ` title="${this.esc(full)}">${this.esc(p.material_name || p.material_code || '연결됨')}</span>`;
                 }
                 if (p._ambig) {
                     return `<span ${open}color:#8a6d1b;font-weight:600"`
@@ -666,10 +763,20 @@
              * 애초에 마스터에 등록하지 않으므로 자동완성이 걸릴 대상이 없다.
              * 부품은 iljin_suju_bom 에만 저장되고 품목마스터를 새로 만들지 않는다.
              */
+            /*
+             * 부품명 자동완성.
+             * i 가 -1 이면 <b>표준 BOM 모달</b>에서 부른 것이다.
+             * 템플릿은 가공품(제작품)만 담으므로 제작품 경로로 간다.
+             */
             suggest(i, keyword) {
-                const p = this.parts[i];
-                if (!p) return;
-                const isMake = p.gubun === '제작품';
+                let isMake;
+                if (i < 0) {
+                    isMake = true;
+                } else {
+                    const p = this.parts[i];
+                    if (!p) return;
+                    isMake = p.gubun === '제작품';
+                }
 
                 clearTimeout(this._sugT);
                 this._sugT = setTimeout(async () => {
@@ -754,8 +861,15 @@
              * 엉뚱한 품목이 발주로 넘어가는 게 미연결보다 나쁘다.
              */
             async matchAll() {
-                const targets = this.parts.filter(
-                    p => p.gubun !== '제작품' && (p.part_name || '').trim() && !p.material_id);
+                /*
+                 * 제작품은 품목 연결 대상이 아니다 (프로젝트 1회성이라 마스터를 오염시킨다).
+                 * 구분이 <b>비어 있는</b> 행도 제외한다 — 화면은 빈 값을 제작품으로 보정하는데
+                 * 여기서 걸러 내지 않으면 다리발 시딩 행이 미매칭으로 올라온다.
+                 */
+                const targets = this.parts.filter(p => {
+                    const g = (p.gubun || '').trim();
+                    return g && g !== '제작품' && (p.part_name || '').trim() && !p.material_id;
+                });
 
                 if (!targets.length) {
                     this.renderUnmatch([]);
@@ -829,7 +943,8 @@
                 p.part_name = m.name;   // 품목명이 원본. 다음부터 이력으로 자동 매칭된다
                 this.renderPart();
                 this.renderUnmatch(this.parts.filter(
-                    x => x.gubun !== '제작품' && (x.part_name || '').trim() && !x.material_id));
+                    x => (x.gubun || '').trim() && x.gubun !== '제작품'
+                        && (x.part_name || '').trim() && !x.material_id));
             }
 
             async rematch() {
@@ -924,13 +1039,20 @@
                     const m = (this._sugPart || [])
                         .find(x => x.part_name.toUpperCase() === (v || '').toUpperCase());
                     const guessed = (m && m.kind) ? m.kind : this.guessKind(v);
-                    if (!p.kind || p.kind === 'etc') {
+                    /*
+                     * ★ 자동으로 채웠던 값이면 이름이 바뀔 때 <b>다시 추정</b>한다.
+                     *   예전에는 'etc' 일 때만 덮어서, SHIM 을 넣었다가 ARM 으로 고쳐도
+                     *   유형이 shim 으로 남았다.
+                     *   사용자가 직접 고른 값(_kindManual)은 건드리지 않는다 —
+                     *   별칭에 없는 유형을 일부러 지정한 경우가 있다.
+                     */
+                    if (!p._kindManual) {
                         p.kind = guessed;
                         this.renderPart();
                     }
                 }
 
-                if (k === 'part_name' && p.gubun !== '제작품') {
+                if (k === 'part_name' && (p.gubun || '').trim() && p.gubun !== '제작품') {
                     p.material_id = null;   // 이름이 바뀌었으니 옛 연결은 무효
                     this.matchAll();
                 }
@@ -950,6 +1072,9 @@
                     }
                 }
 
+
+                // 유형을 직접 고르면 자동 추정이 덮지 않게 표시해 둔다
+                if (k === 'kind') p._kindManual = true;
 
                 if (k === 'gubun' || k === 'kind' || k === 'qty_type') this.renderPart();
             }
@@ -1229,6 +1354,235 @@
                 const plan = it.suju_type === 'plan' ? ' (계획)' : '';
                 return `<span style="color:#8b95a7;font-weight:400;font-size:11.5px;margin-left:6px">`
                     + `${this.escHtml(it.suju_name || it.jumun_date)}${plan}</span>`;
+            }
+
+            /* =============================================================
+             * 표준 BOM 관리
+             *
+             * 설비타입(suju.equip_type)마다 가공품 구성이 반복된다.
+             * 여기서 뼈대를 등록해 두면, 품목을 클릭했을 때 부품표에
+             * 가공품이 하나도 없는 경우 화면이 그 구성을 깔아 준다(loadParts).
+             *
+             * ★ 별칭을 두는 이유
+             *   equip_type 이 '슬라이더'/'슬라이드', '중하중 에어턴'/'중하중에어턴'
+             *   처럼 흔들린다. 수주 입력을 막을 수 없으므로 여러 표기를
+             *   한 템플릿에 묶는다. 한 설비타입은 한 템플릿에만 붙는다(DB 유니크).
+             *
+             * ★ 실제 평균을 옆에 보여준다
+             *   수량을 감으로 넣지 않게, 이미 등록된 같은 설비타입 부품표의
+             *   유형별 평균을 함께 띄운다.
+             * ============================================================= */
+
+            async openTpl() {
+                this.tplSel = null;
+                this.el('tplModal').style.display = 'flex';
+                await this.tplLoad();
+            }
+
+            closeTpl() {
+                this.el('tplModal').style.display = 'none';
+                // 템플릿이 바뀌었을 수 있으니 현재 품목 부품표를 다시 읽는다
+                this.loadParts();
+            }
+
+            async tplLoad() {
+                const res = await this.get(`${this.API}/bom_template_list`,
+                    {spjangcd: this.spjangcd});
+                const d = res.data || {};
+                this.tplRows = d.templates || [];
+                this.tplUnmapped = d.unmapped || [];
+                this.tplRenderList();
+                await this.tplRenderDetail();
+            }
+
+            tplRenderList() {
+                this.el('tplList').innerHTML = this.tplRows.length
+                    ? this.tplRows.map((t, i) => `
+                        <tr style="cursor:pointer;${this.tplSel === i ? 'background:#eef4ff' : ''}"
+                            data-t="${i}">
+                            <td class="l" style="padding:8px 10px">
+                                <b>${this.escHtml(t.template_name)}</b>
+                                ${t.use_yn === 'N' ? '<span style="color:#b3261e;font-size:11px"> 미사용</span>' : ''}
+                                <div style="color:#8b95a7;font-size:11px">
+                                    ${this.escHtml(t.aliases || '(설비타입 미지정)')} · 유형 ${t.part_cnt || 0}</div>
+                            </td>
+                        </tr>`).join('')
+                    : '<tr><td class="empty" style="padding:18px 0">템플릿이 없습니다.</td></tr>';
+
+                this.el('tplList').querySelectorAll('[data-t]').forEach(r =>
+                    r.onclick = () => this.tplPick(+r.dataset.t));
+            }
+
+            async tplPick(i) {
+                if (i < 0 || i >= this.tplRows.length) return;
+                this.tplSel = i;
+                this.tplRenderList();
+                /*
+                 * 상세 조회가 실패해도 목록은 살아 있어야 한다.
+                 * 예전에는 여기서 예외가 나면 그 뒤 클릭이 전부 먹통이 됐다.
+                 */
+                try {
+                    await this.tplRenderDetail();
+                } catch (e) {
+                    console.error('표준 BOM 상세 로딩 실패', e);
+                    this.el('tplDetail').innerHTML =
+                        '<div class="empty" style="padding:30px 0">불러오지 못했습니다. 다시 시도하세요.</div>';
+                }
+            }
+
+            tplNew() {
+                this.tplRows.push({
+                    id: null, template_name: '', use_yn: 'Y', aliases: '', part_cnt: 0,
+                    _parts: [], _avg: []
+                });
+                this.tplSel = this.tplRows.length - 1;
+                this.tplRenderList();
+                this.tplRenderDetail();
+            }
+
+            async tplRenderDetail() {
+                const box = this.el('tplDetail');
+                const t = this.tplSel != null ? this.tplRows[this.tplSel] : null;
+                if (!t) {
+                    box.innerHTML = '<div class="empty" style="padding:30px 0">'
+                        + '왼쪽에서 템플릿을 고르거나 새로 추가하세요.</div>';
+                    return;
+                }
+
+                // 기존 템플릿이면 부품·평균을 서버에서 읽어 온다 (한 번만)
+                if (t.id && !t._parts) {
+                    const r = await this.get(`${this.API}/bom_template_detail`,
+                        {spjangcd: this.spjangcd, templateId: t.id});
+                    const d = r.data || {};
+                    t._parts = (d.parts || []).map(x => ({kind: x.kind || 'etc', qty: x.qty}));
+                    t._avg = d.average || [];
+                }
+                const parts = t._parts || (t._parts = []);
+                const avg = {};
+                (t._avg || []).forEach(a => avg[a.kind] = a);
+
+                box.innerHTML = `
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+                        <input id="tplName" value="${this.esc(t.template_name)}" placeholder="템플릿 이름 (예: 고정지그)"
+                               style="flex:1;padding:7px 10px;border:1px solid #cfd6e2;border-radius:5px">
+                        <label style="font-size:12.5px;white-space:nowrap">
+                            <input type="checkbox" id="tplUse" ${t.use_yn !== 'N' ? 'checked' : ''}> 표준 BOM 사용
+                        </label>
+                    </div>
+                    <div class="hint" style="margin-bottom:4px">
+                        설비타입 (쉼표로 구분 · 표기가 달라도 여기 적으면 같은 템플릿을 씁니다)</div>
+                    <input id="tplAlias" value="${this.esc(t.aliases || '')}"
+                           placeholder="고정지그, 고정 지그"
+                           style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #cfd6e2;border-radius:5px;margin-bottom:4px">
+                    <div class="hint" style="margin-bottom:8px">
+                        미등록: ${(this.tplUnmapped || []).map(u =>
+                    `<a style="cursor:pointer;color:#1f4e8c" data-u="${this.esc(u.equip_type)}">`
+                    + `${this.escHtml(u.equip_type)}(${u.cnt})</a>`).join(' · ') || '없음'}</div>
+
+                    <div style="flex:1 1 auto;overflow:auto;border:1px solid #e3e8f0;border-radius:6px">
+                        <table class="work-table">
+                            <colgroup><col style="width:40%"><col style="width:24%">
+                                <col style="width:28%"><col style="width:8%"></colgroup>
+                            <thead><tr><th>유형</th><th>수량</th><th>실제 평균</th><th></th></tr></thead>
+                            <tbody>${parts.map((x, i) => {
+                    const a = avg[x.kind];
+                    return `<tr>
+                                    <td><select data-p="${i}" data-f="kind" style="width:100%">
+                                        ${this.kindOptions(x.kind)}</select></td>
+                                    <td><input class="ta-r" value="${x.qty ?? 0}" data-p="${i}" data-f="qty"
+                                        style="width:100%;box-sizing:border-box"></td>
+                                    <td style="color:#8b95a7">${a
+                        ? `${a.avg_qty} <span style="font-size:11px">(${a.item_cnt}건)</span>`
+                        : '-'}</td>
+                                    <td><a style="cursor:pointer;color:#b3261e" data-del="${i}">✕</a></td>
+                                </tr>`; }).join('')}</tbody>
+                        </table>
+                    </div>
+                    <a class="btn" style="margin-top:6px;text-align:center" id="tplAddPart">+ 유형 추가</a>
+                    ${(t._avg || []).length ? `<div class="hint" style="margin-top:6px">
+                        실제 등록분 평균: ${(t._avg).map(a =>
+                    `${this.escHtml(a.kind)} <b>${a.avg_qty}</b>(${a.item_cnt})`).join(' · ')}</div>` : ''}`;
+
+                box.querySelectorAll('[data-p]').forEach(el => el.onchange = () => {
+                    const r = parts[+el.dataset.p];
+                    const f = el.dataset.f;
+                    r[f] = f === 'qty' ? (+el.value || 0) : el.value;
+
+                    if (f === 'kind') { r._kindManual = true; this.tplRenderDetail(); return; }
+
+                    /*
+                     * 부품명을 넣으면 유형을 자동으로 채운다.
+                     * 부품표 화면(up)과 같은 규칙이라 여기서 정한 유형이 그대로 깔린다.
+                     * 직접 고른 값은 덮지 않는다 — 별칭에 없는 유형을 일부러 지정한 경우가 있다.
+                     */
+                    if (f === 'part_name' && !r._kindManual) {
+                        r.kind = this.guessKind(r.part_name);
+                        this.tplRenderDetail();
+                    }
+                });
+                box.querySelectorAll('[data-del]').forEach(el => el.onclick = () => {
+                    parts.splice(+el.dataset.del, 1);
+                    this.tplRenderDetail();
+                });
+                box.querySelectorAll('[data-u]').forEach(el => el.onclick = () => {
+                    const cur = this.el('tplAlias').value.trim();
+                    this.el('tplAlias').value = cur ? cur + ', ' + el.dataset.u : el.dataset.u;
+                });
+                this.el('tplAddPart').onclick = () => {
+                    // 아직 안 쓴 유형을 기본값으로 잡는다. 중복 경고를 바로 보지 않게
+                    const used = parts.map(x => x.kind);
+                    const free = (this.kinds || []).map(k => k.canon).find(k => !used.includes(k));
+                    parts.push({kind: free || 'etc', qty: 0});
+                    this.tplRenderDetail();
+                };
+            }
+
+            async tplSave() {
+                const t = this.tplSel != null ? this.tplRows[this.tplSel] : null;
+                if (!t) { Alert.alert('', '템플릿을 선택하세요.'); return; }
+
+                const name = this.el('tplName').value.trim();
+                if (!name) { Alert.alert('', '템플릿 이름을 입력하세요.'); return; }
+
+                const res = await this.post(`${this.API}/bom_template_save`, {
+                    spjangcd: this.spjangcd,
+                    id: t.id,
+                    templateName: name,
+                    useYn: this.el('tplUse').checked ? 'Y' : 'N',
+                    aliases: this.el('tplAlias').value.split(',').map(x => x.trim()).filter(Boolean),
+                    // 유형만 보낸다. 부품명은 서버가 유형명으로 채운다
+                    parts: (t._parts || []).filter(x => (x.kind || '').trim())
+                        .map(x => ({kind: x.kind, qty: x.qty}))
+                });
+                Alert.alert('', res.message || (res.success ? '저장되었습니다.' : '실패했습니다.'));
+                if (!res.success) return;
+
+                this.tplSel = null;
+                await this.tplLoad();
+            }
+
+            async tplDelete() {
+                const t = this.tplSel != null ? this.tplRows[this.tplSel] : null;
+                if (!t) { Alert.alert('', '삭제할 템플릿을 선택하세요.'); return; }
+
+                const nm = t.template_name || '(이름 없음)';
+                if (!await Alert.confirmAsync('',
+                    `${nm} 템플릿을 삭제하시겠습니까?\n등록된 유형과 설비타입 연결도 함께 지워집니다.`)) return;
+
+                if (!t.id) {                       // 아직 저장 전이면 화면에서만 지운다
+                    this.tplRows.splice(this.tplSel, 1);
+                } else {
+                    const res = await this.post(`${this.API}/bom_template_delete`, {id: t.id});
+                    if (!res.success) { Alert.alert('', res.message); return; }
+                }
+
+                /*
+                 * ★ 선택을 반드시 풀고 다시 그린다.
+                 *   예전에는 splice 뒤에도 tplSel 이 남아 사라진 항목을 가리켰고,
+                 *   그 상태에서 목록을 눌러도 반응이 없었다.
+                 */
+                this.tplSel = null;
+                await this.tplLoad();
             }
 
             escHtml(s) {

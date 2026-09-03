@@ -18,12 +18,12 @@ public class MaterialInoutService {
 	SqlRunner sqlRunner;
 
 	public List<Map<String, Object>> getMaterialInout(String srchStartDt, String srchEndDt, String housePk,
-																										String matType, String matGrpPk, String keyword, String spjangcd) {
+													  String matType, String matGrpPk, String keyword, String spjangcd) {
 		return getMaterialInout(srchStartDt, srchEndDt, housePk, matType, matGrpPk, keyword, spjangcd, null);
 	}
 
 	public List<Map<String, Object>> getMaterialInout(String srchStartDt, String srchEndDt, String housePk,
-																										String matType, String matGrpPk, String keyword, String spjangcd, String inTestYn) {
+													  String matType, String matGrpPk, String keyword, String spjangcd, String inTestYn) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -73,12 +73,34 @@ public class MaterialInoutService {
                     , var."StateName" as "state_name"
                     , tir."JudgeCode" as judge_code
                     , m."LotUseYN" as lot_use
-                    -- 외작 입고 검사여부 (mat_inout_inspect). 입고 건 1:1 이라 스칼라 서브쿼리로 붙인다.
-                    --  select distinct 를 쓰는 쿼리라 조인으로 붙이면 행이 늘 수 있다.
-                    , (select case mii."InspectYN" when 'Y' then '검사'
-                                                   when 'N' then '미검사' end
-                         from mat_inout_inspect mii
-                        where mii."MatInout_id" = mi.id) as inspect_yn
+                    -- 검사 여부. <b>출처가 둘이라 합쳐서 보여준다.</b>
+                    --   외작 입고 : mat_inout_inspect."InspectYN" — 업체가 검사하고 보냈는지
+                    --   자체 생산 : mat_produce ProcessOrder=3    — 우리가 검사했는지
+                    --
+                    -- ★ 자체 검사 결과를 mat_inout_inspect 에 쓰지 않는다.
+                    --   그 컬럼은 "업체가 검사했나" 를 뜻하고,
+                    --   ProdInspectService 가 그 값을 읽어 <b>외작 검사 면제</b>를 판정한다.
+                    --   여기에 우리가 쓰면 방금 검사한 품목이 검사 대상에서 사라진다.
+                    --   그래서 저장은 그대로 두고 <b>표시만</b> 합친다.
+                    --
+                    -- 어느 쪽 검사인지 구분해 준다. 그냥 '검사' 로 합치면
+                    -- 업체 검사와 자체 검사를 같은 것으로 오해한다.
+                    --  select distinct 를 쓰는 쿼리라 조인 대신 스칼라 서브쿼리로 붙인다.
+                    , coalesce(
+                        (select case mii."InspectYN" when 'Y' then '검사(업체)'
+                                                     when 'N' then '미검사' end
+                           from mat_inout_inspect mii
+                          where mii."MatInout_id" = mi.id),
+                        (select case when exists (
+                                    select 1 from mat_produce p3
+                                     where p3."JobResponse_id" = mp."JobResponse_id"
+                                       and p3."ProcessOrder" = 3
+                                       and p3."State" = 'finished')
+                                    then '검사(자체)' else '미검사' end
+                           from mat_produce mp
+                          where mp.id = mi."SourceDataPk"
+                            and mi."SourceTableName" = 'mat_produce')
+                      ) as inspect_yn
                     from mat_inout mi 
                     inner join material m on mi."Material_id" = m.id
                     left join mat_grp mg on mg.id = m."MaterialGroup_id"
@@ -114,7 +136,7 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> getMaterialInoutReceipt(String srchStartDt, String srchEndDt, String housePk,
-																													 String matType, String matGrpPk, String keyword, String spjangcd) {
+															 String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -162,12 +184,34 @@ public class MaterialInoutService {
                     , var."StateName" as "state_name"
                     , tir."JudgeCode" as judge_code
                     , m."LotUseYN" as lot_use
-                    -- 외작 입고 검사여부 (mat_inout_inspect). 입고 건 1:1 이라 스칼라 서브쿼리로 붙인다.
-                    --  select distinct 를 쓰는 쿼리라 조인으로 붙이면 행이 늘 수 있다.
-                    , (select case mii."InspectYN" when 'Y' then '검사'
-                                                   when 'N' then '미검사' end
-                         from mat_inout_inspect mii
-                        where mii."MatInout_id" = mi.id) as inspect_yn
+                    -- 검사 여부. <b>출처가 둘이라 합쳐서 보여준다.</b>
+                    --   외작 입고 : mat_inout_inspect."InspectYN" — 업체가 검사하고 보냈는지
+                    --   자체 생산 : mat_produce ProcessOrder=3    — 우리가 검사했는지
+                    --
+                    -- ★ 자체 검사 결과를 mat_inout_inspect 에 쓰지 않는다.
+                    --   그 컬럼은 "업체가 검사했나" 를 뜻하고,
+                    --   ProdInspectService 가 그 값을 읽어 <b>외작 검사 면제</b>를 판정한다.
+                    --   여기에 우리가 쓰면 방금 검사한 품목이 검사 대상에서 사라진다.
+                    --   그래서 저장은 그대로 두고 <b>표시만</b> 합친다.
+                    --
+                    -- 어느 쪽 검사인지 구분해 준다. 그냥 '검사' 로 합치면
+                    -- 업체 검사와 자체 검사를 같은 것으로 오해한다.
+                    --  select distinct 를 쓰는 쿼리라 조인 대신 스칼라 서브쿼리로 붙인다.
+                    , coalesce(
+                        (select case mii."InspectYN" when 'Y' then '검사(업체)'
+                                                     when 'N' then '미검사' end
+                           from mat_inout_inspect mii
+                          where mii."MatInout_id" = mi.id),
+                        (select case when exists (
+                                    select 1 from mat_produce p3
+                                     where p3."JobResponse_id" = mp."JobResponse_id"
+                                       and p3."ProcessOrder" = 3
+                                       and p3."State" = 'finished')
+                                    then '검사(자체)' else '미검사' end
+                           from mat_produce mp
+                          where mp.id = mi."SourceDataPk"
+                            and mi."SourceTableName" = 'mat_produce')
+                      ) as inspect_yn
                     from mat_inout mi 
                     inner join material m on mi."Material_id" = m.id
                     left join mat_grp mg on mg.id = m."MaterialGroup_id"
@@ -203,7 +247,7 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> getMaterialInoutIssue(String srchStartDt, String srchEndDt, String housePk,
-																												 String matType, String matGrpPk, String keyword, String spjangcd) {
+														   String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -284,7 +328,7 @@ public class MaterialInoutService {
 	}
 
 	public List<Map<String, Object>> getMaterialInoutDisposal(String srchStartDt, String srchEndDt, String housePk,
-																														String matType, String matGrpPk, String keyword, String spjangcd) {
+															  String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -369,8 +413,8 @@ public class MaterialInoutService {
 	 * 제품 반입전표 - 수동 등록 반품만 조회 (InOut='return', SourceTableName IS NULL)
 	 */
 	public List<Map<String, Object>> getProductReceiptSlipList(
-		String srchStartDt, String srchEndDt, String housePk,
-		String matType, String matGrpPk, String keyword, String spjangcd) {
+			String srchStartDt, String srchEndDt, String housePk,
+			String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -423,8 +467,8 @@ public class MaterialInoutService {
 	 * 출하/생산 자동 차감분 제외
 	 */
 	public List<Map<String, Object>> getOutboundSlipList(
-		String srchStartDt, String srchEndDt, String housePk,
-		String matType, String matGrpPk, String keyword, String spjangcd) {
+			String srchStartDt, String srchEndDt, String housePk,
+			String matType, String matGrpPk, String keyword, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -478,8 +522,8 @@ public class MaterialInoutService {
 	 * remain_only='Y': 현재고 > 0 인 것만
 	 */
 	public List<Map<String, Object>> getLotStatus(
-		String matType, String matGrpPk, String housePk,
-		String keyword, String remainOnly, String lotOnly, String spjangcd) {
+			String matType, String matGrpPk, String housePk,
+			String keyword, String remainOnly, String lotOnly, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("matType", matType);
@@ -533,8 +577,8 @@ public class MaterialInoutService {
 	 * 검사일 기준, 판정/품목그룹/품명 필터
 	 */
 	public List<Map<String, Object>> getInspectionHistory(
-		String srchStartDt, String srchEndDt, String matGrpPk,
-		String keyword, String judge, String spjangcd) {
+			String srchStartDt, String srchEndDt, String matGrpPk,
+			String keyword, String judge, String spjangcd) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);
@@ -591,14 +635,14 @@ public class MaterialInoutService {
 	 * - status: ''=전체, 'waiting'=검사대기(미입고 포함), 'done'=검사완료
 	 */
 	public List<Map<String, Object>> getReceivingInspectionList(
-		String srchStartDt, String srchEndDt, String housePk,
-		String matGrpPk, String keyword, String status, String inTestYn, String spjangcd) {
+			String srchStartDt, String srchEndDt, String housePk,
+			String matGrpPk, String keyword, String status, String inTestYn, String spjangcd) {
 		return getReceivingInspectionList(srchStartDt, srchEndDt, housePk, matGrpPk, keyword, status, inTestYn, spjangcd, null);
 	}
 
 	public List<Map<String, Object>> getReceivingInspectionList(
-		String srchStartDt, String srchEndDt, String housePk,
-		String matGrpPk, String keyword, String status, String inTestYn, String spjangcd, String judge) {
+			String srchStartDt, String srchEndDt, String housePk,
+			String matGrpPk, String keyword, String status, String inTestYn, String spjangcd, String judge) {
 
 		MapSqlParameterSource param = new MapSqlParameterSource();
 		param.addValue("srchStartDt", srchStartDt);

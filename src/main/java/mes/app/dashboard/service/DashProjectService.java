@@ -136,6 +136,20 @@ public class DashProjectService {
 			List<Map<String, Object>> wbs = wbsByProj.getOrDefault(pno, new ArrayList<>());
 			proj.put("wbs", wbs);
 			proj.put("milestones", milestonesOf(wbs));
+			/*
+			 * ★ 종료를 두 단계로 나눈다.
+			 *   shipped   포장·출하 완료 → <b>더 만들 것이 없다.</b> KPI 합계에서 뺀다
+			 *   closed    납품 완료     → 인수까지 끝났다. 목록에서도 뺀다
+			 *
+			 *   그 사이 구간(출하했지만 납품 확인 전)은 목록에 남아야 한다.
+			 *   만들 게 없다고 프로젝트가 끝난 것은 아니기 때문이다.
+			 *
+			 *   WBS 가 없는 프로젝트는 두 단계를 찾을 수 없다.
+			 *   그때는 화면이 검사 완료로 떨어뜨린다 (isAllDone).
+			 */
+			proj.put("shipped", wbsDone(wbs, "포장·출하"));
+			proj.put("closed", wbsDone(wbs, "납품 완료"));
+			proj.put("hasWbs", !wbs.isEmpty());
 			proj.put("delayCnt", wbs.stream().filter(w -> "Y".equals(str(w.get("delay_yn")))).count());
 			proj.put("mwork", mworkByProj.getOrDefault(pno, new ArrayList<>()));
 			proj.put("daily", dailyByProj.getOrDefault(pno, new ArrayList<>()));
@@ -174,9 +188,13 @@ public class DashProjectService {
 
 		Map<String, Object> item = new LinkedHashMap<>();
 		item.put("code", str(r.get("item_name")));
+		item.put("etype", str(r.get("equip_type")));   // 설비타입 (표시용)
 		item.put("sujuId", sujuId);
 		item.put("need", need);                                // 지그 대수 (조립·검사 목표)
-		item.put("unit", toDouble(r.get("unit_qty")));         // 구성 유닛 수 (참고 표시)
+		item.put("unit", toDouble(r.get("unit_qty")));         // 구성 유닛 수
+		// ★ 유닛 조립 실적. 환산이 아니라 참값이다 (mat_produce PO=1).
+		//   지그 완료(0 또는 1)만으로는 몇 달간 진척이 0 이라, 그 사이를 이 값이 메운다.
+		item.put("unitDone", toDouble(r.get("unit_done")));
 		// ★ 지시된 수량. 작업지시가 없으면 0 이다.
 		//   need 는 수주에 등록된 양이고 ordered 는 실제로 지시가 나간 양이라
 		//   둘의 차이가 곧 "아직 지시 안 한 물량" 이다.
@@ -313,7 +331,12 @@ public class DashProjectService {
                  , w.ac_stdate
                  , w.ac_eddate
                  , COALESCE(w.progress, 0)              AS progress
-                 , COALESCE(w.milestone_yn, 'N')        AS milestone_yn
+                 -- ★ 표기를 'Y'/'N' 으로 정규화한다.
+                 --   DB 에는 '1'/'0' 이 들어 있는데 화면·서버가 'Y' 로 비교해
+                 --   마일스톤이 하나도 안 잡혔다 (◆ 표시도, 칩 줄도 비어 있었다).
+                 --   저장 형식을 바꾸는 것은 프로젝트 등록 쪽이라 조회에서 맞춘다.
+                 , CASE WHEN COALESCE(w.milestone_yn, '') IN ('Y', 'y', '1', 'T', 'true')
+                        THEN 'Y' ELSE 'N' END          AS milestone_yn
                  , pc."Name"                            AS charge_name
                  , CASE WHEN w.ac_eddate IS NOT NULL AND w.ac_eddate <> '' THEN 'done'
                         WHEN w.ac_stdate IS NOT NULL AND w.ac_stdate <> '' THEN 'cur'
@@ -340,6 +363,24 @@ public class DashProjectService {
 	 *   가공 단계 진척률은 낙관 편향이 있어 임계값으로 쓰면 경보가 늦게 울린다.
 	 *   마일스톤은 실적일(ac_eddate)이 찍혔는지만 본다.
 	 */
+	/**
+	 * WBS 특정 단계가 완료됐는지.
+	 *
+	 * 단계 이름으로 찾는다. 템플릿이 통일돼 있어 가능한 방식이고,
+	 * 이름이 바뀌면 여기도 같이 바꿔야 한다 —
+	 *   SELECT DISTINCT step_name, task_name FROM wbs_plan;
+	 *
+	 * 실적일(ac_eddate)이 찍혔는지만 본다. 진척률은 담당자 입력값이라
+	 * 100% 로 적어 두고 실제로는 안 끝난 경우가 있다.
+	 */
+	private boolean wbsDone(List<Map<String, Object>> wbs, String taskName) {
+		for (Map<String, Object> w : wbs) {
+			if (!taskName.equals(str(w.get("task_name")))) continue;
+			return !str(w.get("ac_eddate")).isEmpty();
+		}
+		return false;
+	}
+
 	private List<Map<String, Object>> milestonesOf(List<Map<String, Object>> wbs) {
 		List<Map<String, Object>> out = new ArrayList<>();
 		for (Map<String, Object> w : wbs) {
@@ -523,8 +564,10 @@ public class DashProjectService {
                  , s.project_id               AS proj_no
                  , s.line                     AS line_name
                  , s."Material_Name"          AS item_name
-                 -- ★ 화면의 need 는 <b>유닛 축</b>이다. 조립·가공 진척이 이 분모를 쓴다.
-                 --   suju."SujuQty" 는 지그 대수라 축이 다르다 (검사 목표로만 쓴다).
+                 -- 설비타입(고정지그·턴테이블…). 품목명만으로는 뭘 만드는지 알기 어렵다
+                 , COALESCE(s.equip_type, '')  AS equip_type
+                 -- ★ 화면의 need 는 <b>지그 대수</b>다. 공정 조립·검사가 그 축으로 센다.
+                 --   unit_qty 는 그 지그를 이루는 유닛 수이며 별도 축으로 표시한다.
                  , COALESCE(s.unit_qty, 0)    AS unit_qty
                  , COALESCE(s."SujuQty", 0)   AS jig_qty
                  -- ★ 'inhouse' 로 채우지 않는다. 미지정을 내작과 구분해 표시하려면
@@ -535,7 +578,8 @@ public class DashProjectService {
                  -- 검사 목표 = 지그 대수. "Standard" 는 '1/1'(한 쌍) 표기가 섞여 쓰지 않는다
                  , COALESCE(s."SujuQty", 0) AS set_target
                  , j.id                       AS job_res_id
-                 , COALESCE(u.qty, 0)         AS asm_qty
+                 , COALESCE(u.qty, 0)         AS asm_qty     -- 공정 조립 (지그)
+                 , COALESCE(uu.qty, 0)        AS unit_done   -- 유닛 조립 (참값)
                  , COALESCE(i.qty, 0)         AS insp_qty
                  , CASE WHEN rc.suju_id IS NOT NULL THEN 'Y' ELSE 'N' END AS rcv_yn
                  , CASE WHEN ex.suju_id IS NOT NULL THEN 'Y' ELSE 'N' END AS exempt_yn
@@ -546,12 +590,19 @@ public class DashProjectService {
             --   ② 외작은 생산 지시를 하지 않으므로 대시보드에서 통째로 사라진다.
             LEFT JOIN job_res j
               ON j."SourceTableName" = 'suju' AND j."SourceDataPk" = s.id
-            -- 조립은 한 단계(PO=1). 목표가 유닛 총량이라 축이 맞는다
+            -- ★ 조립은 두 단계다. 축이 달라 따로 센다.
+            --   PO=2 공정 조립 → asm_qty   (분모 "SujuQty"). 화면의 need 가 이쪽이다
+            --   PO=1 유닛 조립 → unit_done (분모 unit_qty). 참값이며 진척의 빈 구간을 메운다
+            LEFT JOIN (
+                SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS qty
+                FROM mat_produce WHERE "ProcessOrder" = 2 AND "State" = 'finished'
+                GROUP BY "JobResponse_id"
+            ) u ON u."JobResponse_id" = j.id
             LEFT JOIN (
                 SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS qty
                 FROM mat_produce WHERE "ProcessOrder" = 1 AND "State" = 'finished'
                 GROUP BY "JobResponse_id"
-            ) u ON u."JobResponse_id" = j.id
+            ) uu ON uu."JobResponse_id" = j.id
             LEFT JOIN (
                 SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS qty
                 FROM mat_produce WHERE "ProcessOrder" = 3 AND "State" = 'finished'
@@ -676,17 +727,20 @@ public class DashProjectService {
             FROM (
                 -- 필요량 : 프로젝트의 모든 품목 BOM 합계 (제작품만).
                 --          부품 수량이 이미 전체 총량이므로 유니트수를 곱하지 않는다.
-                SELECT s.project_id AS proj_no
+                SELECT COALESCE(s.project_id, b."Project_id") AS proj_no
                      , b."Kind"    AS kind
                      , ''          AS operation
                      , b."Qty" AS need_qty
                      , 0 AS done_qty
                 FROM iljin_suju_bom b
-                JOIN suju s ON s.id = b."Suju_id"
+                -- ★ 프로젝트 공통 부품(Suju_id IS NULL)도 센다.
+                --   2D 도면 전 추정 물량이라 품목에 안 붙지만 필요량에는 들어간다.
+                --   JOIN 이면 그 행이 통째로 빠져 화면에서 사라진다.
+                LEFT JOIN suju s ON s.id = b."Suju_id"
                 WHERE b."Gubun" = '제작품'
-                  AND s.spjangcd = :spjangcd
+                  AND b.spjangcd = :spjangcd
                   AND (CAST(:projNo AS varchar) IS NULL
-                       OR s.project_id = CAST(:projNo AS varchar))
+                       OR COALESCE(s.project_id, b."Project_id") = CAST(:projNo AS varchar))
 
                 UNION ALL
 
@@ -775,11 +829,14 @@ public class DashProjectService {
 	}
 
 	/**
-	 * 진행중인 작업.
+	 * 진행중인 <b>조립·검사</b>. 품목(suju)에 붙는다.
 	 *
-	 * 세 곳에서 나온다. 품목당 1건만 보여주면 되므로 우선순위를 둔다:
-	 *   검사(3) &gt; 조립(1,2) &gt; 가공
+	 * 품목당 1건만 보여주면 되므로 우선순위를 둔다: 검사(3) &gt; 조립(1,2).
 	 * 뒤 공정이 돌고 있으면 그게 현재 상태이기 때문이다.
+	 *
+	 * ★ 가공은 여기 없다. getProjectWorking() 이 맡는다.
+	 *   가공 작업중은 품목이 비는 경우가 흔해 프로젝트 단위로 읽어야 하고,
+	 *   양쪽에 두면 같은 작업이 두 줄로 나온다.
 	 */
 	private List<Map<String, Object>> getWorking(String spjangcd, String projNo) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
@@ -807,19 +864,12 @@ public class DashProjectService {
                   AND (CAST(:projNo AS varchar) IS NULL
                        OR s.project_id = CAST(:projNo AS varchar))
 
-                UNION ALL
-
-                -- 가공 (iljin_prod_working — 별도 작업중 테이블)
-                SELECT w."Suju_id"
-                     , '가공'
-                     , w."Equipment"
-                     , w."Worker"
-                     , 3
-                FROM iljin_prod_working w
-                JOIN suju s ON s.id = w."Suju_id"
-                WHERE w.spjangcd = :spjangcd
-                  AND (CAST(:projNo AS varchar) IS NULL
-                       OR s.project_id = CAST(:projNo AS varchar))
+                -- ★ 가공(iljin_prod_working)은 여기서 빼야 한다.
+                --   getProjectWorking() 이 같은 테이블을 프로젝트 단위로 읽고,
+                --   화면은 그 둘을 합쳐 보여준다.
+                --   여기에도 두면 품목을 골라 시작한 가공이 <b>두 줄로 나온다</b>
+                --   ('머시닝센터' 와 '가공' 이 같은 작업인데 따로 보였다).
+                --   이 조회는 <b>조립·검사</b>만 맡는다.
             ) w
             WHERE w.suju_id IS NOT NULL
             ORDER BY w.suju_id, w.pri

@@ -6,6 +6,7 @@ import mes.app.production.service.ProdDesignService;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import org.springframework.security.core.Authentication;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -294,6 +295,97 @@ public class ProdDesignController {
 	 * 유형 + 별칭 저장 (전체 교체)
 	 * payload: { spjangcd, kinds:[{canon, aliases:"PLATE, BRACKET, 브라켓"}] }
 	 */
+	// =================================================================
+	// [표준 BOM] 설비타입별 가공품 템플릿
+	//
+	//   품목을 클릭했을 때 부품표가 비어 있으면 그 설비타입의 템플릿을
+	//   화면이 미리 깔아 준다. <b>저장하지 않는다</b> —
+	//   사용자가 저장을 눌러야 기존 part_save 경로로 들어간다.
+	// =================================================================
+
+	/** 템플릿 목록 (모달) */
+	@GetMapping("/bom_template_list")
+	public AjaxResult bomTemplateList(@RequestParam("spjangcd") String spjangcd) {
+		AjaxResult result = new AjaxResult();
+		Map<String, Object> data = new HashMap<>();
+		data.put("templates", prodDesignService.getBomTemplateList(spjangcd));
+		// 아직 어느 템플릿에도 안 붙은 설비타입. 별칭 후보로 보여준다
+		data.put("unmapped", prodDesignService.getUnmappedEquipTypes(spjangcd));
+		result.success = true;
+		result.data = data;
+		return result;
+	}
+
+	/** 템플릿 상세 — 부품 + 실제 평균 */
+	@GetMapping("/bom_template_detail")
+	public AjaxResult bomTemplateDetail(@RequestParam("spjangcd") String spjangcd,
+										@RequestParam("templateId") Integer templateId) {
+		AjaxResult result = new AjaxResult();
+		Map<String, Object> data = new HashMap<>();
+		data.put("parts", prodDesignService.getBomTemplateParts(templateId));
+		// 수량을 감으로 넣지 않게 실제 등록분의 유형별 평균을 같이 준다
+		data.put("average", prodDesignService.getKindAverageByEquipType(spjangcd, templateId));
+		result.success = true;
+		result.data = data;
+		return result;
+	}
+
+	/**
+	 * 설비타입으로 템플릿 부품 조회.
+	 * 품목을 클릭했을 때 부품표가 비어 있으면 화면이 이걸 불러 얹는다.
+	 */
+	@GetMapping("/bom_template_by_type")
+	public AjaxResult bomTemplateByType(@RequestParam("spjangcd") String spjangcd,
+										@RequestParam(value = "equipType", required = false) String equipType) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = prodDesignService.getBomTemplatePartsByEquipType(spjangcd, equipType);
+		return result;
+	}
+
+	@PostMapping("/bom_template_save")
+	@Transactional
+	public AjaxResult bomTemplateSave(@RequestBody Map<String, Object> payload, Authentication auth) {
+		User user = (User) auth.getPrincipal();
+		AjaxResult result = new AjaxResult();
+
+		String spjangcd = str(payload.get("spjangcd"));
+		if (str(payload.get("templateName")).isEmpty()) {
+			result.success = false;
+			result.message = "템플릿 이름을 입력하세요.";
+			return result;
+		}
+
+		try {
+			Integer id = prodDesignService.saveBomTemplate(payload, spjangcd, user);
+			result.success = true;
+			result.message = "저장되었습니다.";
+			result.data = id;
+		} catch (DataIntegrityViolationException e) {
+			// 설비타입 유니크 제약. 한 설비타입이 두 템플릿에 붙으면
+			// 품목을 클릭했을 때 어느 것을 깔지 정할 수 없다.
+			result.success = false;
+			result.message = "이미 다른 템플릿에 등록된 설비타입이 있습니다. 별칭을 확인하세요.";
+		}
+		return result;
+	}
+
+	@PostMapping("/bom_template_delete")
+	@Transactional
+	public AjaxResult bomTemplateDelete(@RequestBody Map<String, Object> payload) {
+		AjaxResult result = new AjaxResult();
+		Integer id = toInt(payload.get("id"));
+		if (id == null) {
+			result.success = false;
+			result.message = "삭제할 템플릿이 지정되지 않았습니다.";
+			return result;
+		}
+		prodDesignService.deleteBomTemplate(id);
+		result.success = true;
+		result.message = "삭제되었습니다.";
+		return result;
+	}
+
 	@PostMapping("/kind_save")
 	@Transactional
 	public AjaxResult kindSave(@RequestBody Map<String, Object> payload) {
@@ -350,7 +442,8 @@ public class ProdDesignController {
 			return result;
 		}
 
-		// 다리발이 있는 공정이면 부품표에 1행 시딩 (구분은 사용자가 지정)
+		// 다리발이 있는 공정이면 부품표에 1행 시딩.
+		// 제작품으로 넣어 두고, 구매품이면 사용자가 바꾼다.
 		boolean legAdded = prodDesignService.seedLegPart(sujuId, user);
 
 		String workOrderNumber = prodDesignService.createOrder(item, user);
@@ -361,8 +454,8 @@ public class ProdDesignController {
 
 		result.success = true;
 		result.message = legAdded
-				? "작업 지시가 생성되었습니다. 다리발 1건이 부품표에 추가되었으니 "
-				+ "제작/구매 구분을 지정하세요."
+				? "작업 지시가 생성되었습니다. 다리발 1건이 부품표에 추가되었습니다. "
+				+ "수량과 구분(제작/구매)을 확인하세요."
 				: "작업 지시가 생성되었습니다.";
 		result.data = data;
 		return result;

@@ -449,6 +449,98 @@ public class ProdResultService {
 		return sqlRunner.getRows(sql, p);
 	}
 
+	/**
+	 * 가공 실적 조회 (PC 관리 화면).
+	 *
+	 * 키오스크의 getResultLog 는 <b>그날 그 설비</b> 것만 50건 보여 준다.
+	 * 잘못 찍은 실적을 다음 날 고치거나, 관리자가 전체를 훑을 데가 없었다.
+	 *
+	 * 여기서는 기간·프로젝트·공정·설비·작업자·유형으로 좁힌다.
+	 * 빈 조건은 전부 무시한다 (NULL 정규화).
+	 */
+	public List<Map<String, Object>> searchResults(String spjangcd, String dateFrom, String dateTo,
+												   String projNo, String operation, String equipment,
+												   Integer workerId, String kind) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("dateFrom", nullIfEmpty(dateFrom));
+		p.addValue("dateTo", nullIfEmpty(dateTo));
+		p.addValue("projNo", nullIfEmpty(projNo));
+		p.addValue("operation", nullIfEmpty(operation));
+		p.addValue("equipment", nullIfEmpty(equipment));
+		p.addValue("workerId", workerId);
+		p.addValue("kind", nullIfEmpty(kind));
+
+		String sql = """
+            SELECT r.id
+                 , TO_CHAR(r."ProdDate", 'YYYY-MM-DD') AS prod_date
+                 , r."Project_id"    AS proj_no
+                 , d.projnm          AS proj_name
+                 , s."Material_Name" AS item_name
+                 , COALESCE(sh.suju_name, '') AS suju_name
+                 , COALESCE(r."Kind", 'etc')  AS kind
+                 , r."Operation"     AS operation
+                 , r."Equipment"     AS equipment
+                 , r."Worker"        AS worker
+                 , COALESCE(r."GoodQty", 0)   AS good_qty
+                 , TO_CHAR(r."_created", 'MM-DD HH24:MI') AS reg_time
+            FROM iljin_prod_result r
+            LEFT JOIN suju s      ON s.id = r."Suju_id"
+            LEFT JOIN suju_head sh ON sh.id = r."SujuHead_id"
+            LEFT JOIN tb_da003 d   ON d.projno = r."Project_id" AND d.spjangcd = r.spjangcd
+            WHERE r.spjangcd = :spjangcd
+              AND (CAST(:dateFrom AS date) IS NULL OR r."ProdDate" >= CAST(:dateFrom AS date))
+              AND (CAST(:dateTo   AS date) IS NULL OR r."ProdDate" <= CAST(:dateTo   AS date))
+              AND (CAST(:projNo AS varchar) IS NULL OR r."Project_id" = CAST(:projNo AS varchar))
+              AND (CAST(:operation AS varchar) IS NULL OR r."Operation" = CAST(:operation AS varchar))
+              AND (CAST(:equipment AS varchar) IS NULL OR r."Equipment" = CAST(:equipment AS varchar))
+              AND (CAST(:workerId AS integer) IS NULL OR r."Worker_id" = CAST(:workerId AS integer))
+              AND (CAST(:kind AS varchar) IS NULL OR COALESCE(r."Kind", 'etc') = CAST(:kind AS varchar))
+            ORDER BY r."ProdDate" DESC, r.id DESC
+            LIMIT 500
+            """;
+
+		return sqlRunner.getRows(sql, p);
+	}
+
+	/**
+	 * 조회 결과의 <b>공정 × 유형</b> 소계.
+	 *
+	 * ★ 공정별로 나눠서 준다. 합치면 실물보다 큰 수가 된다 —
+	 *   한 부품이 절단·가공을 거치며 공정마다 다시 세어지기 때문이다.
+	 */
+	public List<Map<String, Object>> searchSummary(String spjangcd, String dateFrom, String dateTo,
+												   String projNo, String operation, String equipment,
+												   Integer workerId, String kind) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("dateFrom", nullIfEmpty(dateFrom));
+		p.addValue("dateTo", nullIfEmpty(dateTo));
+		p.addValue("projNo", nullIfEmpty(projNo));
+		p.addValue("operation", nullIfEmpty(operation));
+		p.addValue("equipment", nullIfEmpty(equipment));
+		p.addValue("workerId", workerId);
+		p.addValue("kind", nullIfEmpty(kind));
+
+		return sqlRunner.getRows("""
+            SELECT r."Operation"            AS operation
+                 , COALESCE(r."Kind", 'etc') AS kind
+                 , SUM(COALESCE(r."GoodQty", 0)) AS qty
+                 , COUNT(*)                  AS cnt
+            FROM iljin_prod_result r
+            WHERE r.spjangcd = :spjangcd
+              AND (CAST(:dateFrom AS date) IS NULL OR r."ProdDate" >= CAST(:dateFrom AS date))
+              AND (CAST(:dateTo   AS date) IS NULL OR r."ProdDate" <= CAST(:dateTo   AS date))
+              AND (CAST(:projNo AS varchar) IS NULL OR r."Project_id" = CAST(:projNo AS varchar))
+              AND (CAST(:operation AS varchar) IS NULL OR r."Operation" = CAST(:operation AS varchar))
+              AND (CAST(:equipment AS varchar) IS NULL OR r."Equipment" = CAST(:equipment AS varchar))
+              AND (CAST(:workerId AS integer) IS NULL OR r."Worker_id" = CAST(:workerId AS integer))
+              AND (CAST(:kind AS varchar) IS NULL OR COALESCE(r."Kind", 'etc') = CAST(:kind AS varchar))
+            GROUP BY r."Operation", COALESCE(r."Kind", 'etc')
+            ORDER BY r."Operation", 2
+            """, p);
+	}
+
 	// =================================================================
 	// 작업중 상태
 	//   대시보드의 "현재 진행중인 공정 / 작업자" 를 채운다.

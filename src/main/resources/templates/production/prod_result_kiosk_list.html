@@ -1,0 +1,366 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* 이 페이지 전용 스타일만 정의한다.
+           .layout-contents / .section / .section-top / .container-fluid / .btn /
+           .page-title-wrap 등은 layout_page 가 제공하므로 재정의하지 않는다. */
+
+        .layout-contents { display:flex; flex-direction:column; min-height:100vh; box-sizing:border-box; }
+        .main-row { display:flex; flex-direction:column; gap:5px; flex:1 1 auto; min-height:0; }
+        .main-row > .section { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+
+        /* 본문만 스크롤.
+           ★ 스크롤 컨테이너에 padding-top 을 주면 안 된다.
+             sticky 헤더는 스크롤포트 기준으로 붙는데 패딩 영역은 그 위에 남아,
+             스크롤할 때 헤더 위 틈으로 다음 행이 잘려 보인다.
+             여백은 스크롤 밖(.section-top)에서 준다. */
+        .main-row > .section > .container-fluid { flex:1 1 auto; min-height:0; overflow:auto; padding-top:0; }
+        .main-row > .section > .section-top { flex:0 0 auto; margin-bottom:10px; }
+        .sum-sec { flex:0 0 auto; }
+
+        table.work-table { width:100%; border-collapse:collapse; }
+        table.work-table th, table.work-table td { border:1px solid #d7dde7; padding:7px; font-size:12.5px; text-align:center; }
+        /* border-collapse 는 sticky 셀의 테두리를 떼어 간다. inset 그림자로 그린다 */
+        table.work-table th {
+            background:#eef2f8; color:#445; font-weight:700;
+            position:sticky; top:0; z-index:2;
+            box-shadow: inset 0 1px 0 #d7dde7, inset 0 -1px 0 #d7dde7;
+        }
+        table.work-table td.l { text-align:left; }
+        table.work-table td.r { text-align:right; }
+        table.work-table tr:hover td { background:#f4f8ff; }
+
+        .qty { font-weight:700; color:#1f4e8c; }
+        .mut { color:#8b95a7; }
+        .empty { color:#99a; text-align:center; padding:22px 0; }
+        .kchip { display:inline-block; background:#eef2f8; border:1px solid #d7dde7; border-radius:10px;
+            padding:1px 8px; font-size:11.5px; color:#445; }
+        .kchip.etc { color:#8b95a7; }
+
+        /* 공정별 소계. ★ 가로로 더하지 않는다 — 한 부품이 공정마다 다시 세어진다 */
+        .sum-row { display:flex; gap:8px; flex-wrap:wrap; padding:10px 13px; }
+        .sum-card { border:1px solid #d7dde7; border-radius:8px; padding:8px 12px; min-width:150px; background:#fff; }
+        .sum-card .op { font-size:12px; color:#5b6b86; font-weight:700; }
+        .sum-card .v { font-size:19px; font-weight:800; color:#1f4e8c; margin-top:2px; }
+        .sum-card .kk { font-size:11px; color:#8b95a7; margin-top:3px; line-height:1.5; }
+        .sum-note { font-size:11.5px; color:#8b95a7; padding:0 13px 10px; line-height:1.6; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>가공 실적 조회</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산관리</li>
+                <li>가공 실적 조회</li>
+            </ul>
+        </div>
+
+        <div class="main-row">
+            <!-- 공정별 소계 -->
+            <section class="section sum-sec">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl><dt>생산일</dt>
+                            <dd><ul class="date-box">
+                                <li><input type="date" id="dateFrom"></li>
+                                <li style="align-self:center">~</li>
+                                <li><input type="date" id="dateTo"></li>
+                            </ul></dd></dl>
+                        <dl><dt>프로젝트</dt>
+                            <dd><select id="fProject" style="min-width:190px"></select></dd></dl>
+                        <dl><dt>공정</dt>
+                            <dd><select id="fOperation" style="min-width:140px"></select></dd></dl>
+                        <dl><dt>설비</dt>
+                            <dd><select id="fEquipment" style="min-width:140px"></select></dd></dl>
+                        <dl><dt>유형</dt>
+                            <dd><select id="fKind" style="min-width:110px"></select></dd></dl>
+                    </div>
+                    <div class="button-wrap">
+                        <ul>
+                            <li><a class="btn btn-search" onclick="prodResultKioskList.search()">검색</a></li>
+                            <li><a class="btn" onclick="prodResultKioskList.today()">오늘</a></li>
+                            <li><a class="btn" onclick="prodResultKioskList.week()">최근 7일</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="sum-row" id="sumRow"></div>
+                <div class="sum-note">
+                    ※ 공정별로 따로 셉니다. 한 부품이 절단·가공을 거치며 공정마다 다시 세어지므로
+                    <b>공정 숫자를 서로 더하지 마세요</b>. 필요량(부품 개수)과도 단위가 달라 직접 비교할 수 없습니다.
+                </div>
+            </section>
+
+            <!-- 실적 목록 -->
+            <section class="section" style="flex:1;">
+                <div class="section-top">
+                    <span style="font-weight:700">실적 내역 <span class="mut" id="cntLab"></span></span>
+                </div>
+                <div class="container-fluid">
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:9%">   <!-- 생산일 -->
+                            <col style="width:12%">  <!-- 공정 -->
+                            <col style="width:10%">  <!-- 설비 -->
+                            <col style="width:9%">   <!-- 작업자 -->
+                            <col style="width:16%">  <!-- 프로젝트 -->
+                            <col style="width:11%">  <!-- 수주 -->
+                            <col style="width:10%">  <!-- 품목 -->
+                            <col style="width:8%">   <!-- 유형 -->
+                            <col style="width:8%">   <!-- 수량 -->
+                            <col style="width:7%">   <!-- 취소 -->
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>생산일</th><th>공정</th><th>설비</th><th>작업자</th>
+                            <th>프로젝트</th><th>수주</th><th>품목</th><th>유형</th>
+                            <th>수량</th><th>취소</th>
+                        </tr>
+                        </thead>
+                        <tbody id="listBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        /*
+         * 가공 실적 조회 (PC)
+         *
+         * 키오스크는 그날 그 설비 것만 50건 보여 준다. 잘못 찍은 실적을
+         * 다음 날 고치거나 관리자가 전체를 훑을 데가 없어서 만들었다.
+         *
+         * [조회 전용 + 취소]
+         *   수정은 두지 않는다. 수량을 고치게 하면 "원래 얼마였나" 가 사라진다.
+         *   취소하고 키오스크에서 다시 넣는 편이 이력이 남는다.
+         *
+         * [숫자의 성격]
+         *   여기 수량은 <b>그 설비가 처리한 횟수</b>다. 완성 개수가 아니다.
+         *   한 부품이 절단 → 가공 → 와이어커팅을 거치면 공정마다 다시 세어지므로
+         *   공정을 합치면 실물보다 커진다 (SPEC 3-2: 라우팅 없음).
+         *   그래서 소계를 공정별로 갈라 놓고 총합은 만들지 않는다.
+         *
+         * [통신] AjaxUtil 만 쓴다. $.ajax 직접 호출은 CSRF 가 빠져 403 이 난다.
+         */
+        class ProdResultKioskListPage {
+            constructor() {
+                this.API = '/api/production/prod_result_kiosk';
+                this.spjangcd = $('#spjangcd').val() || 'ZZ';
+                this.rows = [];
+                this.equipments = [];
+                this.init();
+            }
+
+            async init() {
+                this.today();                    // 기본은 오늘
+                await this.loadFilters();
+                await this.search();
+            }
+
+            // ===== 마스터 =====
+
+            async loadFilters() {
+                const [pj, op, eq, kd] = await Promise.all([
+                    this.get(`${this.API}/project_list`, {spjangcd: this.spjangcd}),
+                    this.get(`${this.API}/operation_list`, {spjangcd: this.spjangcd}),
+                    this.get(`${this.API}/equipment_list`, {spjangcd: this.spjangcd}),
+                    this.get('/api/production/prod_design/kind_list', {spjangcd: this.spjangcd})
+                ]);
+
+                this.fill('fProject', (pj.data || []).map(p => ({
+                    v: p.proj_no, t: `${p.proj_no} ${p.proj_name || ''}`.trim()
+                })));
+                this.fill('fOperation', (op.data || []).map(o => ({v: o.operation, t: o.operation})));
+
+                this.equipments = eq.data || [];
+                this.fillEquipments(null);
+
+                this.fill('fKind', (kd.data || []).map(k => ({v: k.canon, t: k.canon}))
+                    .concat([{v: 'etc', t: '기타'}]));
+
+                // 공정을 고르면 그 공정 설비만 남긴다
+                this.el('fOperation').onchange = () => {
+                    this.fillEquipments(this.el('fOperation').value);
+                    this.search();
+                };
+                ['fProject', 'fEquipment', 'fKind'].forEach(id => {
+                    this.el(id).onchange = () => this.search();
+                });
+            }
+
+            fillEquipments(operation) {
+                const list = operation
+                    ? this.equipments.filter(e => e.operation === operation)
+                    : this.equipments;
+                this.fill('fEquipment', list.map(e => ({
+                    v: e.code, t: `${e.code} ${e.name || ''}`.trim()
+                })));
+            }
+
+            fill(id, opts) {
+                const sel = this.el(id);
+                const keep = sel.value;
+                sel.innerHTML = '<option value="">전체</option>'
+                    + opts.map(o => `<option value="${this.esc(o.v)}">${this.escHtml(o.t)}</option>`).join('');
+                if (keep && opts.some(o => String(o.v) === keep)) sel.value = keep;
+            }
+
+            // ===== 조회 =====
+
+            today() {
+                const d = new Date().toISOString().slice(0, 10);
+                this.el('dateFrom').value = d;
+                this.el('dateTo').value = d;
+            }
+
+            week() {
+                const to = new Date();
+                const from = new Date();
+                from.setDate(from.getDate() - 6);
+                this.el('dateFrom').value = from.toISOString().slice(0, 10);
+                this.el('dateTo').value = to.toISOString().slice(0, 10);
+                this.search();
+            }
+
+            params() {
+                return {
+                    spjangcd: this.spjangcd,
+                    dateFrom: this.el('dateFrom').value,
+                    dateTo: this.el('dateTo').value,
+                    projNo: this.el('fProject').value,
+                    operation: this.el('fOperation').value,
+                    equipment: this.el('fEquipment').value,
+                    kind: this.el('fKind').value
+                };
+            }
+
+            async search() {
+                const res = await this.get(`${this.API}/search`, this.params());
+                const d = res.data || {};
+                this.rows = d.rows || [];
+                this.renderSummary(d.summary || []);
+                this.renderList();
+            }
+
+            // ===== 렌더 =====
+
+            /*
+             * 공정별 소계. 카드 하나가 공정 하나다.
+             * 총합 카드를 두지 않는 이유는 공정을 더하면 실물보다 커지기 때문이다.
+             */
+            renderSummary(sum) {
+                const box = this.el('sumRow');
+                if (!sum.length) {
+                    box.innerHTML = '<span class="mut" style="padding:4px 0">조회 결과가 없습니다.</span>';
+                    return;
+                }
+                const byOp = {};
+                sum.forEach(s => {
+                    const o = s.operation || '(미지정)';
+                    (byOp[o] = byOp[o] || {qty: 0, kinds: []});
+                    byOp[o].qty += (+s.qty || 0);
+                    byOp[o].kinds.push(`${s.kind} ${this.nf(s.qty)}`);
+                });
+                box.innerHTML = Object.keys(byOp).sort().map(o => `
+                    <div class="sum-card">
+                        <div class="op">${this.escHtml(o)}</div>
+                        <div class="v">${this.nf(byOp[o].qty)}</div>
+                        <div class="kk">${byOp[o].kinds.map(k => this.escHtml(k)).join(' · ')}</div>
+                    </div>`).join('');
+            }
+
+            renderList() {
+                this.el('cntLab').textContent = this.rows.length
+                    ? `${this.nf(this.rows.length)}건` : '';
+
+                const body = this.el('listBody');
+                if (!this.rows.length) {
+                    body.innerHTML = '<tr><td colspan="10" class="empty">조회 결과가 없습니다.</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = this.rows.map((r, i) => `
+                    <tr>
+                        <td>${r.prod_date || ''}</td>
+                        <td class="l">${this.escHtml(r.operation || '')}</td>
+                        <td>${this.escHtml(r.equipment || '')}</td>
+                        <td>${this.escHtml(r.worker || '')}</td>
+                        <td class="l">${this.escHtml(r.proj_no || '')}
+                            <span class="mut">${this.escHtml(r.proj_name || '')}</span></td>
+                        <td class="l mut">${this.escHtml(r.suju_name || '-')}</td>
+                        <td>${r.item_name
+                    ? this.escHtml(r.item_name)
+                    : '<span class="mut">품목 미지정</span>'}</td>
+                        <td><span class="kchip ${r.kind === 'etc' ? 'etc' : ''}">${this.escHtml(r.kind)}</span></td>
+                        <td class="r qty">${this.nf(r.good_qty)}</td>
+                        <td><a class="btn" style="padding:3px 9px" data-i="${i}">취소</a></td>
+                    </tr>`).join('');
+
+                body.querySelectorAll('[data-i]').forEach(b =>
+                    b.onclick = () => this.remove(this.rows[+b.dataset.i]));
+            }
+
+            /*
+             * 실적 취소.
+             * 수정을 두지 않는 이유: 수량을 고치면 원래 값이 사라진다.
+             * 취소하고 다시 넣으면 이력이 남는다.
+             */
+            async remove(r) {
+                if (!r) return;
+                const ok = await Alert.confirmAsync('',
+                    `${r.prod_date} · ${r.operation} · ${r.kind} ${this.nf(r.good_qty)}\n이 실적을 취소하시겠습니까?`);
+                if (!ok) return;
+
+                const res = await this.post(`${this.API}/delete`, {id: r.id});
+                if (!res.success) {
+                    Alert.alert('', res.message || '취소에 실패했습니다.');
+                    return;
+                }
+                await this.search();
+            }
+
+            // ===== helper =====
+
+            el(id) { return document.getElementById(id); }
+
+            nf(n) { return Number(n || 0).toLocaleString(); }
+
+            // AjaxUtil 이 CSRF / spjangcd / 로딩바를 처리한다. 콜백이라 Promise 로 감싼다
+            get(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.getAsyncData(url, data,
+                        res => resolve(res || {success: false, data: null}),
+                        () => resolve({success: false, data: null}));
+                });
+            }
+
+            post(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.postJsonData(url, data,
+                        res => resolve(res || {success: false}),
+                        () => resolve({success: false, message: ''}));
+                });
+            }
+
+            escHtml(s) {
+                return (s == null ? '' : String(s))
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            esc(s) { return (s == null ? '' : String(s)).replace(/"/g, '&quot;'); }
+        }
+
+        $(document).ready(function () {
+            window.prodResultKioskList = new ProdResultKioskListPage();
+        });
+    </script>
+</th:block>
+</html>

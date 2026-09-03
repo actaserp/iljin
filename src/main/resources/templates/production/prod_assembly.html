@@ -47,7 +47,14 @@
         .pick-card { display:flex; flex-direction:column; gap:14px; align-items:stretch; }
         .pick-name { font-size:19px; font-weight:800; color:#1d2330; }
 
-        /* 지그 대수 / 조립완료 / 남음 — 나란히 놓는 세 숫자 */
+        .stage-tabs{display:flex;gap:6px;}
+        .stage-tabs button{border:1px solid #cfd6e2;background:#fff;color:#5b6b86;
+            border-radius:7px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;line-height:1.3;}
+        .stage-tabs button span{display:block;font-size:10.5px;font-weight:500;color:#98a2b3;}
+        .stage-tabs button.on{background:#1f4e8c;border-color:#1f4e8c;color:#fff;}
+        .stage-tabs button.on span{color:#c3d6ef;}
+
+        /* 목표 / 조립완료 / 남음 — 나란히 놓는 세 숫자 */
         .stat-row { display:flex; gap:8px; }
         .stat { flex:1; background:#f7f9fc; border:1px solid #e5eaf2; border-radius:8px; padding:10px 12px; }
         .stat .lab { display:block; font-size:11.5px; color:#7a8499; font-weight:700; }
@@ -92,6 +99,11 @@
                                         onchange="prodAssembly.search()"></select></dd>
                         </dl>
                     </div>
+                    <!-- 조립 2단계. 키오스크의 탭과 같은 stage 값을 쓴다 -->
+                    <div class="stage-tabs">
+                        <button data-st="unit" class="on">유닛 조립<span>가공품 → 유닛</span></button>
+                        <button data-st="set">공정 조립<span>유닛 → 지그</span></button>
+                    </div>
                 </div>
                 <div class="container-fluid">
                     <table class="work-table">
@@ -103,7 +115,7 @@
                         <tr>
                             <th>라인</th>
                             <th>품목</th>
-                            <th>지그 대수</th>
+                            <th id="thTarget">목표</th>
                             <th>조립완료</th>
                             <th>남음</th>
                             <th>상태</th>
@@ -167,18 +179,19 @@
         /**
          * 조립 공정 (PC)
          *
-         * [단위] <b>지그 대수</b>. 목표는 suju."SujuQty".
-         *        조립은 유닛들을 모아 지그 1대를 완성하는 작업이다.
-         *        유닛(unit_qty)은 그 지그가 몇 유닛으로 이루어지는지일 뿐 목표가 아니며,
-         *        유닛 조립은 현장이 따로 세지 않아 실적이 없다.
-         *        가공 키오스크의 가공품 개수와도, 검사의 지그 대수와도 다른 축이다.
+         * [조립 2단계]  탭으로 고른다. 키오스크와 같은 API·같은 stage 값을 쓴다.
+         *   'unit' 유닛 조립 (가공품 → 유닛)  목표 suju.unit_qty
+         *   'set'  공정 조립 (유닛 → 지그)    목표 suju."SujuQty"
          *
-         * [키오스크와 같은 데이터]
-         *        현장 키오스크(prod_assembly_kiosk)와 <b>같은 API·같은 단계</b>를 쓴다.
-         *        입력 위치만 다르다 — 현장에서 찍고, 여기서 확인·수정한다.
+         *   도면 구조가 그대로다.
+         *     FD10-00-00 지그 > FD10-01-00 유닛 01 > FD10-01-01~16 가공품 16종
+         *
+         * [현장과 같은 화면, 다른 역할]
+         *        현장 키오스크가 찍고, 여기서 <b>확인·수정</b>한다.
+         *        지그 완성 선언은 현장에서도 여기서도 할 수 있다.
          *
          * [공정 완료는 검사가 판정한다]
-         *        유닛을 다 조립해도 공정이 끝난 것은 아니다.
+         *        지그를 다 조립해도 끝이 아니다.
          *        검사 수량이 지그 대수(set_target)에 도달해야 끝이다.
          *        done_yn 이 그 결과이고, 여기서는 표시만 한다.
          */
@@ -187,7 +200,8 @@
             constructor() {
                 this.API = '/api/production/prod_assembly';
 
-                // 조립은 한 단계(ProcessOrder=1)뿐이다. stage 파라미터는 사라졌다.
+                // 조립 단계. 화면 탭으로 바뀌며 서버가 화이트리스트로 검증한다
+                this.stage = 'unit';
                 this.spjangcd = $('#spjangcd').val() || 'ZZ';
 
                 this.projects = [];
@@ -262,9 +276,22 @@
                 this.renderDetail();
             }
 
+            /* 단계 전환. 목표 축이 바뀌므로 선택과 목록을 다시 잡는다 */
+            async setStage(st) {
+                if (this.stage === st) return;
+                this.stage = st;
+                this.sel = -1;
+                document.querySelectorAll('.stage-tabs button').forEach(b =>
+                    b.classList.toggle('on', b.dataset.st === st));
+                this.el('thTarget').textContent = st === 'set' ? '지그 대수' : '유닛 수';
+                await this.loadItems();
+                await this.loadLog();
+                this.renderForm();
+            }
+
             async loadItems() {
                 const res = await this.get(`${this.API}/item_list`,
-                    {spjangcd: this.spjangcd, projNo: this.selProj});
+                    {spjangcd: this.spjangcd, projNo: this.selProj, stage: this.stage});
                 this.items = res.data || [];
                 this.renderList();
             }
@@ -275,6 +302,7 @@
                 const res = await this.get(`${this.API}/log`, {
                     spjangcd: this.spjangcd,
                     projNo: this.selProj,
+                    stage: this.stage
                 });
                 this.log = res.data || [];
                 this.renderLog();
@@ -298,7 +326,8 @@
                         <td>${it.line_name || ''}</td>
                         <td class="l">${this.esc(it.item_name)}</td>
                         <td>${(+it.target_qty > 0) ? it.target_qty
-                        : '<span style="color:#b3261e" title="수주에 지그 대수(SujuQty)가 없습니다">미등록</span>'}</td>
+                        : `<span style="color:#b3261e" title="수주에 ${
+                            this.stage === 'set' ? '지그 대수(SujuQty)' : '유닛 수(unit_qty)'}가 없습니다">미등록</span>`}</td>
                         <td>${it.done_qty ?? 0}</td>
                         <td>${it.wip_qty ?? 0}</td>
                         <td>${this.badge(it)}</td>
@@ -342,8 +371,12 @@
                     : ''}</div>
                     </div>
                     <div class="stat-row">
-                        <div class="stat"><span class="lab">지그 대수</span><span class="v">${it.target_qty ?? 0}</span></div>
-                        <div class="stat"><span class="lab">구성 유닛</span><span class="v">${it.unit_qty ?? 0}</span></div>
+                        <div class="stat"><span class="lab">${this.stage === 'set' ? '지그 대수' : '유닛 수'}</span>
+                            <span class="v">${it.target_qty ?? 0}</span></div>
+                        <div class="stat"><span class="lab">유닛 조립</span>
+                            <span class="v">${it.unit_done ?? 0}/${it.unit_target ?? 0}</span></div>
+                        <div class="stat"><span class="lab">공정 조립</span>
+                            <span class="v">${it.set_done ?? 0}/${it.set_target ?? 0}</span></div>
                         <div class="stat"><span class="lab">조립완료</span><span class="v">${it.done_qty ?? 0}</span></div>
                         <div class="stat wip"><span class="lab">남음</span><span class="v">${it.wip_qty ?? 0}</span></div>
                         <div class="stat"><span class="lab">검사</span>
@@ -412,6 +445,7 @@
                     spjangcd: this.spjangcd,
                     projNo: it.proj_no,
                     sujuId: it.suju_id,
+                    stage: this.stage,
                     worker: w.name,
                     workerId: w.id
                 });
@@ -441,6 +475,7 @@
                     prodDate: this.el('pdate').value,
                     projNo: it.proj_no,
                     sujuId: it.suju_id,
+                    stage: this.stage,
                     qty: qty,
                     worker: w.name,
                     workerId: w.id
@@ -488,6 +523,9 @@
 
         $(document).ready(function () {
             window.prodAssembly = new ProdAssemblyPage();
+            // 단계 탭. 인라인 onclick 대신 여기서 묶는다
+            document.querySelectorAll('.stage-tabs button').forEach(b =>
+                b.onclick = () => window.prodAssembly.setStage(b.dataset.st));
         });
 
     </script>

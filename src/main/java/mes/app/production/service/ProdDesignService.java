@@ -384,21 +384,36 @@ public class ProdDesignService {
 		MapSqlParameterSource ip = new MapSqlParameterSource();
 		ip.addValue("spjangcd", str(s.get("spjangcd")));
 		ip.addValue("sujuId", sujuId);
-		ip.addValue("partName", legSpec.isEmpty() ? "다리발" : legSpec);
+		/*
+		 * ★ 부품명은 '다리발' 로 고정하고 규격은 비고로 넘긴다.
+		 *   leg_spec 을 이름으로 쓰면 '287' 처럼 치수만 들어와 무엇인지 알 수 없고,
+		 *   유형 자동분류도 못 걸리며 품목 자동매칭에도 헛돈다.
+		 */
+		ip.addValue("partName", "다리발");
+		ip.addValue("remark", legSpec.isEmpty()
+				? "수주 다리발에서 생성 — 제작/구매 구분을 지정하세요"
+				: "수주 다리발사양 " + legSpec + " — 제작/구매 구분을 지정하세요");
 		ip.addValue("qtyType", QTY_TYPE_TOTAL);
 		ip.addValue("qty", legCnt <= 0 ? 1d : legCnt);
 		ip.addValue("userId", user.getId());
 
-		// Gubun / Kind 는 비운다. 사용자가 제작·구매를 정해야 저장이 완결된다.
+		/*
+		 * ★ Gubun 을 '제작품' 으로 넣는다.
+		 *   예전에는 비워 두고 "구분을 지정하세요" 라고 안내했는데,
+		 *   화면이 빈 구분을 제작품으로 보정해 버려 안내와 화면이 어긋났고,
+		 *   빈 값이 '제작품' 이 아니라서 품목 미매칭 패널에도 잘못 올라왔다.
+		 *   다리발은 대부분 제작품이므로 그쪽을 기본값으로 두고,
+		 *   구매품이면 사용자가 바꾸게 한다. 비고에 안내가 남는다.
+		 */
 		sqlRunner.execute("""
             INSERT INTO iljin_suju_bom (
                  spjangcd, "Suju_id", "PartNo", "PartName", "Gubun"
                , "Material_id", "Kind", "Qty", "QtyType", "State"
                , "Remark", "_order", "_created", "_creater_id"
             ) VALUES (
-                 :spjangcd, :sujuId, '', :partName, ''
+                 :spjangcd, :sujuId, '', :partName, '제작품'
                , NULL, '', :qty, :qtyType, '추정'
-               , '수주 다리발사양에서 생성 — 제작/구매 구분을 지정하세요'
+               , :remark
                , 999, now(), :userId
             )
             """, ip);
@@ -689,6 +704,7 @@ public class ProdDesignService {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
 		p.addValue("names", new ArrayList<>(keys.keySet()));
+		p.addValue("excludeGroups", EXCLUDE_MAT_GROUPS);
 
 		// 후보: 이름 또는 코드가 일치하는 품목 전부
 		List<Map<String, Object>> cand = sqlRunner.getRows("""
@@ -704,6 +720,8 @@ public class ProdDesignService {
             WHERE m.spjangcd = :spjangcd
               AND (UPPER(BTRIM(m."Name")) IN (:names)
                    OR UPPER(BTRIM(m."Code")) IN (:names))
+              -- 가공품은 발주 대상이 아니다 (searchMaterial 과 같은 기준)
+              AND COALESCE(g."Name", '') NOT IN (:excludeGroups)
             ORDER BY m."Name", m."Code"
             """, p);
 		if (cand == null) cand = new ArrayList<>();
@@ -788,11 +806,23 @@ public class ProdDesignService {
 		return str(o).toUpperCase();
 	}
 
+	/**
+	 * 품목 연결 후보에서 제외할 품목그룹(mat_grp."Name").
+	 *
+	 * 여기 연결하는 것은 STD·구매품이다. 가공품은 우리가 만드는 공정(품목)이라
+	 * 발주 대상이 아니고, 목록에 섞이면 잘못 연결하기 쉽다.
+	 * 그룹명이 바뀌면 이 값도 같이 바꿔야 한다 —
+	 *   SELECT "Name", COUNT(*) FROM mat_grp GROUP BY 1;
+	 */
+	private static final java.util.List<String> EXCLUDE_MAT_GROUPS =
+			java.util.List.of("가공품");
+
 	public List<Map<String, Object>> searchMaterial(String spjangcd, String keyword) {
 
 		MapSqlParameterSource params = new MapSqlParameterSource();
 		params.addValue("spjangcd", spjangcd);
 		params.addValue("keyword", "%" + (keyword == null ? "" : keyword) + "%");
+		params.addValue("excludeGroups", EXCLUDE_MAT_GROUPS);
 
 		String sql = """
             SELECT m.id
@@ -806,6 +836,11 @@ public class ProdDesignService {
             LEFT JOIN mat_grp g  ON g.id = m."MaterialGroup_id"
             WHERE m.spjangcd = :spjangcd
               AND (m."Name" ILIKE :keyword OR m."Code" ILIKE :keyword)
+              -- ★ 가공품은 후보에서 뺀다.
+              --   여기 연결하는 것은 STD·구매품, 즉 <b>발주해서 사 오는 것</b>이다.
+              --   가공품(A15·A19…)은 우리가 만드는 공정(품목)이라 발주 대상이 아니고,
+              --   목록에 섞여 있으면 A15 부품에 A15 를 연결하는 실수가 난다.
+              AND COALESCE(g."Name", '') NOT IN (:excludeGroups)
             ORDER BY m."Name"
             LIMIT 50
             """;
@@ -952,6 +987,239 @@ public class ProdDesignService {
             """;
 
 		return sqlRunner.getRows(sql, params);
+	}
+
+	// =================================================================
+	// [표준 BOM] 설비타입별 가공품 템플릿
+	//
+	//   suju.equip_type (고정지그·모다턴·슬라이더…) 마다 가공품 구성이 반복된다.
+	//   2D 도면이 나오기 전에도 "고정지그면 plate·block·pin 이 들어간다" 는 아니까,
+	//   그 뼈대를 미리 깔아 준다.
+	//
+	//   ★ <b>유형별로만</b> 담는다. 부품명은 받지 않는다.
+	//     2D 도면 전에는 부품 이름을 모른다. 아는 것은 "고정지그면 plate 20·brkt 10" 뿐이고,
+	//     그게 부품표의 집계 단위(유형)와도 같다.
+	//     part_name 에는 유형명을 그대로 넣어 부품표 화면이 그대로 쓰게 한다.
+	//
+	//   ★ 가공품(제작품)만 담는다.
+	//     STD·구매품은 프로젝트마다 사양이 달라(AIR CYL 만 해도 모델이 셋)
+	//     표준으로 박을 근거가 없다. material_id 컬럼은 나중을 위해 두되 쓰지 않는다.
+	//
+	//   ★ 별칭을 따로 두는 이유
+	//     equip_type 이 '슬라이더'/'슬라이드', '중하중 에어턴'/'중하중에어턴' 처럼 흔들린다.
+	//     수주 입력을 막을 수 없으므로 유형 별칭(iljin_part_kind_alias)과 같은 방식으로
+	//     여러 표기를 한 템플릿에 묶는다.
+	// =================================================================
+
+	/** 템플릿 목록 (별칭·부품수 포함) */
+	public List<Map<String, Object>> getBomTemplateList(String spjangcd) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+
+		return sqlRunner.getRows("""
+            SELECT t.id
+                 , t.template_name
+                 , t.use_yn
+                 , t._order
+                 , (SELECT STRING_AGG(a.equip_type, ', ' ORDER BY a.id)
+                      FROM iljin_bom_template_alias a WHERE a.template_id = t.id) AS aliases
+                 , (SELECT COUNT(*) FROM iljin_bom_template_part tp
+                     WHERE tp.template_id = t.id) AS part_cnt
+            FROM iljin_bom_template t
+            WHERE t.spjangcd = :spjangcd
+            ORDER BY t._order, t.template_name
+            """, p);
+	}
+
+	/** 템플릿 부품 */
+	public List<Map<String, Object>> getBomTemplateParts(Integer templateId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("templateId", templateId);
+
+		return sqlRunner.getRows("""
+            SELECT tp.id, tp.part_name, tp.gubun, tp.kind, tp.qty, tp._order
+            FROM iljin_bom_template_part tp
+            WHERE tp.template_id = :templateId
+            ORDER BY tp._order, tp.id
+            """, p);
+	}
+
+	/**
+	 * ★ 화면이 부품표를 깔 때 쓰는 조회.
+	 *
+	 * 품목의 equip_type 으로 <b>사용중인</b> 템플릿을 찾아 부품을 돌려준다.
+	 * 없으면 빈 목록이다 (템플릿이 없거나 use_yn='N').
+	 *
+	 * 저장하지 않는다. 화면이 받아 부품표에 얹고, 사용자가 저장을 눌러야 DB 로 간다.
+	 */
+	public List<Map<String, Object>> getBomTemplatePartsByEquipType(String spjangcd, String equipType) {
+		if (equipType == null || equipType.isBlank()) return new ArrayList<>();
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("equipType", equipType.trim());
+
+		return sqlRunner.getRows("""
+            SELECT t.template_name
+                 , tp.part_name, tp.gubun, tp.kind, tp.qty, tp._order
+            FROM iljin_bom_template t
+            JOIN iljin_bom_template_alias a ON a.template_id = t.id
+            JOIN iljin_bom_template_part  tp ON tp.template_id = t.id
+            WHERE t.spjangcd = :spjangcd
+              AND t.use_yn = 'Y'
+              AND BTRIM(a.equip_type) = BTRIM(CAST(:equipType AS varchar))
+            ORDER BY tp._order, tp.id
+            """, p);
+	}
+
+	/**
+	 * 설비타입별 <b>실제</b> 유형 평균. 템플릿 수량을 정할 때 옆에 놓고 본다.
+	 *
+	 * ★ 감으로 넣지 않게 하려는 것이다.
+	 *   이미 등록된 부품표에서 같은 설비타입만 골라 유형별 평균을 낸다.
+	 *   분모는 <b>그 유형이 등록된 품목 수</b>다. 전체 품목으로 나누면
+	 *   어쩌다 한 번 쓰는 유형이 실제보다 작게 보인다.
+	 */
+	public List<Map<String, Object>> getKindAverageByEquipType(String spjangcd, Integer templateId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("templateId", templateId);
+
+		return sqlRunner.getRows("""
+            WITH tgt AS (
+                SELECT BTRIM(a.equip_type) AS equip_type
+                FROM iljin_bom_template_alias a WHERE a.template_id = :templateId
+            ), src AS (
+                SELECT s.id AS suju_id
+                     , COALESCE(b."Kind", 'etc') AS kind
+                     , SUM(COALESCE(b."Qty", 0))  AS qty
+                FROM iljin_suju_bom b
+                JOIN suju s ON s.id = b."Suju_id"
+                WHERE b.spjangcd = :spjangcd
+                  AND b."Gubun" = '제작품'
+                  AND BTRIM(COALESCE(s.equip_type, '')) IN (SELECT equip_type FROM tgt)
+                GROUP BY s.id, COALESCE(b."Kind", 'etc')
+            )
+            SELECT kind
+                 , ROUND(AVG(qty))  AS avg_qty
+                 , COUNT(*)         AS item_cnt
+            FROM src
+            GROUP BY kind
+            ORDER BY 3 DESC, 1
+            """, p);
+	}
+
+	/** 템플릿 저장 (헤더 + 별칭 + 부품 통째 교체) */
+	@Transactional
+	public Integer saveBomTemplate(Map<String, Object> payload, String spjangcd, User user) {
+
+		Integer id = toInt(payload.get("id"));
+
+		MapSqlParameterSource h = new MapSqlParameterSource();
+		h.addValue("id", id);
+		h.addValue("spjangcd", spjangcd);
+		h.addValue("name", str(payload.get("templateName")));
+		h.addValue("useYn", "N".equals(str(payload.get("useYn"))) ? "N" : "Y");
+		h.addValue("order", toInt(payload.get("order")) == null ? 0 : toInt(payload.get("order")));
+		h.addValue("userId", user.getId());
+
+		if (id == null) {
+			id = sqlRunner.queryForObject("""
+                INSERT INTO iljin_bom_template (spjangcd, template_name, use_yn, _order, _created, _creater_id)
+                VALUES (:spjangcd, :name, :useYn, :order, now(), :userId)
+                RETURNING id
+                """, h, (rs, n) -> rs.getInt("id"));
+		} else {
+			sqlRunner.execute("""
+                UPDATE iljin_bom_template
+                   SET template_name = :name, use_yn = :useYn, _order = :order
+                     , _modified = now(), _modifier_id = :userId
+                 WHERE id = :id
+                """, h);
+		}
+
+		MapSqlParameterSource d = new MapSqlParameterSource();
+		d.addValue("templateId", id);
+		d.addValue("userId", user.getId());
+		sqlRunner.execute("DELETE FROM iljin_bom_template_alias WHERE template_id = :templateId", d);
+		sqlRunner.execute("DELETE FROM iljin_bom_template_part  WHERE template_id = :templateId", d);
+
+		@SuppressWarnings("unchecked")
+		List<Object> aliases = (List<Object>) payload.getOrDefault("aliases", new ArrayList<>());
+		for (Object a : aliases) {
+			String v = str(a);
+			if (v.isEmpty()) continue;
+			MapSqlParameterSource ap = new MapSqlParameterSource();
+			ap.addValue("templateId", id);
+			ap.addValue("equipType", v);
+			ap.addValue("userId", user.getId());
+			// 다른 템플릿이 이미 쓰는 설비타입이면 유니크 제약이 막는다.
+			// 한 설비타입이 두 템플릿에 붙으면 어느 것을 깔지 정할 수 없다.
+			sqlRunner.execute("""
+                INSERT INTO iljin_bom_template_alias (template_id, equip_type, _created, _creater_id)
+                VALUES (:templateId, :equipType, now(), :userId)
+                """, ap);
+		}
+
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> parts =
+				(List<Map<String, Object>>) payload.getOrDefault("parts", new ArrayList<>());
+		/*
+		 * ★ 유형이 키다. 같은 유형이 두 줄이면 부품표에 중복으로 깔린다.
+		 *   화면이 막지만 서버에서도 한 번 접는다 (뒤에 온 값이 이긴다).
+		 */
+		java.util.LinkedHashMap<String, Double> byKind = new java.util.LinkedHashMap<>();
+		for (Map<String, Object> it : parts) {
+			String kind = str(it.get("kind"));
+			if (kind.isEmpty()) continue;
+			byKind.put(kind, toDouble(it.get("qty")));
+		}
+
+		int order = 0;
+		for (Map.Entry<String, Double> e : byKind.entrySet()) {
+			String kind = e.getKey();
+
+			MapSqlParameterSource pp = new MapSqlParameterSource();
+			pp.addValue("templateId", id);
+			// 부품명은 유형명을 그대로 쓴다. 부품표 화면이 이름을 필요로 한다
+			pp.addValue("partName", kind);
+			pp.addValue("gubun", "제작품");   // 가공품 전용 템플릿
+			pp.addValue("kind", kind);
+			pp.addValue("qty", e.getValue());
+			pp.addValue("order", order++);
+			pp.addValue("userId", user.getId());
+			sqlRunner.execute("""
+                INSERT INTO iljin_bom_template_part (
+                     template_id, part_name, gubun, kind, qty, _order, _created, _creater_id)
+                VALUES (:templateId, :partName, :gubun, :kind, :qty, :order, now(), :userId)
+                """, pp);
+		}
+		return id;
+	}
+
+	/** 템플릿 삭제 (별칭·부품은 FK CASCADE) */
+	@Transactional
+	public void deleteBomTemplate(Integer templateId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("id", templateId);
+		sqlRunner.execute("DELETE FROM iljin_bom_template WHERE id = :id", p);
+	}
+
+	/** 아직 템플릿에 안 붙은 설비타입. 별칭 후보로 보여준다 */
+	public List<Map<String, Object>> getUnmappedEquipTypes(String spjangcd) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+
+		return sqlRunner.getRows("""
+            SELECT BTRIM(s.equip_type) AS equip_type, COUNT(*) AS cnt
+            FROM suju s
+            WHERE s.spjangcd = :spjangcd
+              AND COALESCE(BTRIM(s.equip_type), '') NOT IN ('', '-')
+              AND NOT EXISTS (SELECT 1 FROM iljin_bom_template_alias a
+                               WHERE BTRIM(a.equip_type) = BTRIM(s.equip_type))
+            GROUP BY BTRIM(s.equip_type)
+            ORDER BY 2 DESC, 1
+            """, p);
 	}
 
 	// =================================================================

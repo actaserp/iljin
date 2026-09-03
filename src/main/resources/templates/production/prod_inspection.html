@@ -113,15 +113,16 @@
                     </p>
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:9%">    <!-- 라인 -->
-                            <col style="width:19%">   <!-- 품목 -->
-                            <col style="width:15%">   <!-- 수주 -->
-                            <col style="width:8%">    <!-- 구분 -->
-                            <col style="width:13%">   <!-- 제작업체 -->
-                            <col style="width:10%">   <!-- 조립완료 -->
-                            <col style="width:9%">    <!-- 검사수량 -->
-                            <col style="width:9%">    <!-- 상태 -->
-                            <col style="width:8%">    <!-- 최근검사 -->
+                            <col style="width:8%">   <!-- 라인 -->
+                            <col style="width:17%">  <!-- 품목 -->
+                            <col style="width:14%">  <!-- 수주 -->
+                            <col style="width:7%">   <!-- 구분 -->
+                            <col style="width:12%">  <!-- 제작업체 -->
+                            <col style="width:10%">  <!-- 공정조립 -->
+                            <col style="width:10%">  <!-- 유닛조립 -->
+                            <col style="width:8%">   <!-- 검사수량 -->
+                            <col style="width:7%">   <!-- 상태 -->
+                            <col style="width:7%">   <!-- 최근검사 -->
                         </colgroup>
                         <thead>
                         <tr>
@@ -130,7 +131,8 @@
                             <th>수주</th>
                             <th>구분</th>
                             <th>제작업체</th>
-                            <th>조립완료</th>
+                            <th>공정조립</th>
+                            <th>유닛조립</th>
                             <th>검사수량</th>
                             <th>상태</th>
                             <th>최근검사</th>
@@ -220,12 +222,6 @@
 
         function el(sel) { return document.querySelector(sel); }
         function els(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
-        /*
-         * 수주 표기.
-         * 프로젝트 하나에 수주가 여러 건이고 (2026-004 는 5건) 번호가 없다.
-         * 같은 품목명이 여러 줄 나오므로 주문일 + 업체로 구분한다.
-         * 계획(plan)도 검사 대상이라 표시만 하고 거르지는 않는다.
-         */
         function headText(t) {
             if (!t || !(t.suju_name || t.jumun_date)) return '<span class="muted">-</span>';
             var plan = t.suju_type === 'plan' ? ' (계획)' : '';
@@ -377,7 +373,7 @@
                 var body = el('#targetBody');
 
                 if (!this.targets.length) {
-                    body.innerHTML = '<tr><td colspan="9">'
+                    body.innerHTML = '<tr><td colspan="10">'
                         + (this.state === 'wait' ? '미검사 항목이 없습니다.'
                             : this.state === 'exempt' ? '검사 면제 항목이 없습니다.'
                                 : '검사 대상이 없습니다. 작업 지시된 품목이 있어야 대상이 됩니다.')
@@ -395,13 +391,18 @@
                         + '" data-id="' + t.suju_id + '">'
                         + '<td>' + esc(t.line_name) + '</td>'
                         + '<td class="left">' + esc(t.item_name) + '</td>'
-                        // 프로젝트당 수주가 여러 건이라 같은 품목명이 여러 번 나온다.
-                        // 수주에는 번호가 없으므로 주문일 + 업체로 구분한다.
+                        // 프로젝트당 수주가 여러 건이라 같은 품목명이 여러 줄 나온다.
+                        // 수주에는 번호가 없으므로 수주명(없으면 주문일)으로 구분한다.
                         + '<td class="left">' + headText(t) + '</td>'
                         + '<td><span class="badge ' + (isOut ? 'out' : 'in') + '">'
                         + (isOut ? '외작' : '내작') + '</span></td>'
                         + '<td class="left">' + esc(t.make_comp || '') + '</td>'
+                        // 공정 조립(지그)과 검사는 같은 축이라 나란히 비교할 수 있다
                         + '<td>' + num(t.ready_qty) + ' / ' + num(t.set_target) + '</td>'
+                        // 유닛은 축이 달라 <b>따로</b> 보여준다.
+                        // 예전에 유닛 실적을 지그 대수와 나란히 놓아 A12(지그 2·유닛 24)가
+                        // '2/2 완료'로 보이는 일이 있었다.
+                        + '<td class="muted">' + num(t.unit_done) + ' / ' + num(t.unit_qty) + '</td>'
                         + '<td>' + num(t.insp_qty)
                         + (num(t.insp_defect_qty) > 0
                             ? ' <span class="badge wait">불 ' + num(t.insp_defect_qty) + '</span>' : '')
@@ -430,8 +431,7 @@
                 if (this.target) {
                     var exempt = this.target.insp_state === 'exempt';
                     var hn = this.target.suju_name || this.target.jumun_date;
-                    var h = hn ? ' [' + hn + ']' : '';
-                    el('#formTitle').textContent = this.target.item_name + h
+                    el('#formTitle').textContent = this.target.item_name + (hn ? ' [' + hn + ']' : '')
                         + (exempt ? ' — 검사면제' : ' 검사');
 
                     // 검사 가능 수량을 합격 칸에 밀어 넣어 준다. 필요하면 고치면 된다.

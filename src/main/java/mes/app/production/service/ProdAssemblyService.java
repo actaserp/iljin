@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -36,11 +38,10 @@ import java.util.Map;
  *     'finished' : 완료 (GoodQty 입력, EndTime 기록)
  *   시작 시 INSERT, 완료 시 같은 행을 UPDATE 하므로 시작시각을 옮길 필요가 없다.
  *
- * [수량 축]
- *   가공 실적 = 가공품(부품) 개수        iljin_prod_result. 별개 화면
- *   유닛      = suju.unit_qty            <b>실적을 기록하지 않는다.</b> 구성 정보일 뿐
- *   조립 실적 = suju."SujuQty" (지그 대수) ← <b>이 화면이 세는 것</b>
- *   검사 목표 = suju."SujuQty" (지그 대수)   조립과 같은 축
+ * [수량 축]  섞지 않는다.
+ *   가공품 = 부품 개수            iljin_prod_result. 별개 화면
+ *   유닛   = suju.unit_qty        유닛 조립(PO=1)
+ *   지그   = suju."SujuQty"       공정 조립(PO=2) · 검사(PO=3)
  *
  *   예) SujuQty 2 · unit_qty 24
  *      → 유닛 24개로 이루어진 지그를 <b>2대</b> 만든다.
@@ -77,25 +78,41 @@ public class ProdAssemblyService {
 	private static final String ASSY_WORKCENTER_CODE = "w06";
 
 	/**
-	 * ★ 조립은 <b>한 단계</b>다. ProcessOrder = 1 고정.
+	 * ★ 조립은 <b>두 단계</b>다.
 	 *
-	 *   예전에는 두 단계였다.
-	 *     PO=1 유닛 조립 (부품 → 유닛)
-	 *     PO=2 공정 조립 (유닛 → 지그)
-	 *   그런데 공정 조립은 현장이 따로 세지 않는 단계였고,
-	 *   "S10 지그 1개 완료" 같은 입력을 요구하는 것도 부자연스러웠다.
-	 *   게다가 "Standard" 가 '1/1'(한 쌍) 처럼 수량으로 쓰기 어려운 표기라
-	 *   지그 대수를 목표로 잡는 것 자체가 불안정했다.
+	 *   'unit' 유닛 조립 (가공품 → 유닛)   ProcessOrder=1  목표 suju.unit_qty
+	 *   'set'  공정 조립 (유닛 → 지그)     ProcessOrder=2  목표 suju."SujuQty"
 	 *
-	 *   그래서 <b>공정 완료 판정을 검사가 가져간다.</b>
-	 *   검사 수량이 지그 대수(suju."SujuQty")에 도달하면 그 공정은 끝난 것이다.
-	 *   축이 둘(유닛·지그)로 줄어 환산이 사라졌다.
+	 *   도면이 그 구조를 그대로 보여준다.
+	 *     FD10-00-00  지그 전체
+	 *       FD10-01-00  유닛 01
+	 *         FD10-01-01 ~ -16  가공품 16종 (LOCATOR / CLAMP / BLOCK / PLATE / SHIM / PIN …)
+	 *   유닛 하나가 가공품 40개 안팎으로 이루어지고, 그 유닛들이 지그를 이룬다.
 	 *
-	 *   PROC_ORDER 상수만 남긴다. stage 파라미터는 화면에서 받지 않는다.
+	 *   한때 유닛 조립을 없애고 한 단계로 합쳤다가 되돌렸다.
+	 *   합치면 조립 진척이 지그 단위(0 또는 1)라 몇 달간 0% 로 남는다.
+	 *   유닛은 조립 작업자가 "다 붙였다" 를 눈으로 아는 사건이라 셀 수 있고,
+	 *   그 사이 구간을 메운다.
+	 *
+	 *   유닛에 이름(01·02)은 있지만 화면에서 묻지 않는다 — 수기 입력이 안 되므로
+	 *   <b>몇 번인지가 아니라 몇 개인지</b>만 센다.
+	 *
+	 * ★ stage 는 화면이 아니라 데이터다. 화이트리스트로 검증해 저장한다.
 	 */
-	public static final int PROC_ORDER = 1;
+	public static final String STAGE_UNIT = "unit";
+	public static final String STAGE_SET  = "set";
 
-	/** 조립은 마지막 공정이 아니다. 검사(ProcessOrder=3)가 'Y' 를 갖는다. */
+	/** 알 수 없는 값은 전부 unit 으로 떨어뜨린다 */
+	public static String normalizeStage(Object o) {
+		String v = o == null ? "" : o.toString().trim().toLowerCase();
+		return STAGE_SET.equals(v) ? STAGE_SET : STAGE_UNIT;
+	}
+
+	private static int procOrderOf(String stage) {
+		return STAGE_SET.equals(stage) ? 2 : 1;
+	}
+
+	/** 조립은 마지막 공정이 아니다. 검사(ProcessOrder=3)가 'Y' 를 갖는다 */
 	private static final String LAST_YN = "N";
 
 	// =================================================================
@@ -190,15 +207,14 @@ public class ProdAssemblyService {
 	/**
 	 * 조립 대상 품목.
 	 *
-	 *  target_qty  조립 목표 = suju."SujuQty" (지그 대수)
-	 *  done_qty    조립 완료 누적 (PO=1). 단위는 지그 대수
-	 *  wip_qty     남은 대수
-	 *  unit_qty    이 지그를 이루는 유닛 수. <b>참고 표시용</b>이며 목표가 아니다
-	 *  set_target  검사 목표 = 지그 대수. 조립과 같은 값
-	 *  insp_done   검사 누적 (PO=3). 공정이 끝났는지 여기서 본다
-	 *  working_id  진행중인 mat_produce.id
+	 * 두 축을 모두 내려준다. 화면이 stage 로 골라 쓴다.
+	 *  unit_target / unit_done / unit_wip   유닛 축 (PO=1). 목표 suju.unit_qty
+	 *  set_target  / set_done  / set_wip    지그 축 (PO=2). 목표 suju."SujuQty"
+	 *  target_qty  / done_qty  / wip_qty    요청한 stage 기준 (화면이 분기 없이 그리게)
+	 *  insp_done                            검사 누적 (PO=3). 공정 완료 판정
+	 *  working_id                           요청한 stage 로 진행중인 mat_produce.id
 	 *
-	 * ★ 목표가 0 인 품목(SujuQty 미등록)은 화면에서 '대수 미등록' 으로 드러낸다.
+	 * ★ 목표가 0 인 품목은 화면에서 '미등록' 으로 드러낸다.
 	 *   0/0 을 완료로 처리하면 아무것도 안 했는데 끝난 것으로 보인다.
 	 *
 	 * 완료 누적은 mat_produce."GoodQty" 중 State='finished' 인 것만 센다.
@@ -206,17 +222,28 @@ public class ProdAssemblyService {
 	 *
 	 * 작업 지시된 품목만 노출한다 (지시 없는 조립은 관리 밖의 작업).
 	 */
-	public List<Map<String, Object>> getItemList(String spjangcd, String projNo) {
+	public List<Map<String, Object>> getItemList(String spjangcd, String projNo, String stage) {
+
+		String st = normalizeStage(stage);
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
 		p.addValue("projNo", nullIfEmpty(projNo));
+		p.addValue("stage", st);
+		p.addValue("procOrder", procOrderOf(st));
 
 		return sqlRunner.getRows("""
             SELECT s.id                     AS suju_id
                  , s.project_id             AS proj_no
                  , s.line                   AS line_name
                  , s."Material_Name"        AS item_name
+                 -- ★ 수주 정보. 프로젝트당 수주가 여러 건이라 같은 품목명이 여러 번 나온다.
+                 --   이게 없으면 화면이 품목을 골라도 수주를 못 맞추고,
+                 --   수주로 좁히면 목록이 통째로 비어 버린다.
+                 , s."SujuHead_id"           AS suju_head_id
+                 , COALESCE(sh.suju_name, '') AS suju_name
+                 , TO_CHAR(sh."JumunDate", 'MM-DD') AS jumun_date
+                 , COALESCE(sh."SujuType", '')      AS suju_type
                  , s."Material_id"          AS material_id
                  , s.equip_type             AS equip_type
                  , s.make_type              AS make_type
@@ -226,18 +253,27 @@ public class ProdAssemblyService {
                  , j.id                     AS job_res_id
                  , j."WorkOrderNumber"      AS work_order_number
 
-                 -- ★ 조립이 세는 것은 <b>지그 대수</b>다.
-                 --   조립 = 유닛들을 모아 지그 1대를 완성하는 작업이다.
-                 --   유닛 조립은 현장이 따로 세지 않아 실적이 없다.
-                 --   unit_qty(24)는 그 지그가 몇 유닛으로 이루어지는지일 뿐 목표가 아니다.
+                 -- ★ 축 두 개. 절대 섞지 않는다.
+                 --   unit_qty = 유닛 수  (유닛 조립 PO=1 의 목표).  예: 24
+                 --   SujuQty  = 지그 대수 (공정 조립 PO=2 · 검사의 목표). 예: 2
                  --   "Standard" 는 '1/1'(한 쌍) 표기가 섞여 수량으로 쓰지 않는다.
-                 , COALESCE(s.unit_qty, 0)                             AS unit_qty   -- 참고
-                 , COALESCE(s."SujuQty", 0)                            AS target_qty
-                 , COALESCE(u.done_qty, 0)                             AS done_qty
-                 , COALESCE(s."SujuQty", 0) - COALESCE(u.done_qty, 0)  AS wip_qty
+                 , COALESCE(s.unit_qty, 0)                             AS unit_qty
+                 , COALESCE(s.unit_qty, 0)                             AS unit_target
+                 , COALESCE(u.done_qty, 0)                             AS unit_done
+                 , COALESCE(s.unit_qty, 0) - COALESCE(u.done_qty, 0)   AS unit_wip
+                 , COALESCE(s."SujuQty", 0)                            AS set_target
+                 , COALESCE(v.done_qty, 0)                             AS set_done
+                 , COALESCE(s."SujuQty", 0) - COALESCE(v.done_qty, 0)  AS set_wip
 
-                 -- 검사 축: 지그 대수와 검사 누적. 공정 완료 여부를 여기서 본다
-                 , COALESCE(s."SujuQty", 0)                           AS set_target
+                 -- 요청한 stage 기준 값. 화면이 분기 없이 그린다
+                 , CASE WHEN :stage = 'set' THEN COALESCE(s."SujuQty", 0)
+                        ELSE COALESCE(s.unit_qty, 0) END               AS target_qty
+                 , CASE WHEN :stage = 'set' THEN COALESCE(v.done_qty, 0)
+                        ELSE COALESCE(u.done_qty, 0) END               AS done_qty
+                 , CASE WHEN :stage = 'set' THEN COALESCE(s."SujuQty", 0) - COALESCE(v.done_qty, 0)
+                        ELSE COALESCE(s.unit_qty, 0) - COALESCE(u.done_qty, 0) END AS wip_qty
+
+                 -- 검사 축: 검사 누적. 공정 완료 여부를 여기서 본다
                  , COALESCE(t.done_qty, 0)                            AS insp_done
                  , CASE WHEN COALESCE(s."SujuQty", 0) > 0
                          AND COALESCE(t.done_qty, 0) >= COALESCE(s."SujuQty", 0)
@@ -251,13 +287,21 @@ public class ProdAssemblyService {
             FROM suju s
             JOIN job_res j
               ON j."SourceTableName" = 'suju' AND j."SourceDataPk" = s.id
+            LEFT JOIN suju_head sh ON sh.id = s."SujuHead_id"
             LEFT JOIN (
                 SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS done_qty
                 FROM mat_produce
                 WHERE "ProcessOrder" = 1 AND "State" = 'finished'
                 GROUP BY "JobResponse_id"
             ) u ON u."JobResponse_id" = j.id
-            -- 공정 조립(PO=2)은 폐기됐다. 공정 완료는 검사(PO=3)가 판정한다
+            -- 공정 조립 (유닛 → 지그)
+            LEFT JOIN (
+                SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS done_qty
+                FROM mat_produce
+                WHERE "ProcessOrder" = 2 AND "State" = 'finished'
+                GROUP BY "JobResponse_id"
+            ) v ON v."JobResponse_id" = j.id
+            -- 검사 (공정 완료 판정)
             LEFT JOIN (
                 SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS done_qty
                 FROM mat_produce
@@ -266,7 +310,7 @@ public class ProdAssemblyService {
             ) t ON t."JobResponse_id" = j.id
             LEFT JOIN mat_produce w
               ON w."JobResponse_id" = j.id
-             AND w."ProcessOrder" = 1
+             AND w."ProcessOrder" = :procOrder
              AND COALESCE(w."State", '') <> 'finished'
             LEFT JOIN person pw ON pw.id = w."Actor_id"
             WHERE s.spjangcd = :spjangcd
@@ -280,11 +324,11 @@ public class ProdAssemblyService {
 	// =================================================================
 
 	/** 진행중인 조립 목록 */
-	public List<Map<String, Object>> getWorkingList(String spjangcd, String projNo) {
+	public List<Map<String, Object>> getWorkingList(String spjangcd, String projNo, String stage) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
 		p.addValue("projNo", nullIfEmpty(projNo));
-		p.addValue("procOrder", PROC_ORDER);
+		p.addValue("procOrder", stage == null || stage.isBlank() ? null : procOrderOf(normalizeStage(stage)));
 
 		return sqlRunner.getRows("""
             SELECT mp.id
@@ -293,8 +337,10 @@ public class ProdAssemblyService {
                  , s."Material_Name" AS item_name
                  , s.line            AS line_name
                  , mp."ProcessOrder" AS process_order
-                 , 'unit' AS stage
-                 , '유닛'  AS stage_name
+                 -- 단계는 저장된 ProcessOrder 에서 되읽는다.
+                 -- 'unit' 으로 박아 두면 공정 조립 실적이 유닛으로 표시된다.
+                 , CASE WHEN mp."ProcessOrder" = 2 THEN 'set' ELSE 'unit' END AS stage
+                 , CASE WHEN mp."ProcessOrder" = 2 THEN '공정' ELSE '유닛' END AS stage_name
                  , mp."Actor_id"     AS worker_id
                  , pw."Name"         AS worker
                  , TO_CHAR(mp."StartTime", 'HH24:MI') AS start_time
@@ -314,10 +360,10 @@ public class ProdAssemblyService {
 	}
 
 	/** 해당 품목·단계로 진행중인 행 (없으면 null) */
-	public Map<String, Object> getWorking(Integer sujuId) {
+	public Map<String, Object> getWorking(Integer sujuId, String stage) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("sujuId", sujuId);
-		p.addValue("procOrder", PROC_ORDER);
+		p.addValue("procOrder", procOrderOf(normalizeStage(stage)));
 
 		return sqlRunner.getRow("""
             SELECT mp.id, mp."StartTime", mp."Actor_id", mp."LotIndex"
@@ -348,10 +394,12 @@ public class ProdAssemblyService {
 	@Transactional
 	public void startWorking(Map<String, Object> payload, User user) {
 
+		String stage = normalizeStage(payload.get("stage"));
+
 		Integer sujuId = toInt(payload.get("sujuId"));
 		String spjangcd = str(payload.get("spjangcd"));
 
-		Map<String, Object> exist = getWorking(sujuId);
+		Map<String, Object> exist = getWorking(sujuId, stage);
 		if (exist != null) {
 			MapSqlParameterSource up = new MapSqlParameterSource();
 			up.addValue("id", toInt(exist.get("id")));
@@ -378,7 +426,7 @@ public class ProdAssemblyService {
 		p.addValue("materialId", toInt(item.get("material_id")));
 		p.addValue("processId", wc == null ? null : toInt(wc.get("process_id")));
 		p.addValue("workCenterId", wc == null ? null : toInt(wc.get("workcenter_id")));
-		p.addValue("procOrder", PROC_ORDER);
+		p.addValue("procOrder", procOrderOf(stage));
 		p.addValue("lastYn", LAST_YN);
 		p.addValue("workerId", toInt(payload.get("workerId")));
 		p.addValue("equipmentId", toInt(payload.get("equipmentId")));   // 조립은 보통 NULL
@@ -423,13 +471,14 @@ public class ProdAssemblyService {
 	public void complete(Map<String, Object> payload, User user) {
 
 		Integer sujuId = toInt(payload.get("sujuId"));
+		String stage = normalizeStage(payload.get("stage"));
 
-		Map<String, Object> w = getWorking(sujuId);
+		Map<String, Object> w = getWorking(sujuId, stage);
 
 		if (w == null) {
 			// 시작을 누르지 않고 바로 완료한 경우 — 행을 만들고 이어서 마감한다
 			startWorking(payload, user);
-			w = getWorking(sujuId);
+			w = getWorking(sujuId, stage);
 			if (w == null) return;
 		}
 
@@ -457,6 +506,150 @@ public class ProdAssemblyService {
             """, p);
 
 		syncJobResState(sujuId, user);
+
+		// ★ 공정 조립만 재고를 만든다. 유닛·가공품은 만들지 않는다.
+		if (STAGE_SET.equals(stage)) produceIn(toInt(w.get("id")), user);
+	}
+
+	/**
+	 * 완성품 입고 — mat_lot + mat_inout(in).
+	 *
+	 * ★ <b>공정(지그)만</b> 재고를 만든다.
+	 *   SPEC 3-1 이 재고를 금지한 것은 <b>가공품</b> 얘기다.
+	 *   가공품은 파기를 기록하지 않아 차감 이벤트가 영원히 안 들어오고,
+	 *   그러면 몇 달 뒤 "브라켓 재고 3,200개" 라는 거짓 숫자가 박힌다.
+	 *
+	 *   지그는 다르다. 수량이 1식이라 잔량이 안 생기고, 파기가 사실상 없으며,
+	 *   <b>시운전(출하)에서 차감 이벤트가 반드시 들어온다.</b>
+	 *   같은 '재고' 라는 말을 써도 한쪽은 거짓이 되고 한쪽은 참으로 유지된다.
+	 *
+	 * 기존 ProductionResultService.produceInForChasu 와 같은 컬럼·같은 값으로 넣는다.
+	 *   mat_lot    : InputQty = CurrentStock = 양품수량
+	 *   mat_inout  : InOut='in', InputType='produced_in', State='confirmed'
+	 *   추적키      : SourceTableName='mat_produce', SourceDataPk=mat_produce.id
+	 *   → 나머지 잔고 계산은 트리거가 맡는다.
+	 *
+	 * ★ 품목마스터 연결이 없으면 만들지 않는다.
+	 *   mat_lot."Material_id" 가 NOT NULL 이라 넣을 수 없고,
+	 *   억지로 넣으면 어느 품목의 재고인지 알 수 없는 행이 쌓인다.
+	 *   수주에 품목을 연결하면 그때부터 정상 동작한다.
+	 */
+	@Transactional
+	public void produceIn(Integer matProduceId, User user) {
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("id", matProduceId);
+
+		Map<String, Object> mp = sqlRunner.getRow("""
+            SELECT mp.id
+                 , mp.spjangcd
+                 , mp."Material_id"  AS material_id
+                 , mp."LotNumber"    AS lot_number
+                 , COALESCE(mp."GoodQty", 0) AS good_qty
+                 , mp."LotIndex"     AS lot_index
+                 , m."StoreHouse_id" AS store_house_id
+                 , s.project_id      AS proj_no
+                 , s."Material_Name" AS item_name
+            FROM mat_produce mp
+            JOIN job_res j ON j.id = mp."JobResponse_id"
+                          AND j."SourceTableName" = 'suju'
+            JOIN suju s    ON s.id = j."SourceDataPk"
+            LEFT JOIN material m ON m.id = mp."Material_id"
+            WHERE mp.id = :id
+            """, p);
+
+		if (mp == null) return;
+
+		Integer materialId = toInt(mp.get("material_id"));
+		Integer storeHouseId = toInt(mp.get("store_house_id"));
+		double qty = toDouble(mp.get("good_qty"));
+
+		/*
+		 * ★ 하나라도 없으면 만들지 않는다.
+		 *   mat_lot."Material_id" 와 mat_inout."StoreHouse_id" 가 NOT NULL 이라
+		 *   비면 INSERT 가 터진다. 조립 완료 자체가 실패하는 것보다
+		 *   재고만 건너뛰고 로그를 남기는 편이 낫다 —
+		 *   실적은 남으므로 나중에 채워 넣을 수 있다.
+		 */
+		if (materialId == null || storeHouseId == null || qty <= 0) {
+			log.warn("[prod_assembly] 재고 미생성 (mat_produce={}). "
+							+ "materialId={}, storeHouseId={}, qty={}. "
+							+ "수주의 품목마스터 연결과 그 품목의 기본창고를 확인할 것.",
+					matProduceId, materialId, storeHouseId, qty);
+			return;
+		}
+
+		// 이미 입고된 건이면 두 번 만들지 않는다 (완료를 다시 눌러도 안전하게)
+		int exist = sqlRunner.queryForCount("""
+            SELECT COUNT(*) FROM mat_lot
+            WHERE "SourceTableName" = 'mat_produce' AND "SourceDataPk" = :id
+            """, p);
+		if (exist > 0) return;
+
+		// LotNumber 는 mat_produce 에 없으면 여기서 채운다.
+		// 프로젝트·품목·일자로 사람이 읽을 수 있게 만든다.
+		/*
+		 * LotNumber 는 varchar(50) 이고 mat_lot 에서는 NOT NULL 이다.
+		 * 뒤쪽(일자·차수)이 유일성을 담당하므로 <b>품목명을 잘라</b> 길이를 맞춘다.
+		 * 앞을 자르면 같은 날 같은 차수끼리 충돌한다.
+		 */
+		String lot = str(mp.get("lot_number"));
+		if (lot.isEmpty()) {
+			String tail = "-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+					+ "-" + str(mp.get("lot_index"));
+			String head = str(mp.get("proj_no")) + "-" + str(mp.get("item_name"));
+			int room = 50 - tail.length();
+			if (head.length() > room) head = head.substring(0, Math.max(0, room));
+			lot = head + tail;
+		} else if (lot.length() > 50) {
+			lot = lot.substring(0, 50);
+		}
+
+		MapSqlParameterSource ip = new MapSqlParameterSource();
+		ip.addValue("id", matProduceId);
+		ip.addValue("spjangcd", str(mp.get("spjangcd")));
+		ip.addValue("materialId", materialId);
+		ip.addValue("storeHouseId", storeHouseId);
+		ip.addValue("lot", lot);
+		ip.addValue("qty", qty);
+		ip.addValue("desc", str(mp.get("lot_index")) + "차수 조립완료");
+		ip.addValue("userId", user.getId());
+
+		sqlRunner.execute("""
+            UPDATE mat_produce
+            SET "LotNumber" = :lot
+              , "StoreHouse_id" = COALESCE("StoreHouse_id", :storeHouseId)
+            WHERE id = :id
+            """, ip);
+
+		sqlRunner.execute("""
+            INSERT INTO mat_lot (
+                 spjangcd, "LotNumber", "Material_id", "InputDateTime"
+               , "InputQty", "CurrentStock", "OutQtySum", "Description"
+               , "SourceTableName", "SourceDataPk", "StoreHouse_id"
+               , _status, _created, _creater_id
+            ) VALUES (
+                 :spjangcd, :lot, :materialId, now()
+               , :qty, :qty, 0, :desc
+               , 'mat_produce', :id, :storeHouseId
+               , 'a', now(), :userId
+            )
+            """, ip);
+
+		sqlRunner.execute("""
+            INSERT INTO mat_inout (
+                 spjangcd, "Material_id", "StoreHouse_id", "LotNumber"
+               , "InoutDate", "InoutTime", "InOut", "InputType", "InputQty"
+               , "SourceTableName", "SourceDataPk", "State", "Description"
+               , _status, _created, _creater_id
+            ) VALUES (
+                 :spjangcd, :materialId, :storeHouseId, :lot
+                 -- ★ CURRENT_TIME 은 timetz 를 돌려준다. 컬럼은 time 이라 LOCALTIME 을 쓴다
+               , CURRENT_DATE, LOCALTIME, 'in', 'produced_in', :qty
+               , 'mat_produce', :id, 'confirmed', '조립완료 입고'
+               , 'a', now(), :userId
+            )
+            """, ip);
 	}
 
 	/**
@@ -464,10 +657,10 @@ public class ProdAssemblyService {
 	 * 진행중 행을 지운다. 이미 완료된 행은 건드리지 않는다.
 	 */
 	@Transactional
-	public void endWorking(Integer sujuId) {
+	public void endWorking(Integer sujuId, String stage) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("sujuId", sujuId);
-		p.addValue("procOrder", PROC_ORDER);
+		p.addValue("procOrder", procOrderOf(normalizeStage(stage)));
 
 		sqlRunner.execute("""
             DELETE FROM mat_produce
@@ -486,8 +679,9 @@ public class ProdAssemblyService {
 	 * job_res 의 누적/상태를 조립 실적에 맞춘다.
 	 *
 	 * job_res 는 <b>지그 대수 축</b>이다.
-	 *   "OrderQty" = suju."SujuQty" (지그 대수)
-	 *   "GoodQty"  = 조립(ProcessOrder=1) 누적. 같은 축이다
+	 *   "OrderQty" = suju."SujuQty"        (지그 대수)
+	 *   "GoodQty"  = 공정 조립(PO=2) 누적    같은 축
+	 *   유닛 조립(PO=1)은 축이 달라 여기 넣지 않는다 (24/2 가 되어 버린다)
 	 *
 	 * ★ 완료 판정만 다른 축에서 온다.
 	 *   검사(ProcessOrder=3) 누적이 지그 대수(suju."SujuQty")에 도달하면 'finished'.
@@ -525,16 +719,18 @@ public class ProdAssemblyService {
             ) s
             LEFT JOIN job_res jj
                    ON jj."SourceTableName" = 'suju' AND jj."SourceDataPk" = s.id
-            -- 누적은 유닛 축(PO=1). OrderQty 가 유니트수라 축이 맞는다
+            -- ★ 누적은 <b>공정 조립(PO=2)</b>. "OrderQty" 가 지그 대수라 축이 맞는다.
+            --   유닛 조립(PO=1)을 넣으면 24/2 처럼 100% 를 훌쩍 넘는다.
+            --   유닛 진척은 화면이 unit_done/unit_target 으로 따로 본다.
             LEFT JOIN (
                 SELECT "JobResponse_id"
                      , SUM(COALESCE("GoodQty", 0))   AS good_qty
                      , SUM(COALESCE("DefectQty", 0)) AS defect_qty
                 FROM mat_produce
-                WHERE "ProcessOrder" = 1 AND "State" = 'finished'
+                WHERE "ProcessOrder" = 2 AND "State" = 'finished'
                 GROUP BY "JobResponse_id"
             ) u ON u."JobResponse_id" = jj.id
-            -- 완료 판정은 검사(PO=3). 공정 조립 단계는 폐기됐다
+            -- 완료 판정은 검사(PO=3). 지그를 다 조립해도 검사를 통과해야 끝이다
             LEFT JOIN (
                 SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS set_done
                 FROM mat_produce
@@ -558,12 +754,12 @@ public class ProdAssemblyService {
 	 * 날짜를 넘기지 않으면 프로젝트 기준 최근 100건을 그대로 보여준다.
 	 */
 	public List<Map<String, Object>> getResultLog(String spjangcd, String prodDate,
-												  String projNo) {
+												  String projNo, String stage) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
 		p.addValue("prodDate", nullIfEmpty(prodDate));
 		p.addValue("projNo", nullIfEmpty(projNo));
-		p.addValue("procOrder", PROC_ORDER);
+		p.addValue("procOrder", stage == null || stage.isBlank() ? null : procOrderOf(normalizeStage(stage)));
 
 		return sqlRunner.getRows("""
             SELECT mp.id
@@ -572,8 +768,10 @@ public class ProdAssemblyService {
                  , s."Material_Name" AS item_name
                  , s.line            AS line_name
                  , mp."ProcessOrder" AS process_order
-                 , 'unit' AS stage
-                 , '유닛'  AS stage_name
+                 -- 단계는 저장된 ProcessOrder 에서 되읽는다.
+                 -- 'unit' 으로 박아 두면 공정 조립 실적이 유닛으로 표시된다.
+                 , CASE WHEN mp."ProcessOrder" = 2 THEN 'set' ELSE 'unit' END AS stage
+                 , CASE WHEN mp."ProcessOrder" = 2 THEN '공정' ELSE '유닛' END AS stage_name
                  , COALESCE(mp."GoodQty", 0)   AS qty
                  , COALESCE(mp."DefectQty", 0) AS defect_qty
                  , mp."Actor_id"     AS worker_id
@@ -583,6 +781,8 @@ public class ProdAssemblyService {
                  , TO_CHAR(mp."ProductionDate", 'YYYY-MM-DD') AS prod_date
                  , TO_CHAR(mp."StartTime", 'HH24:MI')         AS start_time
                  , TO_CHAR(mp."EndTime", 'HH24:MI')           AS end_time
+                 -- 입력 시각. EndTime 은 완료를 안 찍은 건이 있어 비므로 _created 를 쓴다
+                 , TO_CHAR(COALESCE(mp."EndTime", mp."_created"), 'HH24:MI') AS reg_time
             FROM mat_produce mp
             JOIN job_res j ON j.id = mp."JobResponse_id"
                           AND j."SourceTableName" = 'suju'
@@ -612,6 +812,27 @@ public class ProdAssemblyService {
             JOIN job_res j ON j.id = mp."JobResponse_id"
                           AND j."SourceTableName" = 'suju'
             WHERE mp.id = :id
+            """, f);
+
+		/*
+		 * ★ 재고를 먼저 걷어낸다.
+		 *   공정 조립은 입고(mat_lot + mat_inout)를 만들므로,
+		 *   실적만 지우면 근거 없는 재고가 남아 시운전 때 차감할 것이 안 맞는다.
+		 *
+		 *   반대 방향 행(out)을 넣지 않고 <b>지운다.</b>
+		 *   잘못 넣은 실적을 무르는 것이지 물건이 나간 게 아니라서,
+		 *   출고로 기록하면 없던 출하가 생긴다.
+		 *
+		 *   이미 소모된 lot 이면 DB 제약이나 트리거가 막을 것이다.
+		 *   그때는 삭제가 실패하는 편이 낫다 — 남은 재고가 음수가 되는 것보다.
+		 */
+		sqlRunner.execute("""
+            DELETE FROM mat_inout
+            WHERE "SourceTableName" = 'mat_produce' AND "SourceDataPk" = :id
+            """, f);
+		sqlRunner.execute("""
+            DELETE FROM mat_lot
+            WHERE "SourceTableName" = 'mat_produce' AND "SourceDataPk" = :id
             """, f);
 
 		sqlRunner.execute("DELETE FROM mat_produce WHERE id = :id", f);

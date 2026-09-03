@@ -18,17 +18,19 @@ import java.util.Map;
  *
  * [저장 위치]  신규 테이블 없음. 표준 mat_produce 에 쌓는다.
  *
- * [조립은 한 단계]
- *   mat_produce."ProcessOrder" = 1, LastProcessYN = 'N'
- *   부품 → 유닛. 목표는 suju.unit_qty (유닛 총량)
+ * [조립은 두 단계]
+ *   stage='unit' → ProcessOrder=1.  가공품 → 유닛.  목표 suju.unit_qty
+ *   stage='set'  → ProcessOrder=2.  유닛 → 지그.    목표 suju."SujuQty"
  *
- *   예전에는 유닛 조립(1) / 공정 조립(2) 두 단계였는데 공정 조립을 폐기했다.
- *   현장이 "지그 1개 완료" 를 따로 세지 않았고,
- *   지그 대수를 담은 "Standard" 가 '1/1'(한 쌍) 같은 표기라 수량으로 쓸 수 없었다.
- *   <b>공정 완료 판정은 검사(ProcessOrder=3)가 가져간다</b> —
- *   검사 수량이 지그 대수(suju."SujuQty")에 도달하면 그 공정은 끝이다.
+ *   도면 구조가 그대로다.
+ *     FD10-00-00 지그 > FD10-01-00 유닛 01 > FD10-01-01~16 가공품 16종
  *
- *   축이 둘로 줄었다.  유닛(조립) / 지그(검사).  환산이 없다.
+ *   <b>stage 는 화면이 아니라 데이터다.</b> 화면은 기본값만 보내고
+ *   서버가 화이트리스트(normalizeStage)로 검증해 저장한다.
+ *   그래서 키오스크와 PC 가 같은 API 로 두 단계를 모두 다룰 수 있다.
+ *
+ *   공정 완료 판정은 <b>검사(ProcessOrder=3)</b>가 갖는다 —
+ *   지그를 다 조립해도 검사를 통과해야 끝이다.
  *
  * [설계 메모]
  *  - 진행중은 별도 테이블이 아니라 mat_produce."State" <> 'finished' 로 표현한다.
@@ -69,34 +71,38 @@ public class ProdAssemblyController {
 	/**
 	 * 조립 대상 품목 (지시된 것만).
 	 *
-	 * target_qty / done_qty / wip_qty 는 <b>유닛 축</b>이다 (suju.unit_qty 기준).
-	 * set_target / insp_done / done_yn 은 검사 축이며 공정 완료 여부를 알려 준다.
+	 * stage 를 안 보내면 'unit' 으로 본다.
+	 * 응답에는 unit_* / set_* 수치가 모두 들어 있고,
+	 * target_qty / done_qty / wip_qty 는 요청한 stage 기준 값이다.
 	 */
 	@GetMapping("/item_list")
 	public AjaxResult itemList(@RequestParam("spjangcd") String spjangcd,
-							   @RequestParam(value = "projNo", required = false) String projNo) {
+							   @RequestParam(value = "projNo", required = false) String projNo,
+							   @RequestParam(value = "stage", required = false) String stage) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodAssemblyService.getItemList(spjangcd, projNo);
+		result.data = prodAssemblyService.getItemList(spjangcd, projNo, stage);
 		return result;
 	}
 
 	@GetMapping("/working_list")
 	public AjaxResult workingList(@RequestParam("spjangcd") String spjangcd,
-								  @RequestParam(value = "projNo", required = false) String projNo) {
+								  @RequestParam(value = "projNo", required = false) String projNo,
+								  @RequestParam(value = "stage", required = false) String stage) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodAssemblyService.getWorkingList(spjangcd, projNo);
+		result.data = prodAssemblyService.getWorkingList(spjangcd, projNo, stage);
 		return result;
 	}
 
 	@GetMapping("/log")
 	public AjaxResult log(@RequestParam("spjangcd") String spjangcd,
 						  @RequestParam(value = "prodDate", required = false) String prodDate,
-						  @RequestParam(value = "projNo", required = false) String projNo) {
+						  @RequestParam(value = "projNo", required = false) String projNo,
+						  @RequestParam(value = "stage", required = false) String stage) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodAssemblyService.getResultLog(spjangcd, prodDate, projNo);
+		result.data = prodAssemblyService.getResultLog(spjangcd, prodDate, projNo, stage);
 		return result;
 	}
 
@@ -135,7 +141,7 @@ public class ProdAssemblyController {
 		prodAssemblyService.startWorking(payload, user);
 
 		result.success = true;
-		result.message = "조립을 시작했습니다.";
+		result.message = stageName(payload.get("stage")) + " 조립을 시작했습니다.";
 		return result;
 	}
 
@@ -181,7 +187,7 @@ public class ProdAssemblyController {
 		prodAssemblyService.complete(payload, user);
 
 		result.success = true;
-		result.message = "조립을 완료했습니다.";
+		result.message = stageName(payload.get("stage")) + " 조립을 완료했습니다.";
 		return result;
 	}
 
@@ -198,7 +204,7 @@ public class ProdAssemblyController {
 			return result;
 		}
 
-		prodAssemblyService.endWorking(sujuId);
+		prodAssemblyService.endWorking(sujuId, str(payload.get("stage")));
 		result.success = true;
 		result.message = "작업을 취소했습니다.";
 		return result;
@@ -228,6 +234,16 @@ public class ProdAssemblyController {
 	// =================================================================
 	// helper
 	// =================================================================
+
+	/** 메시지용 단계 표기 */
+	private String stageName(Object stage) {
+		return ProdAssemblyService.STAGE_SET.equals(ProdAssemblyService.normalizeStage(stage))
+				? "공정" : "유닛";
+	}
+
+	private String str(Object o) {
+		return o == null ? "" : o.toString().trim();
+	}
 
 	private Integer toInt(Object o) {
 		if (o == null || o.toString().isBlank()) return null;

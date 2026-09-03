@@ -152,9 +152,26 @@
         table.log-table th,table.log-table td{border-bottom:1px solid #eef1f6;padding:8px 10px;font-size:12.5px;text-align:center;}
         table.log-table th{position:sticky;top:0;background:#eef2f8;color:#445;font-weight:800;}
         table.log-table td.k{font-weight:800;}
+        .t-cell{color:#8b95a7;font-variant-numeric:tabular-nums;}
         .g-cell{color:#0b69a3;font-weight:800;}
         .s-cell{color:#a4478f;font-weight:800;}
         .x-btn{border:1px solid #e2b8c8;background:#fff;color:#c0466a;border-radius:7px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer;}
+        /* 작업 현황 확장.
+           ★ 장갑 낀 손으로 삭제를 누르는 자리라 평소 크기로는 오조작이 난다.
+             펼치면 화면 전체를 덮고 행 높이와 버튼을 키운다.
+             선택 단계는 볼 필요가 없으므로 오버레이로 덮는다. */
+        .log-card.big{position:fixed;inset:12px;z-index:60;flex:none;
+            box-shadow:0 12px 40px rgba(0,0,0,.28);}
+        .log-card.big .log-head{font-size:20px;padding:14px 18px;}
+        .log-card.big table.log-table th{font-size:16px;padding:12px 10px;}
+        .log-card.big table.log-table td{font-size:17px;padding:14px 10px;}
+        .log-card.big .x-btn{font-size:16px;padding:12px 22px;border-radius:10px;}
+        .log-backdrop{position:fixed;inset:0;background:rgba(16,22,38,.45);z-index:59;display:none;}
+        .log-backdrop.on{display:block;}
+        .log-toggle{border:1px solid #cfd6e2;background:#fff;color:#39435a;border-radius:9px;
+            padding:8px 16px;font-size:14px;font-weight:800;cursor:pointer;}
+        .log-head-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+
         .work-row{cursor:pointer;background:#fffbe8;}
         .work-row:hover{background:#fff3c4;}
         .work-row td.k{color:#7a5d12;}
@@ -165,6 +182,28 @@
         .x-btn.done{border-color:#9ab8e6;color:#2f5fb0;}
         .log-empty{color:#99a;text-align:center;padding:22px 0;font-size:13.5px;}
 
+        /* 상단 모드 탭 — 가공품 / 유닛 / 공정 */
+        /* 실적 종류 세그먼트.
+           ★ 장갑 낀 손을 기준으로 잡았다.
+             - 높이 68px: 장갑 접촉면이 커서 44px 권장치로는 오조작이 난다
+             - 균등 3분할: 손이 어디로 가든 목표가 크다
+             - 색을 다르게: 지금 어느 종류를 입력 중인지 흘긋 봐도 안다
+                 가공품 파랑 / 유닛 초록 / 공정 주황
+             - 잘못 누르면 수량이 엉뚱한 실적으로 들어가므로 선택 상태를 강하게 준다 */
+        .mode-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+            flex:0 0 auto;margin-top:8px;}
+        .mode-tabs button{border:2px solid #d7dde7;background:#fff;color:#5b6b86;
+            border-radius:14px;min-height:68px;padding:8px 10px;cursor:pointer;
+            font-size:22px;font-weight:800;line-height:1.15;
+            display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+            -webkit-tap-highlight-color:transparent;transition:none;}
+        .mode-tabs button .ms{font-size:12.5px;font-weight:600;color:#98a2b3;}
+        .mode-tabs button:active{transform:scale(.98);}
+        .mode-tabs button.on{color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.12) inset;}
+        .mode-tabs button.on .ms{color:rgba(255,255,255,.82);}
+        .mode-tabs button.m-machining.on{background:#1f4e8c;border-color:#173c6d;}
+        .mode-tabs button.m-unit.on{background:#1c7a4f;border-color:#155e3c;}
+        .mode-tabs button.m-set.on{background:#b06414;border-color:#8a4d10;}
         .flash{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#1ca36b;color:#fff;font-weight:800;padding:11px 22px;border-radius:30px;font-size:15px;box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.2s;z-index:50;}
         .flash.show{opacity:1;}
     </style>
@@ -212,6 +251,9 @@
             </div>
         </div>
 
+        <!-- 실적 종류. 장갑 낀 손으로 누르는 자리라 크게 둔다 -->
+        <div class="mode-tabs" id="modeTabs"></div>
+
         <div class="kiosk-main">
             <!-- 좌: 단계별 선택 (위) + 최근 등록 (아래) -->
             <div class="left-col">
@@ -220,16 +262,21 @@
                     <div class="pick-body" id="pickBody"></div>
                 </div>
 
-                <div class="log-card">
-                    <div class="log-head" id="logHead">최근 등록</div>
+                <div class="log-card" id="logCard">
+                    <div class="log-head log-head-row">
+                        <span id="logHead">최근 등록</span>
+                        <button class="log-toggle" id="logToggle">펼치기</button>
+                    </div>
                     <div class="log-scroll">
                         <table class="log-table">
-                            <thead><tr><th>공정</th><th>유형</th><th>설비</th><th>작업자</th><th>가공품</th><th>취소</th></tr></thead>
+                            <thead id="logHeadRow"></thead>
                             <tbody id="logBody"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
+
+            <div class="log-backdrop" id="logBackdrop"></div>
 
             <!-- 우: 공정 선택 단계엔 검색 키패드, 그 외엔 수량 키패드 -->
             <div class="entry-col">
@@ -242,7 +289,7 @@
                 <div class="pad-qty" id="padQty">
                     <div class="qty-row">
                         <div class="qty-box good active" id="qbGood" data-f="good">
-                            <div class="ql">가공품 수량</div>
+                            <div class="ql" id="qLabel">가공품 수량</div>
                             <div class="qv" id="qvGood">0</div>
                         </div>
                     </div>
@@ -271,6 +318,71 @@
         // AjaxUtil 이 알아서 해주므로 직접 $.ajax 를 쓰지 않는다.
         // 콜백 방식이라 await 로 쓰기 위해 Promise 로 감싼다.
         const API = '/api/production/prod_result_kiosk';
+        const ASM_API = '/api/production/prod_assembly';
+
+        /*
+         * ★ 한 화면에서 세 가지 실적을 받는다. 상단 탭으로 고른다.
+         *
+         *   machining  가공품 — 설비(공정)별 부품 개수      prod_result_kiosk
+         *   unit       유닛   — 가공품을 모아 유닛 완성      prod_assembly stage=unit
+         *   set        공정   — 유닛을 모아 지그 완성        prod_assembly stage=set
+         *
+         *   도면 구조가 그대로다.
+         *     FD10-00-00 지그 > FD10-01-00 유닛 > FD10-01-01~16 가공품
+         *
+         * ★ 조립에는 설비 단계가 없다. 사람이 하는 일이라 설비를 묻지 않는다.
+         *
+         * ★ 어떤 탭을 보일지는 <b>메뉴 코드</b>가 정한다.
+         *   키오스크는 설비 옆에 서 있으므로(SPEC 5-2) 레이저 옆 화면에
+         *   '공정 조립' 탭이 떠 있어 봐야 쓰지 않는다.
+         *
+         *   처음에는 메뉴 Url 에 ?mode=..&operation=.. 을 붙였는데 동작하지 않았다.
+         *   프레임워크가 /gui/{MenuCode}/default 로 주소를 다시 만들면서
+         *   쿼리스트링을 버리기 때문이다 (실제 주소: .../default?hideBookmark=true).
+         *
+         *   그래서 <b>경로의 메뉴 코드</b>로 판별한다. 이 화면은 iframe 안에서 뜨고
+         *   location.pathname 에 메뉴 코드가 그대로 들어 있다.
+         *   쿼리스트링이 살아 있으면 그쪽을 우선한다 — 직접 주소로 여는 경우를 위해.
+         */
+        const MODES = [
+            {key: 'machining', t: '가공품', sub: '설비별 부품'},
+            {key: 'unit',      t: '유닛',   sub: '가공품 → 유닛'},
+            {key: 'set',       t: '공정',   sub: '유닛 → 지그'}
+        ];
+
+        /*
+         * 메뉴 코드 → 이 키오스크가 담당하는 가공공정 (work_center."Name" 과 정확히 같아야 함).
+         * null 이면 조립 전용 화면이다.
+         */
+        const MENU_MAP = {
+            prod_process_laser:     '레이저 모형절단',
+            prod_process_machining: '머시닝센터',
+            prod_process_wirecut:   '와이어커팅',
+            prod_process_lathe:     'N/C 선반 및 밀링',
+            prod_process_assembly:  null
+        };
+        const MENU_CODE = (location.pathname.match(/\/gui\/([^/?]+)/) || [])[1] || '';
+        const MENU_HIT = Object.prototype.hasOwnProperty.call(MENU_MAP, MENU_CODE);
+
+        const QS = new URLSearchParams(location.search);
+        /*
+         * ★ 탭은 어느 키오스크에서든 <b>셋 다</b> 보여준다.
+         *   메뉴로 들어가 화면을 바꾸는 것보다 탭 한 번이 훨씬 빠르고,
+         *   장갑 낀 손으로 메뉴 트리를 헤매게 하면 안 쓴다.
+         *   나중에 "레이저 옆에서는 조립을 안 쓴다" 가 확인되면
+         *   ?mode=machining 으로 좁히면 된다 — 그때 빼는 건 쉽다.
+         *
+         *   메뉴 코드는 여전히 <b>기본 탭과 공정</b>을 정한다.
+         *   머시닝 키오스크는 가공품 탭에서 시작하고 설비도 머시닝 것만 나온다.
+         */
+        const MODE_PARAM = QS.get('mode') || 'all';
+        const VISIBLE_MODES = MODE_PARAM === 'machining' ? ['machining']
+            : MODE_PARAM === 'assembly' ? ['unit', 'set']
+                : ['machining', 'unit', 'set'];
+        // 조립 전용 메뉴(prod_process_assembly)면 유닛 탭에서 시작한다
+        let MODE = (MENU_HIT && MENU_MAP[MENU_CODE] === null && VISIBLE_MODES.includes('unit'))
+            ? 'unit' : VISIBLE_MODES[0];
+        const isAsm = () => MODE !== 'machining';
         const SPJANGCD = sessionStorage.getItem('spjangcd') || 'ZZ';
 
         const getJSON = (url, data) => new Promise(resolve => {
@@ -290,7 +402,7 @@
         // URL ?operation=와이어커팅 으로 지정 (미지정이면 첫 공정).
         //  - 설비는 이 공정 것만 보인다.
         //  - 작업자(person)는 이 공정의 워크센터 인원이 위로 오되 다른 인원도 폴백으로 보인다.
-        let CURRENT_OP = new URLSearchParams(location.search).get('operation') || '';
+        let CURRENT_OP = QS.get('operation') || (MENU_HIT ? (MENU_MAP[MENU_CODE] || '') : '');
 
         let OPERATIONS = [];   // [{operation, workcenter_id, workcenter_name, equip_cnt}]
         let EQUIPMENTS = [];   // [{code, operation, workcenter_id}]
@@ -351,6 +463,21 @@
          * 둘 다 안 골랐으면 전체가 나오고, 품목을 고르면 서버가 상위를 역으로 채운다.
          */
         async function loadItems() {
+            if (isAsm()) {
+                // 조립은 prod_assembly 가 맡는다. 목표·완료 수치가 stage 기준으로 온다
+                const r = await getJSON(ASM_API + '/item_list', {
+                    spjangcd: SPJANGCD,
+                    projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : '',
+                    stage: MODE
+                });
+                let list = r.data || [];
+                if (st.head >= 0) {
+                    const h = HEADS[st.head].suju_head_id;
+                    list = list.filter(x => String(x.suju_head_id ?? '') === String(h));
+                }
+                ITEMS = list;
+                return;
+            }
             const res = await getJSON(API + '/item_list', {
                 spjangcd: SPJANGCD,
                 projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : '',
@@ -413,7 +540,16 @@
             return `${h.jumun_date || ''} ${h.company || ''}${t}`.trim();
         }
 
-        const STEPS = [
+        /*
+         * 단계는 모드마다 다르다.
+         *   가공품 : 작업자 → 설비 → 프로젝트 → 수주 → 품목 → 유형
+         *   조립   : 작업자 → 프로젝트 → 수주 → 품목        (설비·유형 없음)
+         *
+         * 프로젝트·수주·품목은 전부 선택사항이다. 아래를 고르면 위가 정해진다.
+         * 단 조립은 품목이 <b>필수</b>다 — job_res 가 품목에 붙어 있어서
+         * 품목 없이는 실적을 매달 데가 없다.
+         */
+        const STEPS_MACH = [
             {key: 'worker', t: '작업자'},
             {key: 'machine', t: '설비'},
             {key: 'proj', t: '프로젝트'},
@@ -421,6 +557,13 @@
             {key: 'item', t: '품목'},
             {key: 'kind', t: '유형'}
         ];
+        const STEPS_ASM = [
+            {key: 'worker', t: '작업자'},
+            {key: 'proj', t: '프로젝트'},
+            {key: 'head', t: '수주'},
+            {key: 'item', t: '품목'}
+        ];
+        let STEPS = STEPS_MACH;
 
         function stepValue(k) {
             if (k === 'worker') return st.worker;
@@ -445,6 +588,47 @@
              */
             if (k === 'proj' || k === 'head' || k === 'item') return true;
             return stepValue(k) != null;
+        }
+
+        /* ===== 모드 전환 ===== */
+        // 지금 입력 중인 수량이 무슨 단위인지 패드에도 적는다.
+        // 탭 색과 라벨이 같이 바뀌어야 잘못 누른 걸 알아챈다.
+        const QTY_LABEL = {machining: '가공품 수량', unit: '유닛 수량', set: '공정(지그) 수량'};
+
+        function renderModeTabs() {
+            const box = el('#modeTabs');
+            if (!box) return;
+            // 탭이 하나뿐이면(=URL 로 고정) 굳이 보여주지 않는다
+            if (VISIBLE_MODES.length < 2) { box.style.display = 'none'; return; }
+            box.innerHTML = VISIBLE_MODES.map(k => {
+                const m = MODES.find(x => x.key === k);
+                return `<button data-m="${k}" class="m-${k} ${MODE === k ? 'on' : ''}">${m.t}
+                    <span class="ms">${m.sub}</span></button>`;
+            }).join('');
+            box.querySelectorAll('[data-m]').forEach(b => b.onclick = () => switchMode(b.dataset.m));
+        }
+
+        /*
+         * 모드를 바꾸면 단계 구성이 달라진다.
+         * 작업자는 유지한다 — 같은 사람이 가공하다가 조립으로 넘어가는 경우가 흔하고,
+         * 매번 다시 고르게 하면 안 쓰게 된다.
+         */
+        async function switchMode(m) {
+            if (MODE === m) return;
+            MODE = m;
+            STEPS = isAsm() ? STEPS_ASM : STEPS_MACH;
+            st.item = -1;
+            st.kind = null;
+            st.good = 0;
+            qTokens = [];
+            searchMode = false;
+            st.step = STEPS.findIndex(x => stepValue(x.key) == null && !SKIP_STEPS.includes(x.key));
+            if (st.step < 0) st.step = STEPS.length - 1;
+            el('#opSel').style.display = isAsm() ? 'none' : '';
+            await loadItems();
+            await loadTiles();
+            await refreshLog();
+            renderAll();
         }
 
         /* ===== 렌더 ===== */
@@ -533,10 +717,15 @@
                     // 수주를 안 좁혔으면 같은 품목명이 여러 번 나온다. 수주일·업체로 구분한다
                     const showHead = st.head < 0;
                     const showProj = st.proj < 0;   // 프로젝트를 안 좁혔으면 어느 프로젝트인지 보여준다
+                    // 조립은 목표 대비 완료가 핵심 정보다. 가공품은 구성 정보를 보여준다
                     const tile = (it, i) => `<button class="tile ${st.item === i ? 'on' : ''}" data-it="${i}">
                             <span class="tt">${it.item_name}</span>
-                            <span class="ts">${showProj && it.proj_no ? `${it.proj_no} · ` : ''}유닛 ${
-                        it.unit_qty || 0} · 부품 ${it.part_cnt || 0}종${
+                            <span class="ts">${showProj && it.proj_no ? `${it.proj_no} · ` : ''}${
+                        isAsm()
+                            ? `완료 ${it.done_qty ?? 0} / ${it.target_qty ?? 0}`
+                            + (MODE === 'set' && it.unit_target
+                                ? ` · 유닛 ${it.unit_done ?? 0}/${it.unit_target}` : '')
+                            : `유닛 ${it.unit_qty || 0} · 부품 ${it.part_cnt || 0}종`}${
                         showHead && (it.suju_name || it.jumun_date)
                             ? ` · ${it.suju_name || it.jumun_date}` : ''}</span></button>`;
                     const chips = active
@@ -562,11 +751,14 @@
                             html += `<div class="group-lab">최근·작업중</div>` + pri.map(i => tile(items[i], i)).join('');
                         }
                         html += `<div class="group-lab">전체 ${items.length}</div>` + items.map((it, i) => tile(it, i)).join('');
-                        // 2D 전 추정 생산 — 어느 품목 것인지 확정되지 않은 물량
-                        html += `<div class="group-lab">품목이 정해지지 않았다면</div>
-                            <button class="tile ${st.item < 0 ? 'on' : ''}" data-it="-1">
-                                <span class="tt">품목 미지정</span>
-                                <span class="ts">프로젝트 단위로만 집계</span></button>`;
+                        // 2D 전 추정 생산 — 어느 품목 것인지 확정되지 않은 물량.
+                        // ★ 조립에는 없다. 실적이 job_res(품목)에 붙어야 하기 때문이다.
+                        if (!isAsm()) {
+                            html += `<div class="group-lab">품목이 정해지지 않았다면</div>
+                                <button class="tile ${st.item < 0 ? 'on' : ''}" data-it="-1">
+                                    <span class="tt">품목 미지정</span>
+                                    <span class="ts">프로젝트 단위로만 집계</span></button>`;
+                        }
                     }
                     html += `</div>`;
                 }
@@ -702,7 +894,9 @@
                     await loadHeads();   // 그 프로젝트의 수주 목록을 확보한다
                 }
             }
+            // 프로젝트가 이미 골라져 있어 loadHeads() 를 안 탔을 수도 있다
             if (st.head < 0 && it.suju_head_id != null) {
+                if (!HEADS.length && st.proj >= 0) await loadHeads();
                 const hi = HEADS.findIndex(h => String(h.suju_head_id) === String(it.suju_head_id));
                 if (hi >= 0) st.head = hi;
             }
@@ -737,10 +931,24 @@
          *   여기서는 <b>아직 값이 없는 첫 단계</b>로 간다.
          *   이미 고른 단계(설비 자동선택 등)는 자연스럽게 지나친다.
          */
+        /*
+         * 아직 값이 없는 다음 단계로 간다.
+         *
+         * ★ 프로젝트·수주는 <b>건너뛴다.</b>
+         *   작업자가 보는 것은 도면뿐이고 도면에는 프로젝트번호도 수주일도 없다.
+         *   품목(DWG.NO 의 FD10 자리)만 있어서, 고를 수 없는 것을 먼저 물으면
+         *   아무거나 찍거나 화면을 덮어 버린다.
+         *
+         *   품목을 고르면 서버가 상위를 역산하므로(headOf) 순서상 문제가 없다.
+         *   좁혀 보고 싶으면 단계 탭을 눌러 되돌아가면 된다 — 지우지 않고 건너뛰기만 한다.
+         */
+        const SKIP_STEPS = ['proj', 'head'];
+
         function advanceFrom(key) {
             const i = STEPS.findIndex(s => s.key === key);
             let next = i + 1;
-            while (next < STEPS.length && stepValue(STEPS[next].key) != null) next++;
+            while (next < STEPS.length
+            && (stepValue(STEPS[next].key) != null || SKIP_STEPS.includes(STEPS[next].key))) next++;
             st.step = next < STEPS.length ? next : i;
             renderAll();
         }
@@ -766,20 +974,33 @@
             el('#cxItem').textContent = it0 ? (it0.item_name || '') : '';
             // 작업 버튼 (작업자+설비+프로젝트+공정 선택 시 활성)
             const wa = el('#workArea');
-            const can = !!(st.worker && st.machine && st.proj >= 0);
+            // 조립은 설비를 묻지 않는다. 품목만 있으면 시작할 수 있다
+            const can = isAsm()
+                ? !!(st.worker && st.item >= 0)
+                : !!(st.worker && st.machine && st.proj >= 0);
             wa.classList.toggle('disabled', !can);
             const cur = currentWorking();
-            // 종료할 때 수량 패드의 값이 실적이 된다. 버튼에 미리 보여 준다.
-            // (0 이면 실적 없이 종료 — 잘못 누른 시작을 취소하는 경우)
+            /*
+             * 완료할 때 수량 패드의 값이 실적이 된다. 버튼에 미리 보여 준다.
+             * 0 이면 실적 없이 끝난다 — 잘못 누른 시작을 무르는 경우다.
+             * 작업 현황 표에는 종료 버튼을 두지 않는다. 거기서 누르면
+             * 수량을 못 넣고 끝나 실제로 만든 것이 기록되지 않는다.
+             */
             el('#workBtns').innerHTML = cur
-                ? `<button class="wbtn done" data-act="end">작업 종료${
-                    st.good > 0 ? ` · 실적 ${st.good}` : ' (실적 없음)'}</button>`
+                ? `<button class="wbtn done" data-act="end">${
+                    st.good > 0 ? `작업 완료 · 실적 ${st.good}` : '작업 취소 (실적 없음)'}</button>`
                 : '<button class="wbtn start" data-act="start">작업 시작</button>';
             el('#workBtns').querySelectorAll('[data-act]').forEach(b => b.onclick = () => workAct(b.dataset.act));
         }
 
         /** 지금 선택된 설비·프로젝트·품목으로 진행중인 작업 (서버 목록에서 찾는다) */
         function currentWorking() {
+            if (isAsm()) {
+                // 조립은 품목 단위. 설비가 없다
+                if (st.item < 0 || !ITEMS[st.item]) return null;
+                const id = ITEMS[st.item].suju_id;
+                return working.find(w => String(w.suju_id ?? '') === String(id)) || null;
+            }
             // 프로젝트나 품목 중 하나만 있어도 성립한다 (canReg 와 같은 기준)
             if (!st.machine || (st.proj < 0 && st.item < 0)) return null;
             const sujuId = (st.item >= 0 && ITEMS[st.item]) ? ITEMS[st.item].suju_id : null;
@@ -796,6 +1017,36 @@
 
         // 작업중 상태는 서버가 들고 있다. 화면 메모리에 담으면 다른 키오스크와 어긋난다
         async function workAct(act) {
+            if (isAsm()) {
+                if (!st.worker || st.item < 0) return;
+                const it = ITEMS[st.item];
+                let r;
+                if (act === 'start') {
+                    r = await postJSON(ASM_API + '/working_start', {
+                        sujuId: it.suju_id, stage: MODE,
+                        worker: st.worker, workerId: st.workerId
+                    });
+                } else {
+                    // 수량이 있으면 완료(실적 생성), 없으면 작업만 취소한다
+                    r = st.good > 0
+                        ? await postJSON(ASM_API + '/complete', {
+                            sujuId: it.suju_id, stage: MODE, qty: st.good,
+                            worker: st.worker, workerId: st.workerId
+                        })
+                        : await postJSON(ASM_API + '/working_cancel', {
+                            sujuId: it.suju_id, stage: MODE
+                        });
+                }
+                if (!r.success) { Alert.alert('', r.message || '처리에 실패했습니다.'); return; }
+                flash(r.message || (act === 'start' ? '작업 시작'
+                    : (st.good > 0 ? '작업 완료' : '작업 취소')));
+                if (act === 'end' && st.good > 0) { st.good = 0; renderQty(); renderRegBtn(); }
+                await loadItems();
+                await refreshLog();
+                renderAll();
+                return;
+            }
+
             if (!st.worker || !st.machine || (st.proj < 0 && st.item < 0)) return;
 
             let res;
@@ -826,7 +1077,8 @@
 
             if (!res.success) { Alert.alert('', res.message || '처리에 실패했습니다.'); return; }
 
-            flash(res.message || (act === 'start' ? '작업 시작' : '작업 종료'));
+            flash(res.message || (act === 'start' ? '작업 시작'
+                : (st.good > 0 ? '작업 완료' : '작업 취소')));
             if (act === 'end' && st.good > 0) {
                 st.good = 0;              // 실적으로 넘어갔으므로 비운다
                 renderQty();
@@ -852,8 +1104,15 @@
          *   둘 다 없으면 어디에도 안 붙는 실적이 되어 집계에서 영영 사라진다.
          */
         function canReg() {
-            const owner = st.proj >= 0 || st.item >= 0;
-            return !!(st.worker && st.machine && owner && st.good > 0);
+            if (st.good <= 0 || !st.worker) return false;
+            /*
+             * 조립은 품목이 <b>필수</b>다.
+             * 실적이 job_res 에 붙는데 job_res 는 품목(suju)마다 하나뿐이라
+             * 품목 없이는 매달 데가 없다. 설비는 묻지 않는다 — 사람이 하는 일이다.
+             */
+            if (isAsm()) return st.item >= 0;
+            // 가공품은 설비가 필수. 프로젝트나 품목 중 하나만 있으면 된다
+            return !!(st.machine && (st.proj >= 0 || st.item >= 0));
         }
 
         function renderRegBtn() {
@@ -883,6 +1142,29 @@
             if (!canReg()) return;
 
             const item = ITEMS[st.item];
+
+            // ── 조립(유닛·공정) ──
+            if (isAsm()) {
+                const r = await postJSON(ASM_API + '/complete', {
+                    sujuId: item.suju_id,
+                    stage: MODE,
+                    qty: st.good,
+                    worker: st.worker,
+                    workerId: st.workerId
+                });
+                if (!r.success) { Alert.alert('', r.message || '등록에 실패했습니다.'); return; }
+
+                flash(`${MODE === 'set' ? '공정' : '유닛'} 조립 ${st.good} · ${item.item_name}`);
+                st.good = 0;
+                renderQty();
+                renderRegBtn();
+                await loadItems();      // 목표 대비 완료 갱신
+                await refreshLog();
+                renderAll();
+                return;
+            }
+
+            // ── 가공품 ──
             const res = await postJSON(API + '/save', {
                 prodDate: curDate,
                 // 품목이 있으면 서버가 이 값을 무시하고 품목에서 역산한다.
@@ -913,13 +1195,56 @@
         let log = [];
 
         async function refreshLog() {
+            if (isAsm()) {
+                const pj = st.proj >= 0 ? PROJECTS[st.proj].proj_no : '';
+                const [w, l] = await Promise.all([
+                    getJSON(ASM_API + '/working_list', {spjangcd: SPJANGCD, projNo: pj, stage: MODE}),
+                    getJSON(ASM_API + '/log', {spjangcd: SPJANGCD, prodDate: curDate, projNo: pj, stage: MODE})
+                ]);
+                working = w.data || [];
+                log = l.data || [];
+                renderLog();
+                return;
+            }
+            // 이 키오스크 공정 것만 본다. 설비를 아직 안 골랐어도
+            // 다른 설비(레이저·와이어)의 작업이 섞여 보이면 안 된다.
             const [w, l] = await Promise.all([
-                getJSON(API + '/working_list', {spjangcd: SPJANGCD, equipment: st.machine || ''}),
-                getJSON(API + '/log', {spjangcd: SPJANGCD, prodDate: curDate, equipment: st.machine || ''})
+                getJSON(API + '/working_list',
+                    {spjangcd: SPJANGCD, equipment: st.machine || '', operation: CURRENT_OP}),
+                getJSON(API + '/log',
+                    {spjangcd: SPJANGCD, prodDate: curDate, equipment: st.machine || '', operation: CURRENT_OP})
             ]);
             working = w.data || [];
             log = l.data || [];
             renderLog();
+        }
+
+        /*
+         * 작업 현황 표는 <b>탭마다 다르다.</b>
+         *   가공품 : 품목 · 유형 · 설비 · 작업자 · 수량
+         *   조립   : 품목 · 작업자 · 수량        (설비도 유형도 없다)
+         *
+         * 한때 가공품 열로 고정해 두어 조립 탭에서도 '설비/유형' 칸이 뜨고
+         * 늘 '-' 만 찍혔다. 취소 API 도 달라서 조립 실적이 안 지워졌다.
+         */
+        const LOG_COLS = {
+            machining: ['시각', '품목', '유형', '설비', '작업자', '가공품', '삭제'],
+            unit:      ['시각', '품목', '작업자', '유닛', '삭제'],
+            set:       ['시각', '품목', '작업자', '공정', '삭제']
+        };
+
+        /*
+         * 작업 현황 확장.
+         * 평소엔 좌측 하단에 220px 로 붙어 있고, 펼치면 화면 전체를 덮는다.
+         * 삭제 버튼을 누르는 자리라 장갑 낀 손에 맞춰 행과 버튼을 키운다.
+         */
+        let logBig = false;
+
+        function toggleLogBig(on) {
+            logBig = (on === undefined) ? !logBig : on;
+            el('#logCard').classList.toggle('big', logBig);
+            el('#logBackdrop').classList.toggle('on', logBig);
+            el('#logToggle').textContent = logBig ? '닫기' : '펼치기';
         }
 
         function renderLog() {
@@ -933,43 +1258,78 @@
             el('#logHead').innerHTML = `작업 현황 · ${curDate}`
                 + (daySum ? ` <span style="color:#2f7d55;font-weight:700">· 오늘 합계 ${daySum}</span>` : '');
 
+            const cols = LOG_COLS[MODE] || LOG_COLS.machining;
+            el('#logHeadRow').innerHTML =
+                '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
+
             if (!working.length && !log.length) {
-                el('#logBody').innerHTML = '<tr><td colspan="6" class="log-empty">작업중·등록 내역이 없습니다.</td></tr>';
+                el('#logBody').innerHTML = `<tr><td colspan="${cols.length}" class="log-empty">`
+                    + '작업중·등록 내역이 없습니다.</td></tr>';
                 return;
             }
 
+            const nm = r => r.item_name || '<span style="color:#a6791b">품목 미지정</span>';
+            // 입력 시각. 작업중 행은 아직 등록 전이라 시작 시각을 보여준다
+            const tm = r => `<span class="t-cell">${r.reg_time || r.start_time || '-'}</span>`;
+
             // 작업중 (날짜 무관, 항상 상단)
-            let html = working.map(w => `
+            let html = working.map(w => isAsm() ? `
+                <tr class="work-row" data-wid="${w.id}" title="클릭하면 이 작업을 불러옵니다">
+                    <td>${tm(w)}</td>
+                    <td class="k">${nm(w)}</td><td>${w.worker || '-'}</td>
+                    <td><span class="badge-work">작업중 ${w.start_time || ''}</span></td>
+                    <td></td></tr>` : `
                 <tr class="work-row" data-wid="${w.id}" title="클릭하면 이 작업을 불러와 가공품 수량을 입력합니다">
-                    <td class="k">${w.item_name || '<span style="color:#a6791b">품목 미지정</span>'}</td><td>${w.kind || '-'}</td>
+                    <td>${tm(w)}</td>
+                    <td class="k">${nm(w)}</td><td>${w.kind || '-'}</td>
                     <td>${w.equipment || '-'}</td><td>${w.worker || '-'}</td>
                     <td><span class="badge-work">작업중 ${w.start_time || ''}</span></td>
-                    <td><button class="x-btn stop" data-wstop="${w.id}">종료</button></td></tr>`).join('');
+                    <td></td></tr>`).join('');
 
             // 선택 생산일의 등록 실적
-            html += log.map(l => `<tr>
-                <td class="k">${l.item_name || '<span style="color:#a6791b">품목 미지정</span>'}</td><td>${l.kind || '-'}</td>
+            html += log.map(l => isAsm() ? `<tr>
+                <td>${tm(l)}</td>
+                <td class="k">${nm(l)}</td><td>${l.worker || '-'}</td>
+                <td class="g-cell">${l.good_qty ?? l.qty ?? 0}</td>
+                <td><button class="x-btn" data-i="${l.id}">삭제</button></td></tr>` : `<tr>
+                <td>${tm(l)}</td>
+                <td class="k">${nm(l)}</td><td>${l.kind || '-'}</td>
                 <td>${l.equipment || '-'}</td><td>${l.worker || '-'}</td>
                 <td class="g-cell">${l.good_qty || 0}</td>
-                <td><button class="x-btn" data-i="${l.id}">취소</button></td></tr>`).join('');
+                <td><button class="x-btn" data-i="${l.id}">삭제</button></td></tr>`).join('');
 
             el('#logBody').innerHTML = html;
 
-            el('#logBody').querySelectorAll('.work-row').forEach(r => r.onclick = e => {
-                if (e.target.closest('[data-wstop]')) return;
-                resumeWork(+r.dataset.wid);
-            });
-            el('#logBody').querySelectorAll('[data-wstop]').forEach(b => b.onclick = async () => {
-                const res = await postJSON(API + '/working_end', {id: +b.dataset.wstop});
-                if (!res.success) { Alert.alert('', res.message); return; }
-                await refreshLog();
-                renderCtx();
-            });
+            // 펼친 상태에서 목록이 비면 자동으로 닫는다 (덮어 둘 이유가 없다)
+            if (logBig && !working.length && !log.length) toggleLogBig(false);
+
+            el('#logBody').querySelectorAll('.work-row').forEach(r =>
+                r.onclick = () => { toggleLogBig(false); resumeWork(+r.dataset.wid); });
+            /*
+             * ★ 작업중 행에 종료 버튼을 두지 않는다.
+             *   종료는 수량을 확정하는 행위인데, 여기서 누르면 수량 없이 끝나
+             *   실제로 만든 것이 기록되지 않는다.
+             *   행을 눌러 불러온 뒤 상단 [작업 완료] 로 수량과 함께 끝낸다.
+             *   취소 버튼은 <b>등록된 실적</b>에만 남는다.
+             */
             el('#logBody').querySelectorAll('[data-i]').forEach(b => b.onclick = async () => {
-                if (!await Alert.confirmAsync('', '이 실적을 취소하시겠습니까?')) return;
-                const res = await postJSON(API + '/delete', {id: +b.dataset.i});
+                /*
+                 * ★ 무엇을 지우는지 확인창에 적는다.
+                 *   예전에는 "이 실적을 취소하시겠습니까?" 뿐이라
+                 *   옆줄을 잘못 눌러도 알아챌 수 없었다.
+                 */
+                const t = log.find(x => String(x.id) === b.dataset.i);
+                const desc = t
+                    ? `${t.reg_time || ''} · ${t.item_name || '품목 미지정'}`
+                    + (t.kind ? ` · ${t.kind}` : '')
+                    + ` · ${t.good_qty ?? t.qty ?? 0}`
+                    : '';
+                if (!await Alert.confirmAsync('', `${desc}\n이 실적을 삭제할까요?`)) return;
+                const res = isAsm()
+                    ? await postJSON(ASM_API + '/delete', {id: +b.dataset.i})
+                    : await postJSON(API + '/delete', {id: +b.dataset.i});
                 if (!res.success) { Alert.alert('', res.message); return; }
-                await loadTiles();
+                if (isAsm()) await loadItems(); else await loadTiles();
                 await refreshLog();
             });
         }
@@ -979,14 +1339,27 @@
             const w = working.find(x => x.id === id);
             if (!w) return;
 
-            const pi = PROJECTS.findIndex(p => p.proj_no === w.proj_no);
-            if (pi < 0) return;
-
-            st.machine = w.equipment;
-            st.proj = pi;
-            st.worker = w.worker;
-            st.kind = w.kind || null;
+            st.worker = w.worker || st.worker;
             st.good = 0;
+
+            /*
+             * 조립에는 설비도 유형도 없다. 품목만 맞추고 수량 단계로 간다.
+             * 가공품 전용 코드를 그대로 쓰면 유형 단계를 찾다가 -1 이 되어 화면이 깨진다.
+             */
+            if (isAsm()) {
+                st.item = ITEMS.findIndex(it => String(it.suju_id) === String(w.suju_id));
+                if (st.item < 0) { await loadItems(); st.item = ITEMS.findIndex(it => String(it.suju_id) === String(w.suju_id)); }
+                await syncOwnerFromItem();
+                st.step = STEPS.findIndex(s => s.key === 'item');
+                renderAll();
+                flash(`작업중 불러옴 · ${w.item_name || ''} (수량 입력 후 등록)`);
+                return;
+            }
+
+            const pi = PROJECTS.findIndex(p => p.proj_no === w.proj_no);
+            if (pi >= 0) st.proj = pi;
+            st.machine = w.equipment;
+            st.kind = w.kind || null;
 
             await loadItems();
             st.item = ITEMS.findIndex(it => it.suju_id === w.suju_id);
@@ -1008,6 +1381,9 @@
         }
 
         function renderAll() {
+            renderModeTabs();
+            const ql = el('#qLabel');
+            if (ql) ql.textContent = QTY_LABEL[MODE] || '수량';
             renderSteps();
             renderPick();
             renderCtx();
@@ -1105,6 +1481,13 @@
             if (b) b.textContent = document.fullscreenElement ? '⤡' : '⛶';
         }
 
+        el('#logToggle').onclick = () => toggleLogBig();
+        el('#logBackdrop').onclick = () => toggleLogBig(false);
+        // 펼친 상태에서 작업중 행을 누르면 그 작업을 불러오므로 자동으로 닫는다
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && logBig) toggleLogBig(false);
+        });
+
         document.getElementById('btnFull').onclick = toggleFullscreen;
         document.addEventListener('fullscreenchange', renderFsBtn);
 
@@ -1131,10 +1514,14 @@
         (async function init() {
             st.machine = null;
             st.step = 0;                   // 작업자 단계부터
+            STEPS = isAsm() ? STEPS_ASM : STEPS_MACH;
             setDate(ymd(0));
             await loadOperations();
             buildOpSelect();
+            el('#opSel').style.display = isAsm() ? 'none' : '';   // 조립엔 공정 선택이 없다
             await loadMasters();
+            // 프로젝트를 안 골라도 품목 단계가 비어 보이지 않게 전체를 미리 받아 둔다.
+            await loadItems();
             renderAll();
             await refreshLog();
         })();
