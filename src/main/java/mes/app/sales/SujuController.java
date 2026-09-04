@@ -38,6 +38,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,6 +52,7 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Function;
@@ -127,21 +131,24 @@ public class SujuController {
 
   // ===================================================================
   //  문서 보관 경로
-  //   - 템플릿  : {DOC_PATH}/SujuTemplate*.xlsx        (수동으로 비치)
+  //   - 템플릿  : {DOC_TEMPLATE_PATH}/*.xlsx        (수동으로 비치)
   //   - 업로드분: {DOC_PATH}/upload/{수주번호}_{원본파일명}
   //
   //   BaljuOrderController 가 발주서 템플릿을 C:/Temp/mes21/문서/BaljuTemplate.xlsx
-  //   로 두고 있어 같은 위치·같은 명명(PascalCase 영문)을 따른다.
+  //   로 두고 있어 같은 뿌리를 쓴다.
   //   윈도우에서도 '/' 를 쓴다. '\' 는 자바 문자열 이스케이프로 먹혀 경로가 깨진다.
+  //
+  //   ★ 템플릿만 하위폴더로 내렸다. {DOC_PATH} 를 그대로 나열하면
+  //     BaljuTemplate.xlsx, DeliveryReceipt.xlsx 같은 다른 화면 양식까지
+  //     수주 화면 목록에 딸려 나온다 (실제로 그랬다).
+  //     DOC_PATH 자체는 업로드 원본 보관에도 쓰이므로 건드리지 말 것.
   // ===================================================================
-  private static final String DOC_PATH        = "C:/Temp/mes21/문서";
-  private static final String DOC_UPLOAD_PATH = DOC_PATH + "/upload";
+  private static final String DOC_PATH          = "C:/Temp/mes21/문서";
+  private static final String DOC_UPLOAD_PATH   = DOC_PATH + "/upload";
+  private static final String DOC_TEMPLATE_PATH = DOC_PATH + "/수주";
 
-  /** form 파라미터 → 템플릿 파일명 */
-  private static final Map<String, String> EXCEL_TEMPLATES = Map.of(
-    "make", "SujuTemplateMakeList.xlsx",
-    "qty",  "SujuTemplateQtyList.xlsx"
-  );
+  /** 양식으로 인정할 확장자. 폴더에 섞인 다른 파일은 목록에 넣지 않는다 */
+  private static final Set<String> TEMPLATE_EXT = Set.of("xlsx", "xls");
 
   /** 자사명. 제작/설계 업체가 이 이름이면 제작구분을 내작으로 본다. */
   private static final String INHOUSE_COMPANY_NAME = "일진";
@@ -1931,38 +1938,124 @@ public class SujuController {
 
   // ===================================================================
   //  수주 엑셀 업로드 양식(템플릿) 다운로드
-  //   {DOC_PATH} 에 비치해 둔 파일을 그대로 내려준다.
-  //   양식이 바뀌면 그 파일만 교체하면 되고 재배포가 필요 없다.
+  //   {DOC_TEMPLATE_PATH} 폴더를 그대로 나열해서 내려준다.
+  //
+  //   ★ 파일명을 코드에 박지 않는다. 양식이 늘거나 이름이 바뀌어도
+  //     폴더에 넣기만 하면 화면 목록에 뜬다 — 재배포도, 코드 수정도 없다.
+  //     (예전에는 form=make|qty 로 파일명 두 개를 상수에 박아뒀는데,
+  //      한글 파일명으로 바꾸는 순간 404 가 나는 구조였다)
   // ===================================================================
+
+  /**
+   * 양식 목록.
+   *
+   *  폴더가 없거나 비었으면 빈 배열을 돌려준다. 화면은 "없습니다" 로만 표시한다 —
+   *  서버 경로를 화면에 노출하지 않는다. 원인은 서버 로그에서 본다.
+   */
+  @GetMapping("/excel_template_list")
+  public AjaxResult excelTemplateList() {
+    AjaxResult result = new AjaxResult();
+    result.data = listTemplateFiles();
+    result.success = true;
+    return result;
+  }
+
+  /**
+   * 양식 내려받기.
+   *
+   *  ★ name 으로 경로를 조립하지 않는다. 폴더를 다시 읽어 <b>목록에 실제로 있는
+   *    파일</b>과 대조한 뒤 그 Path 를 쓴다. 조립하면 {@code ../application.yml}
+   *    같은 값이 그대로 통한다.
+   */
   @GetMapping("/excel_template")
-  public void excelTemplate(@RequestParam(value = "form", required = false) String form,
+  public void excelTemplate(@RequestParam(value = "name", required = false) String name,
                             HttpServletResponse response) throws IOException {
 
-    String fileName = EXCEL_TEMPLATES.get(form == null ? "" : form.trim());
-    if (fileName == null) {
-      response.sendError(HttpServletResponse.SC_BAD_REQUEST,
-        "양식 구분이 올바르지 않습니다. (make / qty)");
+    String target = (name == null) ? "" : name.trim();
+    if (target.isEmpty()) {
+      response.sendError(HttpServletResponse.SC_BAD_REQUEST, "양식을 지정하세요.");
       return;
     }
 
-    Path file = Paths.get(DOC_PATH, fileName);
-    if (!Files.exists(file)) {
-      log.error("[excel_template] 템플릿 파일이 없습니다: {}", file);
+    Path file = null;
+    for (Map<String, Object> f : listTemplateFiles()) {
+      if (target.equals(f.get("name"))) {
+        file = Paths.get(String.valueOf(f.get("path")));
+        break;
+      }
+    }
+
+    if (file == null || !Files.isReadable(file)) {
+      log.warn("[excel_template] 요청한 양식이 폴더에 없습니다: {} (dir={})", target, DOC_TEMPLATE_PATH);
       response.sendError(HttpServletResponse.SC_NOT_FOUND,
         "양식 파일이 서버에 없습니다. 관리자에게 문의하세요.");
       return;
     }
 
-    // 템플릿 파일명은 영문이라 별도 인코딩이 필요 없다.
-    // (한글 파일명을 쓰게 되면 filename*=UTF-8'' 형식으로 바꿔야 브라우저에서 안 깨진다)
-    response.setContentType(
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    String fileName = file.getFileName().toString();
+
+    // 한글 파일명은 그냥 넣으면 브라우저가 깨뜨린다.
+    //  filename* (RFC 5987) 를 쓰고, 못 읽는 브라우저용으로 filename 도 같이 준다.
+    String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+
+    response.setContentType(fileName.toLowerCase(Locale.ROOT).endsWith(".xls")
+                              ? "application/vnd.ms-excel"
+                              : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     response.setHeader("Content-Disposition",
-      "attachment; filename=\"" + fileName + "\"");
+      "attachment; filename=\"" + encoded + "\"; filename*=UTF-8''" + encoded);
     response.setContentLengthLong(Files.size(file));
 
     Files.copy(file, response.getOutputStream());
     response.getOutputStream().flush();
+  }
+
+  /** 템플릿 폴더의 엑셀 파일 목록. 폴더가 없으면 빈 리스트 */
+  private List<Map<String, Object>> listTemplateFiles() {
+    List<Map<String, Object>> rows = new ArrayList<>();
+
+    Path dir = Paths.get(DOC_TEMPLATE_PATH).normalize();
+    if (!Files.isDirectory(dir)) {
+      // 배포 환경마다 흔한 상황이라 error 가 아니라 warn 으로 남긴다
+      log.warn("[excel_template] 양식 폴더가 없습니다: {}", dir);
+      return rows;
+    }
+
+    DateTimeFormatter ymd = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault());
+
+    try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
+      for (Path f : ds) {
+        if (!Files.isRegularFile(f)) continue;
+
+        String fileName = f.getFileName().toString();
+        // 엑셀이 열어둔 임시파일(~$xxx.xlsx)이 목록에 뜨는 것을 막는다
+        if (fileName.startsWith("~$")) continue;
+
+        int dot = fileName.lastIndexOf('.');
+        if (dot < 0) continue;
+        if (!TEMPLATE_EXT.contains(fileName.substring(dot + 1).toLowerCase(Locale.ROOT))) continue;
+
+        long size = Files.size(f);
+        Map<String, Object> row = new HashMap<>();
+        row.put("name", fileName);
+        row.put("path", f.toString());
+        row.put("size", size);
+        row.put("size_text", humanSize(size));
+        row.put("modified", ymd.format(Files.getLastModifiedTime(f).toInstant()));
+        rows.add(row);
+      }
+    } catch (IOException e) {
+      log.warn("[excel_template] 양식 폴더를 읽지 못했습니다: {}", dir, e);
+      return new ArrayList<>();
+    }
+
+    rows.sort(Comparator.comparing(r -> String.valueOf(r.get("name"))));
+    return rows;
+  }
+
+  private static String humanSize(long bytes) {
+    if (bytes < 1024) return bytes + "B";
+    if (bytes < 1024 * 1024) return (bytes / 1024) + "KB";
+    return String.format("%.1fMB", bytes / 1024.0 / 1024.0);
   }
 
   /**

@@ -540,6 +540,245 @@
 
   <script type="text/x-tmpl" id="BalJuMailTemplate">
     <style>
+    /* 발주서 발송 모달.
+       팝업은 body 바로 아래에 붙으므로 페이지 CSS 변수에 기대지 않는다.
+       색은 전부 리터럴로 쓴다. */
+    .bj-mail { font-size:13px; color:#1B2430; text-align:left;
+               display:flex; flex-direction:column; height:100%; }
+    .bj-mail > .body { flex:1 1 auto; min-height:0; overflow-y:auto;
+                       max-height:62vh; padding:16px 18px; }
+
+    .bj-mail .fld { margin-bottom:14px; }
+    .bj-mail .fld:last-child { margin-bottom:0; }
+    .bj-mail .fld > label.k { display:block; margin-bottom:5px;
+      font-size:12px; font-weight:600; color:#45566A; letter-spacing:.5px; }
+    .bj-mail .fld .hint { margin-top:4px; font-size:11.5px; color:#8A99A8; }
+
+    .bj-mail input[type=text], .bj-mail input:not([type]), .bj-mail textarea {
+      width:100%; box-sizing:border-box; padding:0 10px; height:34px;
+      border:1px solid #C0CAD3; background:#fff;
+      font-family:inherit; font-size:13px; color:#1B2430;
+    }
+    .bj-mail textarea { height:130px; padding:9px 10px; line-height:1.6; resize:vertical; }
+    .bj-mail input::placeholder, .bj-mail textarea::placeholder { color:#8A99A8; }
+    .bj-mail input:focus-visible, .bj-mail textarea:focus-visible {
+      outline:2px solid #24466F; outline-offset:1px; border-color:#24466F;
+    }
+
+    /* 수신자 줄 — JS 가 같은 마크업으로 행을 덧붙인다 */
+    .bj-mail .input-with-button { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+    .bj-mail .input-with-button:last-child { margin-bottom:0; }
+    .bj-mail .input-with-button input { flex:1; min-width:0; }
+    .bj-mail .btn.in_btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:34px; height:34px; flex:0 0 34px; padding:0; margin:0;
+      border:1px solid #C0CAD3; border-radius:2px; background:#fff; cursor:pointer;
+    }
+    .bj-mail .btn.in_btn:hover { background:#F2F5F7; border-color:#24466F; }
+    .bj-mail .btn.in_btn img { width:14px; height:14px; margin:0; display:block; }
+
+    /* 버튼 */
+    .bj-mail .popup-button { flex:0 0 auto; display:flex; justify-content:flex-end; gap:8px;
+      padding:12px 18px; border-top:1px solid #DDE3E9; background:#fff; }
+    .bj-mail .btn-popup {
+      height:34px; padding:0 20px; border:1px solid #C0CAD3; border-radius:2px;
+      background:#fff; color:#1B2430;
+      font-family:inherit; font-size:13px; font-weight:600; letter-spacing:.5px; cursor:pointer;
+    }
+    .bj-mail #btnPopBalJuMail { background:#24466F; border-color:#24466F; color:#fff; }
+    .bj-mail .btn-popup:hover { filter:brightness(.94); }
+    .bj-mail .btn-popup:focus-visible { outline:2px solid #24466F; outline-offset:2px; }
+    </style>
+
+    <div class="content_wrap popup bj-mail" id="div_excel_upload">
+      <div class="body">
+        <form id="BalJuMailForm">
+
+          <div class="fld">
+            <label class="k" for="Recipient">받는 사람</label>
+            <div id="recipient-container">
+              <div class="input-with-button">
+                <input name="Recipient" placeholder="purchase@example.com" />
+                <a class="btn in_btn plus" id="addRecipient" title="수신자 추가">
+                  <img th:src="@{/images/icon/ico-plus.svg}" alt="추가" />
+                </a>
+              </div>
+            </div>
+            <div class="hint">거래처에 등록된 주소가 채워집니다. 최대 3명까지 추가할 수 있습니다.</div>
+          </div>
+
+          <div class="fld">
+            <label class="k" for="ReplyTo">회신 주소</label>
+            <input id="ReplyTo" name="ReplyTo" placeholder="구매처가 답장할 담당자 이메일" />
+            <div class="hint">발신 주소는 시스템 계정으로 고정됩니다. 답장은 이 주소로 옵니다.</div>
+          </div>
+
+          <div class="fld">
+            <label class="k" for="MailTitle">제목</label>
+            <input id="MailTitle" name="MailTitle" />
+          </div>
+
+          <div class="fld">
+            <label class="k" for="MailContent">내용</label>
+            <textarea id="MailContent" name="MailContent"></textarea>
+            <div class="hint">발주서 엑셀이 첨부되어 함께 나갑니다.</div>
+          </div>
+
+        </form>
+      </div>
+      <div class="popup-button">
+        <button type="button" class="btn-popup y_write_auth" id="btnPopBalJuMail">전송</button>
+        <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+      </div>
+    </div>
+  </script>
+
+  <!-- ================= 부족재고 선택 팝업 ================= -->
+  <script type="text/x-tmpl" id="needStockTemplate">
+    <style>
+    #needStockPopup { display:flex; flex-direction:column; height:100%; }
+
+    #needStockPopup .need-search {
+      display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px;
+      padding:10px 12px; margin-bottom:8px;
+      background:#f7f9fc; border:1px solid #dfe3e8; border-radius:6px;
+    }
+    #needStockPopup .need-field { display:flex; flex-direction:column; gap:4px; }
+    #needStockPopup .need-field > label {
+      font-size:12px; font-weight:600; color:#55617a; white-space:nowrap;
+    }
+    #needStockPopup .need-field .need-inputs {
+      display:flex; align-items:center; gap:6px;
+    }
+    #needStockPopup .need-field.grow { flex:1 1 220px; min-width:180px; }
+    #needStockPopup .need-field.grow input { width:100%; }
+
+    #needStockPopup .need-search input[type="text"],
+    #needStockPopup .need-search input[type="date"],
+    #needStockPopup .need-search select {
+      height:30px; line-height:30px; box-sizing:border-box;
+      padding:0 8px; font-size:13px;
+      border:1px solid #d8dde5; border-radius:4px; background:#fff;
+    }
+    #needStockPopup .need-search input[type="date"] { width:140px; }
+    #needStockPopup .need-search select { min-width:150px; padding-right:24px; }
+    #needStockPopup .need-search .date-sep { color:#999; }
+
+    #needStockPopup .need-search .need-btn-wrap { margin-left:auto; }
+    #needStockPopup .need-search .btn {
+      display:inline-flex; align-items:center; gap:4px; height:30px;
+    }
+
+    #needStockPopup .need-table-wrap {
+      flex:1 1 auto; min-height:0; overflow:auto;
+      border:1px solid #dfe3e8; border-radius:6px;
+    }
+    #needStockPopup .need-table {
+      width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0;
+    }
+    #needStockPopup .need-table th {
+      position:sticky; top:0; z-index:2;
+      background:#EDEFF5; color:#3a4557;
+      font-size:12px; font-weight:700; height:32px;
+      padding:0 6px; text-align:center; white-space:nowrap;
+      border-bottom:1px solid #d5dbe4;
+    }
+    #needStockPopup .need-table td {
+      height:32px; padding:2px 6px; font-size:13px; text-align:center;
+      border-bottom:1px solid #eef0f4;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    #needStockPopup .need-table tbody tr:nth-child(even) { background:#fbfcfe; }
+    #needStockPopup .need-table tbody tr:hover { background:#eef5ff; }
+    #needStockPopup .need-table td.al_l { text-align:left; }
+    #needStockPopup .need-table td.al_r { text-align:right; }
+    #needStockPopup .need-table .redText { color:#c0392b; font-weight:600; }
+    #needStockPopup .need-table input.needQty {
+      width:100%; height:26px; line-height:26px; box-sizing:border-box;
+      padding:0 6px; text-align:right; font-size:13px;
+      border:1px solid #d8dde5; border-radius:4px;
+    }
+    </style>
+
+    <div class="content_wrap popup" id="needStockPopup">
+      <div class="need-search">
+      <div class="need-field grow">
+        <label for="needKeyword">자재코드 / 자재명</label>
+        <div class="need-inputs">
+          <input type="text" id="needKeyword" placeholder="검색 후 Enter" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="need-field">
+        <label for="needStartDt">기준일자</label>
+        <div class="need-inputs">
+          <input type="date" id="needStartDt">
+          <span class="date-sep">~</span>
+          <input type="date" id="needEndDt">
+        </div>
+      </div>
+
+      <div class="need-field">
+        <label for="needMatType">품목구분</label>
+        <div class="need-inputs">
+          <!-- 옵션은 sys_code.CodeType='mat_type' 에서 채운다 (NeedStockPopup.show) -->
+          <select id="needMatType"></select>
+        </div>
+      </div>
+
+      <div class="need-field">
+        <label for="needBasis">소요량 기준</label>
+        <div class="need-inputs">
+          <select id="needBasis">
+            <option value="max" selected>수주·계획 중 큰 값</option>
+            <option value="suju">수주량</option>
+            <option value="plan">생산계획</option>
+            <option value="sum">수주 + 생산계획</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="need-field need-btn-wrap">
+        <div class="need-inputs">
+          <a class="btn btn-delete" id="btnNeedSearch">
+            <img th:src="@{/images/icon/btn-srch.svg}" alt="검색 아이콘"> 검색
+          </a>
+        </div>
+      </div>
+    </div>
+
+      <div class="need-table-wrap">
+        <table class="need-table">
+          <colgroup>
+            <col style="width:40px"><col style="width:100px"><col style="width:*">
+            <col style="width:55px"><col style="width:100px"><col style="width:90px">
+            <col style="width:90px"><col style="width:90px"><col style="width:70px">
+            <col style="width:100px">
+          </colgroup>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="chkAllNeed"></th>
+              <th>자재코드</th><th>자재명</th><th>단위</th>
+              <th>소요량</th>
+              <th>현재고</th><th>적정재고</th><th>필요수량</th>
+              <th>상태</th><th>발주수량</th>
+            </tr>
+          </thead>
+          <tbody id="needStockBody">
+            <tr><td colspan="10">조회 중...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="popup-button">
+        <button type="button" class="btn-popup y_write_auth" id="btnNeedApply">선택 항목 담기</button>
+        <button type="button" class="btn-popup" id="modal-close-button">닫기</button>
+      </div>
+    </div>
+  </script>
+
+  <script type="text/x-tmpl" id="BalJuMailTemplate">
+    <style>
     /* + 아이콘 버튼 (추가용) */
     .btn.in_btn.plus img {
       width: 15px;
@@ -1160,7 +1399,7 @@
       modalContainer = new PopupDraggable('발주서 발송');
      }
 
-     modalContainer.open({width: 650, height: 360, $content});
+     modalContainer.open({width: 620, height: 560, $content});
 
      // 수신자 필드 렌더링
      const recipientContainer = $content.find('#recipient-container');
@@ -1196,14 +1435,18 @@
        return;
       }
 
+      // + 로 추가할 때
       const newField = $(`
-      <div class="input-with-button" style="margin-top: 6px;">
-        <input name="Recipient" style="width: 100%; padding: 6px;" />
-        <a class="btn in_btn del" title="삭제" onclick="this.parentElement.remove()" style="margin-left: 6px;">
-          <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘" style="width: 15px; height: 15px;" />
-        </a>
-      </div>
-    `);
+        <div class="input-with-button">
+          <input name="Recipient" />
+          <a class="btn in_btn del" title="삭제" onclick="this.parentElement.remove()">
+            <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M4 4 L12 12 M12 4 L4 12" stroke="currentColor"
+                    stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            </svg>
+          </a>
+        </div>
+      `);
       recipientContainer.append(newField);
      });
 

@@ -7,6 +7,26 @@
          - 스크롤은 품목표 안에서만 발생
          =================================================================== */
       .ps-tight .page-title-wrap { margin-bottom: 6px; }
+
+      /* 양식 다운로드 드롭다운. 목록은 서버 폴더를 읽어 만든다 */
+      .tpl-dl-wrap { position: relative; display: inline-block; }
+      .tpl-dl-menu {
+          display: none;
+          position: absolute; top: 100%; left: 0; z-index: 1200;
+          min-width: 260px; margin: 2px 0 0; padding: 4px 0;
+          list-style: none; background: #fff;
+          border: 1px solid #d0d4da; border-radius: 4px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, .12);
+      }
+      .tpl-dl-menu.on { display: block; }
+      .tpl-dl-menu li > a {
+          display: block; padding: 7px 12px;
+          font-size: 13px; color: #333; cursor: pointer; white-space: nowrap;
+      }
+      .tpl-dl-menu li > a:hover { background: #f2f5f9; }
+      .tpl-dl-menu li.empty > a { color: #999; cursor: default; }
+      .tpl-dl-menu li.empty > a:hover { background: none; }
+      .tpl-dl-menu .sz { color: #999; font-size: 11px; margin-left: 8px; }
       .ps-section { padding: 6px 8px !important; }
 
       .ps-wrap {
@@ -588,6 +608,14 @@
               <a class="btn btn-excell" title="엑셀 업로드" id="btnExcelNew">
                 <img th:src="@{/images/icon/ico-plus.svg}" alt="업로드 아이콘">엑셀 업로드
               </a>
+              <!-- 양식 다운로드 : 서버 폴더(suju.template.dir)의 엑셀 양식을 그대로 내려준다.
+                   목록을 폴더에서 읽으므로 양식이 늘어도 화면·코드는 안 바뀐다. -->
+              <span class="tpl-dl-wrap">
+                <a class="btn btn-excell" title="엑셀 양식 다운로드" id="btnTemplateDown">
+                  <img th:src="@{/images/icon/ico-save.svg}" alt="다운로드 아이콘">양식 다운로드
+                </a>
+                <ul class="tpl-dl-menu" id="templateDownMenu"></ul>
+              </span>
               <!-- 선택한 수주 기준으로 동작. 이미 확정된 수주면 .is-disabled 로 잠근다 -->
               <a class="btn btn-excell y_write_auth" title="WBS 확정" id="btnWbsFix">
                 <img th:src="@{/images/icon/ico-save.svg}" alt="WBS 아이콘"><span class="lbl">WBS 확정</span>
@@ -867,6 +895,7 @@
 
       <div class="pt-2" style="margin-top:8px;">
         <span style="color:#555;">* 제작출도리스트 / 공정별 수량집계 양식만 업로드 가능합니다.</span>
+        <span style="color:#888; font-size:12px;">(양식은 상단 [양식 다운로드] 에서 받으세요)</span>
         <p style="margin:6px 0 0; font-size:12px; color:#888;">
           · 2행(헤더)을 기준으로 양식을 자동 인식합니다.<br/>
           · 업로드하면 라인·공정·수주가 한 번에 저장됩니다.
@@ -1171,6 +1200,25 @@
      $('#btnExcelNew').click(function (e) {
       e.preventDefault();
       _this.openExcelUpload();
+     });
+
+     //엑셀 양식 다운로드
+     $('#btnTemplateDown').click(function (e) {
+      e.preventDefault();
+      e.stopPropagation();          // 아래 document 핸들러가 바로 닫아버리지 않게
+      _this.toggleTemplateMenu();
+     });
+     $('#templateDownMenu').on('click', 'a[data-name]', function (e) {
+      e.preventDefault();
+      $('#templateDownMenu').removeClass('on');
+      _this.downloadTemplate($(this).data('name'));
+     });
+     // 바깥을 누르면 닫는다
+     $(document).on('click', function () {
+      $('#templateDownMenu').removeClass('on');
+     });
+     $('#templateDownMenu').on('click', function (e) {
+      e.stopPropagation();
      });
 
      //수주상세 헤더 접기/펼치기
@@ -1563,6 +1611,61 @@
         Alert.alert('', (result && result.message) ? result.message : 'WBS 확정에 실패했습니다.');
        }
       });
+    }
+
+    /* ---------- 엑셀 양식 다운로드 ---------- */
+
+    /**
+     * 양식 메뉴 열기/닫기.
+     *
+     *  목록은 서버 폴더(suju.template.dir)를 매번 읽어 온다. 캐시하지 않는 이유는
+     *  담당자가 폴더의 양식을 갈아끼운 뒤 새로고침 없이 바로 받아야 하기 때문이다.
+     */
+    toggleTemplateMenu() {
+     const _this = this;
+     const $menu = $('#templateDownMenu');
+
+     if ($menu.hasClass('on')) {
+      $menu.removeClass('on');
+      return;
+     }
+     $menu.html('<li class="empty"><a>불러오는 중…</a></li>').addClass('on');
+
+     AjaxUtil.getAsyncData(this.url + '/excel_template_list', {}, function (result) {
+      const list = (result && result.data) ? result.data : [];
+      if (!list.length) {
+       // 폴더가 없거나 비었다. 둘 다 서버 설정 문제라 사용자가 할 수 있는 게 없어
+       //  경로를 노출하지 않고 없다고만 알린다 (원인은 서버 로그에 남는다).
+       $menu.html('<li class="empty"><a>내려받을 양식이 없습니다.</a></li>');
+       return;
+      }
+      const html = list.map(function (f) {
+       const nm = _this.escHtml(f.name);
+       return '<li><a data-name="' + nm + '">' + nm
+        + '<span class="sz">' + _this.escHtml(f.size_text) + '</span></a></li>';
+      }).join('');
+      $menu.html(html);
+     }, function () {
+      $menu.html('<li class="empty"><a>목록을 불러오지 못했습니다.</a></li>');
+     });
+    }
+
+    /**
+     * 양식 파일 받기.
+     *
+     *  ★ AjaxUtil 로는 못 받는다. JSON 응답을 전제로 하는 유틸이라
+     *    바이너리가 오면 파싱에서 깨진다. GET 이라 CSRF 토큰도 필요 없다.
+     */
+    downloadTemplate(name) {
+     if (!name) return;
+     location.href = this.url + '/excel_template?name=' + encodeURIComponent(name);
+    }
+
+    /** 파일명이 그대로 innerHTML 에 들어가므로 escape 한다 */
+    escHtml(s) {
+     return String(s == null ? '' : s)
+     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     /* ---------- 엑셀 업로드 팝업 ---------- */
