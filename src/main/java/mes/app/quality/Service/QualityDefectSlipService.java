@@ -41,7 +41,10 @@ public class QualityDefectSlipService {
                  , fn_code_name('mat_type', mg."MaterialType") as material_type
                  , u."Name" as unit_name
                  , qd."BadQty" as bad_qty
-                 , fn_code_name('defect_type', qd."BadType") as bad_type_name
+                 -- BadType 은 'bad_type' 코드그룹에서 고른 값이다(치수불량·외관불량·…).
+                 -- 'defect_type' 은 그대로사용/재작업/반품/폐기 라 서로 겹치지 않아
+                 -- 이름이 늘 빈 값으로 나왔다. 콤보와 같은 그룹으로 맞춘다.
+                 , fn_code_name('bad_type', qd."BadType") as bad_type_name
                  , qd."BadType" as bad_type
                  , qd."BadReason" as bad_reason
                  , fn_code_name('defect_disposal', qd."Disposal") as disposal_name

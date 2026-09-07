@@ -53,6 +53,9 @@ public class SecurityConfiguration {
                         .ignoringAntMatchers(
                                 "/api/files/upload/**",
                                 "/popbill/webhook",
+                                // 앱에는 CSRF 토큰을 심을 곳이 없다(세션 쿠키만 보낸다).
+                                // 그래서 앱이 쓰는 API 는 /pda/** 아래 래퍼 컨트롤러로 감싼다 —
+                                // /api/** 를 여기에 하나씩 추가하면 웹 화면의 CSRF 보호까지 함께 풀린다.
                                 "/pda/**"
                         )
                 );

@@ -17,12 +17,22 @@ public class ReceiveApiService {
     SqlRunner sqlRunner;
 
 
-    public List<Map<String, Object>> getPdaBaljuList(Timestamp start, Timestamp end, String spjangcd) {
+    /**
+     * PDA 발주 입고 대상 목록.
+     *
+     * @param baljuType 'outsource' = 외작만 / 'balju' = 외작 제외 / null = 전체.
+     *                  웹 수불전표등록(rp_input.html)이 발주입고와 외작입고를 나누는 기준과 같다
+     *                  (MaterialInoutService.getBaljuList 참조). 외작만 검사여부를 함께 남긴다.
+     */
+    public List<Map<String, Object>> getPdaBaljuList(Timestamp start, Timestamp end, String spjangcd,
+                                                     String baljuType) {
 
         MapSqlParameterSource dicParam = new MapSqlParameterSource();
         dicParam.addValue("start", start);
         dicParam.addValue("end", end);
         dicParam.addValue("spjangcd", spjangcd);
+        dicParam.addValue("baljuType",
+                (baljuType == null || baljuType.isBlank()) ? null : baljuType.trim());
 
         String sql = """
         select b.id
@@ -73,6 +83,11 @@ public class ReceiveApiService {
           AND COALESCE(mi."SujuQty2", 0) < b."SujuQty"
           and b.spjangcd = :spjangcd
           and "State" != 'force_completion'
+          -- 외작/발주 구분. SujuType 이 비어 있는 건도 있어 'balju' 쪽에 포함시킨다
+          -- (IS DISTINCT FROM 은 NULL 도 '외작이 아님'으로 친다)
+          and (CAST(:baljuType AS varchar) IS NULL
+               OR (CAST(:baljuType AS varchar) = 'outsource' AND b."SujuType" = 'outsource')
+               OR (CAST(:baljuType AS varchar) = 'balju' AND b."SujuType" IS DISTINCT FROM 'outsource'))
 			order by b."JumunDate" desc,  m."Name"
 			""";
 

@@ -10,8 +10,10 @@ import mes.domain.model.AjaxResult;
 import mes.domain.repository.BujuRepository;
 import mes.domain.repository.MatInoutRepository;
 import mes.domain.repository.MaterialRepository;
+import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -40,6 +42,9 @@ public class ReceiveApiController {
     BujuRepository bujuRepository;
 
     @Autowired
+    SqlRunner sqlRunner;
+
+    @Autowired
     MatInoutRepository matInoutRepository;
 
     @Autowired
@@ -49,6 +54,9 @@ public class ReceiveApiController {
     public AjaxResult getBalJuList(@RequestParam String start_date,
                                    @RequestParam String end_date,
                                    @RequestParam(value = "spjangcd", required = false) String spjangcd,
+                                   // 'outsource' = 외작만 / 'balju' = 외작 제외 / 미지정 = 전체.
+                                   // 웹 rp_input.html 의 발주입고·외작입고 버튼과 같은 구분이다.
+                                   @RequestParam(value = "balju_type", required = false) String baljuType,
                                    HttpServletRequest request
 
     ){
@@ -66,7 +74,11 @@ public class ReceiveApiController {
         Timestamp start = Timestamp.valueOf(start_date);
         Timestamp end = Timestamp.valueOf(end_date);
 
-        List<Map<String, Object>> items = this.receiveApiService.getPdaBaljuList(start, end, "ZZ");  //지금은 그냥 하드코딩인데 나중에 쓰게 된다면 수정해주셈
+        // spjangcd 는 앱이 세션값을 못 실어 보내던 시절의 하드코딩이 남아 있다.
+        // 앱이 보내오면 그 값을 쓰고, 없으면 종전대로 ZZ 를 쓴다.
+        String site = (spjangcd == null || spjangcd.isBlank()) ? "ZZ" : spjangcd.trim();
+
+        List<Map<String, Object>> items = this.receiveApiService.getPdaBaljuList(start, end, site, baljuType);
 
         AjaxResult result = new AjaxResult();
         result.data = items;
@@ -88,9 +100,14 @@ public class ReceiveApiController {
         for (Map<String, Object> item : baljuList) {
             try {
                 Integer bal_pk = (Integer) item.get("id");
+
+                // 외작 발주 여부. 목록 쿼리가 b."SujuType" 을 내려준다.
+                // 외작일 때만 검사여부를 mat_inout_inspect 에 남긴다 (웹 rp_input 과 같은 규칙).
+                boolean isOutsource = "outsource".equals(item.get("SujuType"));
+
                 String description = (String) item.get("Description2");
                 if (description == null || description.trim().isEmpty()) {
-                    description = "발주 입고";
+                    description = isOutsource ? "외작 입고" : "발주 입고";
                 }
                 String inoutQtyStr = String.valueOf(item.get("inputQty")); // '입고 수량'
                 String materialIdStr = String.valueOf(item.get("Material_id"));
@@ -142,6 +159,15 @@ public class ReceiveApiController {
                 matInoutRepository.save(mi);
                 bujuRepository.save(balju);
 
+                // 외작 입고는 업체가 검사하고 보냈는지를 함께 남긴다.
+                // 앱이 안 보내면 웹 화면 기본값과 같이 'Y'(검사) 로 둔다.
+                if (isOutsource) {
+                    Object inspectRaw = item.get("InspectYN");
+                    String inspectYn = "N".equals(String.valueOf(inspectRaw)) ? "N" : "Y";
+                    saveInspect(mi.getId(), bal_pk, matPk, inspectYn,
+                            (String) item.get("spjangcd"), user);
+                }
+
             } catch (Exception e) {
                 result.success = false;
                 result.message = "처리 중 오류 발생: " + e.getMessage();
@@ -152,5 +178,41 @@ public class ReceiveApiController {
 
         return result;
 
+    }
+
+    /**
+     * 외작 입고 검사여부 저장.
+     *
+     * MaterialInoutController 의 같은 이름 처리와 동일한 SQL 을 쓴다 —
+     * 웹에서 넣은 행과 PDA 에서 넣은 행의 모양이 갈리면
+     * 대시보드(DashProjectService)가 두 경로를 다르게 집계하게 된다.
+     * projno 는 발주에 연결된 수주에서 끌어온다.
+     */
+    private void saveInspect(Integer matInoutId, Integer baljuId, Integer materialId,
+                             String inspectYn, String spjangcd, User user) {
+
+        MapSqlParameterSource p = new MapSqlParameterSource();
+        p.addValue("matInoutId", matInoutId);
+        p.addValue("baljuId", baljuId);
+        p.addValue("materialId", materialId);
+        p.addValue("inspectYn", inspectYn);
+        p.addValue("spjangcd", spjangcd);
+        p.addValue("userId", user == null ? null : user.getId());
+
+        this.sqlRunner.execute("""
+            INSERT INTO mat_inout_inspect
+                   ("MatInout_id", "Balju_id", "Material_id", "InspectYN", projno,
+                    spjangcd, _status, _created, _creater_id)
+            SELECT :matInoutId, :baljuId, :materialId, CAST(:inspectYn AS varchar),
+                   (SELECT s.project_id
+                      FROM balju b
+                      JOIN suju s ON s.id = b."PlanDataPk"
+                     WHERE b.id = :baljuId AND b."PlanTableName" = 'suju'),
+                   CAST(:spjangcd AS varchar), 'a', now(), :userId
+            ON CONFLICT ("MatInout_id") DO UPDATE
+               SET "InspectYN"   = EXCLUDED."InspectYN",
+                   _modified     = now(),
+                   _modifier_id  = :userId
+            """, p);
     }
 }
