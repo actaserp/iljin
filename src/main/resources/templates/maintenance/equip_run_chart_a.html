@@ -73,8 +73,8 @@
             </ul>
         </div>
 
-            <section class="section">
-                <form id="searchForm" autocomplete="off">
+        <section class="section">
+            <form id="searchForm" autocomplete="off">
                 <div class="section-top">
                     <div class="search-wrap">
 
@@ -135,17 +135,17 @@
                         </ul>
                     </div>
                 </div>
-                </form>
+            </form>
 
-                <div class="grid_box" id="divList">
-                    <div id="theGrid" style="height: 330px;"></div>
-                </div>
+            <div class="grid_box" id="divList">
+                <div id="theGrid" style="height: 330px;"></div>
+            </div>
 
-                <!--        <div class="grid_box">-->
+            <!--        <div class="grid_box">-->
 
-                <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
-                <!--        </div>-->
-            </section>
+            <!--            <div class="h-640" data-ax5grid="sujuGrid" ></div>-->
+            <!--        </div>-->
+        </section>
 
 
         <section class="">
@@ -574,6 +574,20 @@
 
             }
 
+            /*
+             * 날짜 문자열 → 시각(ms).
+             *
+             * ★ Date.parse('2026-09-07 10:00:00') 은 브라우저에 따라 NaN 이다.
+             *   ISO 는 공백이 아니라 T 를 쓴다. NaN 이 차트에 들어가면
+             *   그 막대만 빠지는 게 아니라 차트 전체가 안 그려진다.
+             */
+            toTime(v) {
+                if (!v) return null;
+                var t = Date.parse(String(v).replace(' ', 'T'));
+                if (isNaN(t)) t = Date.parse(v);          // 그래도 안 되면 원본으로 한 번 더
+                return isNaN(t) ? null : t;
+            }
+
             searchMainData() {
                 let _this = this;                                                //조회조건 변경 필요
                 let startDate = $('#date_from').val();
@@ -586,14 +600,21 @@
 
                 let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
 
+                /* ★ 응답이 없거나 실패해도 화면이 멈추지 않게 한다.
+                   result 가 undefined 면 아래에서 통째로 예외가 나 그리드까지 비어 버린다. */
+                if (!result || !result.data) {
+                    _this.viewData.sourceCollection = [];
+                    _this.grid.invalidate();
+                    return;
+                }
                 if (result.data) {
                     _this.viewData.sourceCollection = result.data;
                     _this.grid.invalidate();
-                    // xaxis 변경
+                    // xaxis 변경. 공백 대신 T 를 써야 브라우저를 안 탄다
                     this.chart.updateOptions({
                         xaxis: {
-                            min: Date.parse(startDate + ' 00:00:00'),
-                            max: Date.parse(endDate + ' 23:59:59')
+                            min: _this.toTime(startDate + ' 00:00:00'),
+                            max: _this.toTime(endDate + ' 23:59:59')
                         }
                     });
 
@@ -616,13 +637,20 @@
                                 color = '#8C8C8C';
                             }
 
+                            /*
+                             * ★ Date.parse 는 형식에 따라 NaN 을 돌려준다.
+                             *   'YYYY-MM-DD HH:mm:ss' 는 사파리·일부 브라우저에서 실패하고,
+                             *   NaN 이 들어가면 그 막대만 사라지는 게 아니라 차트 전체가 안 그려진다.
+                             *   T 를 넣어 ISO 로 맞추고, 그래도 안 되면 그 건을 건너뛴다.
+                             */
+                            var st = _this.toTime(e.StartDate);
+                            var ed = e.EndDate ? _this.toTime(e.EndDate) : Date.now();
+                            if (st == null || ed == null) return;
+
                             series[0].data.push(
                                 {
                                     x: e.Name,
-                                    y: [
-                                        Date.parse(e.StartDate),
-                                        e.EndDate ? Date.parse(e.EndDate) : Date.now()
-                                    ],
+                                    y: [st, ed],
                                     fillColor: color
                                 }
                             );

@@ -966,6 +966,139 @@ public class DashProjectService {
 	}
 
 	/**
+	 * 생산 실적 현황 (대시보드) — 하루치.
+	 *
+	 * 공정·설비·작업자·불량유형으로 갈라 준다.
+	 * ★ 공정 숫자를 서로 더하지 않는다. 한 부품이 절단·가공을 거치며
+	 *   공정마다 다시 세어져, 합치면 실물보다 큰 수가 된다(SPEC 3-2).
+	 */
+	public Map<String, Object> getPerformance(String spjangcd, String prodDate) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("prodDate", nullIfEmpty(prodDate));
+
+		Map<String, Object> out = new LinkedHashMap<>();
+
+		out.put("proc", rows("perfProc", """
+            SELECT COALESCE(r."Operation", '(미지정)') AS operation
+                 , SUM(COALESCE(r."GoodQty", 0))       AS good_qty
+                 , SUM(COALESCE(r."DefectQty", 0))     AS defect_qty
+            FROM iljin_prod_result r
+            WHERE r.spjangcd = :spjangcd
+              AND (CAST(:prodDate AS date) IS NULL OR r."ProdDate" = CAST(:prodDate AS date))
+            GROUP BY COALESCE(r."Operation", '(미지정)')
+            ORDER BY 1
+            """, p));
+
+		out.put("worker", rows("perfWorker", """
+            SELECT COALESCE(r."Worker", '(미지정)')    AS worker
+                 , COALESCE(r."Equipment", '')         AS equipment
+                 , COALESCE(r."Operation", '')         AS operation
+                 , SUM(COALESCE(r."GoodQty", 0))       AS good_qty
+                 , SUM(COALESCE(r."DefectQty", 0))     AS defect_qty
+                 , COUNT(*)                            AS cnt
+            FROM iljin_prod_result r
+            WHERE r.spjangcd = :spjangcd
+              AND (CAST(:prodDate AS date) IS NULL OR r."ProdDate" = CAST(:prodDate AS date))
+            GROUP BY 1, 2, 3
+            ORDER BY 4 DESC, 1
+            """, p));
+
+		out.put("defect", rows("perfDefect", """
+            SELECT COALESCE(d."Name", r."DefectType", '(미분류)') AS name
+                 , SUM(COALESCE(r."DefectQty", 0))                AS qty
+            FROM iljin_prod_result r
+            LEFT JOIN defect_type d ON d."Code" = r."DefectType"
+                                   AND d.spjangcd = r.spjangcd
+            WHERE r.spjangcd = :spjangcd
+              AND COALESCE(r."DefectQty", 0) > 0
+              AND (CAST(:prodDate AS date) IS NULL OR r."ProdDate" = CAST(:prodDate AS date))
+            GROUP BY 1
+            ORDER BY 2 DESC
+            """, p));
+
+		// 진행중 작업 (날짜와 무관하게 지금 상태)
+		out.put("working", rows("perfWorking", """
+            SELECT w."Equipment"     AS machine
+                 , w."Operation"     AS operation
+                 , w."Worker"        AS worker
+                 , w."Kind"          AS kind
+                 , s."Material_Name" AS item_name
+                 , w."Project_id"    AS proj_no
+                 , TO_CHAR(w."StartTime", 'HH24:MI') AS start_time
+            FROM iljin_prod_working w
+            LEFT JOIN suju s ON s.id = w."Suju_id"
+            WHERE w.spjangcd = :spjangcd
+            ORDER BY w."StartTime"
+            """, p));
+
+		return out;
+	}
+
+	/**
+	 * 계획 대비 실적.
+	 *
+	 * ★ '계획' 은 <b>부품표 필요량</b>이다 (BOM 합계, 참값).
+	 *   '실적' 은 가공 실적인데 <b>공정별 최댓값</b>을 쓴다 —
+	 *   합치면 실물보다 커지고, 최솟값은 절단만 한 것도 완성으로 안 쳐 지나치게 낮다.
+	 *   "적어도 이만큼은 존재한다" 는 하한이라 한 방향으로만 틀린다(SPEC 3-2).
+	 */
+	public Map<String, Object> getPlanActual(String spjangcd, String projNo) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("projNo", nullIfEmpty(projNo));
+
+		Map<String, Object> out = new LinkedHashMap<>();
+
+		// 유형별 계획(BOM) vs 실적(공정 최댓값)
+		out.put("kinds", rows("paKind", """
+            WITH need AS (
+                SELECT COALESCE(b."Kind", 'etc') AS kind
+                     , SUM(COALESCE(b."Qty", 0)) AS plan_qty
+                FROM iljin_suju_bom b
+                LEFT JOIN suju s ON s.id = b."Suju_id"
+                WHERE b.spjangcd = :spjangcd
+                  AND b."Gubun" = '제작품'
+                  AND (CAST(:projNo AS varchar) IS NULL
+                       OR COALESCE(s.project_id, b."Project_id") = CAST(:projNo AS varchar))
+                GROUP BY COALESCE(b."Kind", 'etc')
+            ), act AS (
+                SELECT COALESCE(r."Kind", 'etc') AS kind
+                     , r."Operation"             AS operation
+                     , SUM(COALESCE(r."GoodQty", 0)) AS qty
+                FROM iljin_prod_result r
+                WHERE r.spjangcd = :spjangcd
+                  AND (CAST(:projNo AS varchar) IS NULL
+                       OR r."Project_id" = CAST(:projNo AS varchar))
+                GROUP BY COALESCE(r."Kind", 'etc'), r."Operation"
+            ), amax AS (
+                -- 공정별 최댓값. 합계가 아니다
+                SELECT kind, MAX(qty) AS act_qty FROM act GROUP BY kind
+            )
+            SELECT COALESCE(n.kind, a.kind)      AS kind
+                 , COALESCE(n.plan_qty, 0)       AS plan_qty
+                 , COALESCE(a.act_qty, 0)        AS act_qty
+            FROM need n
+            FULL OUTER JOIN amax a ON a.kind = n.kind
+            ORDER BY 1
+            """, p));
+
+		// 공정별 작업량. 계획은 없다 (어느 부품이 어느 공정을 거치는지 모른다)
+		out.put("proc", rows("paProc", """
+            SELECT COALESCE(r."Operation", '(미지정)') AS operation
+                 , SUM(COALESCE(r."GoodQty", 0))       AS qty
+                 , SUM(COALESCE(r."DefectQty", 0))     AS ng
+            FROM iljin_prod_result r
+            WHERE r.spjangcd = :spjangcd
+              AND (CAST(:projNo AS varchar) IS NULL
+                   OR r."Project_id" = CAST(:projNo AS varchar))
+            GROUP BY 1 ORDER BY 1
+            """, p));
+
+		return out;
+	}
+
+	/**
 	 * 공정 재고 — 조립 완료로 입고된 <b>지그 완제품</b>.
 	 *
 	 * ★ 가공품 재고는 없다. SPEC 3-1 이 없앴다 —

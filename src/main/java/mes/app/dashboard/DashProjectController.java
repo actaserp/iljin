@@ -85,6 +85,26 @@ public class DashProjectController {
 		return result;
 	}
 
+	/** 생산 실적 현황 (대시보드) — 하루치. 공정·설비·작업자·불량유형 */
+	@GetMapping("/performance")
+	public AjaxResult performance(@RequestParam("spjangcd") String spjangcd,
+								  @RequestParam(value = "prodDate", required = false) String prodDate) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = dashProjectService.getPerformance(spjangcd, prodDate);
+		return result;
+	}
+
+	/** 계획(BOM 필요량) 대비 실적 */
+	@GetMapping("/plan_actual")
+	public AjaxResult planActual(@RequestParam("spjangcd") String spjangcd,
+								 @RequestParam(value = "projNo", required = false) String projNo) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = dashProjectService.getPlanActual(spjangcd, projNo);
+		return result;
+	}
+
 	/** 생산 모니터링 — 설비별 오늘 실적과 진행중 작업 */
 	@GetMapping("/monitor")
 	public AjaxResult monitor(@RequestParam("spjangcd") String spjangcd) {

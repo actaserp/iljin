@@ -50,6 +50,8 @@
         table.dt{width:100%;border-collapse:collapse;background:#272f3a;border:1px solid #404a59;border-radius:12px;overflow:hidden;margin-bottom:22px;}
         table.dt th,table.dt td{padding:0.7vw 1vw;font-size:clamp(13px,1vw,20px);text-align:center;border-bottom:1px solid #333c48;}
         table.dt th{background:#20262f;color:#aeb7c4;font-weight:700;}
+        table.dt td.bad{color:#d4685f;font-weight:700;}
+        table.dt td.empty{color:#6a7482;padding:22px 0;}
         table.dt td{color:#ccd3dc;}
         table.dt td.k{font-weight:800;color:#f3f6f9;text-align:left;}
         table.dt tr:last-child td{border-bottom:0;}
@@ -106,110 +108,183 @@
 
 <th:block layout:fragment="scripts">
     <script type="text/javascript" th:inline="none">
-        const $ = s => document.querySelector(s);
-        const nf = n => (n || 0).toLocaleString();
-        const toYMD = d => { const p = n => String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
-        const ymd = n => { const d = new Date(); d.setDate(d.getDate()+n); return toYMD(d); };
+        (function () {
+            /*
+             * 생산 실적 현황 (대시보드)
+             *
+             * 하루치를 공정·설비·작업자·불량유형으로 갈라 본다.
+             *
+             * ★ 공정 숫자를 서로 더하지 않는다.
+             *   한 부품이 절단·가공을 거치며 공정마다 다시 세어져,
+             *   합치면 실물보다 큰 수가 된다(SPEC 3-2).
+             *   그래서 KPI 에 '총 생산' 같은 합계를 두지 않는다.
+             *
+             * ★ 전역 $ 를 덮지 않는다.
+             *   const $ = s => document.querySelector(s) 한 줄이 jQuery 를 가려
+             *   AjaxUtil 이 통째로 깨진다. el() 을 쓴다.
+             */
+            /* ★ 즉시실행 함수 안에 둔다.
+                 layout_page 에 같은 이름의 전역이 있으면 const 재선언에서
+                 스크립트가 통째로 죽고, 그러면 API 호출이 아예 안 나간다. */
+            const el = s => document.querySelector(s);
+            const nf = n => Number(n || 0).toLocaleString();
+            const esc = v => (v == null ? '' : String(v))
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        const machineProc = m => ({'LC-01':'레이저절단','LC-02':'레이저절단','LM-01':'선반/밀링','LM-02':'선반/밀링','WC-01':'와이어커팅','WC-02':'와이어커팅'})[m] || '';
-        const DEFECTS = {DIM:'치수불량', SCR:'외관/스크래치', MC:'가공불량', WELD:'용접불량', MAT:'소재불량', ASSY:'조립불량', ETC:'기타'};
+            const API = '/api/production/dash_project';
+            // jQuery 가 없거나 요소가 없어도 죽지 않게 한다
+            const SPJANGCD = (typeof $ === 'function' && $('#spjangcd').length)
+                ? ($('#spjangcd').val() || 'ZZ') : 'ZZ';
 
-        // 실적 기록 (읽기 전용 · 서버 집계 가정). good=양품, defs=[{type,qty}]
-        const RECORDS = [
-            {date: ymd(0), worker:'이종길', machine:'WC-01', item:'RS01', good:120, defs:[{type:'DIM',qty:2}]},
-            {date: ymd(0), worker:'반흥',   machine:'WC-02', item:'RS02', good:86,  defs:[{type:'SCR',qty:1},{type:'DIM',qty:1}]},
-            {date: ymd(0), worker:'채완병', machine:'LM-01', item:'RS10', good:64,  defs:[{type:'MC',qty:3}]},
-            {date: ymd(0), worker:'우병철', machine:'LM-02', item:'RS20', good:52,  defs:[]},
-            {date: ymd(0), worker:'유현민', machine:'LC-01', item:'RS01', good:98,  defs:[{type:'MAT',qty:2}]},
-            {date: ymd(0), worker:'휘황',   machine:'LC-02', item:'RS10', good:73,  defs:[{type:'WELD',qty:1}]},
-            {date: ymd(-1), worker:'이종길', machine:'WC-01', item:'RS02', good:110, defs:[{type:'DIM',qty:4}]},
-        ];
+            // 로컬 시간 기준 (toISOString 은 UTC 라 KST 에서 하루 밀린다)
+            const toYMD = d => {
+                const p = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+            };
 
-        // 현재 작업중 (예시)
-        const WORKING = [
-            {worker:'이종길', machine:'WC-01', item:'RS01', proc:'와이어커팅', t:'10:20'},
-            {worker:'채완병', machine:'LM-01', item:'RS10', proc:'선반/밀링', t:'09:55'},
-        ];
+            let curDate = toYMD(new Date());
+            let DATA = {proc: [], worker: [], defect: [], working: []};
 
-        let curDate = ymd(0);
+            const getJSON = (url, param) => new Promise(res =>
+                AjaxUtil.getAsyncData(url, param,
+                    r => res(r || {success: false, data: null}),
+                    () => res({success: false, data: null})));
 
-        const defTotal = r => r.defs.reduce((s,d)=>s+d.qty,0);
-        const rateClass = p => p >= 5 ? 'hi' : (p >= 2 ? 'mid' : 'lo');
+            async function load() {
+                const r = await getJSON(API + '/performance',
+                    {spjangcd: SPJANGCD, prodDate: curDate});
+                DATA = r.data || {proc: [], worker: [], defect: [], working: []};
+                render();
+            }
 
-        function render() {
-            const rows = RECORDS.filter(r => r.date === curDate);
+            function render() {
+                renderKpi();
+                renderWorking();
+                renderProc();
+                renderWorker();
+                renderDefect();
+            }
 
-            // KPI
-            const good = rows.reduce((s,r)=>s+r.good,0);
-            const bad = rows.reduce((s,r)=>s+defTotal(r),0);
-            const total = good + bad;
-            const rate = total ? (bad/total*100) : 0;
-            $('#kpiRow').innerHTML = `
-                <div class="kpi good"><div class="l">양품</div><div class="v">${nf(good)} <small>EA</small></div></div>
-                <div class="kpi bad"><div class="l">불량</div><div class="v">${nf(bad)} <small>EA</small></div></div>
-                <div class="kpi rate"><div class="l">불량률</div><div class="v">${rate.toFixed(1)}<small>%</small></div></div>
-                <div class="kpi"><div class="l">등록 건수</div><div class="v">${rows.length} <small>건</small></div></div>`;
+            /* KPI. 공정 합계를 만들지 않고 불량과 건수만 센다 */
+            function renderKpi() {
+                const proc = DATA.proc || [];
+                const ng = proc.reduce((s, p) => s + (+p.defect_qty || 0), 0);
+                const rows = (DATA.worker || []).reduce((s, w) => s + (+w.cnt || 0), 0);
+                const workers = new Set((DATA.worker || [])
+                    .filter(w => w.worker && w.worker !== '(미지정)').map(w => w.worker)).size;
 
-            // 작업중
-            $('#workList').innerHTML = WORKING.length
-                ? WORKING.map(w => `<div class="wb-item"><b>${w.item}</b><span class="w">${w.worker}</span><span class="p">${w.machine} · ${w.proc} · ${w.t}~</span></div>`).join('')
-                : '<span class="wb-empty">작업중인 항목이 없습니다.</span>';
+                el('#kpiRow').innerHTML = `
+                <div class="kpi"><div class="l">가동 공정</div>
+                    <div class="v">${proc.length}<small> 개</small></div>
+                    <div class="kl">실적이 있는 공정</div></div>
+                <div class="kpi"><div class="l">등록 건수</div>
+                    <div class="v">${nf(rows)}<small> 건</small></div>
+                    <div class="kl">작업자 ${workers}명</div></div>
+                <div class="kpi ${ng ? 'bad' : ''}"><div class="l">불량</div>
+                    <div class="v">${nf(ng)}<small> 개</small></div>
+                    <div class="kl">${ng ? '유형별 내역은 아래' : '불량 없음'}</div></div>
+                <div class="kpi"><div class="l">진행중</div>
+                    <div class="v">${(DATA.working || []).length}<small> 건</small></div>
+                    <div class="kl">지금 돌고 있는 설비</div></div>`;
+            }
 
-            // 공정별 집계
-            const procs = {};
-            rows.forEach(r => {
-                const p = machineProc(r.machine);
-                procs[p] = procs[p] || {good:0, bad:0, machines:new Set()};
-                procs[p].good += r.good; procs[p].bad += defTotal(r); procs[p].machines.add(r.machine);
-            });
-            const order = ['레이저절단','선반/밀링','와이어커팅'];
-            $('#procRow').innerHTML = order.filter(p=>procs[p]).map(p => {
-                const d = procs[p], tot = d.good + d.bad, rt = tot ? (d.bad/tot*100) : 0;
-                const gw = tot ? (d.good/tot*100) : 0, bw = tot ? (d.bad/tot*100) : 0;
-                return `<div class="pcard">
-                    <div class="pc-head"><span class="nm">${p}</span><span class="mc">${[...d.machines].join(', ')}</span></div>
+            function renderWorking() {
+                const w = DATA.working || [];
+                el('#workList').innerHTML = w.length
+                    ? w.map(x => '<div class="wb-item"><b>' + esc(x.machine || '') + '</b>'
+                        + ' <span style="color:#d3aa55">' + esc(x.operation || '') + '</span>'
+                        + '<span class="w">👤 ' + esc(x.worker || '') + '</span>'
+                        + '<span class="p">· ' + esc(x.item_name || '품목 미지정')
+                        + (x.start_time ? ' ' + x.start_time + '~' : '') + '</span></div>').join('')
+                    : '<div class="wb-empty">작업중 없음</div>';
+            }
+
+            function renderProc() {
+                const proc = DATA.proc || [];
+                if (!proc.length) {
+                    el('#procRow').innerHTML = '<span class="wb-empty">실적이 없습니다.</span>';
+                    return;
+                }
+                el('#procRow').innerHTML = proc.map(p => {
+                    const g = +p.good_qty || 0, n = +p.defect_qty || 0;
+                    // 불량률은 그 공정 안에서만 계산한다. 공정을 가로지르면 뜻이 없다
+                    const tot = g + n;
+                    const rate = tot ? (n / tot * 100).toFixed(1) : '0.0';
+                    return `<div class="pcard">
+                    <div class="pc-head"><span class="nm">${esc(p.operation)}</span>
+                        <span class="mc">${nf(tot)}건 처리</span></div>
                     <div class="pc-nums">
-                        <div class="pc-num good"><div class="n">${nf(d.good)}</div><div class="t">양품</div></div>
-                        <div class="pc-num bad"><div class="n">${nf(d.bad)}</div><div class="t">불량</div></div>
-                        <div class="pc-num rate"><div class="n">${rt.toFixed(1)}%</div><div class="t">불량률</div></div>
+                        <div class="pc-num good"><div class="n">${nf(g)}</div><div class="t">양품</div></div>
+                        <div class="pc-num bad"><div class="n">${nf(n)}</div><div class="t">불량</div></div>
+                        <div class="pc-num rate"><div class="n">${rate}%</div><div class="t">불량률</div></div>
                     </div>
-                    <div class="pc-track"><div class="fg" style="width:${gw}%"></div><div class="fb" style="width:${bw}%"></div></div>
+                    <div class="pc-track">
+                        <div class="fg" style="width:${tot ? (g / tot * 100).toFixed(1) : 0}%"></div>
+                        <div class="fb" style="width:${tot ? (n / tot * 100).toFixed(1) : 0}%"></div>
+                    </div>
                 </div>`;
-            }).join('') || '<div class="wb-empty" style="padding:8px">해당 일자 실적이 없습니다.</div>';
+                }).join('');
+            }
 
-            // 작업자·설비별
-            $('#workerBody').innerHTML = rows.length ? rows.map(r => {
-                const bad = defTotal(r), tot = r.good + bad, rt = tot ? (bad/tot*100) : 0;
-                return `<tr>
-                    <td class="k">${r.worker}</td>
-                    <td>${machineProc(r.machine)}</td>
-                    <td>${r.machine}</td>
-                    <td class="g-c">${nf(r.good)}</td>
-                    <td class="b-c">${nf(bad)}</td>
-                    <td class="rate-c ${rateClass(rt)}">${rt.toFixed(1)}%</td></tr>`;
-            }).join('') : '<tr><td colspan="6" style="color:#9099a7;padding:18px">실적이 없습니다.</td></tr>';
+            function renderWorker() {
+                const rows = DATA.worker || [];
+                const body = el('#workerBody');
+                if (!rows.length) {
+                    body.innerHTML = '<tr><td colspan="6" class="empty">실적이 없습니다.</td></tr>';
+                    return;
+                }
+                /* ★ 헤더 순서와 맞춘다: 작업자 · 공정 · 설비 · 양품 · 불량 · 불량률.
+                   예전에 설비/공정이 뒤바뀌고 건수가 양품 자리에 들어가 있었다. */
+                body.innerHTML = rows.map(w => {
+                    const g = +w.good_qty || 0, n = +w.defect_qty || 0;
+                    const tot = g + n;
+                    const rate = tot ? (n / tot * 100).toFixed(1) + '%' : '-';
+                    return `<tr>
+                    <td style="text-align:left">${esc(w.worker)}</td>
+                    <td>${esc(w.operation || '-')}</td>
+                    <td>${esc(w.equipment || '-')}</td>
+                    <td>${nf(g)}</td>
+                    <td class="${n ? 'bad' : ''}">${n ? nf(n) : '-'}</td>
+                    <td class="${n ? 'bad' : ''}">${rate}</td>
+                </tr>`;
+                }).join('');
+            }
 
-            // 불량 유형별
-            const defAgg = {};
-            rows.forEach(r => r.defs.forEach(d => defAgg[d.type] = (defAgg[d.type]||0) + d.qty));
-            const maxDef = Math.max(1, ...Object.values(defAgg));
-            const entries = Object.entries(defAgg).sort((a,b)=>b[1]-a[1]);
-            $('#defRow').innerHTML = entries.length ? entries.map(([t,q]) =>
-                    `<div class="def-chip"><div class="dn">${DEFECTS[t]||t}</div><div class="dv">${q}</div>
-                    <div class="db"><div class="f" style="width:${q/maxDef*100}%"></div></div></div>`).join('')
-                : '<span class="wb-empty">불량 내역이 없습니다.</span>';
-        }
+            function renderDefect() {
+                const d = DATA.defect || [];
+                if (!d.length) {
+                    el('#defRow').innerHTML = '<span class="wb-empty">불량 내역이 없습니다.</span>';
+                    return;
+                }
+                const max = Math.max(...d.map(x => +x.qty || 0), 1);
+                el('#defRow').innerHTML = d.map(x => `
+                <div class="def-chip">
+                    <div class="dn">${esc(x.name)}</div>
+                    <div class="dv">${nf(x.qty)}</div>
+                    <div class="db"><div class="f" style="width:${((+x.qty || 0) / max * 100).toFixed(1)}%"></div></div>
+                </div>`).join('');
+            }
 
-        function setDate(s){ curDate = s; $('#pdate').value = s; render(); }
-        function shift(n){ const d = new Date(curDate+'T00:00:00'); d.setDate(d.getDate()+n); setDate(toYMD(d)); }
-        $('#dPrev').onclick = () => shift(-1);
-        $('#dNext').onclick = () => shift(1);
-        $('#pdate').onchange = () => setDate($('#pdate').value || curDate);
+            function setDate(v) { curDate = v; el('#pdate').value = v; load(); }
+            function shift(n) {
+                const d = new Date(curDate + 'T00:00:00');
+                d.setDate(d.getDate() + n);
+                setDate(toYMD(d));
+            }
 
-        function tick(){ const d=new Date(), p=n=>String(n).padStart(2,'0'); $('#pdClock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
-        tick(); setInterval(tick,1000);
+            el('#dPrev').onclick = () => shift(-1);
+            el('#dNext').onclick = () => shift(1);
+            el('#pdate').onchange = () => setDate(el('#pdate').value || curDate);
 
-        setDate(ymd(0));
+            function tick() {
+                const d = new Date(), p = n => String(n).padStart(2, '0');
+                el('#pdClock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+            }
+            tick();
+            setInterval(tick, 1000);
+
+            $(document).ready(function () { setDate(toYMD(new Date())); });
+        })();
     </script>
 </th:block>
 </html>

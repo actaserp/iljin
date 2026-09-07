@@ -129,16 +129,22 @@
     }
     // 단계별 완료수/대상수.  설계·조립·검사 = 공정(품목) 개수, 제작 = 유니트
     //  조립 공정 = 그 공정 유닛이 모두 조립완료(asm>=need)된 공정 / 검사 = insp>=need
+    /*
+     * 단계 셋. 축은 <b>품목 수</b>다 (dash_project 와 같다).
+     *
+     * ★ 예전에는 넷이었는데 '제작' 과 '조립' 이 사실상 같은 것을 셌고,
+     *   '제작' 만 지그 대수라 혼자 축이 달랐다.
+     *   제작 완료 = 내작은 조립이 목표 도달, 외작은 입고.
+     */
     function stageStats(items) {
-        const need = items.reduce((s, x) => s + x.need, 0);
         const cnt = items.length;
-        const asmDone = items.filter(x => x.need > 0 && (x.asm || 0) >= x.need).length;
+        const makeDone = items.filter(x =>
+            x.type === '외작' ? x.rcv : (x.need > 0 && (x.asm || 0) >= x.need)).length;
         const inspDone = items.filter(x => x.need > 0 && (x.insp || 0) >= x.need).length;
         return {
-            design: {d: items.filter(x => x.out).length, t: cnt, unit: '공정'},
-            make: {d: items.reduce((s, x) => s + itemMade(x), 0), t: need, unit: '유니트'},
-            asm: {d: asmDone, t: cnt, unit: '공정'},
-            insp: {d: inspDone, t: cnt, unit: '공정'}
+            design: {d: items.filter(x => x.out).length, t: cnt, unit: '품목'},
+            make: {d: makeDone, t: cnt, unit: '품목'},
+            insp: {d: inspDone, t: cnt, unit: '품목'}
         };
     }
     // 단계 상태: done(d>=t) / cur(0<d<t) / up(0) — 순차 아님(중간검사 등 독립 진행 허용)
@@ -156,7 +162,7 @@
     }
     function isAllDone(p) {
         const ss = stageStats(flat(p));
-        return ss.insp.t > 0 && ss.insp.d >= ss.insp.t && ss.asm.d >= ss.asm.t;
+        return ss.insp.t > 0 && ss.insp.d >= ss.insp.t && ss.make.d >= ss.make.t;
     }
     const NEAR = 7;   // 납기 임박 기준(일) — 지연위험·출도지연·외주미입고 공통
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -191,7 +197,7 @@
     const fill = (pct, c) => '<div class="f" style="width:' + Math.min(100, pct) + '%;background:' + c + '"></div>';
 
 
-    const STAGES = ["설계","제작","조립","검사"];
+    const STAGES = ["설계","제작","검사"];
     // 전역 $ 를 덮지 않는다 (이 페이지엔 jQuery 가 없지만 관행을 맞춘다)
     const el = s => document.querySelector(s);
     const nf = n => (n||0).toLocaleString();
@@ -201,9 +207,12 @@
         const a = agg(all);
         const riskN = PROJECTS.filter(p=>risk(p).danger).length;
         el('#wbKpi').innerHTML =
-            '<div class="wk"><div class="l">총 필요 유니트</div><div class="v">'+nf(a.need)+'<small>개</small></div></div>'
-            +'<div class="wk made"><div class="l">생산·입고 완료</div><div class="v">'+nf(a.made)+'<small>개</small></div></div>'
-            +'<div class="wk"><div class="l">남은 수량</div><div class="v" style="color:#d8b25f">'+nf(a.rem)+'<small>개</small></div></div>'
+            /* ★ 축과 용어를 관리자 대시보드(dash_project)와 맞춘다.
+               need/made 는 <b>공정 대수</b>이지 유니트가 아니다.
+               '총 필요 유니트' 라고 적으면 유닛(2,710)과 혼동된다. */
+            '<div class="wk"><div class="l">공정 대수</div><div class="v">'+nf(a.need)+'<small>대</small></div></div>'
+            +'<div class="wk made"><div class="l">제작 완료</div><div class="v">'+nf(a.made)+'<small>대</small></div></div>'
+            +'<div class="wk"><div class="l">남음</div><div class="v" style="color:#d8b25f">'+nf(a.rem)+'<small>대</small></div></div>'
             +'<div class="wk risk"><div class="l">지연 위험</div><div class="v">'+riskN+'<small>건</small></div></div>';
     }
     function renderAlert(){
@@ -219,7 +228,8 @@
             +items.map(x=>'<span class="ac '+x[0]+'">'+x[1]+'</span>').join('')+'</div>';
     }
     function stageDots(items,dsteps){
-        const ss=stageStats(items), keys=['design','make','asm','insp'];
+        // 단계 셋. '제작' 과 '조립' 이 같은 것을 세고 있어 관리자 대시보드에서 합쳤다
+        const ss=stageStats(items), keys=['design','make','insp'];
         let h='';
         STAGES.forEach((s,i)=>{
             const st=ss[keys[i]];

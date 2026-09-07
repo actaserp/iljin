@@ -75,14 +75,18 @@
             <div class="kpi-row" id="kpiRow"></div>
 
             <div class="sec-label">
-                <span>품목별 계획 대비 실적</span>
+                <span>유형별 계획 대비 실적</span>
                 <span class="legend">달성률 ●100%↑ 초록 ◐80~99% 노랑 ○80%↓ 빨강</span>
             </div>
             <div id="itemRows"></div>
 
-            <div class="sec-label"><span>공정별 계획 대비 실적</span></div>
+            <!-- 공정에는 계획이 없다. 어느 부품이 어느 공정을 거치는지 모르기 때문이다(SPEC 3-2).
+                 작업량만 보여준다. -->
+            <div class="sec-label"><span>공정별 작업량</span>
+                <span class="legend">계획 없음 — 어느 부품이 어느 공정을 거치는지 알 수 없습니다</span></div>
             <table class="dt">
-                <thead><tr><th style="text-align:left">공정</th><th>계획</th><th>실적</th><th class="bar-cell">진행</th><th>달성률</th><th>잔량</th></tr></thead>
+                <thead><tr><th style="text-align:left">공정</th><th>처리량</th>
+                    <th class="bar-cell">비중</th><th>불량</th></tr></thead>
                 <tbody id="procBody"></tbody>
             </table>
         </div>
@@ -91,86 +95,147 @@
 
 <th:block layout:fragment="scripts">
     <script type="text/javascript" th:inline="none">
-        const $ = s => document.querySelector(s);
-        const nf = n => (n || 0).toLocaleString();
+        (function () {
+            /*
+             * 계획 대비 실적
+             *
+             * ★ '계획' 은 <b>부품표 필요량</b>이다 (BOM 합계, 참값).
+             *   '실적' 은 가공 실적인데 <b>공정별 최댓값</b>을 쓴다.
+             *   합치면 실물보다 커지고(한 부품이 공정마다 다시 세어진다),
+             *   최솟값은 절단만 한 것도 완성으로 안 쳐 지나치게 낮다.
+             *   최댓값은 "적어도 이만큼은 존재한다" 는 하한이라 한 방향으로만 틀린다.
+             *
+             * ★ 공정에는 계획이 없다.
+             *   라우팅이 없어 어느 부품이 어느 공정을 거치는지 모른다(SPEC 3-2).
+             *   그래서 아래 표는 달성률이 아니라 작업량만 보여준다.
+             *
+             * ★ 전역 $ 를 덮지 않는다 — AjaxUtil 이 깨진다. el() 을 쓴다.
+             */
+            /* ★ 즉시실행 함수 안에 둔다.
+                 layout_page 에 같은 이름의 전역이 있으면 const 재선언에서
+                 스크립트가 통째로 죽고, 그러면 API 호출이 아예 안 나간다. */
+            const el = s => document.querySelector(s);
+            const nf = n => Number(n || 0).toLocaleString();
+            const esc = v => (v == null ? '' : String(v))
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        // 계획 대비 실적 (읽기 전용 · 서버 집계 가정)
-        //  plan=계획수량, act=누적 실적(양품). due=납기
-        const ITEMS = [
-            {code:'RS01', proj:'PRJ-A', proc:'와이어커팅', plan:200, act:186, due:'2026-07-20'},
-            {code:'RS02', proj:'PRJ-A', proc:'와이어커팅', plan:150, act:96,  due:'2026-07-18'},
-            {code:'RS10', proj:'PRJ-B', proc:'선반/밀링',  plan:120, act:124, due:'2026-07-25'},
-            {code:'RS20', proj:'PRJ-C', proc:'선반/밀링',  plan:90,  act:52,  due:'2026-07-16'},
-            {code:'RS31', proj:'PRJ-A', proc:'레이저절단', plan:160, act:158, due:'2026-07-22'},
-            {code:'RS42', proj:'PRJ-B', proc:'레이저절단', plan:110, act:73,  due:'2026-07-19'},
-        ];
+            const API = '/api/production/dash_project';
+            // jQuery 가 없거나 요소가 없어도 죽지 않게 한다
+            const SPJANGCD = (typeof $ === 'function' && $('#spjangcd').length)
+                ? ($('#spjangcd').val() || 'ZZ') : 'ZZ';
 
-        let filter = 'all';
-        const rate = it => it.plan ? (it.act/it.plan*100) : 0;
-        const rateClass = p => p >= 100 ? 'hi' : (p >= 80 ? 'mid' : 'lo');
-        const barColor = p => p >= 100 ? '#5cbf9b' : (p >= 80 ? '#d3aa55' : '#d4685f');
-        const dueSoon = d => { const diff = (new Date(d+'T00:00:00') - new Date())/86400000; return diff <= 3; };
+            let mode = 'all';                    // all | under
+            let DATA = {kinds: [], proc: []};
 
-        function render() {
-            const totPlan = ITEMS.reduce((s,i)=>s+i.plan,0);
-            const totAct = ITEMS.reduce((s,i)=>s+i.act,0);
-            const totRate = totPlan ? (totAct/totPlan*100) : 0;
-            const under = ITEMS.filter(i => rate(i) < 100).length;
-            $('#kpiRow').innerHTML = `
-                <div class="kpi plan"><div class="l">총 계획</div><div class="v">${nf(totPlan)} <small>EA</small></div></div>
-                <div class="kpi act"><div class="l">누적 실적</div><div class="v">${nf(totAct)} <small>EA</small></div></div>
-                <div class="kpi rate"><div class="l">전체 달성률</div><div class="v">${totRate.toFixed(1)}<small>%</small></div></div>
-                <div class="kpi risk"><div class="l">미달 품목</div><div class="v">${under} <small>건</small></div></div>`;
+            const getJSON = (url, param) => new Promise(res =>
+                AjaxUtil.getAsyncData(url, param,
+                    r => res(r || {success: false, data: null}),
+                    () => res({success: false, data: null})));
 
-            // 품목 카드
-            let items = ITEMS.slice();
-            if (filter === 'under') items = items.filter(i => rate(i) < 100);
-            items.sort((a,b) => rate(a) - rate(b));
-            $('#itemRows').innerHTML = items.map(it => {
-                const p = rate(it), w = Math.min(100, p), rem = Math.max(0, it.plan - it.act);
-                return `<div class="icard ${p < 100 ? 'under' : ''}">
+            async function load() {
+                const r = await getJSON(API + '/plan_actual', {spjangcd: SPJANGCD});
+                DATA = r.data || {kinds: [], proc: []};
+                render();
+            }
+
+            const rate = (a, p) => (+p > 0) ? Math.round((+a || 0) / (+p) * 100) : 0;
+            // 목업이 준비한 클래스명을 그대로 쓴다 (hi/mid/lo)
+            const rateCls = r => r >= 100 ? 'hi' : (r >= 80 ? 'mid' : 'lo');
+            const rateColor = r => r >= 100 ? '#5cbf9b' : (r >= 80 ? '#d3aa55' : '#d4685f');
+
+            function render() { renderKpi(); renderKinds(); renderProc(); }
+
+            function renderKpi() {
+                const ks = DATA.kinds || [];
+                const plan = ks.reduce((s, k) => s + (+k.plan_qty || 0), 0);
+                const act = ks.reduce((s, k) => s + (+k.act_qty || 0), 0);
+                const under = ks.filter(k => (+k.plan_qty || 0) > 0
+                    && rate(k.act_qty, k.plan_qty) < 100).length;
+
+                el('#kpiRow').innerHTML = `
+                <div class="kpi plan"><div class="l">계획 (부품표 합계)</div>
+                    <div class="v">${nf(plan)}<small> 개</small></div></div>
+                <div class="kpi act"><div class="l">실적 (공정 최대 처리량)</div>
+                    <div class="v">${nf(act)}<small> 개</small></div></div>
+                <div class="kpi rate"><div class="l">달성률</div>
+                    <div class="v">${rate(act, plan)}<small> %</small></div></div>
+                <div class="kpi risk"><div class="l">미달 유형</div>
+                    <div class="v">${under}<small> 종</small></div></div>`;
+            }
+
+            function renderKinds() {
+                let ks = (DATA.kinds || []).slice();
+                if (mode === 'under') {
+                    ks = ks.filter(k => (+k.plan_qty || 0) > 0
+                        && rate(k.act_qty, k.plan_qty) < 100);
+                }
+                const box = el('#itemRows');
+                if (!ks.length) {
+                    box.innerHTML = '<div style="color:#6a7482;padding:20px 0">'
+                        + (mode === 'under' ? '미달 유형이 없습니다.' : '데이터가 없습니다.') + '</div>';
+                    return;
+                }
+                box.innerHTML = ks.map(k => {
+                    const p = +k.plan_qty || 0, a = +k.act_qty || 0;
+                    const r = rate(a, p);
+                    return `<div class="icard ${p > 0 && r < 100 ? 'under' : ''}">
                     <div class="ic-head">
-                        <span class="nm">${it.code}<small>${it.proj} · ${it.proc}</small></span>
-                        <span class="ic-due ${dueSoon(it.due)?'soon':''}">납기 ${it.due.slice(5)}</span>
+                        <span class="nm">${esc(k.kind)}<small>유형</small></span>
+                        <span class="ic-due ${p > a ? 'soon' : ''}">${p > a ? '미달' : '달성'}</span>
                     </div>
                     <div class="ic-mid">
-                        <span class="ic-prog" style="color:${barColor(p)}">${p.toFixed(0)}<small>%</small></span>
-                        <span class="ic-qty"><span class="m">${nf(it.act)}</span> / ${nf(it.plan)}</span>
+                        <span class="ic-prog" style="color:${rateColor(r)}">${p ? r : '-'}<small>%</small></span>
+                        <span class="ic-qty"><span class="m">${nf(a)}</span> / ${nf(p)}</span>
                     </div>
-                    <div class="ic-track"><div class="f" style="width:${w}%;background:${barColor(p)}"></div></div>
-                    <div class="ic-foot"><span>달성률</span><span class="rem">잔량 ${nf(rem)}</span></div>
+                    <div class="ic-track"><div class="f"
+                        style="width:${Math.min(100, r)}%;background:${rateColor(r)}"></div></div>
+                    <div class="ic-foot"><span>계획 ${nf(p)}</span>
+                        <span class="rem">${p > a ? '잔량 ' + nf(p - a) : '완료'}</span></div>
                 </div>`;
-            }).join('') || '<div style="color:#9099a7;padding:8px">해당 항목이 없습니다.</div>';
+                }).join('');
+            }
 
-            // 공정별 집계
-            const procs = {};
-            ITEMS.forEach(it => {
-                procs[it.proc] = procs[it.proc] || {plan:0, act:0};
-                procs[it.proc].plan += it.plan; procs[it.proc].act += it.act;
+            function renderProc() {
+                const ps = DATA.proc || [];
+                const body = el('#procBody');
+                if (!ps.length) {
+                    body.innerHTML = '<tr><td colspan="4" style="color:#6a7482;padding:22px 0">'
+                        + '실적이 없습니다.</td></tr>';
+                    return;
+                }
+                const max = Math.max(...ps.map(p => +p.qty || 0), 1);
+                body.innerHTML = ps.map(p => {
+                    const q = +p.qty || 0, n = +p.ng || 0;
+                    return `<tr>
+                    <td style="text-align:left">${esc(p.operation)}</td>
+                    <td class="act-c">${nf(q)}</td>
+                    <td class="bar-cell"><div class="mini"><div class="f"
+                        style="width:${(q / max * 100).toFixed(1)}%;background:#6c9fd1"></div></div></td>
+                    <td class="rate-c ${n ? 'lo' : ''}">${n ? nf(n) : '-'}</td>
+                </tr>`;
+                }).join('');
+            }
+
+            el('#seg').querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+                el('#seg').querySelectorAll('[data-k]').forEach(x => x.classList.remove('on'));
+                b.classList.add('on');
+                mode = b.dataset.k;
+                renderKinds();
             });
-            const order = ['레이저절단','선반/밀링','와이어커팅'];
-            $('#procBody').innerHTML = order.filter(p=>procs[p]).map(p => {
-                const d = procs[p], rt = d.plan ? (d.act/d.plan*100) : 0, w = Math.min(100, rt), rem = Math.max(0, d.plan-d.act);
-                return `<tr>
-                    <td class="k">${p}</td>
-                    <td class="plan-c">${nf(d.plan)}</td>
-                    <td class="act-c">${nf(d.act)}</td>
-                    <td class="bar-cell"><div class="mini"><div class="f" style="width:${w}%;background:${barColor(rt)}"></div></div></td>
-                    <td class="rate-c ${rateClass(rt)}">${rt.toFixed(1)}%</td>
-                    <td>${nf(rem)}</td></tr>`;
-            }).join('');
-        }
 
-        $('#seg').querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
-            filter = b.dataset.k;
-            $('#seg').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
-            render();
-        });
+            function tick() {
+                const d = new Date(), p = n => String(n).padStart(2, '0');
+                el('#paClock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+            }
+            tick();
+            setInterval(tick, 1000);
 
-        function tick(){ const d=new Date(), p=n=>String(n).padStart(2,'0'); $('#paClock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
-        tick(); setInterval(tick,1000);
-
-        render();
+            /* ★ 즉시 호출한다. 이 스크립트는 body 끝에서 실행되므로
+         $(document).ready 는 이미 지나 콜백이 안 불릴 수 있다.
+         dash_project 도 같은 방식이다. */
+            load();
+            setInterval(load, 60000);   // 벽걸이 대비 — 사람이 새로고침하지 않는다
+        })();
     </script>
 </th:block>
 </html>
