@@ -1,4 +1,4 @@
-package mes.app.quality.service;
+package mes.app.quality.Service;
 
 import mes.domain.services.SqlRunner;
 import org.springframework.beans.factory.annotation.Autowired;

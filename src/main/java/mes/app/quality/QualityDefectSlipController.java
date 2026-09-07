@@ -1,6 +1,6 @@
 package mes.app.quality;
 
-import mes.app.quality.service.QualityDefectSlipService;
+import mes.app.quality.Service.QualityDefectSlipService;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,6 +1,6 @@
 package mes.app.pda.controller;
 
-import mes.app.quality.service.QualityDefectSlipService;
+import mes.app.quality.Service.QualityDefectSlipService;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,9 +20,9 @@ import java.util.Map;
  *   /pda/** 는 이미 CSRF 예외라 여기로 감싼다.
  *   저장·조회 로직은 웹과 같은 QualityDefectSlipService 를 그대로 쓴다.
  *
- * ※ 불량유형 콤보는 sys_code 의 'bad_type' 으로 채우는데 목록 조회는
- *   fn_code_name('defect_type', ...) 으로 이름을 뽑는다 (서버 내부 코드그룹 불일치).
- *   웹과 같은 상태이므로 여기서 임의로 바꾸지 않았다 — DB 확인 후 함께 정리할 것.
+ * 불량유형 콤보는 sys_code 의 'bad_type' 을 쓴다. 목록 조회가 예전에는
+ * fn_code_name('defect_type', ...) 으로 이름을 뽑아 늘 빈 값이었는데,
+ * 두 코드그룹이 서로 겹치지 않아 생긴 문제라 'bad_type' 으로 맞췄다.
  */
 @RestController
 @RequestMapping("/pda/quality/defect_slip")
