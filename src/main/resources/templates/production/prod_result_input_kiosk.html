@@ -188,6 +188,25 @@
         .log-row{cursor:pointer;}
         .log-row:hover td{background:#f6f9ff;}
         /* 투입 자재 */
+        /* 알림 번쩍임.
+           ★ 흰 화면에 흰 오버레이를 덮으면 아무리 진하게 해도 티가 안 난다.
+             <b>어둡게 ↔ 밝게</b> 를 번갈아야 눈에 걸린다.
+             주기 0.8초(1.25Hz)로 광과민 발작 위험선(3Hz) 아래에 둔다. */
+        #alarmFlash{position:fixed;inset:0;opacity:1;background:transparent;
+            pointer-events:none;z-index:200;}
+        #alarmFlash.on{animation:almBlink .8s steps(1,end) infinite;}
+        @keyframes almBlink{
+            0%,49%  {background:#ffffff;}
+            50%,100%{background:#12161d;}
+        }
+        .alm-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+        .alm-row input[type=time]{width:110px;padding:7px 9px;border:1px solid #cfd6e2;
+            border-radius:6px;font-size:15px;font-weight:700;}
+        .alm-row input[type=text]{flex:1;padding:7px 10px;border:1px solid #cfd6e2;
+            border-radius:6px;font-size:14px;}
+        .alm-row .del{border:1px solid #e2c9c7;background:#fff;color:#b3261e;
+            border-radius:7px;padding:6px 11px;font-size:13px;cursor:pointer;}
+
         .consume-bar{flex:0 0 auto;display:flex;align-items:center;gap:10px;
             border-top:1px solid #e6eaf1;padding:8px 14px;font-size:13px;}
         .consume-bar.mut{color:#8b95a7;}
@@ -243,8 +262,10 @@
                     <span class="lab">작업자</span>
                     <span class="val empty" id="cxWorker">선택하세요</span>
                 </div>
-                <div class="ctx-slot">
-                    <span class="lab">설비 · 공정</span>
+                <!-- 설비는 가공품 탭에서만 쓴다. 조립은 설비를 묻지 않으므로
+                     그 자리에 진척을 대신 보여준다 (renderCtx 참조) -->
+                <div class="ctx-slot" id="cxMachineSlot">
+                    <span class="lab" id="cxMachineLab">설비 · 공정</span>
                     <span class="val empty" id="cxMachine">선택하세요</span>
                     <span class="sub" id="cxProc"></span>
                 </div>
@@ -277,6 +298,9 @@
             <div class="mode-tabs" id="modeTabs"></div>
             <button class="sq-btn" id="btnReload" title="목록 새로고침">
                 <span class="ic">⟳</span><span class="tx">새로고침</span>
+            </button>
+            <button class="sq-btn" id="btnAlarm" title="작업 시간 알림 설정">
+                <span class="ic">🔔</span><span class="tx">알림</span>
             </button>
             <button class="sq-btn" id="btnFull" title="전체화면">
                 <span class="ic">⛶</span><span class="tx">전체화면</span>
@@ -342,6 +366,47 @@
             <div style="flex:1 1 auto;overflow:auto;padding:18px 22px;" id="consumeBody"></div>
             <div style="padding:14px 22px;border-top:1px solid #e6eaf1;text-align:right;">
                 <button class="log-toggle" id="consumeClose">닫기</button>
+            </div>
+        </div>
+    </div>
+    <!-- 작업 시간 알림.
+         ★ 공장 소음에 소리가 묻힐 수 있어 화면도 함께 번쩍인다. -->
+    <div id="alarmFlash"></div>
+
+    <!-- 알림 확인. 누를 때까지 소리와 번쩍임이 계속된다 -->
+    <div id="alarmOverlay"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:210;
+                align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:18px;padding:44px 56px;text-align:center;
+                    box-shadow:0 16px 48px rgba(0,0,0,.35);">
+            <div style="font-size:56px;line-height:1">⏰</div>
+            <div id="alarmLabel"
+                 style="font-size:34px;font-weight:900;margin:14px 0 22px;color:#1d2330"></div>
+            <button id="alarmAck"
+                    style="border:none;border-radius:14px;background:#c2410c;color:#fff;
+                           padding:22px 64px;font-size:24px;font-weight:900;cursor:pointer;
+                           letter-spacing:2px">확 인</button>
+        </div>
+    </div>
+
+    <div id="alarmModal"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:95;
+                align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:12px;width:520px;max-width:94vw;max-height:82vh;
+                    display:flex;flex-direction:column;box-shadow:0 12px 36px rgba(0,0,0,.28);">
+            <div style="padding:16px 22px;border-bottom:1px solid #e6eaf1;
+                        font-size:18px;font-weight:800;">작업 시간 알림</div>
+            <div style="flex:1 1 auto;overflow:auto;padding:18px 22px;">
+                <p style="margin:0 0 12px;font-size:13px;color:#5b6b86">
+                    설정한 시각에 소리가 울리고 화면이 번쩍입니다.
+                    이 키오스크가 켜져 있는 동안만 동작합니다.</p>
+                <div id="alarmRows"></div>
+                <button class="log-toggle" id="alarmAdd" style="margin-top:10px">+ 시간 추가</button>
+            </div>
+            <div style="padding:14px 22px;border-top:1px solid #e6eaf1;text-align:right;">
+                <button class="log-toggle" id="alarmTest">소리 확인</button>
+                <button class="log-toggle" id="alarmSave">저장</button>
+                <button class="log-toggle" id="alarmClose">닫기</button>
             </div>
         </div>
     </div>
@@ -1006,10 +1071,29 @@
             const w = el('#cxWorker');
             w.textContent = st.worker || '선택하세요';
             w.classList.toggle('empty', !st.worker);
+            /*
+             * ★ 조립에는 설비가 없다.
+             *   가공품 탭에서 고른 설비가 그대로 남아 있으면
+             *   "이 조립을 EQ-LASER 에서 한다" 로 읽힌다.
+             *   그 자리에 진척을 대신 넣는다.
+             */
             const m = el('#cxMachine');
-            m.textContent = st.machine || '선택하세요';
-            m.classList.toggle('empty', !st.machine);
-            el('#cxProc').textContent = st.machine ? procName(machineProc(st.machine)) : '';
+            if (isAsm()) {
+                const itA = st.item >= 0 ? ITEMS[st.item] : null;
+                el('#cxMachineLab').textContent =
+                    MODE === 'set' ? '공정 조립 진척' : '유닛 조립 진척';
+                const done = itA ? (+itA.done_qty || 0) : 0;
+                const tgt = itA ? (+itA.target_qty || 0) : 0;
+                m.textContent = itA ? `${done} / ${tgt}` : '품목을 고르세요';
+                m.classList.toggle('empty', !itA);
+                el('#cxProc').textContent = itA
+                    ? (tgt > done ? `남음 ${tgt - done}` : '목표 도달') : '';
+            } else {
+                el('#cxMachineLab').textContent = '설비 · 공정';
+                m.textContent = st.machine || '선택하세요';
+                m.classList.toggle('empty', !st.machine);
+                el('#cxProc').textContent = st.machine ? procName(machineProc(st.machine)) : '';
+            }
             // 프로젝트 · 공정(품목)
             // 품목을 고르면 syncOwnerFromItem 이 프로젝트·수주를 채워 둔다.
             // 그래도 못 찾은 경우(목록에 없는 프로젝트)에는 품목의 값을 그대로 보여준다.
@@ -1597,15 +1681,177 @@
         el('#dNext').onclick = () => shiftDate(1);
         el('#pdate').onchange = () => setDate(el('#pdate').value || curDate);
 
+        /* =====  작업 시간 알림  =====
+         *
+         * 키오스크는 하루 종일 켜져 있으므로 여기서 울린다.
+         * 서버 푸시나 스케줄러를 두지 않는 이유는 설비마다 연결을 유지해야 해서다 —
+         * 시간표만 받아 두고 판단은 화면이 한다.
+         *
+         * ★ 소리와 번쩍임을 함께 쓴다.
+         *   공장 소음에 태블릿 스피커가 묻힐 수 있고,
+         *   브라우저는 사용자가 한 번도 안 누른 페이지의 소리를 막는다.
+         *   화면이 번쩍이면 소리가 안 나도 알아챈다.
+         */
+        let ALARMS = [];
+        let lastAlarmKey = '';   // 같은 분에 여러 번 울리지 않게
+
+        async function loadAlarms() {
+            const r = await getJSON(API + '/work_alarm_list', {spjangcd: SPJANGCD});
+            ALARMS = (r.data || []).filter(a => a.use_yn !== 'N');
+        }
+
+        /*
+         * 알림음. 파일 없이 만든다 — mp3 를 두면 배포 대상이 늘어난다.
+         *
+         * ★ 사각파 삐 소리는 값싸게 들린다.
+         *   차임처럼 들리게 세 가지를 쓴다:
+         *     1) 화음  도-미-솔 을 조금씩 늦춰 울린다 (동시에 치면 뭉개진다)
+         *     2) 배음  기음 위에 2배·3배 주파수를 약하게 얹는다
+         *     3) 감쇠  종처럼 천천히 사라지게 한다 (짧게 끊으면 전자음이 된다)
+         *
+         *   AudioContext 는 한 번만 만든다. 매번 만들면 브라우저가 개수를 제한한다.
+         */
+        let audioCtx = null;
+
+        function getCtx() {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return null;
+            if (!audioCtx) audioCtx = new Ctx();
+            // 사용자가 누르기 전엔 정지 상태다. 화면을 터치하면 풀린다
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        /* 한 음. 배음을 얹고 종처럼 감쇠시킨다 */
+        function tone(ctx, freq, at, dur, vol) {
+            [[1, 1], [2, 0.32], [3, 0.14]].forEach(function (h) {
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.connect(g); g.connect(ctx.destination);
+                o.type = 'sine';
+                o.frequency.value = freq * h[0];
+                g.gain.setValueAtTime(0.0001, at);
+                g.gain.exponentialRampToValueAtTime(vol * h[1], at + 0.012);
+                g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+                o.start(at);
+                o.stop(at + dur + 0.05);
+            });
+        }
+
+        function beep() {
+            try {
+                const ctx = getCtx();
+                if (!ctx) return;
+                const t = ctx.currentTime + 0.02;
+                tone(ctx, 523.25, t,        1.7, 0.30);   // C5
+                tone(ctx, 659.25, t + 0.11, 1.7, 0.24);   // E5
+                tone(ctx, 783.99, t + 0.22, 2.0, 0.20);   // G5
+            } catch (e) { /* 소리가 막혀도 번쩍임은 남는다 */ }
+        }
+
+        /*
+         * ★ 끌 때까지 계속 울린다.
+         *   3초만 울리고 마는 방식은, 그때 자리를 비웠거나 소음에 묻히면
+         *   알림이 있었다는 사실조차 모르고 지나간다.
+         *
+         * ★ 키오스크마다 따로 끈다.
+         *   서버로 상태를 공유하지 않는다 — 레이저 앞에서 껐다고
+         *   머시닝센터 알림이 꺼지면 그쪽 사람은 못 듣는다.
+         */
+        let alarmTimer = null;
+
+        function fireAlarm(label) {
+            stopAlarm();                       // 이전 알림이 남아 있으면 정리
+            el('#alarmLabel').textContent = label;
+            el('#alarmOverlay').style.display = 'flex';
+            el('#alarmFlash').classList.add('on');
+
+            beep();
+            // 여운이 2초쯤 남으므로 3초 간격이면 겹치지 않는다
+            alarmTimer = setInterval(beep, 3000);
+        }
+
+        function stopAlarm() {
+            if (alarmTimer) { clearInterval(alarmTimer); alarmTimer = null; }
+            el('#alarmFlash').classList.remove('on');
+            el('#alarmOverlay').style.display = 'none';
+        }
+
         /* ===== 현재 시간 ===== */
         function tick() {
             const d = new Date();
             const p = n => String(n).padStart(2, '0');
-            el('#clock').textContent = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+            const hm = `${p(d.getHours())}:${p(d.getMinutes())}`;
+            el('#clock').textContent = `${hm}:${p(d.getSeconds())}`;
+
+            // 초가 0~2 일 때만 본다. 분이 바뀌자마자 한 번만 울리게
+            if (d.getSeconds() > 2 || lastAlarmKey === hm) return;
+            const hit = ALARMS.find(a => a.alarm_time === hm);
+            if (hit) { lastAlarmKey = hm; fireAlarm(hit.label || '작업 시간'); }
         }
 
         tick();
         setInterval(tick, 1000);
+
+        /* ===== 알림 설정 모달 ===== */
+        function renderAlarmRows(rows) {
+            el('#alarmRows').innerHTML = rows.map((a, i) => `
+                <div class="alm-row" data-i="${i}">
+                    <input type="time" value="${a.alarm_time || ''}" data-f="t">
+                    <input type="text" value="${esc(a.label || '')}" placeholder="알림 이름" data-f="l">
+                    <button class="del" data-del="${i}">삭제</button>
+                </div>`).join('')
+                || '<div style="color:#8b95a7;font-size:13px">등록된 시간이 없습니다.</div>';
+
+            el('#alarmRows').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+                alarmEdit.splice(+b.dataset.del, 1);
+                renderAlarmRows(alarmEdit);
+            });
+        }
+
+        let alarmEdit = [];
+
+        async function openAlarm() {
+            await loadAlarmsAll();
+            renderAlarmRows(alarmEdit);
+            el('#alarmModal').style.display = 'flex';
+        }
+
+        // 설정 화면에는 use_yn='N' 도 보여야 하므로 따로 읽는다
+        async function loadAlarmsAll() {
+            const r = await getJSON(API + '/work_alarm_list', {spjangcd: SPJANGCD});
+            alarmEdit = (r.data || []).map(a => ({
+                alarm_time: a.alarm_time, label: a.label, use_yn: a.use_yn
+            }));
+        }
+
+        el('#btnAlarm').onclick = openAlarm;
+        el('#alarmClose').onclick = () => el('#alarmModal').style.display = 'none';
+        el('#alarmModal').onclick = e => {
+            if (e.target === el('#alarmModal')) el('#alarmModal').style.display = 'none';
+        };
+        el('#alarmAck').onclick = stopAlarm;
+        // 화면 아무 데나 눌러도 꺼진다. 장갑 낀 손이 버튼을 못 맞출 수 있다
+        el('#alarmOverlay').onclick = stopAlarm;
+        el('#alarmTest').onclick = () => fireAlarm('소리 확인');
+        el('#alarmAdd').onclick = () => {
+            alarmEdit.push({alarm_time: '08:00', label: '', use_yn: 'Y'});
+            renderAlarmRows(alarmEdit);
+        };
+        el('#alarmSave').onclick = async () => {
+            const rows = Array.from(el('#alarmRows').querySelectorAll('.alm-row')).map(r => ({
+                alarmTime: r.querySelector('[data-f="t"]').value,
+                label: r.querySelector('[data-f="l"]').value || '작업 시간',
+                useYn: 'Y'
+            })).filter(x => x.alarmTime);
+
+            const res = await postJSON(API + '/work_alarm_save',
+                {spjangcd: SPJANGCD, rows: rows});
+            if (!res.success) { Alert.alert('', res.message || '저장에 실패했습니다.'); return; }
+            await loadAlarms();
+            el('#alarmModal').style.display = 'none';
+            flash('알림 시간을 저장했습니다');
+        };
 
         /* ===== 키오스크(공정) 전환 ===== */
         function buildOpSelect() {
@@ -1714,6 +1960,7 @@
             await loadMasters();
             // 프로젝트를 안 골라도 품목 단계가 비어 보이지 않게 전체를 미리 받아 둔다.
             await loadItems();
+            await loadAlarms();          // 작업 시간 알림 시간표
             renderAll();
             await refreshLog();
         })();

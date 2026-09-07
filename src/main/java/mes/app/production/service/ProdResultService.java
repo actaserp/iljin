@@ -544,6 +544,52 @@ public class ProdResultService {
 	}
 
 	// =================================================================
+	// 작업 시간 알림
+	//
+	//   키오스크는 하루 종일 켜져 있으므로 거기서 소리를 낸다.
+	//   서버는 시간표만 보관하고, 울리는 판단은 화면이 한다 —
+	//   푸시나 스케줄러를 두면 설비마다 연결을 유지해야 해서 비용이 커진다.
+	// =================================================================
+
+	public List<Map<String, Object>> getWorkAlarms(String spjangcd) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		return sqlRunner.getRows("""
+            SELECT id, alarm_time, label, use_yn, _order
+            FROM iljin_work_alarm
+            WHERE spjangcd = :spjangcd
+            ORDER BY _order, alarm_time
+            """, p);
+	}
+
+	/** 시간표 통째 교체. 몇 줄 안 되므로 지우고 다시 넣는 편이 단순하다 */
+	@Transactional
+	public void saveWorkAlarms(String spjangcd, List<Map<String, Object>> rows, User user) {
+		MapSqlParameterSource d = new MapSqlParameterSource();
+		d.addValue("spjangcd", spjangcd);
+		sqlRunner.execute("DELETE FROM iljin_work_alarm WHERE spjangcd = :spjangcd", d);
+
+		int order = 0;
+		for (Map<String, Object> r : rows) {
+			String t = str(r.get("alarmTime"));
+			if (!t.matches("^\\d{2}:\\d{2}$")) continue;   // 형식이 아니면 버린다
+
+			MapSqlParameterSource p = new MapSqlParameterSource();
+			p.addValue("spjangcd", spjangcd);
+			p.addValue("alarmTime", t);
+			p.addValue("label", defaultIfEmpty(r.get("label"), "알림"));
+			p.addValue("useYn", "N".equals(str(r.get("useYn"))) ? "N" : "Y");
+			p.addValue("order", order++);
+			p.addValue("userId", user.getId());
+			sqlRunner.execute("""
+                INSERT INTO iljin_work_alarm
+                     (spjangcd, alarm_time, label, use_yn, _order, _created, _creater_id)
+                VALUES (:spjangcd, :alarmTime, :label, :useYn, :order, now(), :userId)
+                """, p);
+		}
+	}
+
+	// =================================================================
 	// 불량 실적
 	//
 	//   ★ 별도 테이블을 만들지 않는다. iljin_prod_result 에 같이 쌓는다.

@@ -9,7 +9,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -250,6 +252,32 @@ public class ProdResultController {
 				spjangcd, dateFrom, dateTo, projNo, operation, equipment, workerId, kind));
 		result.success = true;
 		result.data = data;
+		return result;
+	}
+
+	/** 작업 시간 알림 시간표 */
+	@GetMapping("/work_alarm_list")
+	public AjaxResult workAlarmList(@RequestParam("spjangcd") String spjangcd) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = prodResultService.getWorkAlarms(spjangcd);
+		return result;
+	}
+
+	@PostMapping("/work_alarm_save")
+	@Transactional
+	@SuppressWarnings("unchecked")
+	public AjaxResult workAlarmSave(@RequestBody Map<String, Object> payload, Authentication auth) {
+		User user = (User) auth.getPrincipal();
+		AjaxResult result = new AjaxResult();
+
+		Object raw = payload.get("rows");
+		List<Map<String, Object>> rows = (raw instanceof List<?>)
+				? (List<Map<String, Object>>) raw : new ArrayList<>();
+
+		prodResultService.saveWorkAlarms(str(payload.get("spjangcd")), rows, user);
+		result.success = true;
+		result.message = "저장되었습니다.";
 		return result;
 	}
 
