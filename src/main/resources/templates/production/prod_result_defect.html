@@ -1,0 +1,617 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* 이 페이지 전용 스타일만 정의한다.
+           .layout-contents / .section / .btn 등은 layout_page 가 제공한다. */
+        *{box-sizing:border-box;}
+
+        /* 키오스크는 전체 화면을 쓴다 */
+        .footer{display:none !important;}
+        .con_area,.contents{padding-bottom:0 !important;}
+        .kiosk button{height:auto !important;min-height:0;min-width:50px;}
+        .kiosk{display:flex;flex-direction:column;height:100vh;padding:12px;gap:10px;
+            font-family:'Malgun Gothic','Pretendard',sans-serif;color:#1d2330;font-size:14px;}
+
+        /* 상단 컨텍스트 — 양품 키오스크와 같은 구조·치수 */
+        .ctx-bar{display:flex;align-items:stretch;gap:10px;background:#1f2a44;border-radius:12px;
+            padding:10px 12px;color:#fff;flex:0 0 auto;}
+        .ctx-title{display:flex;flex-direction:column;justify-content:center;
+            padding-right:14px;border-right:1px solid #3c4d77;}
+        .ctx-title h1{margin:0;font-size:18px;font-weight:800;letter-spacing:-.3px;}
+        .ctx-title .sub{font-size:11.5px;color:#9fb0d4;margin-top:3px;}
+        .ctx-title .tag{display:inline-block;background:#c2410c;color:#fff;border-radius:6px;
+            padding:1px 7px;font-size:11px;font-weight:800;margin-left:6px;vertical-align:2px;}
+        .ctx-slots{display:flex;gap:10px;flex:1 1 auto;}
+        .ctx-slot{flex:1 1 0;background:#2c3a5e;border-radius:9px;padding:7px 12px;min-width:0;
+            display:flex;flex-direction:column;justify-content:center;}
+        .ctx-slot .lab{font-size:11px;color:#9fb0d4;font-weight:700;letter-spacing:.3px;}
+        .ctx-slot .val{font-size:16px;font-weight:800;margin-top:2px;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .ctx-slot .val.empty{color:#8fa0c4;font-weight:600;font-size:14px;}
+        .ctx-slot .sub{font-size:11.5px;color:#b9c6e4;margin-top:1px;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .ctx-date{display:flex;flex-direction:column;justify-content:center;}
+        .ctx-date label{font-size:11px;color:#9fb0d4;font-weight:700;}
+        .date-pick{display:flex;align-items:center;gap:6px;margin-top:4px;}
+        .date-nav{border:1px solid #3c4d77;background:#2c3a5e;color:#fff;border-radius:8px;
+            width:36px;height:38px;font-size:15px;font-weight:800;cursor:pointer;}
+        .date-nav:hover{background:#36456c;}
+        .date-input{height:38px;border:1px solid #3c4d77;background:#2c3a5e !important;color:#fff;
+            border-radius:8px;padding:0 10px;font-size:15px;font-weight:800;cursor:pointer;}
+
+        /* 단계 — 양품 키오스크(prod_result_input_kiosk)와 같은 구조.
+           두 화면을 오갈 때 배치가 같아야 헷갈리지 않는다. 강조색만 주황. */
+        .steps{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid #e6eaf1;
+            background:#f6f8fb;flex:0 0 auto;}
+        .step-tab{flex:1;border:1.5px solid #d4dae5;background:#fff;border-radius:9px;
+            padding:9px 11px;cursor:pointer;text-align:left;min-width:0;}
+        .step-tab .n{display:inline-flex;align-items:center;justify-content:center;
+            width:19px;height:19px;border-radius:50%;background:#cfd6e2;color:#fff;
+            font-size:11px;font-weight:800;margin-right:6px;}
+        .step-tab .t{font-size:12.5px;font-weight:700;color:#52607a;}
+        .step-tab .sv{display:block;margin-top:4px;font-size:14px;font-weight:800;color:#1d2330;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .step-tab .sv.none{color:#aab2c2;font-weight:600;font-size:12.5px;}
+        .step-tab.active{border-color:#c2410c;box-shadow:0 0 0 2px rgba(194,65,12,.14);}
+        .step-tab.active .n{background:#c2410c;}
+        .step-tab.done .n{background:#1ca36b;}
+
+        /* 본문 — 양품 키오스크와 같은 배치.
+           좌(선택 + 내역) / 우(패드)가 나란히 화면 아래까지 내려온다.
+           예전에는 내역이 전체 폭을 차지해 패드가 위에서 끊겼다. */
+        .kiosk-main{display:flex;gap:10px;flex:1 1 auto;min-height:0;}
+        .left-col{flex:1.3;display:flex;flex-direction:column;gap:10px;min-height:0;}
+        .pick-col{flex:1 1 auto;display:flex;flex-direction:column;background:#fff;
+            border:1px solid #d4dae5;border-radius:12px;min-height:0;overflow:hidden;}
+        .pick-body{flex:1 1 auto;min-height:0;overflow:auto;padding:14px;}
+        .entry-col{flex:1;display:flex;flex-direction:column;gap:12px;background:#fff;
+            border:1px solid #d4dae5;border-radius:12px;padding:16px;min-height:0;}
+        .qty-row{display:flex;gap:12px;flex:0 0 auto;}
+        .qty-box{flex:1;border:1.5px solid #d4dae5;border-radius:12px;padding:14px 16px;background:#fff;}
+        .qty-box.active{border-color:#c2410c;background:#fff1e7;}
+        .keypad{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(3,1fr);
+            grid-template-rows:repeat(4,1fr);gap:10px;}
+        .keypad button{border:1.5px solid #d4dae5;background:#fff;border-radius:12px;
+            font-size:30px;font-weight:800;cursor:pointer;color:#1d2330;
+            display:flex;align-items:center;justify-content:center;}
+        .keypad button:hover{background:#f2f5fb;}
+        .keypad button:active{transform:translateY(1px);}
+
+        .pick-head{font-size:13px;font-weight:700;color:#5a6680;margin:0 0 10px;}
+        .pick-empty{color:#99a;text-align:center;padding:30px 0;font-size:14px;}
+        .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+        /* ★ grid 아이템은 기본 min-width:auto 라 내용이 길면 칸을 밀고 나간다.
+           예전에 이 선언이 빠져 타일이 한 줄로 흘렀다. */
+        .tile{position:relative;border:1.5px solid #d4dae5;background:#fff;border-radius:12px;
+            padding:16px 14px;cursor:pointer;text-align:left;transition:.1s;min-height:70px;
+            display:flex;flex-direction:column;justify-content:center;
+            min-width:0;max-width:100%;overflow:hidden;}
+        .tile.on{border-color:#c2410c;background:#fff1e7;box-shadow:0 0 0 2px rgba(194,65,12,.15);}
+        .tile .tt{font-size:17px;font-weight:800;color:#1d2330;
+            width:100%;min-width:0;max-width:100%;
+            overflow-wrap:anywhere;word-break:break-word;line-height:1.25;
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .tile .ts{font-size:12px;color:#7a8499;margin-top:3px;
+            width:100%;min-width:0;max-width:100%;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+        /* 키패드 */
+
+
+        .qty-box .ql{font-size:13px;color:#8a4a2a;font-weight:700;}
+        .qty-box .qv{font-size:40px;font-weight:900;text-align:right;line-height:1.05;
+            margin-top:4px;color:#c2410c;}
+
+
+
+        .btn-reg{flex:0 0 auto;width:100%;border:none;border-radius:12px;padding:22px;
+            font-size:24px;font-weight:900;color:#fff;background:#c2410c;cursor:pointer;letter-spacing:2px;}
+        .btn-reg:disabled{background:#d9dee6;color:#9aa3ad;cursor:not-allowed;}
+        .btn-cancel{flex:0 0 auto;border:1px solid #cfd6e2;background:#fff;color:#5b6b86;
+            border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;}
+
+        /* 하단 내역 */
+        .log-card{flex:0 0 220px;display:flex;flex-direction:column;background:#fff;
+            border:1px solid #d4dae5;border-radius:12px;min-height:0;overflow:hidden;}
+        .log-head{padding:9px 14px;border-bottom:1px solid #e6eaf1;background:#f6f8fb;
+            font-weight:800;font-size:13.5px;color:#39435a;flex:0 0 auto;}
+        .log-scroll{flex:1 1 auto;overflow:auto;}
+        table.log-table{width:100%;border-collapse:collapse;}
+        table.log-table th,table.log-table td{border-bottom:1px solid #eef1f6;padding:8px 10px;
+            font-size:12.5px;text-align:center;}
+        table.log-table th{position:sticky;top:0;background:#f4f0ea;color:#6b5a48;font-weight:800;}
+        .log-table td.k{font-weight:800;}
+        .d-cell{color:#c2410c;font-weight:800;}
+        .t-cell{color:#8b95a7;font-variant-numeric:tabular-nums;}
+        .log-empty{color:#98a2b3;padding:22px 0;}
+        tr.edit-row{cursor:pointer;}
+        tr.edit-row:hover td{background:#faf7f3;}
+        tr.edit-row.on td{background:#fff1e7;}
+        .x-btn{border:1px solid #e0d6c9;background:#fff;color:#8a5a2a;border-radius:7px;
+            padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+        .flash{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+            background:#1d2330;color:#fff;padding:11px 20px;border-radius:10px;
+            font-size:15px;font-weight:700;z-index:80;display:none;}
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="kiosk">
+        <div class="ctx-bar">
+            <div class="ctx-title">
+                <h1>불량 등록<span class="tag">불량</span></h1>
+                <span class="sub" id="opLabel"></span>
+            </div>
+            <div class="ctx-slots">
+                <div class="ctx-slot">
+                    <span class="lab">작업자</span>
+                    <span class="val empty" id="cxWorker">선택하세요</span>
+                </div>
+                <div class="ctx-slot">
+                    <span class="lab">설비 · 공정</span>
+                    <span class="val empty" id="cxMachine">선택하세요</span>
+                    <span class="sub" id="cxProc"></span>
+                </div>
+                <div class="ctx-slot">
+                    <span class="lab">프로젝트 · 품목</span>
+                    <span class="val empty" id="cxProj">선택하세요</span>
+                    <span class="sub" id="cxItem"></span>
+                </div>
+            </div>
+            <div class="ctx-date">
+                <label>생산일</label>
+                <div class="date-pick">
+                    <button class="date-nav" id="dPrev">◀</button>
+                    <input type="date" id="pdate" class="date-input">
+                    <button class="date-nav" id="dNext">▶</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="kiosk-main">
+            <!-- 좌: 단계별 선택 (위) + 불량 내역 (아래) -->
+            <div class="left-col">
+                <div class="pick-col">
+                    <div class="steps" id="steps"></div>
+                    <div class="pick-body" id="pickBody"></div>
+                </div>
+
+                <div class="log-card">
+                    <div class="log-head" id="logHead">불량 내역</div>
+                    <div class="log-scroll">
+                        <table class="log-table">
+                            <thead><tr><th>시각</th><th>품목</th><th>유형</th><th>불량유형</th>
+                                <th>설비</th><th>작업자</th><th>수량</th><th>삭제</th></tr></thead>
+                            <tbody id="logBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 우: 수량 패드. 화면 아래까지 내려온다 -->
+            <div class="entry-col">
+                <div class="qty-row">
+                    <div class="qty-box active">
+                        <div class="ql">불량 수량</div>
+                        <div class="qv" id="qVal">0</div>
+                    </div>
+                </div>
+                <div class="keypad" id="keys"></div>
+                <button class="btn-reg" id="btnReg" disabled>등 록</button>
+                <button class="btn-cancel" id="btnCancel" style="display:none">수정 취소</button>
+            </div>
+        </div>
+    </div>
+    <div class="flash" id="flash"></div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        /*
+         * 가공 불량 등록 (키오스크)
+         *
+         * ★ 여기서 말하는 불량은 <b>가공하다 못 쓰게 만든 것</b>이다.
+         *   재작업으로 살릴 수 있으면 불량이 아니다.
+         *   SPEC 3-1 이 기록하지 않기로 한 '파기'(2D 도면이 바뀌어 안 쓰는 물량)와는
+         *   다른 사건이다. 그쪽은 여전히 받지 않는다.
+         *
+         * ★ 메인 키오스크에 칸을 늘리지 않고 화면을 나눈 이유
+         *   불량은 드문 사건이라 수량 옆에 칸을 두면 매번 0 을 확인하게 된다.
+         *   그리고 불량은 '유형' 선택이 하나 더 필요해 단계가 늘어난다.
+         *
+         * ★ 저장은 iljin_prod_result 에 같이 쌓는다 (GoodQty=0, DefectQty>0).
+         *   별도 테이블을 만들면 집계 경로가 갈라진다.
+         *
+         * [통신] AjaxUtil 만 쓴다. $.ajax 직접 호출은 CSRF 가 빠져 403 이 난다.
+         * ★ 전역 $ 를 덮지 않는다 — const $ = s => ... 한 줄이 AjaxUtil 을 깨뜨린다.
+         *   el() 을 쓴다.
+         */
+        const el = s => document.querySelector(s);
+        const API = '/api/production/prod_result_kiosk';
+        const SPJANGCD = $('#spjangcd').val() || 'ZZ';
+
+        /*
+         * ★ 공정별로 화면을 나누지 않는다. 하나로 쓴다.
+         *   불량은 드문 사건이라 공정마다 메뉴를 두면 대부분 안 쓰는 메뉴가 된다.
+         *   설비를 고르면 공정이 따라오고, 저장할 때 서버가 설비 코드로 다시 확정한다.
+         */
+        let CURRENT_OP = '';   // 선택한 설비의 공정. 조회 필터로만 쓴다
+
+        const STEPS = [
+            {key: 'worker',  t: '작업자'},
+            {key: 'machine', t: '설비'},
+            {key: 'proj',    t: '프로젝트'},
+            {key: 'item',    t: '품목'},
+            {key: 'kind',    t: '유형'},
+            {key: 'defect',  t: '불량유형'}
+        ];
+
+        let WORKERS = [], MACHINES = [], PROJECTS = [], ITEMS = [], KINDS = [], DEFECTS = [], log = [];
+        const st = {step: 0, worker: null, workerId: null, machine: null,
+            proj: -1, item: -1, kind: null, defect: null, qty: 0,
+            editId: null};   // 수정 중인 실적 id
+        let curDate = '';
+
+        /* ===== 통신 ===== */
+        const getJSON = (url, param) => new Promise(res =>
+            AjaxUtil.getAsyncData(url, param,
+                r => res(r || {success: false, data: null}),
+                () => res({success: false, data: null})));
+
+        const postJSON = (url, param) => new Promise(res =>
+            AjaxUtil.postJsonData(url, param,
+                r => res(r || {success: false}),
+                () => res({success: false, message: ''})));
+
+        /* ===== 로딩 ===== */
+        async function loadMasters() {
+            const [w, m, k, d, pj] = await Promise.all([
+                getJSON(API + '/worker_list', {spjangcd: SPJANGCD}),
+                // 공정을 넘기지 않는다 — 가공 설비 전체가 나온다
+                getJSON(API + '/equipment_list', {spjangcd: SPJANGCD}),
+                getJSON('/api/production/prod_design/kind_list', {spjangcd: SPJANGCD}),
+                getJSON(API + '/defect_type_list', {spjangcd: SPJANGCD}),
+                getJSON(API + '/project_list', {spjangcd: SPJANGCD})
+            ]);
+            WORKERS = w.data || [];
+            MACHINES = m.data || [];
+            KINDS = k.data || [];
+            DEFECTS = d.data || [];
+            PROJECTS = pj.data || [];
+            // 설비가 하나뿐이면 자동 선택 (터치 한 번 절약)
+            if (MACHINES.length === 1) {
+                st.machine = MACHINES[0].code;
+                CURRENT_OP = MACHINES[0].operation || '';
+            }
+        }
+
+        /* 품목은 프로젝트를 안 골라도 전체를 받는다.
+           품목을 고르면 서버가 프로젝트·수주를 역산한다(headOf). */
+        async function loadItems() {
+            const r = await getJSON(API + '/item_list', {
+                spjangcd: SPJANGCD,
+                projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : ''
+            });
+            ITEMS = r.data || [];
+        }
+
+        async function refreshLog() {
+            const r = await getJSON(API + '/defect_log', {
+                spjangcd: SPJANGCD, prodDate: curDate,
+                equipment: st.machine || '', operation: CURRENT_OP
+            });
+            log = r.data || [];
+            renderLog();
+        }
+
+        /* ===== 렌더 ===== */
+        function stepValue(k) {
+            if (k === 'worker')  return st.worker;
+            if (k === 'machine') return st.machine;
+            if (k === 'proj')    return st.proj >= 0 && PROJECTS[st.proj]
+                ? (PROJECTS[st.proj].proj_no + ' ' + (PROJECTS[st.proj].proj_name || '')).trim() : null;
+            if (k === 'item')    return st.item >= 0 && ITEMS[st.item] ? ITEMS[st.item].item_name : null;
+            if (k === 'kind')    return st.kind;
+            if (k === 'defect')  return st.defect ? defectName(st.defect) : null;
+            return null;
+        }
+
+        const defectName = c => (DEFECTS.find(d => d.code === c) || {}).name || c;
+
+        function renderSteps() {
+            el('#steps').innerHTML = STEPS.map((s, i) => {
+                const v = stepValue(s.key);
+                return `<div class="step-tab ${st.step === i ? 'active' : ''} ${v ? 'done' : ''}"
+                    data-s="${i}">
+                    <span class="n">${v ? '✓' : (i + 1)}</span>
+                    <span class="t">${s.t}</span>
+                    <span class="sv ${v ? '' : 'none'}">${v || '미선택'}</span></div>`;
+            }).join('');
+            el('#steps').querySelectorAll('[data-s]').forEach(n =>
+                n.onclick = () => { st.step = +n.dataset.s; renderAll(); });
+        }
+
+        function renderPick() {
+            const step = STEPS[st.step].key;
+            let html = '';
+
+            if (step === 'worker') {
+                html = '<p class="pick-head">작업자를 선택하세요</p><div class="tiles">'
+                    + WORKERS.map(w => `<button class="tile ${st.worker === w.name ? 'on' : ''}"
+                        data-w="${w.id}" data-wn="${w.name}"><span class="tt">${w.name}</span>
+                        <span class="ts">${w.workcenter_name || ''}</span></button>`).join('')
+                    + '</div>';
+
+            } else if (step === 'machine') {
+                html = '<p class="pick-head">설비를 선택하세요</p><div class="tiles">'
+                    + MACHINES.map(m => `<button class="tile ${st.machine === m.code ? 'on' : ''}"
+                        data-m="${m.code}"><span class="tt">${m.code}</span>
+                        <span class="ts">${m.name || ''}${
+                        m.operation ? ' · ' + m.operation : ''}</span></button>`).join('')
+                    + '</div>';
+
+            } else if (step === 'proj') {
+                html = '<p class="pick-head">프로젝트 — <b>모르면 건너뛰어도 됩니다</b></p><div class="tiles">'
+                    + PROJECTS.map((pj, i) => `<button class="tile ${st.proj === i ? 'on' : ''}"
+                        data-pj="${i}"><span class="tt">${pj.proj_no}</span>
+                        <span class="ts">${pj.proj_name || ''}</span></button>`).join('')
+                    + `<button class="tile ${st.proj < 0 ? 'on' : ''}" data-pj="-1">
+                        <span class="tt">미지정</span>
+                        <span class="ts">어느 프로젝트인지 모를 때</span></button></div>`;
+
+            } else if (step === 'item') {
+                html = '<p class="pick-head">품목 — <b>모르면 건너뛰어도 됩니다</b></p><div class="tiles">'
+                    + ITEMS.map((it, i) => `<button class="tile ${st.item === i ? 'on' : ''}"
+                        data-it="${i}"><span class="tt">${it.item_name}</span>
+                        <span class="ts">${it.proj_no || ''}${
+                        it.suju_name ? ' · ' + it.suju_name : ''}</span></button>`).join('')
+                    + `<button class="tile ${st.item < 0 ? 'on' : ''}" data-it="-1">
+                        <span class="tt">품목 미지정</span>
+                        <span class="ts">프로젝트 단위로만 집계</span></button></div>`;
+
+            } else if (step === 'kind') {
+                html = '<p class="pick-head">유형 — <b>선택하지 않으면 \'기타\'로 기록됩니다</b></p><div class="tiles">'
+                    + KINDS.map(k => `<button class="tile ${st.kind === k.canon ? 'on' : ''}"
+                        data-k="${k.canon}"><span class="tt">${k.canon}</span></button>`).join('')
+                    + `<button class="tile ${st.kind === 'etc' ? 'on' : ''}" data-k="etc">
+                        <span class="tt">기타</span></button></div>`;
+
+            } else if (step === 'defect') {
+                html = DEFECTS.length
+                    ? '<p class="pick-head">불량 유형을 선택하세요</p><div class="tiles">'
+                    + DEFECTS.map(d => `<button class="tile ${st.defect === d.code ? 'on' : ''}"
+                          data-d="${d.code}"><span class="tt">${d.name}</span>
+                          <span class="ts">${d.code}</span></button>`).join('') + '</div>'
+                    : '<p class="pick-empty">등록된 불량 유형이 없습니다.</p>';
+            }
+
+            el('#pickBody').innerHTML = html;
+
+            el('#pickBody').querySelectorAll('[data-w]').forEach(b => b.onclick = () => {
+                st.worker = b.dataset.wn; st.workerId = +b.dataset.w; advance('worker');
+            });
+            el('#pickBody').querySelectorAll('[data-m]').forEach(b => b.onclick = async () => {
+                st.machine = b.dataset.m;
+                // 설비가 공정을 정한다. 저장 시에는 서버가 설비 코드로 다시 확정한다
+                const mo = MACHINES.find(x => x.code === st.machine);
+                CURRENT_OP = mo ? (mo.operation || '') : '';
+                await refreshLog();
+                advance('machine');
+            });
+            el('#pickBody').querySelectorAll('[data-pj]').forEach(b => b.onclick = async () => {
+                st.proj = +b.dataset.pj;
+                st.item = -1;
+                await loadItems();
+                advance('proj');
+            });
+            el('#pickBody').querySelectorAll('[data-it]').forEach(b => b.onclick = () => {
+                st.item = +b.dataset.it; advance('item');
+            });
+            el('#pickBody').querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+                st.kind = b.dataset.k; advance('kind');
+            });
+            el('#pickBody').querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
+                st.defect = b.dataset.d; advance('defect');
+            });
+        }
+
+        /* 아직 값이 없는 다음 단계로. 품목은 선택사항이라 건너뛴다 */
+        function advance(key) {
+            const i = STEPS.findIndex(s => s.key === key);
+            let next = i + 1;
+            /* 프로젝트·품목은 선택사항이라 값이 없어도 지나친다.
+               품목을 고르면 서버가 프로젝트를 역산하므로 순서상 문제가 없다. */
+            while (next < STEPS.length
+            && (stepValue(STEPS[next].key) != null
+                || STEPS[next].key === 'item' || STEPS[next].key === 'proj')) next++;
+            st.step = next < STEPS.length ? next : i;
+            renderAll();
+        }
+
+        function renderCtx() {
+            const w = el('#cxWorker');
+            w.textContent = st.worker || '선택하세요';
+            w.classList.toggle('empty', !st.worker);
+
+            const m = el('#cxMachine');
+            m.textContent = st.machine || '선택하세요';
+            m.classList.toggle('empty', !st.machine);
+            el('#cxProc').textContent = CURRENT_OP || '';
+
+            /* 품목을 고르면 프로젝트가 정해진다. 직접 고르지 않았어도 보여준다 */
+            const it = st.item >= 0 ? ITEMS[st.item] : null;
+            const pj = st.proj >= 0 ? PROJECTS[st.proj] : null;
+            const pv = el('#cxProj');
+            const label = pj ? (pj.proj_no + ' ' + (pj.proj_name || '')).trim()
+                : (it && it.proj_no ? it.proj_no : '');
+            pv.textContent = label || '선택하세요';
+            pv.classList.toggle('empty', !label);
+            el('#cxItem').textContent = it ? it.item_name : '';
+
+            el('#opLabel').textContent = CURRENT_OP || '설비를 고르면 공정이 정해집니다';
+        }
+
+        function renderQty() { el('#qVal').textContent = st.qty; }
+
+        /* 등록 조건: 작업자 · 설비 · 불량유형 · 수량.
+           품목은 선택사항이다 (미지정이면 프로젝트 단위로만 집계된다). */
+        function canReg() {
+            // 수정 중이면 수량만 있으면 된다 (나머지는 원래 행의 값을 유지한다)
+            if (st.editId) return st.qty > 0;
+            return !!(st.worker && st.machine && st.defect && st.qty > 0);
+        }
+        function renderRegBtn() {
+            el('#btnReg').disabled = !canReg();
+            el('#btnReg').textContent = st.editId ? '수 정' : '등 록';
+            el('#btnCancel').style.display = st.editId ? '' : 'none';
+        }
+
+        function renderLog() {
+            const sum = log.reduce((a, l) => a + (+l.defect_qty || 0), 0);
+            el('#logHead').innerHTML = `불량 내역 · ${curDate}`
+                + (sum ? ` <span style="color:#b3261e">· 합계 ${sum}</span>` : '');
+
+            if (!log.length) {
+                el('#logBody').innerHTML =
+                    '<tr><td colspan="8" class="log-empty">등록된 불량이 없습니다.</td></tr>';
+                return;
+            }
+            /* 행을 누르면 수량을 불러와 고친다. 품목·유형·설비는 못 고친다 —
+               그건 취소하고 다시 넣어야 이력이 남는다. */
+            el('#logBody').innerHTML = log.map(l => `
+                <tr class="edit-row ${st.editId === l.id ? 'on' : ''}" data-e="${l.id}"
+                    title="클릭하면 수량을 고칩니다">
+                <td class="t-cell">${l.reg_time || '-'}</td>
+                <td class="k">${l.item_name || '<span style="color:#a6791b">품목 미지정</span>'}</td>
+                <td>${l.kind || '-'}</td>
+                <td>${l.defect_name || l.defect_type || '-'}</td>
+                <td>${l.equipment || '-'}</td>
+                <td>${l.worker || '-'}</td>
+                <td class="d-cell">${l.defect_qty || 0}</td>
+                <td><button class="x-btn" data-del="${l.id}">삭제</button></td></tr>`).join('');
+
+            el('#logBody').querySelectorAll('.edit-row').forEach(r => r.onclick = e => {
+                if (e.target.closest('[data-del]')) return;
+                startEdit(+r.dataset.e);
+            });
+            el('#logBody').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+                const t = log.find(x => x.id === +b.dataset.del);
+                const desc = t ? `${t.reg_time || ''} · ${t.defect_name || ''} ${t.defect_qty}` : '';
+                if (!await Alert.confirmAsync('', `${desc}\n이 불량을 삭제할까요?`)) return;
+                const res = await postJSON(API + '/delete', {id: +b.dataset.del});
+                if (!res.success) { Alert.alert('', res.message); return; }
+                if (st.editId === +b.dataset.del) cancelEdit();
+                await refreshLog();
+            });
+        }
+
+        /* 수정 시작 — 그 행의 수량을 패드에 올린다 */
+        function startEdit(id) {
+            const t = log.find(x => x.id === id);
+            if (!t) return;
+            st.editId = id;
+            st.qty = +t.defect_qty || 0;
+            renderQty(); renderRegBtn(); renderLog();
+        }
+
+        function cancelEdit() {
+            st.editId = null;
+            st.qty = 0;
+            renderQty(); renderRegBtn(); renderLog();
+        }
+
+        function renderAll() {
+            renderSteps(); renderPick(); renderCtx(); renderQty(); renderRegBtn();
+        }
+
+        /* ===== 키패드 ===== */
+        function buildKeys() {
+            const keys = ['7','8','9','4','5','6','1','2','3','C','0','←'];
+            el('#keys').innerHTML = keys.map(k => `<button data-key="${k}">${k}</button>`).join('');
+            el('#keys').querySelectorAll('[data-key]').forEach(b => b.onclick = () => {
+                const k = b.dataset.key;
+                let v = String(st.qty);
+                if (k === 'C') v = '0';
+                else if (k === '←') v = v.length > 1 ? v.slice(0, -1) : '0';
+                else v = (v === '0' ? '' : v) + k;
+                st.qty = Math.min(999999, parseInt(v || '0', 10));
+                renderQty(); renderRegBtn();
+            });
+        }
+
+        let flashT;
+        function flash(msg) {
+            const f = el('#flash');
+            f.textContent = msg;
+            f.style.display = 'block';
+            clearTimeout(flashT);
+            flashT = setTimeout(() => f.style.display = 'none', 2200);
+        }
+
+        el('#btnCancel').onclick = cancelEdit;
+
+        el('#btnReg').onclick = async () => {
+            if (!canReg()) return;
+
+            // ── 수정: 수량만 바꾼다 ──
+            if (st.editId) {
+                const r = await postJSON(API + '/update_qty', {id: st.editId, qty: st.qty});
+                if (!r.success) { Alert.alert('', r.message || '수정에 실패했습니다.'); return; }
+                flash(`수정 · ${st.qty}`);
+                cancelEdit();
+                await refreshLog();
+                return;
+            }
+
+            const it = st.item >= 0 ? ITEMS[st.item] : null;
+
+            const res = await postJSON(API + '/defect_save', {
+                spjangcd: SPJANGCD,
+                prodDate: curDate,
+                // 품목이 있으면 서버가 프로젝트·수주를 역산한다
+                projNo: it ? it.proj_no : (st.proj >= 0 ? PROJECTS[st.proj].proj_no : ''),
+                sujuId: it ? it.suju_id : null,
+                kind: st.kind || 'etc',
+                equipment: st.machine,
+                worker: st.worker,
+                workerId: st.workerId,
+                defectType: st.defect,
+                defectQty: st.qty
+            });
+            if (!res.success) { Alert.alert('', res.message || '등록에 실패했습니다.'); return; }
+
+            flash(`불량 ${st.qty} · ${defectName(st.defect)}`);
+            st.qty = 0;
+            renderQty(); renderRegBtn();
+            await refreshLog();
+        };
+
+        /* 생산일 이동. 어제 못 넣은 실적을 오늘 넣는 일이 흔하다 */
+        async function setDate(v) {
+            curDate = v;
+            el('#pdate').value = v;
+            cancelEdit();          // 날짜가 바뀌면 수정 대상이 사라진다
+            await refreshLog();
+        }
+        const shiftDate = n => {
+            const d = new Date(curDate);
+            d.setDate(d.getDate() + n);
+            return d.toISOString().slice(0, 10);
+        };
+
+        el('#pdate').onchange = () => setDate(el('#pdate').value);
+        el('#dPrev').onclick = () => setDate(shiftDate(-1));
+        el('#dNext').onclick = () => setDate(shiftDate(1));
+
+        (async function init() {
+            curDate = new Date().toISOString().slice(0, 10);
+            el('#pdate').value = curDate;
+            buildKeys();
+            await loadMasters();
+            await loadItems();
+            renderAll();
+            await refreshLog();
+        })();
+    </script>
+</th:block>
+</html>

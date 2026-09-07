@@ -660,6 +660,7 @@ public class DashProjectService {
                  , t.operation
                  , SUM(t.need_qty) AS need_qty
                  , SUM(t.done_qty) AS done_qty
+                 , SUM(t.defect_qty) AS defect_qty
             FROM (
                 -- 필요량: 공정을 모른다. BOM 은 라우팅을 갖지 않는다 (SPEC 3-2)
                 --         수량은 유닛당이 아니라 공정(품목) 전체 총량이다
@@ -668,6 +669,7 @@ public class DashProjectService {
                      , ''          AS operation
                      , b."Qty" AS need_qty
                      , 0 AS done_qty
+                     , 0 AS defect_qty
                 FROM iljin_suju_bom b
                 JOIN suju s ON s.id = b."Suju_id"
                 WHERE b."Gubun" = '제작품'
@@ -683,6 +685,7 @@ public class DashProjectService {
                      , COALESCE(r."Operation", '')
                      , 0
                      , COALESCE(r."GoodQty", 0)
+                     , COALESCE(r."DefectQty", 0)
                 FROM iljin_prod_result r
                 JOIN suju s ON s.id = r."Suju_id"
                 WHERE r.spjangcd = :spjangcd
@@ -724,6 +727,7 @@ public class DashProjectService {
                  , t.operation
                  , SUM(t.need_qty) AS need_qty
                  , SUM(t.done_qty) AS done_qty
+                 , SUM(t.defect_qty) AS defect_qty
             FROM (
                 -- 필요량 : 프로젝트의 모든 품목 BOM 합계 (제작품만).
                 --          부품 수량이 이미 전체 총량이므로 유니트수를 곱하지 않는다.
@@ -732,6 +736,7 @@ public class DashProjectService {
                      , ''          AS operation
                      , b."Qty" AS need_qty
                      , 0 AS done_qty
+                     , 0 AS defect_qty
                 FROM iljin_suju_bom b
                 -- ★ 프로젝트 공통 부품(Suju_id IS NULL)도 센다.
                 --   2D 도면 전 추정 물량이라 품목에 안 붙지만 필요량에는 들어간다.
@@ -750,6 +755,7 @@ public class DashProjectService {
                      , COALESCE(r."Operation", '')
                      , 0
                      , COALESCE(r."GoodQty", 0)
+                     , COALESCE(r."DefectQty", 0)
                 FROM iljin_prod_result r
                 WHERE r.spjangcd = :spjangcd
                   AND (CAST(:projNo AS varchar) IS NULL
@@ -779,11 +785,14 @@ public class DashProjectService {
 				Map<String, Object> m = new LinkedHashMap<>();
 				m.put("t", 0d);
 				m.put("d", 0d);
+				m.put("x", 0d);   // 불량 누적
 				m.put("ops", new LinkedHashMap<String, Object>());
 				return m;
 			});
 
 			e.put("t", toDouble(e.get("t")) + toDouble(r.get("need_qty")));
+			// 불량은 공정과 무관하게 유형별로만 합친다
+			e.put("x", toDouble(e.get("x")) + toDouble(r.get("defect_qty")));
 
 			double done = toDouble(r.get("done_qty"));
 			if (!op.isEmpty() && done != 0d) {
@@ -877,6 +886,196 @@ public class DashProjectService {
 	}
 
 	// =================================================================
+	// 생산 실적 현황 / 공정 재고 / 모니터링
+	// =================================================================
+
+	/**
+	 * 생산 실적 현황 — 기간별 집계.
+	 *
+	 * ★ 축이 넷이라 한 줄로 합치지 않는다.
+	 *   가공(부품 처리 횟수) · 유닛 · 공정(지그) · 검사
+	 *   가공만 iljin_prod_result 에서 오고 나머지는 mat_produce 다.
+	 */
+	public List<Map<String, Object>> getResultSummary(String spjangcd, String dateFrom,
+													  String dateTo, String projNo) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("dateFrom", nullIfEmpty(dateFrom));
+		p.addValue("dateTo", nullIfEmpty(dateTo));
+		p.addValue("projNo", nullIfEmpty(projNo));
+
+		return rows("resultSummary", """
+            WITH mach AS (
+                SELECT r."Project_id"                  AS proj_no
+                     , COALESCE(r."Operation", '(미지정)') AS operation
+                     , SUM(COALESCE(r."GoodQty", 0))    AS qty
+                     , SUM(COALESCE(r."DefectQty", 0))  AS ng
+                FROM iljin_prod_result r
+                WHERE r.spjangcd = :spjangcd
+                  AND (CAST(:dateFrom AS date) IS NULL OR r."ProdDate" >= CAST(:dateFrom AS date))
+                  AND (CAST(:dateTo   AS date) IS NULL OR r."ProdDate" <= CAST(:dateTo   AS date))
+                  AND (CAST(:projNo AS varchar) IS NULL
+                       OR r."Project_id" = CAST(:projNo AS varchar))
+                GROUP BY r."Project_id", COALESCE(r."Operation", '(미지정)')
+            ), asm AS (
+                SELECT s.project_id AS proj_no
+                     , SUM(CASE WHEN mp."ProcessOrder" = 1 THEN COALESCE(mp."GoodQty", 0) END) AS unit_qty
+                     , SUM(CASE WHEN mp."ProcessOrder" = 2 THEN COALESCE(mp."GoodQty", 0) END) AS set_qty
+                     , SUM(CASE WHEN mp."ProcessOrder" = 3 THEN COALESCE(mp."GoodQty", 0) END) AS insp_qty
+                     -- 검사 불합격은 내리지 않는다. 불합격이면 정비 후 재검사하므로
+                     -- 최종 상태가 아니고, 누적으로 쌓아 보여줄 값이 아니다.
+                FROM mat_produce mp
+                JOIN job_res j ON j.id = mp."JobResponse_id"
+                              AND j."SourceTableName" = 'suju'
+                JOIN suju s    ON s.id = j."SourceDataPk"
+                WHERE mp."State" = 'finished'
+                  AND mp.spjangcd = :spjangcd
+                  AND (CAST(:dateFrom AS date) IS NULL
+                       OR mp."ProductionDate" >= CAST(:dateFrom AS date))
+                  AND (CAST(:dateTo AS date) IS NULL
+                       OR mp."ProductionDate" <= CAST(:dateTo AS date))
+                  AND (CAST(:projNo AS varchar) IS NULL
+                       OR s.project_id = CAST(:projNo AS varchar))
+                GROUP BY s.project_id
+            ), proj AS (
+                SELECT DISTINCT proj_no FROM mach
+                UNION
+                SELECT DISTINCT proj_no FROM asm
+            )
+            SELECT p.proj_no
+                 , d.projnm                  AS proj_name
+                 -- ★ 가공은 <b>공정별로</b> 준다. 합치면 실물보다 큰 수가 된다 —
+                 --   한 부품이 절단·가공을 거치며 공정마다 다시 세어지기 때문이다.
+                 --   화면이 이 JSON 을 열로 펼친다.
+                 -- ★ ::text 로 캐스팅한다.
+                 --   json 그대로 두면 JDBC 가 PGobject 로 넘겨 화면에서 배열도 문자열도 아니게 되고,
+                 --   그러면 공정 열이 하나도 안 그려진다. 화면이 JSON.parse 한다.
+                 , (SELECT json_agg(json_build_object('op', m.operation, 'qty', m.qty))
+                      FROM mach m WHERE m.proj_no IS NOT DISTINCT FROM p.proj_no)::text AS ops
+                 -- 불량은 합쳐도 된다. 못 쓰게 만든 건 어느 공정이든 실물 하나가 사라진 것이다
+                 , COALESCE((SELECT SUM(m.ng) FROM mach m
+                              WHERE m.proj_no IS NOT DISTINCT FROM p.proj_no), 0) AS defect_qty
+                 , COALESCE(a.unit_qty, 0)   AS unit_qty
+                 , COALESCE(a.set_qty, 0)    AS set_qty
+                 , COALESCE(a.insp_qty, 0)   AS insp_qty
+            FROM proj p
+            LEFT JOIN asm a      ON a.proj_no IS NOT DISTINCT FROM p.proj_no
+            LEFT JOIN tb_da003 d ON d.projno = p.proj_no AND d.spjangcd = :spjangcd
+            ORDER BY 1
+            """, p);
+	}
+
+	/**
+	 * 공정 재고 — 조립 완료로 입고된 <b>지그 완제품</b>.
+	 *
+	 * ★ 가공품 재고는 없다. SPEC 3-1 이 없앴다 —
+	 *   파기를 기록하지 않아 차감 이벤트가 안 들어오고, 몇 달 뒤
+	 *   "브라켓 재고 3,200개" 라는 거짓 숫자가 박힌다.
+	 *   지그는 다르다. 1식이라 잔량이 없고 시운전·출하에서 반드시 차감된다.
+	 */
+	public List<Map<String, Object>> getProcessStock(String spjangcd, String projNo, String keyword) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("projNo", nullIfEmpty(projNo));
+		p.addValue("keyword", keyword == null || keyword.isBlank()
+				? null : "%" + keyword.trim() + "%");
+
+		return rows("processStock", """
+            SELECT l.id
+                 , l."LotNumber"                 AS lot_no
+                 , TO_CHAR(l."InputDateTime", 'YYYY-MM-DD') AS in_date
+                 , COALESCE(l."InputQty", 0)     AS in_qty
+                 , COALESCE(l."CurrentStock", 0) AS stock
+                 , COALESCE(l."OutQtySum", 0)    AS out_qty
+                 , m."Name"                      AS material_name
+                 , sh2."Name"                    AS store_name
+                 , s.project_id                  AS proj_no
+                 , d.projnm                      AS proj_name
+                 , s.line                        AS line_name
+                 , s."Material_Name"             AS item_name
+                 , COALESCE(s.equip_type, '')    AS equip_type
+            FROM mat_lot l
+            LEFT JOIN material m    ON m.id = l."Material_id"
+            LEFT JOIN store_house sh2 ON sh2.id = l."StoreHouse_id"
+            -- 조립 완료 입고분만 본다 (SourceTableName='mat_produce')
+            LEFT JOIN mat_produce mp ON mp.id = l."SourceDataPk"
+                                    AND l."SourceTableName" = 'mat_produce'
+            LEFT JOIN job_res j ON j.id = mp."JobResponse_id"
+                               AND j."SourceTableName" = 'suju'
+            LEFT JOIN suju s    ON s.id = j."SourceDataPk"
+            LEFT JOIN tb_da003 d ON d.projno = s.project_id AND d.spjangcd = l.spjangcd
+            WHERE l.spjangcd = :spjangcd
+              AND l."SourceTableName" = 'mat_produce'
+              AND (CAST(:projNo AS varchar) IS NULL
+                   OR s.project_id = CAST(:projNo AS varchar))
+              AND (CAST(:keyword AS varchar) IS NULL
+                   OR s."Material_Name" ILIKE CAST(:keyword AS varchar)
+                   OR l."LotNumber" ILIKE CAST(:keyword AS varchar))
+            ORDER BY l."InputDateTime" DESC, l.id DESC
+            """, p);
+	}
+
+	/**
+	 * 생산 모니터링 — 오늘 실적과 진행중 작업.
+	 *
+	 * 대시보드는 프로젝트 진척을 보고, 이쪽은 <b>지금 현장이 어떻게 돌고 있나</b>를 본다.
+	 * 자동 새로고침 대상이라 가볍게 유지한다.
+	 */
+	public Map<String, Object> getMonitor(String spjangcd) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+
+		Map<String, Object> out = new LinkedHashMap<>();
+
+		// 설비별 오늘 실적 + 진행중 여부
+		out.put("equip", rows("monEquip", """
+            SELECT e."Code"        AS code
+                 , e."Name"        AS name
+                 , wc."Name"       AS operation
+                 , COALESCE(r.qty, 0)  AS today_qty
+                 , COALESCE(r.ng, 0)   AS today_ng
+                 , w."Worker"      AS worker
+                 , w."Kind"        AS kind
+                 , s."Material_Name" AS item_name
+                 , TO_CHAR(w."StartTime", 'HH24:MI') AS start_time
+            FROM equ e
+            JOIN work_center wc ON wc.id = e."WorkCenter_id"
+            JOIN equ_grp g ON g.id = e."EquipmentGroup_id" AND g."Code" NOT IN ('CMM')
+            LEFT JOIN (
+                SELECT "Equipment"
+                     , SUM(COALESCE("GoodQty", 0))   AS qty
+                     , SUM(COALESCE("DefectQty", 0)) AS ng
+                FROM iljin_prod_result
+                WHERE spjangcd = :spjangcd AND "ProdDate" = CURRENT_DATE
+                GROUP BY "Equipment") r ON r."Equipment" = e."Code"
+            LEFT JOIN iljin_prod_working w ON w."Equipment" = e."Code"
+                                          AND w.spjangcd = :spjangcd
+            LEFT JOIN suju s ON s.id = w."Suju_id"
+            WHERE e.spjangcd = :spjangcd AND e."DisposalDate" IS NULL
+            ORDER BY wc."Name", e."Code"
+            """, p));
+
+		// 오늘 등록된 실적 (최근 30건)
+		out.put("recent", rows("monRecent", """
+            SELECT TO_CHAR(r."_created", 'HH24:MI') AS t
+                 , r."Operation"  AS operation
+                 , r."Equipment"  AS equipment
+                 , r."Worker"     AS worker
+                 , COALESCE(r."Kind", 'etc') AS kind
+                 , COALESCE(r."GoodQty", 0)   AS qty
+                 , COALESCE(r."DefectQty", 0) AS ng
+                 , s."Material_Name" AS item_name
+                 , r."Project_id"    AS proj_no
+            FROM iljin_prod_result r
+            LEFT JOIN suju s ON s.id = r."Suju_id"
+            WHERE r.spjangcd = :spjangcd AND r."ProdDate" = CURRENT_DATE
+            ORDER BY r.id DESC LIMIT 30
+            """, p));
+
+		return out;
+	}
+
+	// =================================================================
 	// 그룹핑
 	// =================================================================
 
@@ -905,11 +1104,14 @@ public class DashProjectService {
 				Map<String, Object> m = new LinkedHashMap<>();
 				m.put("t", 0d);
 				m.put("d", 0d);
+				m.put("x", 0d);   // 불량 누적
 				m.put("ops", new LinkedHashMap<String, Object>());
 				return m;
 			});
 
 			e.put("t", toDouble(e.get("t")) + toDouble(r.get("need_qty")));
+			// 불량은 공정과 무관하게 유형별로만 합친다
+			e.put("x", toDouble(e.get("x")) + toDouble(r.get("defect_qty")));
 
 			double done = toDouble(r.get("done_qty"));
 			if (!op.isEmpty() && done != 0d) {

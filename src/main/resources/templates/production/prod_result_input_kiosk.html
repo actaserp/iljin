@@ -12,13 +12,22 @@
 
         /* 전체화면 버튼 — 키오스크는 헤더·탭·푸터 없이 쓰는 게 맞다 */
         /* .kiosk button 의 height:auto !important / min-width:50px 를 이겨야 정사각형이 된다 */
-        .fs-btn { border:1px solid #3c4d77; background:#2c3a5e; color:#fff; border-radius:8px;
-            width:32px !important; height:32px !important; min-width:0 !important;
-            padding:0; font-size:15px; line-height:1; cursor:pointer;
-            display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
-        .fs-btn:hover { background:#36456c; }
+
+
+        /* 탭 줄. 실적 종류 + 보조 버튼이 한 높이로 늘어선다 */
+        .tab-row { display:flex; gap:8px; align-items:stretch; flex:0 0 auto; margin-top:8px; }
+        .tab-row .mode-tabs { flex:1 1 auto; margin-top:0; }
+        /* ★ 탭과 같은 높이의 정사각형. 날짜 옆 아이콘(32px)으로는 장갑 낀 손이 못 누른다 */
+        .sq-btn { flex:0 0 auto; width:68px; min-height:68px; border:2px solid #d7dde7;
+            background:#fff; color:#5b6b86; border-radius:14px; cursor:pointer;
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+            -webkit-tap-highlight-color:transparent; }
+        .sq-btn:hover { background:#f2f5fb; }
+        .sq-btn:active { transform:scale(.97); }
+        .sq-btn:disabled { opacity:.5; cursor:default; }
+        .sq-btn .ic { font-size:24px; line-height:1; }
+        .sq-btn .tx { font-size:11px; font-weight:700; }
         /* 시계 오른쪽 끝에 전체화면 아이콘 */
-        .clock-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:2px; }
 
         /* ===== 키오스크 전용 ===== */
         /* 외부(layout_page) CSS의 button{height:30px} 무력화 */
@@ -79,16 +88,20 @@
         .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
         .tiles.mach{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
         .tile{position:relative;border:1.5px solid #d4dae5;background:#fff;border-radius:12px;padding:16px 14px;cursor:pointer;text-align:left;transition:.1s;min-height:70px;display:flex;flex-direction:column;justify-content:center;
-            /* grid 아이템은 기본 min-width:auto 라 내용이 길면 칸을 밀고 나간다 */
-            min-width:0;max-width:100%;overflow:hidden;}
+            /* grid 아이템은 기본 min-width:auto 라 내용이 길면 칸을 밀고 나간다.
+               세로는 막지 않는다 — 부제가 여러 줄이면 타일이 늘어나야 한다. */
+            min-width:0;max-width:100%;overflow-x:hidden;}
         .tile:hover{border-color:#9fb1d8;background:#fafbfe;}
         .tile .tt{font-size:17px;font-weight:800;color:#1d2330;
             width:100%;min-width:0;max-width:100%;
             overflow-wrap:anywhere;word-break:break-word;line-height:1.25;
             display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        /* ★ 한 줄로 자르지 않는다.
+           프로젝트·유닛·부품·수주가 이어 붙어 뒤쪽이 잘려 나갔다.
+           타일 높이는 내용에 맞춰 늘어난다. */
         .tile .ts{font-size:12px;color:#7a8499;margin-top:3px;
-            width:100%;min-width:0;max-width:100%;
-            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+            width:100%;min-width:0;max-width:100%;line-height:1.45;
+            white-space:normal;overflow-wrap:anywhere;word-break:break-word;}
         .tile.on{border-color:#2f57d6;background:#eef3ff;box-shadow:0 0 0 2px rgba(47,87,214,.15);}
         .tile.on::after{content:'✓';position:absolute;top:9px;right:11px;color:#2f57d6;font-weight:900;font-size:15px;}
         /* ✓ 자리를 비워 제목이 겹치지 않게 */
@@ -172,6 +185,15 @@
             padding:8px 16px;font-size:14px;font-weight:800;cursor:pointer;}
         .log-head-row{display:flex;align-items:center;justify-content:space-between;gap:10px;}
 
+        .log-row{cursor:pointer;}
+        .log-row:hover td{background:#f6f9ff;}
+        /* 투입 자재 */
+        .consume-bar{flex:0 0 auto;display:flex;align-items:center;gap:10px;
+            border-top:1px solid #e6eaf1;padding:8px 14px;font-size:13px;}
+        .consume-bar.mut{color:#8b95a7;}
+        .lack{color:#c2410c;font-weight:800;}
+        #consumeBody table{width:100%;}
+
         .work-row{cursor:pointer;background:#fffbe8;}
         .work-row:hover{background:#fff3c4;}
         .work-row td.k{color:#7a5d12;}
@@ -237,10 +259,7 @@
                     <div class="work-btns" id="workBtns"></div>
                 </div>
                 <div class="ctx-date">
-                    <div class="clock-row">
-                        <div class="clock" id="clock">--:--:--</div>
-                        <button class="fs-btn" id="btnFull" title="전체화면">⛶</button>
-                    </div>
+                    <div class="clock" id="clock">--:--:--</div>
                     <label>생산일</label>
                     <div class="date-pick">
                         <button class="date-nav" id="dPrev">◀</button>
@@ -251,8 +270,18 @@
             </div>
         </div>
 
-        <!-- 실적 종류. 장갑 낀 손으로 누르는 자리라 크게 둔다 -->
-        <div class="mode-tabs" id="modeTabs"></div>
+        <!-- 실적 종류. 장갑 낀 손으로 누르는 자리라 크게 둔다.
+             ★ 새로고침·전체화면도 여기 둔다. 날짜 옆 아이콘(32px)으로는 못 누른다.
+               탭과 같은 높이의 정사각형이라 손이 어디로 가든 목표가 크다. -->
+        <div class="tab-row">
+            <div class="mode-tabs" id="modeTabs"></div>
+            <button class="sq-btn" id="btnReload" title="목록 새로고침">
+                <span class="ic">⟳</span><span class="tx">새로고침</span>
+            </button>
+            <button class="sq-btn" id="btnFull" title="전체화면">
+                <span class="ic">⛶</span><span class="tx">전체화면</span>
+            </button>
+        </div>
 
         <div class="kiosk-main">
             <!-- 좌: 단계별 선택 (위) + 최근 등록 (아래) -->
@@ -260,6 +289,9 @@
                 <div class="pick-col">
                     <div class="steps" id="steps"></div>
                     <div class="pick-body" id="pickBody"></div>
+                    <!-- 공정 조립에서 완료하면 재고에서 빠지는 자재.
+                         목록은 모달로 뺀다 — 선택 영역이 좁아 타일이 밀린다 -->
+                    <div id="consumeBar"></div>
                 </div>
 
                 <div class="log-card" id="logCard">
@@ -296,6 +328,20 @@
                     <div class="keypad" id="keypad"></div>
                     <button class="btn-reg" id="btnReg" disabled>등 록</button>
                 </div>
+            </div>
+        </div>
+    </div>
+    <!-- 투입 자재 -->
+    <div id="consumeModal"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;
+                align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:12px;width:680px;max-width:94vw;max-height:82vh;
+                    display:flex;flex-direction:column;box-shadow:0 12px 36px rgba(0,0,0,.28);">
+            <div style="padding:16px 22px;border-bottom:1px solid #e6eaf1;
+                        font-size:18px;font-weight:800;">투입 자재</div>
+            <div style="flex:1 1 auto;overflow:auto;padding:18px 22px;" id="consumeBody"></div>
+            <div style="padding:14px 22px;border-top:1px solid #e6eaf1;text-align:right;">
+                <button class="log-toggle" id="consumeClose">닫기</button>
             </div>
         </div>
     </div>
@@ -507,6 +553,7 @@
             worker: null,
             workerId: null,
             machine: null,
+            editId: null,   // 수정 중인 실적 id. 수량만 고친다
             proj: -1,
             head: -1,      // 수주. 프로젝트당 여러 건이라 같은 품목명이 여럿 나온다
             item: -1,
@@ -620,6 +667,7 @@
             st.item = -1;
             st.kind = null;
             st.good = 0;
+            st.editId = null;   // 탭이 바뀌면 수정 모드 해제
             qTokens = [];
             searchMode = false;
             st.step = STEPS.findIndex(x => stepValue(x.key) == null && !SKIP_STEPS.includes(x.key));
@@ -1104,7 +1152,10 @@
          *   둘 다 없으면 어디에도 안 붙는 실적이 되어 집계에서 영영 사라진다.
          */
         function canReg() {
-            if (st.good <= 0 || !st.worker) return false;
+            if (st.good <= 0) return false;
+            // 수정 중이면 수량만 있으면 된다 (나머지는 원래 행의 값을 유지한다)
+            if (st.editId) return true;
+            if (!st.worker) return false;
             /*
              * 조립은 품목이 <b>필수</b>다.
              * 실적이 job_res 에 붙는데 job_res 는 품목(suju)마다 하나뿐이라
@@ -1117,6 +1168,7 @@
 
         function renderRegBtn() {
             el('#btnReg').disabled = !canReg();
+            el('#btnReg').textContent = st.editId ? '수 정' : '등 록';
         }
 
         // 키패드 (양품 수량만 입력)
@@ -1140,6 +1192,19 @@
 
         el('#btnReg').onclick = async () => {
             if (!canReg()) return;
+
+            // ── 수정: 수량만 바꾼다 (양품·불량 공용 엔드포인트) ──
+            if (st.editId) {
+                const r = await postJSON(API + '/update_qty', {id: st.editId, qty: st.good});
+                if (!r.success) { Alert.alert('', r.message || '수정에 실패했습니다.'); return; }
+                flash(`수정 · ${st.good}`);
+                st.editId = null;
+                st.good = 0;
+                renderQty(); renderRegBtn();
+                await loadTiles();
+                await refreshLog();
+                return;
+            }
 
             const item = ITEMS[st.item];
 
@@ -1187,6 +1252,8 @@
             renderQty();
             renderRegBtn();
             await loadTiles();     // 누적 생산량 갱신
+            // 공정 조립을 완료하면 자재가 빠지므로 투입 목록을 다시 읽는다
+            if (MODE === 'set') { consumeFor = null; await renderConsume(); }
             await refreshLog();
         };
 
@@ -1287,11 +1354,12 @@
                     <td></td></tr>`).join('');
 
             // 선택 생산일의 등록 실적
-            html += log.map(l => isAsm() ? `<tr>
+            html += log.map(l => isAsm() ? `<tr class="log-row" data-lid="${l.id}">
                 <td>${tm(l)}</td>
                 <td class="k">${nm(l)}</td><td>${l.worker || '-'}</td>
                 <td class="g-cell">${l.good_qty ?? l.qty ?? 0}</td>
-                <td><button class="x-btn" data-i="${l.id}">삭제</button></td></tr>` : `<tr>
+                <td><button class="x-btn" data-i="${l.id}">삭제</button></td></tr>`
+                : `<tr class="log-row" data-lid="${l.id}">
                 <td>${tm(l)}</td>
                 <td class="k">${nm(l)}</td><td>${l.kind || '-'}</td>
                 <td>${l.equipment || '-'}</td><td>${l.worker || '-'}</td>
@@ -1305,6 +1373,21 @@
 
             el('#logBody').querySelectorAll('.work-row').forEach(r =>
                 r.onclick = () => { toggleLogBig(false); resumeWork(+r.dataset.wid); });
+
+            /*
+             * 등록된 실적 행을 누르면 <b>수량만</b> 고친다.
+             * 품목·유형·설비는 못 고친다 — 그건 삭제하고 다시 넣어야 이력이 남고,
+             * 키오스크에서 여러 값을 되돌리면 오조작이 나기 쉽다.
+             */
+            el('#logBody').querySelectorAll('.log-row').forEach(r => r.onclick = e => {
+                if (e.target.closest('[data-i]')) return;
+                const t = log.find(x => String(x.id) === r.dataset.lid);
+                if (!t) return;
+                st.editId = t.id;
+                st.good = +(t.good_qty ?? t.qty ?? 0);
+                toggleLogBig(false);
+                renderQty(); renderRegBtn(); renderLog();
+            });
             /*
              * ★ 작업중 행에 종료 버튼을 두지 않는다.
              *   종료는 수량을 확정하는 행위인데, 여기서 누르면 수량 없이 끝나
@@ -1390,6 +1473,77 @@
             renderQty();
             renderRegBtn();
             renderEntry();
+            renderConsume();
+        }
+
+        /*
+         * 투입 예정 자재.
+         *
+         * ★ 공정 조립에서만 보여준다. 유닛·가공품은 자재를 빼지 않는다.
+         *   완료를 누른 뒤에야 재고가 모자랐다는 걸 알면 이미 늦으므로 미리 띄운다.
+         *   품목이 안 붙은 부품도 목록에 두되 '차감 안 됨' 으로 적는다 —
+         *   빼 버리면 왜 재고가 안 줄었는지 화면에서 알 수 없다.
+         */
+        let consumeFor = null;   // 지금 표시 중인 suju_id
+        let consumeRows = [];
+
+        // 품목명·부품명이 그대로 들어가므로 이스케이프한다
+        const esc = v => (v == null ? '' : String(v))
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+        async function renderConsume() {
+            const bar = el('#consumeBar');
+            if (!bar) return;
+
+            const it = st.item >= 0 ? ITEMS[st.item] : null;
+            if (MODE !== 'set' || !it) {
+                bar.innerHTML = '';
+                consumeFor = null;
+                return;
+            }
+            if (consumeFor === it.suju_id) return;   // 같은 품목이면 다시 읽지 않는다
+            consumeFor = it.suju_id;
+
+            const res = await getJSON(ASM_API + '/consume_plan', {sujuId: it.suju_id});
+            const rows = consumeRows = res.data || [];
+            if (!rows.length) {
+                bar.innerHTML = '<div class="consume-bar mut">투입 자재 — 부품표에 등록된 부품이 없습니다</div>';
+                return;
+            }
+
+            const lack = rows.filter(r => r.material_id
+                && (+r.stock || 0) < (+r.need_qty || 0)).length;
+            const noMat = rows.filter(r => !r.material_id).length;
+
+            bar.innerHTML = `
+                <div class="consume-bar">
+                    <button class="log-toggle" id="btnConsume">투입 자재 ${rows.length}건</button>
+                    ${lack ? `<b class="lack">부족 ${lack}건</b>` : ''}
+                    ${noMat ? `<b class="lack">미연결 ${noMat}건</b>` : ''}
+                </div>`;
+            el('#btnConsume').onclick = openConsume;
+        }
+
+        function openConsume() {
+            el('#consumeBody').innerHTML = `
+                <p style="margin:0 0 12px;font-size:13px;color:#5b6b86">
+                    지그를 <b>전량 완성</b>하면 아래 수량이 한 번에 재고에서 빠집니다.</p>
+                <table class="log-table">
+                    <thead><tr><th>부품</th><th>구분</th><th>품목</th><th>필요</th><th>재고</th></tr></thead>
+                    <tbody>${consumeRows.map(r => {
+                const short = r.material_id && (+r.stock || 0) < (+r.need_qty || 0);
+                return `<tr>
+                            <td class="k">${esc(r.part_name)}</td>
+                            <td>${esc(r.gubun)}</td>
+                            <td>${r.material_id
+                    ? esc(r.material_name || r.material_code || '')
+                    : '<span class="lack">차감 안 됨</span>'}</td>
+                            <td>${r.need_qty}</td>
+                            <td class="${short ? 'lack' : ''}">${
+                    r.material_id ? r.stock : '-'}</td>
+                        </tr>`; }).join('')}</tbody>
+                </table>`;
+            el('#consumeModal').style.display = 'flex';
         }
 
         /* =====  우측 패드 전환 =====
@@ -1481,12 +1635,50 @@
             if (b) b.textContent = document.fullscreenElement ? '⤡' : '⛶';
         }
 
+        el('#consumeClose').onclick = () => el('#consumeModal').style.display = 'none';
+        el('#consumeModal').onclick = e => {
+            if (e.target === el('#consumeModal')) el('#consumeModal').style.display = 'none';
+        };
+
         el('#logToggle').onclick = () => toggleLogBig();
         el('#logBackdrop').onclick = () => toggleLogBig(false);
         // 펼친 상태에서 작업중 행을 누르면 그 작업을 불러오므로 자동으로 닫는다
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape' && logBig) toggleLogBig(false);
         });
+
+        /*
+         * 목록 새로고침.
+         * 페이지를 다시 열지 않고 마스터·품목·타일만 다시 읽는다 —
+         * 작업자·설비 선택이 풀리면 처음부터 다시 골라야 해서 안 쓰게 된다.
+         */
+        el('#btnReload').onclick = async () => {
+            const btn = el('#btnReload');
+            btn.disabled = true;
+
+            /* 프로젝트·수주는 <b>인덱스</b>로 들고 있어서, 목록이 바뀌면
+               엉뚱한 항목을 가리킬 수 있다. 코드로 되찾아 맞춘다. */
+            const keepProj = st.proj >= 0 && PROJECTS[st.proj] ? PROJECTS[st.proj].proj_no : null;
+            const keepItem = st.item >= 0 && ITEMS[st.item] ? ITEMS[st.item].suju_id : null;
+
+            try {
+                await loadMasters();
+                st.proj = keepProj
+                    ? PROJECTS.findIndex(p => p.proj_no === keepProj) : -1;
+                if (st.proj >= 0) await loadHeads();
+
+                await loadItems();
+                st.item = keepItem
+                    ? ITEMS.findIndex(x => String(x.suju_id) === String(keepItem)) : -1;
+                await loadTiles();
+                consumeFor = null;          // 자재 재고도 다시 읽는다
+                renderAll();
+                await refreshLog();
+                flash('목록을 새로 읽었습니다');
+            } finally {
+                btn.disabled = false;
+            }
+        };
 
         document.getElementById('btnFull').onclick = toggleFullscreen;
         document.addEventListener('fullscreenchange', renderFsBtn);

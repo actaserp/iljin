@@ -9,6 +9,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -176,6 +178,61 @@ public class ProdInspectController {
 	}
 
 	/** 검사 취소 */
+	/**
+	 * 선택 일괄 검사.
+	 *
+	 * ★ 수량은 화면에서 받지 않고 각 품목의 <b>목표(지그 대수)</b>를 쓴다.
+	 *   대수가 다른 품목이 섞였을 때 한 값을 밀어 넣으면 전부 틀린 값이 된다.
+	 *   불합격이 있으면 그 건은 단건 등록으로 따로 받는다.
+	 */
+	@PostMapping("/bulk_save")
+	@Transactional
+	public AjaxResult bulkSave(@RequestBody Map<String, Object> payload, Authentication auth) {
+
+		User user = (User) auth.getPrincipal();
+		AjaxResult result = new AjaxResult();
+
+		Object raw = payload.get("sujuIds");
+		if (!(raw instanceof List<?> list) || list.isEmpty()) {
+			result.success = false;
+			result.message = "검사할 품목을 선택하세요.";
+			return result;
+		}
+		if (toInt(payload.get("workerId")) == null) {
+			result.success = false;
+			result.message = "검사자를 선택하세요.";
+			return result;
+		}
+
+		int ok = 0, skip = 0;
+		for (Object o : list) {
+			Integer sujuId = toInt(o);
+			if (sujuId == null) continue;
+
+			Map<String, Object> item = prodInspectService.getOrderInfo(sujuId);
+			if (item == null) { skip++; continue; }
+
+			double target = toDouble(item.get("jig_qty"));
+			if (target <= 0) { skip++; continue; }   // 대수 미등록은 건너뛴다
+
+			Map<String, Object> one = new HashMap<>(payload);
+			one.put("sujuId", sujuId);
+			one.put("goodQty", target);
+			one.put("defectQty", 0);
+
+			Integer id = prodInspectService.save(one, user);
+			if (id == null) { skip++; continue; }
+
+			prodInspectService.syncJobResState(sujuId, user);
+			ok++;
+		}
+
+		result.success = ok > 0;
+		result.message = ok + "건을 등록했습니다."
+				+ (skip > 0 ? " (" + skip + "건은 대수가 없어 건너뜀)" : "");
+		return result;
+	}
+
 	@PostMapping("/delete")
 	@Transactional
 	public AjaxResult delete(@RequestBody Map<String, Object> payload, Authentication auth) {

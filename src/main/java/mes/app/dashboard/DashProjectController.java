@@ -6,6 +6,9 @@ import mes.app.production.service.DashProjectService;
 import mes.domain.model.AjaxResult;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * 프로젝트 현황 대시보드 (읽기 전용)
  *
@@ -47,6 +50,47 @@ public class DashProjectController {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
 		result.data = dashProjectService.getDashboard(spjangcd, projNo);
+		return result;
+	}
+
+	/**
+	 * 생산 실적 현황.
+	 * 프로젝트별 집계를 준다.
+	 * 축이 넷(가공·유닛·공정·검사)이라 합치지 않고 열을 나눠 보여준다.
+	 */
+	@GetMapping("/result_status")
+	public AjaxResult resultStatus(@RequestParam("spjangcd") String spjangcd,
+								   @RequestParam(value = "dateFrom", required = false) String dateFrom,
+								   @RequestParam(value = "dateTo", required = false) String dateTo,
+								   @RequestParam(value = "projNo", required = false) String projNo) {
+		AjaxResult result = new AjaxResult();
+		Map<String, Object> data = new HashMap<>();
+		data.put("summary", dashProjectService.getResultSummary(spjangcd, dateFrom, dateTo, projNo));
+		result.success = true;
+		result.data = data;
+		return result;
+	}
+
+	/**
+	 * 공정 재고 — 조립 완료로 입고된 지그 완제품(mat_lot).
+	 * 가공품 재고는 만들지 않는다 (SPEC 3-1).
+	 */
+	@GetMapping("/process_stock")
+	public AjaxResult processStock(@RequestParam("spjangcd") String spjangcd,
+								   @RequestParam(value = "projNo", required = false) String projNo,
+								   @RequestParam(value = "keyword", required = false) String keyword) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = dashProjectService.getProcessStock(spjangcd, projNo, keyword);
+		return result;
+	}
+
+	/** 생산 모니터링 — 설비별 오늘 실적과 진행중 작업 */
+	@GetMapping("/monitor")
+	public AjaxResult monitor(@RequestParam("spjangcd") String spjangcd) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = dashProjectService.getMonitor(spjangcd);
 		return result;
 	}
 }

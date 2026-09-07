@@ -91,13 +91,13 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>생산 지시</h2>
+                <h2 id="pageTitle">생산 지시</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>생산관리</li>
-                <li>생산 지시</li>
+                <li id="pageNavi">생산 지시</li>
             </ul>
         </div>
 
@@ -383,14 +383,40 @@
          *  - 2D 출도 여부는 이 화면에서 관리하지 않음 (수주관리 도면 이력이 소유)
          *  - 재고/귀속/파기 개념 없음. 이 화면은 "필요량"까지만 책임진다.
          */
+        /*
+         * ★ 한 화면이 두 메뉴를 맡는다.
+         *
+         *   생산계획(prod_plan)   부품을 '계획' 으로 잡는 단계. 작업지시 버튼이 없다
+         *   생산지시(prod_design) 지시를 내리는 단계. 누르면 부품이 통째로 '확정' 이 된다
+         *
+         *   부품표는 갈라 보여주지 않는다. 한 품목의 부품을 상태로 나눠 두 화면에
+         *   흩어 놓으면 "여기 없는 게 저기 있나" 를 확인하러 오가게 된다.
+         *   두 화면 모두 전체를 보여주고, 상태 열로 구분한다.
+         *
+         *   메뉴 코드는 경로에서 읽는다. 프레임워크가 /gui/{MenuCode}/default 로
+         *   주소를 다시 만들며 쿼리스트링을 버리기 때문이다(키오스크와 같은 방식).
+         */
+        const MENU_CODE = (location.pathname.match(/\/gui\/([^/?]+)/) || [])[1] || '';
+        const PLAN_MODE = MENU_CODE === 'prod_plan'
+            || new URLSearchParams(location.search).get('mode') === 'plan';
+
         class ProdDesignPage {
 
             constructor() {
+                // 생산계획 모드면 지시 버튼을 감추고 문구를 바꾼다
+                if (PLAN_MODE) {
+                    this.el('pageTitle').textContent = '생산 계획';
+                    this.el('pageNavi').textContent = '생산 계획';
+                    const ob = this.el('orderBtn');
+                    if (ob) ob.style.display = 'none';
+                }
                 this.API = '/api/production/prod_design';
                 this.spjangcd = $('#spjangcd').val() || 'ZZ';
 
                 this.GUBUN = ['제작품', 'STD', '구매품'];
-                this.STATES = ['추정', '확정'];
+                /* 계획 → 확정. 작업지시를 내리면 그 품목 부품이 통째로 확정이 된다.
+                   생산계획 화면은 '계획' 만 다루고, 생산지시 화면이 확정으로 바꾼다. */
+                this.STATES = ['계획', '확정'];
 
                 this.projects = [];
                 this.items = [];
@@ -478,7 +504,7 @@
                         <td>-</td>
                         <td class="l" style="font-weight:700;padding-left:9px;color:#8a6d1b">프로젝트 공통
                             <span style="color:#8b95a7;font-weight:400;font-size:11.5px;margin-left:6px">
-                            2D 전 추정 물량</span></td>
+                            2D 전 계획 물량</span></td>
                         <td>-</td><td>-</td><td>-</td>
                         <td>${it.part_cnt ?? '-'}</td>
                         <td>-</td>
@@ -511,7 +537,7 @@
             updateOrderBtn() {
                 const it = this.item();
                 const btn = this.el('orderBtn');
-                if (!btn) return;
+                if (!btn || PLAN_MODE) return;   // 계획 모드에는 지시 버튼이 없다
                 const ordered = it && it.ordered_yn === 'Y';
                 btn.disabled = !it || !!it.common;
                 btn.textContent = ordered ? '지시취소' : '작업지시';
@@ -603,7 +629,7 @@
                         rows.forEach(r => this.parts.push({
                             id: null, part_no: '', part_name: r.part_name || r.kind,
                             gubun: r.gubun || '제작품', kind: r.kind || 'etc',
-                            qty: r.qty, qty_type: 'unit', state: '추정',
+                            qty: r.qty, qty_type: 'unit', state: '계획',
                             _fromTpl: true
                         }));
                     }
@@ -629,17 +655,17 @@
 
                 // 필요량 = 수량 합계. 유니트수를 곱하지 않는다 (needOf 주석 참조).
                 const need = this.parts.reduce((s, p) => s + this.needOf(p), 0);
-                const est = this.parts.filter(p => p.state === '추정').length;
+                const est = this.parts.filter(p => p.state === '계획').length;
                 const tplCnt = this.parts.filter(p => p._fromTpl).length;
                 this.el('bomHint').innerHTML =
                     `필요량 합계 <b>${need}</b> · 부품 ${this.parts.length}건`
-                    + (est ? ` · <b style="color:#8a6d1b">추정 ${est}건</b>` : '')
+                    + (est ? ` · <b style="color:#8a6d1b">계획 ${est}건</b>` : '')
                     // 템플릿에서 온 값은 아직 저장 전이다. 안 알려주면 저장된 줄 알고 지나친다
                     + (tplCnt ? `<br><b style="color:#1f4e8c">표준 BOM(${this.escHtml(this.tplName || '')})</b>`
                         + ` 에서 ${tplCnt}건을 불러왔습니다 — <b>저장해야 반영됩니다</b>` : '');
 
                 this.el('bomBody').innerHTML = this.parts.map((p, i) => {
-                    const isEst = p.state === '추정';
+                    const isEst = p.state === '계획';
                     const isMake = p.gubun === '제작품';
                     return `<tr class="${isEst ? 'est' : ''} ${p._fromTpl ? 'tpl' : ''}">
                         <td>${i + 1}</td>
@@ -1088,7 +1114,7 @@
                 }
                 this.parts.push({
                     id: null, part_no: '', part_name: '', gubun: '제작품',
-                    kind: 'etc', qty: 1, qty_type: 'unit', state: '추정'
+                    kind: 'etc', qty: 1, qty_type: 'unit', state: '계획'
                 });
                 this.renderPart();
             }
@@ -1236,7 +1262,7 @@
 
                 rows.forEach(r => this.parts.push({
                     id: null, part_no: '', part_name: r.name, gubun: r.gubun, qty_type: 'unit',
-                    kind: r.kind || 'etc', qty: r.qty, state: '추정'
+                    kind: r.kind || 'etc', qty: r.qty, state: '계획'
                 }));
 
                 this.closeBulk();

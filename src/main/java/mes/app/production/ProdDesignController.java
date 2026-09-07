@@ -181,6 +181,21 @@ public class ProdDesignController {
 	 * 전체 필요량을 저장하지 않는 이유: 수주에서 유니트수가 바뀌면
 	 * 저장된 총량이 즉시 거짓이 되기 때문이다.
 	 */
+	/**
+	 * 생산지시 현황.
+	 * 프로젝트를 가로질러 지시 상태와 진척을 한 화면에서 본다.
+	 */
+	@GetMapping("/order_status")
+	public AjaxResult orderStatus(@RequestParam("spjangcd") String spjangcd,
+								  @RequestParam(value = "projNo", required = false) String projNo,
+								  @RequestParam(value = "state", required = false) String state,
+								  @RequestParam(value = "keyword", required = false) String keyword) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = prodDesignService.getOrderStatus(spjangcd, projNo, state, keyword);
+		return result;
+	}
+
 	@PostMapping("/part_save")
 	@Transactional
 	public AjaxResult partSave(@RequestBody Map<String, Object> payload, Authentication auth) {
@@ -227,7 +242,7 @@ public class ProdDesignController {
 			if (gubun.isEmpty()) gubun = "제작품";
 			it.put("gubun", gubun);
 
-			if (str(it.get("state")).isEmpty()) it.put("state", "추정");
+			if (str(it.get("state")).isEmpty()) it.put("state", "계획");
 
 			if ("제작품".equals(gubun)) {
 				// 유형은 제작품만 의미 있음. 비어 있으면 부품명으로 자동 추정.
@@ -448,6 +463,9 @@ public class ProdDesignController {
 
 		String workOrderNumber = prodDesignService.createOrder(item, user);
 
+		// 지시가 나가면 그 품목 부품이 통째로 '확정' 이 된다 (계획 → 확정)
+		prodDesignService.setPartState(sujuId, "확정", user);
+
 		Map<String, Object> data = new HashMap<>();
 		data.put("workOrderNumber", workOrderNumber);
 		data.put("legAdded", legAdded);
@@ -468,8 +486,9 @@ public class ProdDesignController {
 	 */
 	@PostMapping("/order_cancel")
 	@Transactional
-	public AjaxResult orderCancel(@RequestBody Map<String, Object> payload) {
+	public AjaxResult orderCancel(@RequestBody Map<String, Object> payload, Authentication auth) {
 
+		User user = (User) auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
 
 		Integer sujuId = toInt(payload.get("sujuId"));
@@ -486,6 +505,8 @@ public class ProdDesignController {
 		}
 
 		prodDesignService.cancelOrder(sujuId);
+		// 지시를 물리면 부품도 '계획' 으로 돌아가야 다시 손볼 수 있다
+		prodDesignService.setPartState(sujuId, "계획", user);
 
 		result.success = true;
 		result.message = "작업 지시가 취소되었습니다.";

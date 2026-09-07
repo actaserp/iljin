@@ -483,6 +483,8 @@ public class ProdResultService {
                  , r."Equipment"     AS equipment
                  , r."Worker"        AS worker
                  , COALESCE(r."GoodQty", 0)   AS good_qty
+                 , COALESCE(r."DefectQty", 0) AS defect_qty
+                 , r."DefectType"             AS defect_type
                  , TO_CHAR(r."_created", 'MM-DD HH24:MI') AS reg_time
             FROM iljin_prod_result r
             LEFT JOIN suju s      ON s.id = r."Suju_id"
@@ -538,6 +540,148 @@ public class ProdResultService {
               AND (CAST(:kind AS varchar) IS NULL OR COALESCE(r."Kind", 'etc') = CAST(:kind AS varchar))
             GROUP BY r."Operation", COALESCE(r."Kind", 'etc')
             ORDER BY r."Operation", 2
+            """, p);
+	}
+
+	// =================================================================
+	// 불량 실적
+	//
+	//   ★ 별도 테이블을 만들지 않는다. iljin_prod_result 에 같이 쌓는다.
+	//     양품 행은 GoodQty > 0, 불량 행은 DefectQty > 0 이다.
+	//     한 테이블이라 조회·집계 경로가 하나로 유지된다.
+	//
+	//   ★ 여기서 말하는 불량은 <b>가공하다 못 쓰게 만든 것</b>이다.
+	//     SPEC 3-1 이 기록하지 않기로 한 '파기' 와는 다른 사건이다.
+	//     그쪽은 2D 도면이 바뀌어 멀쩡한데 안 쓰는 물량이고,
+	//     이쪽은 작업자가 잘못 만든 것이다. 재작업으로 살릴 수 있으면 불량이 아니다.
+	// =================================================================
+
+	/**
+	 * 불량 유형 목록.
+	 *
+	 * ★ 기존 defect_type 을 그대로 쓴다. 새 테이블을 만들지 않는다.
+	 *   D01 치수 불량 / D02 표면 불량 / D03 변형·휨 / D04 가공 누락 / D05 기타
+	 *
+	 * "Coverage" 는 적용 범위다. 'all' 이면 전 공정 공통이고,
+	 * 공정을 지정한 코드가 생기면 그 공정에서만 나온다.
+	 */
+	public List<Map<String, Object>> getDefectTypes(String spjangcd, String operation) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("operation", nullIfEmpty(operation));
+		return sqlRunner.getRows("""
+            SELECT d.id
+                 , d."Code"        AS code
+                 , d."Name"        AS name
+                 , d."Description" AS description
+            FROM defect_type d
+            WHERE d.spjangcd = :spjangcd
+              AND COALESCE(d._status, 'a') = 'a'
+              AND (COALESCE(d."Coverage", 'all') = 'all'
+                   OR CAST(:operation AS varchar) IS NULL
+                   OR d."Coverage" = CAST(:operation AS varchar))
+            ORDER BY d."Code"
+            """, p);
+	}
+
+	/** 불량 등록 */
+	@Transactional
+	public void saveDefect(Map<String, Object> payload, String operation, User user) {
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", str(payload.get("spjangcd")));
+		p.addValue("prodDate", str(payload.get("prodDate")));
+		bindOwner(p, payload);   // 품목으로 프로젝트·수주를 역산
+		p.addValue("kind", defaultIfEmpty(payload.get("kind"), "etc"));
+		p.addValue("operation", operation);
+		p.addValue("equipment", str(payload.get("equipment")));
+		p.addValue("worker", str(payload.get("worker")));
+		p.addValue("workerId", toInt(payload.get("workerId")));
+		p.addValue("defectQty", toDouble(payload.get("defectQty")));
+		p.addValue("defectType", nullIfEmpty(payload.get("defectType")));
+		p.addValue("remark", nullIfEmpty(payload.get("remark")));
+		p.addValue("userId", user.getId());
+
+		sqlRunner.execute("""
+            INSERT INTO iljin_prod_result (
+                 spjangcd, "ProdDate", "Project_id", "SujuHead_id", "Suju_id", "Kind"
+               , "Operation", "Equipment", "Worker", "Worker_id"
+               , "GoodQty", "DefectQty", "DefectType", "Description"
+               , "_created", "_creater_id"
+            ) VALUES (
+                 :spjangcd, CAST(:prodDate AS date), :projNo, :sujuHeadId, :sujuId, :kind
+               , :operation, :equipment, :worker, :workerId
+               , 0, :defectQty, :defectType, :remark
+               , now(), :userId
+            )
+            """, p);
+	}
+
+	/**
+	 * 수량만 수정한다.
+	 *
+	 * ★ 품목·유형·설비·작업자는 못 고친다.
+	 *   그것들을 잘못 넣었으면 취소하고 다시 넣는 편이 이력이 남고,
+	 *   키오스크에서 여러 값을 되돌리면 오조작이 나기 쉽다.
+	 *
+	 * 양품 행과 불량 행을 한 테이블에 쌓으므로 어느 칸을 고칠지 구분한다.
+	 *   양품 행: GoodQty > 0   → GoodQty 수정
+	 *   불량 행: DefectQty > 0 → DefectQty 수정
+	 */
+	@Transactional
+	public boolean updateQty(Integer id, double qty, User user) {
+		if (id == null || qty <= 0) return false;
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("id", id);
+		p.addValue("qty", qty);
+		p.addValue("userId", user.getId());
+
+		sqlRunner.execute("""
+            UPDATE iljin_prod_result
+            SET "GoodQty"   = CASE WHEN COALESCE("DefectQty", 0) > 0
+                                   THEN "GoodQty" ELSE :qty END
+              , "DefectQty" = CASE WHEN COALESCE("DefectQty", 0) > 0
+                                   THEN :qty ELSE "DefectQty" END
+              , "_modified"    = now()
+              , "_modifier_id" = :userId
+            WHERE id = :id
+            """, p);
+		return true;
+	}
+
+	/** 불량 내역 (그날 그 설비) */
+	public List<Map<String, Object>> getDefectLog(String spjangcd, String prodDate,
+												  String equipment, String operation) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("prodDate", nullIfEmpty(prodDate));
+		p.addValue("equipment", nullIfEmpty(equipment));
+		p.addValue("operation", nullIfEmpty(operation));
+
+		return sqlRunner.getRows("""
+            SELECT r.id
+                 , s."Material_Name"          AS item_name
+                 , COALESCE(r."Kind", 'etc')   AS kind
+                 , r."Operation"               AS operation
+                 , r."Equipment"               AS equipment
+                 , r."Worker"                  AS worker
+                 , COALESCE(r."DefectQty", 0)  AS defect_qty
+                 , r."DefectType"              AS defect_type
+                 , d."Name"                    AS defect_name
+                 , r."Description"             AS remark
+                 , TO_CHAR(r."_created", 'HH24:MI') AS reg_time
+            FROM iljin_prod_result r
+            LEFT JOIN suju s ON s.id = r."Suju_id"
+            LEFT JOIN defect_type d
+                   ON d."Code" = r."DefectType" AND d.spjangcd = r.spjangcd
+            WHERE r.spjangcd = :spjangcd
+              AND COALESCE(r."DefectQty", 0) > 0
+              AND (CAST(:prodDate AS date) IS NULL OR r."ProdDate" = CAST(:prodDate AS date))
+              AND (CAST(:equipment AS varchar) IS NULL OR r."Equipment" = CAST(:equipment AS varchar))
+              AND (CAST(:operation AS varchar) IS NULL OR r."Operation" = CAST(:operation AS varchar))
+            ORDER BY r.id DESC
+            LIMIT 50
             """, p);
 	}
 

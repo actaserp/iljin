@@ -75,6 +75,15 @@ public class ProdAssemblyController {
 	 * 응답에는 unit_* / set_* 수치가 모두 들어 있고,
 	 * target_qty / done_qty / wip_qty 는 요청한 stage 기준 값이다.
 	 */
+	/** 투입 예정 자재. 공정 조립을 완료하면 이만큼 재고에서 빠진다 */
+	@GetMapping("/consume_plan")
+	public AjaxResult consumePlan(@RequestParam("sujuId") Integer sujuId) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = prodAssemblyService.getConsumePlan(sujuId);
+		return result;
+	}
+
 	@GetMapping("/item_list")
 	public AjaxResult itemList(@RequestParam("spjangcd") String spjangcd,
 							   @RequestParam(value = "projNo", required = false) String projNo,
@@ -97,12 +106,13 @@ public class ProdAssemblyController {
 
 	@GetMapping("/log")
 	public AjaxResult log(@RequestParam("spjangcd") String spjangcd,
-						  @RequestParam(value = "prodDate", required = false) String prodDate,
+						  @RequestParam(value = "dateFrom", required = false) String dateFrom,
+						  @RequestParam(value = "dateTo", required = false) String dateTo,
 						  @RequestParam(value = "projNo", required = false) String projNo,
 						  @RequestParam(value = "stage", required = false) String stage) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodAssemblyService.getResultLog(spjangcd, prodDate, projNo, stage);
+		result.data = prodAssemblyService.getResultLog(spjangcd, dateFrom, dateTo, projNo, stage);
 		return result;
 	}
 

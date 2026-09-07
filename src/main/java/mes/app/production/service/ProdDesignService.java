@@ -325,6 +325,108 @@ public class ProdDesignService {
 		sqlRunner.execute("DELETE FROM iljin_suju_bom WHERE id = :id", p);
 	}
 
+	/**
+	 * 부품 상태를 통째로 바꾼다.
+	 *
+	 * ★ 작업지시를 내리면 그 품목의 부품이 <b>전부</b> '확정' 이 된다.
+	 *   생산계획 화면은 '계획' 만 다루고, 지시가 나가는 순간 넘어간다.
+	 *   부품마다 따로 확정하지 않는 이유는 지시가 품목 단위 사건이기 때문이다.
+	 *
+	 *   지시를 취소하면 '계획' 으로 되돌린다. 그래야 다시 손볼 수 있다.
+	 */
+	@Transactional
+	public void setPartState(Integer sujuId, String state, User user) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("sujuId", sujuId);
+		p.addValue("state", state);
+		p.addValue("userId", user.getId());
+		sqlRunner.execute("""
+            UPDATE iljin_suju_bom
+            SET "State" = :state, "_modified" = now(), "_modifier_id" = :userId
+            WHERE "Suju_id" = :sujuId
+            """, p);
+	}
+
+	/**
+	 * 생산지시 현황.
+	 *
+	 * 프로젝트를 가로질러 <b>지시가 나간 품목</b>을 한 화면에서 본다.
+	 * 생산 지시 화면은 프로젝트를 하나 골라야 볼 수 있어, 전체가 어디까지 왔는지
+	 * 확인할 데가 없었다.
+	 *
+	 * 진척은 조립·검사에서 온다. 가공은 라우팅이 없어 진척률을 만들 수 없으므로
+	 * 실적 합계만 참고로 붙인다(SPEC 3-2).
+	 */
+	public List<Map<String, Object>> getOrderStatus(String spjangcd, String projNo,
+													String state, String keyword) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("projNo", nullIfEmpty(projNo));
+		p.addValue("state", nullIfEmpty(state));
+		p.addValue("keyword", keyword == null || keyword.isBlank()
+				? null : "%" + keyword.trim() + "%");
+
+		String sql = """
+            SELECT s.id                        AS suju_id
+                 , s.project_id                AS proj_no
+                 , d.projnm                    AS proj_name
+                 , s.line                      AS line_name
+                 , s."Material_Name"           AS item_name
+                 , COALESCE(s.equip_type, '')  AS equip_type
+                 , COALESCE(sh.suju_name, '')  AS suju_name
+                 , COALESCE(s.make_type, '')   AS make_type
+                 , s.make_comp_name            AS make_comp
+                 , TO_CHAR(s.draw_date, 'YYYY-MM-DD') AS draw_date
+                 , COALESCE(s.unit_qty, 0)     AS unit_qty
+                 , COALESCE(s."SujuQty", 0)    AS jig_qty
+                 , COALESCE(b.part_cnt, 0)     AS part_cnt
+                 , COALESCE(b.need_qty, 0)     AS need_qty
+                 , j."WorkOrderNumber"         AS order_no
+                 , TO_CHAR(j."_created", 'YYYY-MM-DD') AS order_date
+                 , CASE WHEN j.id IS NULL THEN '미지시' ELSE '지시완료' END AS order_state
+                 -- 진척. 조립·검사는 참값이고 가공은 실적 합계일 뿐이다
+                 , COALESCE(u1.qty, 0)         AS unit_done
+                 , COALESCE(u2.qty, 0)         AS set_done
+                 , COALESCE(u3.qty, 0)         AS insp_done
+                 , COALESCE(r.qty, 0)          AS mach_qty
+            FROM suju s
+            LEFT JOIN suju_head sh ON sh.id = s."SujuHead_id"
+            LEFT JOIN tb_da003 d   ON d.projno = s.project_id AND d.spjangcd = s.spjangcd
+            LEFT JOIN job_res j
+                   ON j."SourceTableName" = 'suju' AND j."SourceDataPk" = s.id
+            LEFT JOIN (
+                SELECT "Suju_id", COUNT(*) AS part_cnt, SUM(COALESCE("Qty", 0)) AS need_qty
+                FROM iljin_suju_bom GROUP BY "Suju_id"
+            ) b ON b."Suju_id" = s.id
+            LEFT JOIN (
+                SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS qty
+                FROM mat_produce WHERE "ProcessOrder" = 1 AND "State" = 'finished'
+                GROUP BY "JobResponse_id") u1 ON u1."JobResponse_id" = j.id
+            LEFT JOIN (
+                SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS qty
+                FROM mat_produce WHERE "ProcessOrder" = 2 AND "State" = 'finished'
+                GROUP BY "JobResponse_id") u2 ON u2."JobResponse_id" = j.id
+            LEFT JOIN (
+                SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS qty
+                FROM mat_produce WHERE "ProcessOrder" = 3 AND "State" = 'finished'
+                GROUP BY "JobResponse_id") u3 ON u3."JobResponse_id" = j.id
+            LEFT JOIN (
+                SELECT "Suju_id", SUM(COALESCE("GoodQty", 0)) AS qty
+                FROM iljin_prod_result GROUP BY "Suju_id") r ON r."Suju_id" = s.id
+            WHERE s.spjangcd = :spjangcd
+              AND (CAST(:projNo AS varchar) IS NULL OR s.project_id = CAST(:projNo AS varchar))
+              AND (CAST(:state AS varchar) IS NULL
+                   OR (CAST(:state AS varchar) = 'Y' AND j.id IS NOT NULL)
+                   OR (CAST(:state AS varchar) = 'N' AND j.id IS NULL))
+              AND (CAST(:keyword AS varchar) IS NULL
+                   OR s."Material_Name" ILIKE CAST(:keyword AS varchar)
+                   OR s.line ILIKE CAST(:keyword AS varchar))
+            ORDER BY s.project_id, s.line, s.id
+            """;
+
+		return sqlRunner.getRows(sql, p);
+	}
+
 	// =================================================================
 	// 다리발 시딩
 	// =================================================================
@@ -412,7 +514,7 @@ public class ProdDesignService {
                , "Remark", "_order", "_created", "_creater_id"
             ) VALUES (
                  :spjangcd, :sujuId, '', :partName, '제작품'
-               , NULL, '', :qty, :qtyType, '추정'
+               , NULL, '', :qty, :qtyType, '계획'
                , :remark
                , 999, now(), :userId
             )

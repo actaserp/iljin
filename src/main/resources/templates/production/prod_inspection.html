@@ -61,10 +61,17 @@
             box-sizing: border-box;
             border: 1px solid #d7dde7;
             border-radius: 4px;
-            padding: 6px 8px;
             font-size: 13px;
         }
-        .form-grid .full { grid-column: 1 / -1; }
+        .form-grid .full { grid-column: 1 / -1; min-width: 0; }
+        /* 업로더 위젯이 폼 폭을 넘지 않게 한다 */
+        #fileBox, #fileBox * { max-width: 100%; box-sizing: border-box; }
+        #fileBox table { table-layout: fixed; width: 100%; }
+        /* 업로더 위젯이 모달 벽에 붙지 않게 여백을 준다 */
+        #inspectUpload span.fileuploadTitle { display:block; margin-bottom:10px; }
+        #inspectUpload [data-uploaded-box] { min-height:150px; padding:10px; }
+        #fileBox td, #fileBox a { overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; word-break: break-all; }
 
         .hint { color: #7b8698; font-size: 12px; margin: 0 0 8px; }
         .hint.warn { color: #b06a00; }
@@ -103,7 +110,15 @@
             <!-- ===== 검사 대상 ===== -->
             <section class="section" style="flex:1 1 auto; min-width:0;">
                 <div class="section-top">
-                    <div class="search-wrap" style="margin-bottom:0"><h3>검사 대상</h3></div>
+                    <div class="search-wrap" style="margin-bottom:0">
+                        <h3>검사 대상</h3>
+                        <dl style="margin-left:14px;display:flex;align-items:center;gap:8px">
+                            <dt style="margin:0">품목</dt>
+                            <dd style="margin:0"><input type="text" id="fKeyword"
+                                                        placeholder="품목명 · 라인" style="min-width:180px"></dd>
+                        </dl>
+                    </div>
+
                 </div>
                 <div class="container-fluid">
                     <p class="hint">
@@ -113,8 +128,9 @@
                     </p>
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:8%">   <!-- 라인 -->
-                            <col style="width:17%">  <!-- 품목 -->
+                            <col style="width:4%">   <!-- 선택 -->
+                            <col style="width:7%">   <!-- 라인 -->
+                            <col style="width:16%">  <!-- 품목 -->
                             <col style="width:14%">  <!-- 수주 -->
                             <col style="width:7%">   <!-- 구분 -->
                             <col style="width:12%">  <!-- 제작업체 -->
@@ -126,6 +142,7 @@
                         </colgroup>
                         <thead>
                         <tr>
+                            <th><input type="checkbox" id="chkAll" title="전체 선택"></th>
                             <th>라인</th>
                             <th>품목</th>
                             <th>수주</th>
@@ -144,7 +161,10 @@
             </section>
 
             <!-- ===== 검사 등록 ===== -->
-            <section class="section" style="flex:0 0 340px;">
+            <!-- ★ 스크롤을 내려도 따라오게 sticky 로 둔다.
+                 대상 목록이 길어 아래로 내려가면 등록 폼이 화면 밖으로 나갔다. -->
+            <section class="section" style="flex:0 0 340px; position:sticky; top:10px;
+                     align-self:flex-start; max-height:calc(100vh - 40px); overflow:auto;">
                 <div class="section-top">
                     <div class="search-wrap" style="margin-bottom:0"><h3 id="formTitle">검사 등록</h3></div>
                 </div>
@@ -159,9 +179,15 @@
                     <select id="equSel"></select>
 
                     <label>판정</label>
+                    <!-- ★ 판정. 합격/불합격만으로는 부적합 조치 이력이 남지 않는다.
+                         재가공·재측정은 '아직 끝나지 않은' 상태라 불합격과 구분해야
+                         나중에 무엇을 조치했는지 추적할 수 있다. -->
                     <select id="resultSel">
                         <option value="pass">합격</option>
                         <option value="fail">불합격</option>
+                        <option value="rework">재가공</option>
+                        <option value="remeasure">재측정</option>
+                        <option value="accept">특채(조건부 합격)</option>
                     </select>
 
                     <label>합격</label>
@@ -173,7 +199,24 @@
                     <label>비고</label>
                     <input type="text" id="remark" placeholder="특이사항">
 
+                    <!-- ★ 성적서·측정 결과 첨부.
+                         ax5FileUploadClass 를 쓴다 (notice_board.html 과 같은 방식).
+                         table_name='mat_produce' + 검사 실적 id 로 매단다 —
+                         검사 <b>건마다</b> 성적서가 따로 붙어야 하기 때문이다.
+                         품목에 매달면 재검사했을 때 어느 성적서가 어느 검사 건인지 알 수 없다.
+                         등록 전에는 id 가 없으므로 이력에서 건을 고른 뒤에 열린다. -->
+                    <label class="full" style="margin-top:4px">첨부 (성적서 · 측정결과)</label>
+                    <div class="full" style="display:flex;gap:8px;align-items:center;min-width:0">
+                        <a class="btn" id="btnFile">첨부 관리</a>
+                        <span class="hint" id="fileHint" style="min-width:0;overflow:hidden;
+                            text-overflow:ellipsis;white-space:nowrap">
+                            검사 이력에서 건을 선택하세요.</span>
+                    </div>
+
                     <div class="full" style="display:flex;gap:6px;justify-content:flex-end;">
+                        <!-- 일괄 검사도 여기 둔다. 검사자·판정을 이 폼에서 받으므로
+                             버튼이 목록 쪽에 있으면 어느 값이 쓰이는지 알 수 없다. -->
+                        <a class="btn" id="btnBulk">선택 <b id="bulkCnt">0</b>건 일괄</a>
                         <a class="btn btn-delete" id="saveBtn">검사 등록</a>
                     </div>
                 </div>
@@ -184,15 +227,14 @@
                 <div class="container-fluid" style="padding:0;">
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:26%">
-                            <col style="width:20%">
-                            <col style="width:18%">
-                            <col style="width:20%">
-                            <col style="width:16%">
+                            <col style="width:20%"><col style="width:18%">
+                            <col style="width:17%"><col style="width:15%">
+                            <col style="width:16%"><col style="width:14%">
                         </colgroup>
                         <thead>
                         <tr>
                             <th>일자</th>
+                            <th>품목</th>
                             <th>판정</th>
                             <th>수량</th>
                             <th>검사자</th>
@@ -205,9 +247,31 @@
             </section>
         </div>
     </div>
+    <!-- ★ 첨부는 모달에서 다룬다.
+         오른쪽 폼이 340px 이라 파일명·진행바가 들어갈 자리가 없었다. -->
+    <div id="fileModal"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;
+                align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:10px;width:760px;max-width:94vw;max-height:86vh;
+                    display:flex;flex-direction:column;box-shadow:0 12px 36px rgba(0,0,0,.22);">
+            <div class="section-top" style="border-radius:10px 10px 0 0;padding:16px 24px;">
+                <div class="search-wrap" style="margin-bottom:0"><h3 id="fileModalTitle">첨부</h3></div>
+            </div>
+            <div style="flex:1 1 auto;overflow:auto;padding:22px 24px;min-width:0;">
+                <input type="hidden" id="srchFileId">
+                <div class="grid_box" id="inspectUpload"></div>
+            </div>
+            <div style="padding:14px 24px;border-top:1px solid #e9edf3;text-align:right;">
+                <a class="btn" id="btnFileClose">닫기</a>
+            </div>
+        </div>
+    </div>
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <!-- 첨부 업로더. 공통 프래그먼트가 스크립트·스타일을 모두 넣어 준다
+         (notice_board.html 과 같은 방식) -->
+    <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
     <script type="text/javascript">
 
         /*
@@ -222,6 +286,14 @@
 
         function el(sel) { return document.querySelector(sel); }
         function els(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+
+        /* 판정 표시. 합격 외에는 아직 끝나지 않았거나 조치가 필요한 상태다 */
+        var RESULTS = {
+            pass: '합격', fail: '불합격',
+            rework: '재가공', remeasure: '재측정', accept: '특채'
+        };
+        function resultName(v) { return RESULTS[v] || v || '-'; }
+        function resultCls(v) { return v === 'pass' ? 'done' : 'wait'; }
         function headText(t) {
             if (!t || !(t.suju_name || t.jumun_date)) return '<span class="muted">-</span>';
             var plan = t.suju_type === 'plan' ? ' (계획)' : '';
@@ -244,6 +316,13 @@
             projNo: '',
             state: 'wait',
             sujuId: null,
+            fileId: null,      // 첨부 대상 검사 실적 id
+            /* ★ 체크한 품목을 따로 들고 있는다.
+               renderTargets 가 표를 새로 그리므로 DOM 에만 두면
+               검색어를 바꿀 때마다 선택이 풀린다. */
+            checked: [],
+            uploader: null,
+            view: [],          // 검색으로 걸러진 대상
             target: null,
             targets: [],
 
@@ -258,6 +337,46 @@
 
             bind: function () {
                 var _t = this;
+
+                // 품목 검색. 화면에서 거르므로 서버를 다시 부르지 않는다
+                var kwEl = el('#fKeyword');
+                if (kwEl) kwEl.addEventListener('input', function () {
+                    _t.renderTargets();
+                });
+
+                var allEl = el('#chkAll');
+                if (allEl) allEl.addEventListener('change', function () {
+                    // 전체 선택은 <b>지금 보이는 것</b>만 대상으로 한다
+                    var on = this.checked;
+                    els('#targetBody .chk').forEach(function (c) {
+                        c.checked = on;
+                        var id = parseInt(c.getAttribute('data-c'), 10);
+                        var at = _t.checked.indexOf(id);
+                        if (on && at < 0) _t.checked.push(id);
+                        if (!on && at >= 0) _t.checked.splice(at, 1);
+                    });
+                    _t.renderBulkCnt();
+                });
+
+                this.guardSize();   // 업로드 크기 가드는 한 번만 설치한다
+
+                var fEl = el('#btnFile');
+                if (fEl) fEl.addEventListener('click', function () {
+                    _t.openFileModal();
+                });
+                var fcEl = el('#btnFileClose');
+                if (fcEl) fcEl.addEventListener('click', function () {
+                    _t.closeFileModal();
+                });
+                var fmEl = el('#fileModal');
+                if (fmEl) fmEl.addEventListener('click', function (e) {
+                    if (e.target === fmEl) _t.closeFileModal();
+                });
+
+                var bulkEl = el('#btnBulk');
+                if (bulkEl) bulkEl.addEventListener('click', function () {
+                    _t.bulkSave();
+                });
 
                 el('#projSel').addEventListener('change', function () {
                     _t.projNo = this.value;
@@ -372,23 +491,39 @@
                 var _t = this;
                 var body = el('#targetBody');
 
-                if (!this.targets.length) {
-                    body.innerHTML = '<tr><td colspan="10">'
-                        + (this.state === 'wait' ? '미검사 항목이 없습니다.'
-                            : this.state === 'exempt' ? '검사 면제 항목이 없습니다.'
-                                : '검사 대상이 없습니다. 작업 지시된 품목이 있어야 대상이 됩니다.')
+                /* 품목·라인 검색. 서버를 다시 부르지 않고 화면에서 거른다 —
+                   대상이 수백 건 수준이라 왕복할 이유가 없다. */
+                var kw = (el('#fKeyword') ? el('#fKeyword').value : '').trim().toLowerCase();
+                this.view = kw
+                    ? this.targets.filter(function (t) {
+                        return (t.item_name || '').toLowerCase().indexOf(kw) >= 0
+                            || (t.line_name || '').toLowerCase().indexOf(kw) >= 0;
+                    })
+                    : this.targets;
+
+                if (!this.view.length) {
+                    body.innerHTML = '<tr><td colspan="11">'
+                        + (kw ? '검색 결과가 없습니다.'
+                            : this.state === 'wait' ? '미검사 항목이 없습니다.'
+                                : this.state === 'exempt' ? '검사 면제 항목이 없습니다.'
+                                    : '검사 대상이 없습니다. 작업 지시된 품목이 있어야 대상이 됩니다.')
                         + '</td></tr>';
                     return;
                 }
 
                 var html = '';
-                this.targets.forEach(function (t) {
+                this.view.forEach(function (t) {
                     var isOut = t.make_type === 'outsource';
                     var st = t.insp_state;   // wait / done / exempt
                     var stTxt = st === 'exempt' ? '검사면제' : (st === 'done' ? '완료' : '미검사');
 
                     html += '<tr class="pointer' + (t.suju_id === _t.sujuId ? ' on' : '')
                         + '" data-id="' + t.suju_id + '">'
+                        // 이미 검사했거나 면제된 건 일괄 대상이 아니다
+                        + '<td>' + (st === 'wait'
+                            ? '<input type="checkbox" class="chk" data-c="' + t.suju_id + '"'
+                            + (_t.checked.indexOf(t.suju_id) >= 0 ? ' checked' : '') + '>'
+                            : '') + '</td>'
                         + '<td>' + esc(t.line_name) + '</td>'
                         + '<td class="left">' + esc(t.item_name) + '</td>'
                         // 프로젝트당 수주가 여러 건이라 같은 품목명이 여러 줄 나온다.
@@ -414,10 +549,27 @@
                 body.innerHTML = html;
 
                 els('#targetBody tr[data-id]').forEach(function (tr) {
-                    tr.addEventListener('click', function () {
+                    tr.addEventListener('click', function (e) {
+                        // 체크박스를 누른 건 선택이 아니라 일괄 대상 지정이다
+                        if (e.target && e.target.classList.contains('chk')) return;
                         _t.selectTarget(parseInt(tr.getAttribute('data-id'), 10));
                     });
                 });
+
+                // 체크 상태를 배열에 반영한다 (검색으로 안 보이는 것도 유지된다)
+                els('#targetBody .chk').forEach(function (c) {
+                    c.addEventListener('change', function () {
+                        var id = parseInt(c.getAttribute('data-c'), 10);
+                        var at = _t.checked.indexOf(id);
+                        if (c.checked && at < 0) _t.checked.push(id);
+                        if (!c.checked && at >= 0) _t.checked.splice(at, 1);
+                        _t.renderBulkCnt();
+                    });
+                });
+                this.renderBulkCnt();
+
+                var all = el('#chkAll');
+                if (all) all.checked = false;
             },
 
             selectTarget: function (sujuId) {
@@ -443,6 +595,12 @@
 
                     // 면제 품목도 필요하면 검사할 수 있게 막지는 않는다 (재검사)
                     el('#saveBtn').textContent = exempt ? '재검사 등록' : '검사 등록';
+
+                    /* ★ 이미 검사한 품목이면 <b>가장 최근 검사 건</b>에 바로 첨부할 수 있게 연다.
+                       이력에서 행을 눌러야만 열리면, 성적서를 붙이러 두 번 클릭해야 한다.
+                       여러 번 검사한 품목은 이력에서 다른 건을 골라 바꿀 수 있다. */
+                    this.fileId = null;
+                    el('#fileHint').innerHTML = '검사 등록 후 첨부할 수 있습니다.';
                 }
                 this.loadLog();
             },
@@ -462,6 +620,213 @@
             // =========================================================
             // 등록 / 이력
             // =========================================================
+            /*
+             * 선택 일괄 검사.
+             *
+             * 한 건씩 등록하면 검사자·판정을 매번 고르게 되는데,
+             * 실제로는 같은 사람이 같은 판정으로 여러 공정을 한 번에 마친다.
+             *
+             * ★ 수량은 각 품목의 <b>목표(지그 대수)</b>를 쓴다.
+             *   일괄로 수량을 받으면 대수가 다른 품목이 섞였을 때 전부 틀린 값이 된다.
+             *   불합격이 있으면 그 건만 따로 등록해야 한다.
+             */
+            /*
+             * 첨부 대상(검사 건) 선택.
+             *
+             * ★ 검사 <b>건마다</b> 성적서가 따로 붙는다.
+             *   품목에 매달면 재검사했을 때 어느 성적서가 어느 검사 건인지 알 수 없다.
+             *   그래서 tableName='mat_produce' + DataPk=검사 실적 id 로 매단다.
+             */
+            pickFileTarget: function (id) {
+                this.fileId = id;
+                el('#srchFileId').value = '';
+                this.showFileCount(id);
+                this.loadLog();
+            },
+
+            /*
+             * 업로더. 검사 건이 바뀔 때마다 새로 만든다 —
+             * ax5FileUploadClass 는 생성 시점의 DataPk 에 묶이기 때문이다.
+             */
+            setUploader: function (dataPk) {
+                var accept_files = 'jpg,jpeg,png,pdf,xlsx,xls,doc,docx,hwp,zip';
+                this.uploader = new ax5FileUploadClass('inspectUpload', dataPk, {
+                    table_name: 'mat_produce',
+                    attach_name: 'inspect',
+                    accept_files: accept_files,
+                    multiple: true,
+                    /*
+                     * ★ file_size × max_count 가 서버 제한(50MB)을 넘지 않게 잡는다.
+                     *   ax5 는 파일을 <b>하나씩</b> 검사하지만 Tomcat 은
+                     *   한 번에 보낸 <b>요청 전체</b>를 본다.
+                     *   50MB×5 로 두면 각각은 통과해도 합계에서 잘리고,
+                     *   그때는 컨트롤러에 닿기 전이라 안내 없이 막대만 남는다.
+                     *   15×3 = 45MB. 성적서·측정결과는 보통 몇 MB 라 넉넉하다.
+                     */
+                    max_count: 3,
+                    file_size: 15,
+                    upload_callback: function () {
+                        return;
+                    },
+                    delete_callback: function () {
+                        return;
+                    },
+                    file_click_callback: function () {
+                        return;
+                    },
+                    can_write: (typeof userinfo !== 'undefined') ? userinfo.can_write() : true
+                });
+            },
+
+            /*
+             * ★ 업로드 요청을 보내기 직전에 크기를 막는다.
+             *
+             *   파일 선택(change)만 감시했더니 안 걸렸다. ax5 는 자체 목록을 들고 있다가
+             *   업로드 시점에 보내고, 드래그드롭은 input 을 거치지도 않는다.
+             *   그래서 XHR 을 감싸 <b>실제로 나가는 본문</b>을 잰다.
+             *
+             *   막지 않으면 Tomcat 이 요청 단계에서 자르는데, 컨트롤러에 닿기 전이라
+             *   응답이 없고 진행 막대만 남는다. 취소 버튼도 없어 새로고침뿐이다.
+             */
+            guardSize: function () {
+                if (window._inspectUploadGuard) return;
+                window._inspectUploadGuard = true;
+
+                var MAX = 45 * 1024 * 1024;   // 서버 50MB 보다 낮게
+
+                // send 에서는 URL 을 알 수 없어 open 에서 기억해 둔다
+                var origOpen = XMLHttpRequest.prototype.open;
+                XMLHttpRequest.prototype.open = function (m, url) {
+                    this._url = url;
+                    return origOpen.apply(this, arguments);
+                };
+
+                var origSend = XMLHttpRequest.prototype.send;
+                XMLHttpRequest.prototype.send = function (body) {
+                    try {
+                        if (body instanceof FormData && this._url
+                            && this._url.indexOf('/api/files/upload') >= 0) {
+                            var total = 0, over = null;
+                            body.forEach(function (v) {
+                                if (v && typeof v.size === 'number') {
+                                    total += v.size;
+                                    if (!over || v.size > over.size) over = v;
+                                }
+                            });
+                            if (total > MAX) {
+                                var mb = (total / 1024 / 1024).toFixed(1);
+                                Alert.alert('첨부 불가',
+                                    (over && over.name ? over.name + '<br>' : '')
+                                    + '합계 ' + mb + 'MB — 한 번에 45MB 까지만 올릴 수 있습니다.<br>'
+                                    + '파일을 줄이거나 나눠서 올려 주세요.');
+                                this.abort();
+                                return;
+                            }
+                        }
+                    } catch (e) { /* 검사 실패가 업로드를 막지 않게 한다 */
+                    }
+                    return origSend.apply(this, arguments);
+                };
+            },
+
+            /*
+             * 붙어 있는 첨부 개수를 폼에 보여준다.
+             * 모달을 열어야만 알 수 있으면 성적서가 붙었는지 확인하러 매번 들어가야 한다.
+             */
+            showFileCount: function (id) {
+                var hint = el('#fileHint');
+                if (!id) {
+                    hint.innerHTML = '검사 등록 후 첨부할 수 있습니다.';
+                    return;
+                }
+
+                AjaxUtil.getAsyncData('/api/common/attach_file/detailFiles',
+                    {TableName: 'mat_produce', DataPk: id, attachName: 'inspect'},
+                    function (res) {
+                        var n = ((res && res.data) || []).length;
+                        hint.innerHTML = '검사 #' + id + ' · '
+                            + (n ? '<b style="color:#1b6b3a">첨부 ' + n + '건</b>'
+                                : '<span style="color:#b06414">첨부 없음</span>');
+                    },
+                    function () {
+                        hint.innerHTML = '검사 #' + id + ' 선택됨';
+                    });
+            },
+
+            /* 첨부 모달. 오른쪽 폼이 340px 이라 파일명·진행바가 들어갈 자리가 없다 */
+            openFileModal: function () {
+                if (!this.fileId) {
+                    Alert.alert('', '검사 이력에서 건을 먼저 선택하세요.');
+                    return;
+                }
+                el('#fileModalTitle').textContent =
+                    (this.target ? this.target.item_name + ' · ' : '') + '검사 #' + this.fileId + ' 첨부';
+                el('#fileModal').style.display = 'flex';
+                this.setUploader(this.fileId);
+            },
+
+            closeFileModal: function () {
+                el('#fileModal').style.display = 'none';
+                // 닫는 김에 개수를 다시 읽는다. 모달 안에서 붙이거나 지웠을 수 있다
+                this.showFileCount(this.fileId);
+                this.loadLog();
+            },
+
+            /* 선택 건수 표시. 체크는 checked 배열이 들고 있다 */
+            renderBulkCnt: function () {
+                var n = el('#bulkCnt');
+                if (n) n.textContent = this.checked.length;
+            },
+
+            bulkSave: function () {
+                var _t = this;
+                // 화면이 아니라 배열을 쓴다. 검색으로 가려진 선택도 포함된다
+                var ids = this.checked.slice();
+
+                if (!ids.length) {
+                    Alert.alert('', '검사할 품목을 선택하세요.');
+                    return;
+                }
+                if (!el('#workerSel').value) {
+                    Alert.alert('', '검사자를 선택하세요.');
+                    return;
+                }
+
+                Alert.confirmAsync('', ids.length + '건을 <b>합격</b>으로 일괄 등록할까요?'
+                    + '<br>수량은 각 품목의 목표 대수로 들어갑니다.').then(function (ok) {
+                    if (!ok) return;
+
+                    var payload = {
+                        spjangcd: _t.spjangcd,
+                        sujuIds: ids,
+                        inspectDate: el('#inspectDate').value,
+                        workerId: el('#workerSel').value,
+                        equipmentId: el('#equSel').value,
+                        result: el('#resultSel').value,
+                        remark: el('#remark').value
+                    };
+                    AjaxUtil.postJsonData(API + '/bulk_save', payload,
+                        function (res) {
+                            if (!res || !res.success) {
+                                Alert.alert('', (res && res.message) || '등록에 실패했습니다.');
+                                return;
+                            }
+                            Alert.alert('', res.message || '등록되었습니다.');
+                            /* ★ 선택을 풀고 <b>전체 이력</b>을 본다.
+                               이력은 sujuId 기준이라 한 품목만 골라 두면
+                               방금 일괄 검사한 나머지가 안 보인다. */
+                            _t.checked = [];
+                            _t.sujuId = null;
+                            _t.target = null;
+                            _t.loadTargets();
+                            _t.loadLog();
+                        },
+                        function () {
+                            Alert.alert('', '등록에 실패했습니다.');
+                        });
+                });
+            },
+
             save: function () {
                 var _t = this;
 
@@ -509,31 +874,52 @@
 
             loadLog: function () {
                 var _t = this;
-                if (!this.sujuId) {
-                    el('#logBody').innerHTML = '';
-                    return;
-                }
-
+                /* 품목을 고르면 그 품목만, 아니면 프로젝트 전체를 본다.
+                   일괄 검사 뒤에는 선택이 풀리므로 방금 넣은 것들이 전부 보인다. */
                 AjaxUtil.getAsyncData(API + '/log',
-                    {spjangcd: this.spjangcd, sujuId: this.sujuId},
+                    {spjangcd: this.spjangcd, projNo: this.projNo, sujuId: this.sujuId},
                     function (res) {
                         var rows = (res && res.data) || [];
                         if (!rows.length) {
-                            el('#logBody').innerHTML = '<tr><td colspan="5">검사 이력이 없습니다.</td></tr>';
+                            el('#logBody').innerHTML = '<tr><td colspan="6">검사 이력이 없습니다.</td></tr>';
                             return;
                         }
                         var html = '';
                         rows.forEach(function (r) {
-                            html += '<tr>'
+                            // 행을 누르면 그 검사 건에 성적서를 첨부한다
+                            html += '<tr class="pointer' + (_t.fileId === r.id ? ' on' : '')
+                                + '" data-log="' + r.id + '">'
                                 + '<td>' + esc(r.inspect_date) + '</td>'
-                                + '<td><span class="badge ' + (r.result === 'fail' ? 'wait' : 'done') + '">'
-                                + (r.result === 'fail' ? '불합격' : '합격') + '</span></td>'
+                                // 프로젝트 전체를 보여줄 수 있어 품목을 함께 적는다
+                                + '<td class="left">' + esc(r.item_name || '') + '</td>'
+                                + '<td><span class="badge ' + resultCls(r.result) + '">'
+                                + resultName(r.result) + '</span></td>'
                                 + '<td>' + num(r.good_qty) + ' / ' + num(r.defect_qty) + '</td>'
-                                + '<td>' + esc(r.worker) + '</td>'
+                                + '<td>' + esc(r.worker)
+                                // 성적서가 붙었는지 이력에서 바로 보이게 한다
+                                + (num(r.attach_cnt) > 0
+                                    ? ' <span class="badge done" title="첨부 '
+                                    + num(r.attach_cnt) + '건">📎' + num(r.attach_cnt) + '</span>'
+                                    : '') + '</td>'
                                 + '<td><a class="btn" data-del="' + r.id + '">취소</a></td>'
                                 + '</tr>';
                         });
                         el('#logBody').innerHTML = html;
+
+                        /* 품목을 골랐는데 아직 첨부 대상이 없으면 <b>가장 최근 검사</b>를 잡는다.
+                           성적서를 붙이러 이력을 한 번 더 누르지 않아도 된다.
+                           여러 번 검사한 품목은 이력에서 다른 건을 골라 바꾼다. */
+                        if (_t.sujuId && !_t.fileId && rows.length) {
+                            _t.pickFileTarget(rows[0].id);
+                            return;   // pickFileTarget 이 loadLog 를 다시 부른다
+                        }
+
+                        els('#logBody tr[data-log]').forEach(function (tr) {
+                            tr.addEventListener('click', function (e) {
+                                if (e.target && e.target.hasAttribute('data-del')) return;
+                                _t.pickFileTarget(parseInt(tr.getAttribute('data-log'), 10));
+                            });
+                        });
 
                         els('#logBody a[data-del]').forEach(function (a) {
                             a.addEventListener('click', async function () {

@@ -1,0 +1,297 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* 이 페이지 전용 스타일만. layout_page 가 주는 클래스는 재정의하지 않는다. */
+        /* ★ min-height 가 아니라 height 로 잡아야 안쪽만 스크롤된다.
+           min-height 면 내용이 길 때 페이지 전체가 늘어나 바깥 스크롤이 생기고,
+           그러면 검색줄과 요약 카드까지 같이 밀려 올라간다. */
+        .layout-contents { display:flex; flex-direction:column; height:100vh;
+            overflow:hidden; box-sizing:border-box; }
+        .main-row { display:flex; flex-direction:column; gap:5px; flex:1 1 auto; min-height:0; }
+        .main-row > .section { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+        /* 스크롤 컨테이너에 padding-top 을 주면 sticky 헤더 위로 행이 비쳐 보인다 */
+        .main-row > .section > .container-fluid { flex:1 1 auto; min-height:0; overflow:auto; padding-top:0; }
+        .main-row > .section > .section-top { flex:0 0 auto; margin-bottom:10px; }
+
+        table.work-table { width:100%; border-collapse:collapse; }
+        table.work-table th, table.work-table td {
+            border:1px solid #d7dde7; padding:5px 7px; font-size:12.5px;
+            text-align:center; white-space:nowrap; }
+        /* border-collapse 는 sticky 셀의 테두리를 떼어 간다. inset 그림자로 그린다 */
+        table.work-table th {
+            background:#eef2f8; color:#445; font-weight:700;
+            position:sticky; top:0; z-index:2;
+            box-shadow: inset 0 1px 0 #d7dde7, inset 0 -1px 0 #d7dde7; }
+        table.work-table td.l { text-align:left; }
+        table.work-table td.r { text-align:right; }
+        table.work-table tr:hover td { background:#f4f8ff; }
+        table.work-table tr.sum td { background:#f7f9fc; font-weight:800; }
+
+        /* layout_page 의 .search-wrap ul li { flex:1 1 0; min-width:100px } 때문에
+           날짜 입력이 각각 100px 을 차지해 검색줄이 과하게 넓어진다. */
+        .search-wrap ul li { flex:0 0 auto; min-width:0; }
+
+        .mut { color:#8b95a7; }
+        .empty { color:#99a; text-align:center; padding:22px 0; }
+        .bad { color:#c2410c; font-weight:700; }
+        /* .num 은 프레임워크 CSS 와 겹쳐 쓰지 않는다 */
+        td.qv { font-weight:700; color:#1f4e8c; }
+
+        .sum-row { display:flex; gap:8px; flex-wrap:wrap; padding:10px 13px; }
+        .sum-card { border:1px solid #d7dde7; border-radius:8px; padding:8px 14px;
+            min-width:120px; background:#fff; }
+        .sum-card .l { font-size:12px; color:#5b6b86; font-weight:700; }
+        .sum-card .v { font-size:19px; font-weight:800; color:#1f4e8c; margin-top:2px; }
+        .sum-card.warn .v { color:#c2410c; }
+        .sum-note { font-size:11.5px; color:#8b95a7; padding:0 13px 10px; line-height:1.6; }
+
+        .sum-row { display:flex; gap:8px; flex-wrap:wrap; padding:10px 13px; }
+        .sum-card { border:1px solid #d7dde7; border-radius:8px; padding:8px 14px;
+            min-width:120px; background:#fff; }
+        .sum-card .l { font-size:12px; color:#5b6b86; font-weight:700; }
+        .sum-card .v { font-size:19px; font-weight:800; color:#1f4e8c; margin-top:2px; }
+        .sum-card.warn .v { color:#c2410c; }
+        .sum-note { font-size:11.5px; color:#8b95a7; padding:0 13px 10px; line-height:1.6; }
+
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>생산 실적 현황</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산관리</li>
+                <li>생산 실적 현황</li>
+            </ul>
+        </div>
+
+        <div class="main-row">
+            <section class="section" style="flex:0 0 auto;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl><dt>기간</dt>
+                            <dd><ul class="date-box">
+                                <li><input type="date" id="dateFrom"></li>
+                                <li style="align-self:center">~</li>
+                                <li><input type="date" id="dateTo"></li>
+                            </ul></dd></dl>
+                        <dl><dt>프로젝트</dt>
+                            <dd><select id="fProject" style="min-width:210px"></select></dd></dl>
+                        <dl><dt>&nbsp;</dt>
+                            <dd><a class="btn btn-search" onclick="prodResultStatus.search()">검색</a></dd></dl>
+                    </div>
+                </div>
+                <div class="sum-row" id="sumRow"></div>
+            </section>
+
+            <section class="section" style="flex:1;">
+                <div class="section-top">
+                    <span style="font-weight:700">프로젝트별 <span class="mut" id="cntLab"></span></span>
+                </div>
+                <div class="container-fluid">
+                    <!-- 공정 수가 프로젝트마다 다르므로 헤더도 스크립트가 그린다 -->
+                    <table class="work-table">
+                        <thead id="listHead"></thead>
+                        <tbody id="listBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        /*
+         * 생산 실적 현황
+         *
+         * ★ 축이 넷이라 한 칸으로 합치지 않는다.
+         *     가공  iljin_prod_result. 설비가 처리한 횟수
+         *     유닛  mat_produce PO=1
+         *     공정  mat_produce PO=2  (지그를 만들어 낸 수)
+         *     검사  mat_produce PO=3
+         *   가공만 다른 테이블에서 오고 단위도 다르다. 더하면 실물보다 커진다.
+         *
+         * [통신] AjaxUtil 만 쓴다. $.ajax 직접 호출은 CSRF 가 빠져 403 이 난다.
+         */
+        class ProdResultStatusPage {
+            constructor() {
+                this.API = '/api/production/dash_project';
+                this.spjangcd = $('#spjangcd').val() || 'ZZ';
+                this.rows = [];
+                this.init();
+            }
+
+            async init() {
+                this.range(6);              // 기본은 최근 7일
+                await this.loadProjects();
+                await this.search();
+                this.el('fProject').onchange = () => this.search();
+            }
+
+            async loadProjects() {
+                const res = await this.get('/api/production/prod_design/project_list',
+                    {spjangcd: this.spjangcd});
+                const list = res.data || [];
+                this.el('fProject').innerHTML = '<option value="">전체</option>'
+                    + list.map(p => `<option value="${this.esc(p.proj_no)}">`
+                        + `${this.escHtml(p.proj_no)} ${this.escHtml(p.proj_name || '')}</option>`).join('');
+            }
+
+            /* 기본 조회 기간. 날짜만 채우고 조회는 부르지 않는다 —
+               init 에서 곧바로 search() 를 부르므로 두 번 나가게 된다. */
+            range(days) {
+                const to = new Date(), from = new Date();
+                from.setDate(from.getDate() - days);
+                this.el('dateFrom').value = this.ymd(from);
+                this.el('dateTo').value = this.ymd(to);
+            }
+
+            async search() {
+                const res = await this.get(`${this.API}/result_status`, {
+                    spjangcd: this.spjangcd,
+                    dateFrom: this.el('dateFrom').value,
+                    dateTo: this.el('dateTo').value,
+                    projNo: this.el('fProject').value
+                });
+                const d = res.data || {};
+                this.rows = d.summary || [];
+                /* json_agg 결과가 문자열로 올 수 있다 (드라이버에 따라 다르다).
+                   여기서 한 번만 배열로 맞춰 두면 아래 계산이 단순해진다. */
+                this.rows.forEach(r => {
+                    /* 서버가 ::text 로 주므로 문자열이다.
+                       드라이버가 객체({type,value})로 감싸 보내는 경우도 대비한다. */
+                    let v = r.ops;
+                    if (v && typeof v === 'object' && !Array.isArray(v) && v.value != null) v = v.value;
+                    if (typeof v === 'string') {
+                        try {
+                            v = JSON.parse(v);
+                        } catch (e) {
+                            v = [];
+                        }
+                    }
+                    r.ops = Array.isArray(v) ? v : [];
+                });
+                this.renderSummary();
+                this.renderList();
+            }
+
+            sum(f) {
+                return this.rows.reduce((s, r) => s + (+r[f] || 0), 0);
+            }
+
+            /*
+             * 화면에 나온 공정 목록. 프로젝트마다 다르므로 데이터에서 뽑는다.
+             * ★ 공정을 하나로 합치지 않는다 — 한 부품이 절단·가공을 거치며
+             *   공정마다 다시 세어져, 더하면 실물보다 큰 수가 된다.
+             */
+            opList() {
+                const set = [];
+                this.rows.forEach(r => (r.ops || []).forEach(o => {
+                    if (o && o.op && set.indexOf(o.op) < 0) set.push(o.op);
+                }));
+                return set.sort();
+            }
+
+            opQty(r, op) {
+                const f = (r.ops || []).find(o => o && o.op === op);
+                return f ? (+f.qty || 0) : 0;
+            }
+
+            opSum(op) {
+                return this.rows.reduce((s, r) => s + this.opQty(r, op), 0);
+            }
+
+            renderSummary() {
+                const ops = this.opList();
+                const ng = this.sum('defect_qty');
+
+                this.el('sumRow').innerHTML =
+                    ops.map(o => `<div class="sum-card"><div class="l">${this.escHtml(o)}</div>
+                        <div class="v">${this.nf(this.opSum(o))}</div></div>`).join('')
+                    + `<div class="sum-card warn"><div class="l">가공 불량</div>
+                        <div class="v">${this.nf(ng)}</div></div>
+                    <div class="sum-card"><div class="l">유닛 조립</div><div class="v">${this.nf(this.sum('unit_qty'))}</div></div>
+                    <div class="sum-card"><div class="l">공정 조립</div><div class="v">${this.nf(this.sum('set_qty'))}</div></div>
+                    <div class="sum-card"><div class="l">검사</div><div class="v">${this.nf(this.sum('insp_qty'))}</div></div>`;
+            }
+
+            renderList() {
+                this.el('cntLab').textContent = this.rows.length ? `${this.rows.length}개 프로젝트` : '';
+                const ops = this.opList();
+                const cols = 1 + ops.length + 4;
+
+                // 공정 수가 프로젝트마다 달라 헤더를 매번 그린다
+                this.el('listHead').innerHTML = '<tr><th>프로젝트</th>'
+                    + ops.map(o => `<th>${this.escHtml(o)}</th>`).join('')
+                    + '<th>가공 불량</th><th>유닛</th><th>공정</th><th>검사</th></tr>';
+
+                const body = this.el('listBody');
+                if (!this.rows.length) {
+                    body.innerHTML = `<tr><td colspan="${cols}" class="empty">조회 결과가 없습니다.</td></tr>`;
+                    return;
+                }
+                const cell = (v, cls) => `<td class="r ${cls || ''}">`
+                    + (+v ? this.nf(v) : '<span class="mut">-</span>') + '</td>';
+
+                body.innerHTML = this.rows.map(r => `
+                    <tr>
+                        <td class="l">${this.escHtml(r.proj_no || '(미지정)')}
+                            <span class="mut">${this.escHtml(r.proj_name || '')}</span></td>
+                        ${ops.map(o => cell(this.opQty(r, o), 'qv')).join('')}
+                        ${cell(r.defect_qty, 'bad')}
+                        ${cell(r.unit_qty, 'qv')}${cell(r.set_qty, 'qv')}
+                        ${cell(r.insp_qty, 'qv')}
+                    </tr>`).join('')
+                    + `<tr class="sum"><td class="l">합계</td>
+                        ${ops.map(o => `<td class="r">${this.nf(this.opSum(o))}</td>`).join('')}
+                        <td class="r bad">${this.nf(this.sum('defect_qty'))}</td>
+                        <td class="r">${this.nf(this.sum('unit_qty'))}</td>
+                        <td class="r">${this.nf(this.sum('set_qty'))}</td>
+                        <td class="r">${this.nf(this.sum('insp_qty'))}</td></tr>`;
+            }
+
+
+            el(id) {
+                return document.getElementById(id);
+            }
+
+            nf(n) {
+                return Number(n || 0).toLocaleString();
+            }
+
+            // 로컬 시간 기준 YYYY-MM-DD (toISOString 은 UTC라 KST에서 하루 밀린다)
+            ymd(d) {
+                const p = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+            }
+
+            get(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.getAsyncData(url, data,
+                        res => resolve(res || {success: false, data: null}),
+                        () => resolve({success: false, data: null}));
+                });
+            }
+
+            escHtml(s) {
+                return (s == null ? '' : String(s))
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            esc(s) {
+                return (s == null ? '' : String(s)).replace(/"/g, '&quot;');
+            }
+        }
+
+        $(document).ready(function () {
+            window.prodResultStatus = new ProdResultStatusPage();
+        });
+    </script>
+</th:block>
+</html>

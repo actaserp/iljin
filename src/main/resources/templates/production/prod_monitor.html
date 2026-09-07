@@ -1,0 +1,206 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* 현장에 띄워 두는 화면이라 어둡게 간다. 관리자 화면(dash_project)과 톤을 맞췄다. */
+        #monWrap { background:#1b1f27; color:#f3f6f9; min-height:100vh;
+            padding:18px 20px 40px; font-family:'Pretendard','Malgun Gothic',sans-serif; font-size:15px; }
+
+        .mon-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+        .mon-head h2 { margin:0; font-size:24px; font-weight:700; }
+        .mon-head .sub { font-size:13px; color:#8f98a5; margin-top:3px; }
+        .mon-clock { font-size:22px; font-weight:600; color:#6c9fd1; font-variant-numeric:tabular-nums; }
+        .auto-lab { font-size:13px; color:#8f98a5; margin-right:12px; }
+
+        /* 설비 카드 */
+        .eq-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+            gap:12px; margin-bottom:18px; }
+        .eq-card { background:#272f3a; border:1px solid #404a59; border-radius:12px; padding:13px 15px; }
+        .eq-card.run { border-color:#3f7a5c; background:#25342c; }
+        .eq-top { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+        .eq-code { font-size:18px; font-weight:800; }
+        .eq-op { font-size:12px; color:#8f98a5; }
+        .eq-name { font-size:12.5px; color:#aeb7c4; margin-top:1px; }
+        .eq-qty { font-size:28px; font-weight:800; margin-top:8px; }
+        .eq-qty small { font-size:13px; color:#8f98a5; font-weight:600; margin-left:3px; }
+        .eq-ng { color:#d4685f; font-size:13px; font-weight:700; margin-left:8px; }
+        .eq-work { margin-top:8px; padding-top:8px; border-top:1px solid #39424f;
+            font-size:12.5px; color:#9fd4b6; }
+        .eq-idle { margin-top:8px; padding-top:8px; border-top:1px solid #39424f;
+            font-size:12.5px; color:#6a7482; }
+
+        /* 최근 실적 */
+        .sec-h { font-size:15px; font-weight:800; margin:0 0 8px;
+            border-left:3px solid #6c9fd1; padding-left:8px; }
+        .rtab { width:100%; border-collapse:collapse; background:#1a1f27;
+            border:1px solid #333c48; border-radius:10px; overflow:hidden; }
+        .rtab th { background:#232a34; color:#8f98a5; font-size:12px; font-weight:700;
+            padding:8px 10px; text-align:center; }
+        .rtab td { color:#ccd3dc; font-size:13px; padding:8px 10px; text-align:center;
+            border-top:1px solid #232a34; }
+        .rtab td.l { text-align:left; }
+        /* 숫자는 오른쪽. 헤더도 같이 맞춰야 열이 어긋나 보이지 않는다 */
+        .rtab td.r, .rtab th.r { text-align:right; }
+        .rtab td.r { font-variant-numeric:tabular-nums; }
+        .rtab .t { color:#8f98a5; font-variant-numeric:tabular-nums; }
+        .rtab .q { color:#6c9fd1; font-weight:700; }
+        .rtab .ng { color:#d4685f; font-weight:700; }
+        .mut { color:#8f98a5; }
+        .empty { color:#6a7482; text-align:center; padding:24px 0; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div id="monWrap">
+        <div class="mon-head">
+            <div>
+                <h2>생산 모니터링</h2>
+                <div class="sub">설비별 오늘 실적 · 진행중 작업</div>
+            </div>
+            <div style="display:flex;align-items:center">
+                <span class="auto-lab" id="autoLab"></span>
+                <span class="mon-clock" id="clock"></span>
+            </div>
+        </div>
+
+        <div class="eq-grid" id="eqGrid"></div>
+
+        <div class="sec-h">최근 등록 (오늘)</div>
+        <table class="rtab">
+            <thead>
+            <tr><th>시각</th><th>공정</th><th>설비</th><th>작업자</th>
+                <th>프로젝트</th><th>품목</th><th>유형</th>
+                <th class="r">수량</th><th class="r">불량</th></tr>
+            </thead>
+            <tbody id="recentBody"></tbody>
+        </table>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        /*
+         * 생산 모니터링
+         *
+         * 대시보드(dash_project)는 프로젝트가 어디까지 왔나를 보고,
+         * 이쪽은 <b>지금 현장이 어떻게 돌고 있나</b>를 본다.
+         *
+         * ★ 읽기 전용이다. 여기서 실적을 고치지 않는다 —
+         *   현장에 띄워 두는 화면이라 지나가다 누를 수 있다.
+         *
+         * ★ 30초마다 스스로 새로고침한다. 사람이 앉아 있지 않은 화면이라
+         *   버튼을 누르게 하면 멈춘 숫자를 계속 보게 된다.
+         *
+         * [통신] AjaxUtil 만 쓴다. $.ajax 직접 호출은 CSRF 가 빠져 403 이 난다.
+         */
+        const REFRESH_SEC = 30;
+
+        class ProdMonitorPage {
+            constructor() {
+                this.API = '/api/production/dash_project';
+                this.spjangcd = $('#spjangcd').val() || 'ZZ';
+                this.left = REFRESH_SEC;
+                this.init();
+            }
+
+            async init() {
+                await this.load();
+                this.tick();
+                setInterval(() => this.tick(), 1000);
+            }
+
+            /* 1초마다 시계와 남은 시간을 갱신하고, 0 이 되면 다시 읽는다.
+               setInterval 로 fetch 를 걸면 응답이 늦을 때 요청이 겹친다. */
+            tick() {
+                const now = new Date();
+                const p = n => String(n).padStart(2, '0');
+                this.el('clock').textContent =
+                    `${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`;
+
+                this.left--;
+                if (this.left <= 0) {
+                    this.left = REFRESH_SEC;
+                    this.load();
+                }
+                this.el('autoLab').textContent = `${this.left}초 후 갱신`;
+            }
+
+            async load() {
+                const res = await this.get(`${this.API}/monitor`, {spjangcd: this.spjangcd});
+                const d = res.data || {};
+                this.renderEquip(d.equip || []);
+                this.renderRecent(d.recent || []);
+            }
+
+            renderEquip(list) {
+                const box = this.el('eqGrid');
+                if (!list.length) {
+                    box.innerHTML = '<div class="empty">등록된 가공 설비가 없습니다.</div>';
+                    return;
+                }
+                box.innerHTML = list.map(e => {
+                    const running = !!e.start_time;
+                    return `<div class="eq-card ${running ? 'run' : ''}">
+                        <div class="eq-top">
+                            <span class="eq-code">${this.escHtml(e.code)}</span>
+                            <span class="eq-op">${this.escHtml(e.operation || '')}</span>
+                        </div>
+                        <div class="eq-name">${this.escHtml(e.name || '')}</div>
+                        <div class="eq-qty">${this.nf(e.today_qty)}<small>개</small>
+                            ${+e.today_ng ? `<span class="eq-ng">불량 ${this.nf(e.today_ng)}</span>` : ''}</div>
+                        ${running
+                        ? `<div class="eq-work">▶ ${this.escHtml(e.worker || '')}
+                                 · ${this.escHtml(e.item_name || '품목 미지정')}
+                                 ${e.kind ? '· ' + this.escHtml(e.kind) : ''}
+                                 <span class="mut">${e.start_time}~</span></div>`
+                        : '<div class="eq-idle">작업중 아님</div>'}
+                    </div>`;
+                }).join('');
+            }
+
+            renderRecent(list) {
+                const body = this.el('recentBody');
+                if (!list.length) {
+                    body.innerHTML = '<tr><td colspan="9" class="empty">오늘 등록된 실적이 없습니다.</td></tr>';
+                    return;
+                }
+                body.innerHTML = list.map(r => `
+                    <tr>
+                        <td class="t">${r.t || '-'}</td>
+                        <td class="l">${this.escHtml(r.operation || '')}</td>
+                        <td>${this.escHtml(r.equipment || '')}</td>
+                        <td>${this.escHtml(r.worker || '')}</td>
+                        <td class="mut">${this.escHtml(r.proj_no || '-')}</td>
+                        <td>${r.item_name
+                    ? this.escHtml(r.item_name) : '<span class="mut">품목 미지정</span>'}</td>
+                        <td class="mut">${this.escHtml(r.kind || 'etc')}</td>
+                        <td class="r q">${this.nf(r.qty)}</td>
+                        <td class="r">${+r.ng
+                    ? `<span class="ng">${this.nf(r.ng)}</span>` : '<span class="mut">-</span>'}</td>
+                    </tr>`).join('');
+            }
+
+            // ===== helper =====
+
+            el(id) { return document.getElementById(id); }
+            nf(n) { return Number(n || 0).toLocaleString(); }
+
+            get(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.getAsyncData(url, data,
+                        res => resolve(res || {success: false, data: null}),
+                        () => resolve({success: false, data: null}));
+                });
+            }
+
+            escHtml(s) {
+                return (s == null ? '' : String(s))
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+        }
+
+        $(document).ready(function () {
+            window.prodMonitor = new ProdMonitorPage();
+        });
+    </script>
+</th:block>
+</html>

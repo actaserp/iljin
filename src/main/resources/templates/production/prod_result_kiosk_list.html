@@ -5,7 +5,11 @@
            .layout-contents / .section / .section-top / .container-fluid / .btn /
            .page-title-wrap 등은 layout_page 가 제공하므로 재정의하지 않는다. */
 
-        .layout-contents { display:flex; flex-direction:column; min-height:100vh; box-sizing:border-box; }
+        /* ★ min-height 가 아니라 height 로 잡아야 안쪽만 스크롤된다.
+           min-height 면 내용이 길 때 페이지 전체가 늘어나 바깥 스크롤이 생기고,
+           그러면 검색줄과 요약 카드까지 같이 밀려 올라간다. */
+        .layout-contents { display:flex; flex-direction:column; height:100vh;
+            overflow:hidden; box-sizing:border-box; }
         .main-row { display:flex; flex-direction:column; gap:5px; flex:1 1 auto; min-height:0; }
         .main-row > .section { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
 
@@ -19,7 +23,9 @@
         .sum-sec { flex:0 0 auto; }
 
         table.work-table { width:100%; border-collapse:collapse; }
-        table.work-table th, table.work-table td { border:1px solid #d7dde7; padding:7px; font-size:12.5px; text-align:center; }
+        table.work-table th, table.work-table td {
+            border:1px solid #d7dde7; padding:5px 7px; font-size:12.5px;
+            text-align:center; white-space:nowrap; }
         /* border-collapse 는 sticky 셀의 테두리를 떼어 간다. inset 그림자로 그린다 */
         table.work-table th {
             background:#eef2f8; color:#445; font-weight:700;
@@ -31,17 +37,33 @@
         table.work-table tr:hover td { background:#f4f8ff; }
 
         .qty { font-weight:700; color:#1f4e8c; }
+        /* layout_page 의 .search-wrap ul li { flex:1 1 0; min-width:100px } 때문에
+           날짜·버튼이 각각 100px 을 차지해 검색줄이 과하게 넓어진다.
+           이 페이지는 항목이 많아 내용 크기대로 두는 게 낫다. */
+        .search-wrap ul li { flex:0 0 auto; min-width:0; }
+
+        /* 인라인 style 은 layout_page 의 input 규칙에 밀릴 수 있어 클래스로 준다.
+           숫자 입력의 스피너가 값과 겹쳐 보여 오른쪽 여백을 넉넉히 잡는다. */
+        .qty-in { width:100%; box-sizing:border-box; margin-top:8px;
+            padding:10px 14px !important; height:auto !important;
+            border:1px solid #cfd6e2; border-radius:6px;
+            font-size:18px; font-weight:700; text-align:right; }
+
         .mut { color:#8b95a7; }
+        /* 수정·삭제를 한 줄에 둔다. 세로로 쌓이면 행 높이가 두 배가 된다 */
+        td.act { white-space:nowrap; }
+        td.act .btn { padding:2px 8px; font-size:11.5px; margin:0 1px; }
         .empty { color:#99a; text-align:center; padding:22px 0; }
         .kchip { display:inline-block; background:#eef2f8; border:1px solid #d7dde7; border-radius:10px;
             padding:1px 8px; font-size:11.5px; color:#445; }
         .kchip.etc { color:#8b95a7; }
 
         /* 공정별 소계. ★ 가로로 더하지 않는다 — 한 부품이 공정마다 다시 세어진다 */
-        .sum-row { display:flex; gap:8px; flex-wrap:wrap; padding:10px 13px; }
-        .sum-card { border:1px solid #d7dde7; border-radius:8px; padding:8px 12px; min-width:150px; background:#fff; }
+        .sum-row { display:flex; gap:8px; flex-wrap:wrap; padding:8px 13px 10px; }
+        .sum-card { border:1px solid #d7dde7; border-radius:8px; padding:6px 12px;
+            min-width:130px; background:#fff; }
         .sum-card .op { font-size:12px; color:#5b6b86; font-weight:700; }
-        .sum-card .v { font-size:19px; font-weight:800; color:#1f4e8c; margin-top:2px; }
+        .sum-card .v { font-size:18px; font-weight:800; color:#1f4e8c; margin-top:1px; }
         .sum-card .kk { font-size:11px; color:#8b95a7; margin-top:3px; line-height:1.5; }
         .sum-note { font-size:11.5px; color:#8b95a7; padding:0 13px 10px; line-height:1.6; }
     </style>
@@ -80,20 +102,15 @@
                             <dd><select id="fEquipment" style="min-width:140px"></select></dd></dl>
                         <dl><dt>유형</dt>
                             <dd><select id="fKind" style="min-width:110px"></select></dd></dl>
-                    </div>
-                    <div class="button-wrap">
-                        <ul>
-                            <li><a class="btn btn-search" onclick="prodResultKioskList.search()">검색</a></li>
-                            <li><a class="btn" onclick="prodResultKioskList.today()">오늘</a></li>
-                            <li><a class="btn" onclick="prodResultKioskList.week()">최근 7일</a></li>
-                        </ul>
+                        <!-- 검색 버튼은 필터 바로 옆에 둔다.
+                             오른쪽 끝에 떨어져 있으면 필터를 다 채운 뒤 시선이 멀리 이동한다. -->
+                        <dl><dt>&nbsp;</dt>
+                            <dd><a class="btn btn-search"
+                                   onclick="prodResultKioskList.search()">검색</a></dd></dl>
                     </div>
                 </div>
                 <div class="sum-row" id="sumRow"></div>
-                <div class="sum-note">
-                    ※ 공정별로 따로 셉니다. 한 부품이 절단·가공을 거치며 공정마다 다시 세어지므로
-                    <b>공정 숫자를 서로 더하지 마세요</b>. 필요량(부품 개수)과도 단위가 달라 직접 비교할 수 없습니다.
-                </div>
+
             </section>
 
             <!-- 실적 목록 -->
@@ -105,27 +122,50 @@
                     <table class="work-table">
                         <colgroup>
                             <col style="width:9%">   <!-- 생산일 -->
-                            <col style="width:12%">  <!-- 공정 -->
-                            <col style="width:10%">  <!-- 설비 -->
-                            <col style="width:9%">   <!-- 작업자 -->
-                            <col style="width:16%">  <!-- 프로젝트 -->
-                            <col style="width:11%">  <!-- 수주 -->
-                            <col style="width:10%">  <!-- 품목 -->
+                            <col style="width:13%">  <!-- 공정 -->
+                            <col style="width:9%">   <!-- 설비 -->
+                            <col style="width:7%">   <!-- 작업자 -->
+                            <col style="width:14%">  <!-- 프로젝트 -->
+                            <col style="width:10%">  <!-- 수주 -->
+                            <col style="width:8%">   <!-- 품목 -->
                             <col style="width:8%">   <!-- 유형 -->
-                            <col style="width:8%">   <!-- 수량 -->
-                            <col style="width:7%">   <!-- 취소 -->
+                            <col style="width:7%">   <!-- 수량 -->
+                            <col style="width:7%">   <!-- 불량 -->
+                            <col style="width:8%">   <!-- 관리 -->
                         </colgroup>
                         <thead>
                         <tr>
                             <th>생산일</th><th>공정</th><th>설비</th><th>작업자</th>
                             <th>프로젝트</th><th>수주</th><th>품목</th><th>유형</th>
-                            <th>수량</th><th>취소</th>
+                            <th>수량</th><th>불량</th><th>관리</th>
                         </tr>
                         </thead>
                         <tbody id="listBody"></tbody>
                     </table>
                 </div>
             </section>
+        </div>
+
+        <!-- 수량 수정. 브라우저 prompt() 는 화면 톤과 어긋나 모달로 바꿨다 -->
+        <div id="qtyModal"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;
+                    align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:8px;width:380px;max-width:92vw;
+                        box-shadow:0 10px 30px rgba(0,0,0,.2);">
+                <!-- layout_page 의 .section-top 은 패딩이 없어 제목이 벽에 붙는다 -->
+                <div class="section-top" style="border-radius:8px 8px 0 0;padding:16px 22px;">
+                    <div class="search-wrap" style="margin-bottom:0"><h3>수량 수정</h3></div>
+                </div>
+                <div style="padding:20px 22px;">
+                    <p class="mut" id="qtyDesc" style="margin:0 0 12px;font-size:12.5px"></p>
+                    <label id="qtyLabel" style="font-size:12.5px;font-weight:700;color:#445"></label>
+                    <input type="number" id="qtyInput" min="1" class="qty-in">
+                </div>
+                <div style="padding:14px 22px;border-top:1px solid #e9edf3;text-align:right;">
+                    <a class="btn btn-search" id="qtyOk">저장</a>
+                    <a class="btn" id="qtyCancel">취소</a>
+                </div>
+            </div>
         </div>
     </div>
 </th:block>
@@ -160,9 +200,23 @@
             }
 
             async init() {
-                this.today();                    // 기본은 오늘
+                this.week();                     // 기본은 최근 7일
+                this.bindQtyModal();
                 await this.loadFilters();
                 await this.search();
+            }
+
+            /* 수량 수정 모달. 브라우저 prompt() 는 화면 톤과 어긋나 직접 만든다 */
+            bindQtyModal() {
+                this.el('qtyOk').onclick = () => this.saveQty();
+                this.el('qtyCancel').onclick = () => this.closeQty();
+                this.el('qtyModal').onclick = e => {
+                    if (e.target === this.el('qtyModal')) this.closeQty();
+                };
+                this.el('qtyInput').onkeyup = e => {
+                    if (e.key === 'Enter') this.saveQty();
+                    if (e.key === 'Escape') this.closeQty();
+                };
             }
 
             // ===== 마스터 =====
@@ -215,19 +269,19 @@
 
             // ===== 조회 =====
 
-            today() {
-                const d = new Date().toISOString().slice(0, 10);
-                this.el('dateFrom').value = d;
-                this.el('dateTo').value = d;
+            /* 기본 조회 기간. 날짜만 채우고 조회는 부르지 않는다 —
+               init 에서 곧바로 search() 를 부르므로 두 번 나가게 된다. */
+            week() {
+                const to = new Date(), from = new Date();
+                from.setDate(from.getDate() - 6);
+                this.el('dateFrom').value = this.ymd(from);
+                this.el('dateTo').value = this.ymd(to);
             }
 
-            week() {
-                const to = new Date();
-                const from = new Date();
-                from.setDate(from.getDate() - 6);
-                this.el('dateFrom').value = from.toISOString().slice(0, 10);
-                this.el('dateTo').value = to.toISOString().slice(0, 10);
-                this.search();
+            // 로컬 시간 기준 YYYY-MM-DD (toISOString 은 UTC 라 KST 에서 하루 밀린다)
+            ymd(d) {
+                const p = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
             }
 
             params() {
@@ -283,7 +337,7 @@
 
                 const body = this.el('listBody');
                 if (!this.rows.length) {
-                    body.innerHTML = '<tr><td colspan="10" class="empty">조회 결과가 없습니다.</td></tr>';
+                    body.innerHTML = '<tr><td colspan="11" class="empty">조회 결과가 없습니다.</td></tr>';
                     return;
                 }
 
@@ -301,11 +355,15 @@
                     : '<span class="mut">품목 미지정</span>'}</td>
                         <td><span class="kchip ${r.kind === 'etc' ? 'etc' : ''}">${this.escHtml(r.kind)}</span></td>
                         <td class="r qty">${this.nf(r.good_qty)}</td>
-                        <td><a class="btn" style="padding:3px 9px" data-i="${i}">취소</a></td>
+                        <td class="r" style="color:#c2410c;font-weight:700">${
+                    r.defect_qty ? this.nf(r.defect_qty) : '<span class="mut">-</span>'}</td>
+                        <td class="act"><a class="btn" data-u="${i}">수정</a><a class="btn" data-i="${i}">삭제</a></td>
                     </tr>`).join('');
 
                 body.querySelectorAll('[data-i]').forEach(b =>
                     b.onclick = () => this.remove(this.rows[+b.dataset.i]));
+                body.querySelectorAll('[data-u]').forEach(b =>
+                    b.onclick = () => this.editQty(this.rows[+b.dataset.u]));
             }
 
             /*
@@ -313,15 +371,65 @@
              * 수정을 두지 않는 이유: 수량을 고치면 원래 값이 사라진다.
              * 취소하고 다시 넣으면 이력이 남는다.
              */
+
+            /*
+             * 수량 수정. 양품 행이면 GoodQty, 불량 행이면 DefectQty 를 서버가 골라 고친다.
+             * 품목·유형·설비·작업자는 못 고친다 — 그건 삭제하고 다시 넣어야 이력이 남는다.
+             */
+            editQty(r) {
+                if (!r) return;
+                this.editRow = r;
+                const isNg = !!(+r.defect_qty);
+                this.el('qtyDesc').textContent =
+                    `${r.prod_date} · ${r.operation} · ${r.kind}`
+                    + (r.item_name ? ` · ${r.item_name}` : '');
+                this.el('qtyLabel').textContent = isNg ? '불량 수량' : '수량';
+                this.el('qtyInput').value = isNg ? r.defect_qty : r.good_qty;
+                this.el('qtyModal').style.display = 'flex';
+                this.el('qtyInput').focus();
+                this.el('qtyInput').select();
+            }
+
+            closeQty() {
+                this.el('qtyModal').style.display = 'none';
+                this.editRow = null;
+            }
+
+            async saveQty() {
+                const r = this.editRow;
+                if (!r) return;
+                const qty = parseFloat(this.el('qtyInput').value);
+                if (!(qty > 0)) {
+                    Alert.alert('', '0보다 큰 수를 입력하세요.');
+                    return;
+                }
+
+                const res = await this.post(`${this.API}/update_qty`, {id: r.id, qty: qty});
+                if (!res.success) {
+                    Alert.alert('', res.message || '수정에 실패했습니다.');
+                    return;
+                }
+                this.closeQty();
+                await this.search();
+            }
+
             async remove(r) {
                 if (!r) return;
+                /* 불량 행은 GoodQty 가 0 이다. 그대로 찍으면 '50개 삭제' 인데
+                   '0' 이라고 물어보게 되어 무엇을 지우는지 알 수 없다. */
+                const isNg = !!(+r.defect_qty);
+                const qty = isNg
+                    ? `불량 ${this.nf(r.defect_qty)}`
+                    : `${this.nf(r.good_qty)}`;
                 const ok = await Alert.confirmAsync('',
-                    `${r.prod_date} · ${r.operation} · ${r.kind} ${this.nf(r.good_qty)}\n이 실적을 취소하시겠습니까?`);
+                    `${r.prod_date} · ${r.operation} · ${r.kind} · ${qty}`
+                    + `${r.item_name ? ' · ' + r.item_name : ''}`
+                    + `\n이 실적을 삭제하시겠습니까?`);
                 if (!ok) return;
 
                 const res = await this.post(`${this.API}/delete`, {id: r.id});
                 if (!res.success) {
-                    Alert.alert('', res.message || '취소에 실패했습니다.');
+                    Alert.alert('', res.message || '삭제에 실패했습니다.');
                     return;
                 }
                 await this.search();
@@ -329,9 +437,13 @@
 
             // ===== helper =====
 
-            el(id) { return document.getElementById(id); }
+            el(id) {
+                return document.getElementById(id);
+            }
 
-            nf(n) { return Number(n || 0).toLocaleString(); }
+            nf(n) {
+                return Number(n || 0).toLocaleString();
+            }
 
             // AjaxUtil 이 CSRF / spjangcd / 로딩바를 처리한다. 콜백이라 Promise 로 감싼다
             get(url, data) {
@@ -355,7 +467,9 @@
                     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             }
 
-            esc(s) { return (s == null ? '' : String(s)).replace(/"/g, '&quot;'); }
+            esc(s) {
+                return (s == null ? '' : String(s)).replace(/"/g, '&quot;');
+            }
         }
 
         $(document).ready(function () {

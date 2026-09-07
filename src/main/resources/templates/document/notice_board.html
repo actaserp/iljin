@@ -19,7 +19,8 @@
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
-                <li>모니터링</li>
+                <li>조치 및 통계</li>
+                <li>업무지원</li>
                 <li>공지사항</li>
             </ul>
         </div>
@@ -73,9 +74,38 @@
                         </dl>
                     </div>
                 </form>
-             <!--//section-top end -->
+                <!--//section-top end -->
 
-
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <a class="btn btn-excell" title="신규등록" id="btnNew">
+                                <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                신규등록
+                            </a>
+                            <!-- <button type="button" class="btn btn-excel" id="btnNew" name="btnNew" title="신규">
+                                 <img th:src="@{/images/icon/ico-plus.svg}" alt="등록 아이콘">
+                                 신규</button>-->
+                        </li>
+                        <li>
+                            <a class="btn btn-edit" id="btnUpdate" title="수정">
+                                <img th:src="@{/images/icon/ico-save.svg}" alt="수정 아이콘">
+                                수정
+                            </a>
+                        </li>
+                        <!-- <button type="button" class="btn btn-edit" id="btnSave"  title="저장">
+                             <img th:src="@{/images/icon/ico-save.svg}" alt="저장 아이콘">저장</button>-->
+                        <li>
+                            <a class="btn btn-delete" title="삭제" id="btnDel">
+                                <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                삭제
+                            </a>
+                            <!-- <button type="button" class="btn btn-delete" id="btnDel" title="삭제">
+                                 <img th:src="@{/images/icon/ico-delete.svg}" alt="삭제 아이콘">
+                                 삭제</button>-->
+                        </li>
+                    </ul>
+                </div>
             </div>
             <div class="container-fluid">
                 <div id="theGrid"></div>
@@ -89,7 +119,7 @@
         <p>Copyrightⓒ 0000 corp. All rights reserved.</p>
     </footer>
 
-<!--공지사항 등록 스크립트-->
+    <!--공지사항 등록 스크립트-->
     <script type="text/x-tmpl" id="noticeTmpl">
         <div class="content_wrap popup">
             <div class="table-wrap">
@@ -496,7 +526,6 @@
         $(document).ready(function () {
 
 
-
             const currentDate = new Date();
             // 오늘 날짜를 'YYYY-MM-DD' 형식으로 변환
             const today = currentDate.toISOString().split('T')[0];
@@ -540,7 +569,6 @@
             });
 
 
-
             //신규버튼
             $("#btnNew").click(function (e) {
                 let today_string = CommonUtil.getYYYYMMDD();
@@ -564,7 +592,7 @@
             //수정버튼
             $("#btnUpdate").click(function (e) {
                 /*let items = page.grid.getList("selected");*/
-                let selectedRow  = theGrid.selection.row;
+                let selectedRow = theGrid.selection.row;
                 let selectedItem = theGrid.rows[selectedRow]?.dataItem; // 선택된 행이 없는 경우 undefined 방지
 
                 if (selectedItem) {  // 객체 존재 여부 확인

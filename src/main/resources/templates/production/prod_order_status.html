@@ -1,0 +1,287 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* 이 페이지 전용 스타일만 정의한다.
+           .layout-contents / .section / .section-top / .container-fluid / .btn 등은
+           layout_page 가 제공하므로 재정의하지 않는다. */
+
+        /* ★ min-height 가 아니라 height 로 잡아야 안쪽만 스크롤된다.
+           min-height 면 내용이 길 때 페이지 전체가 늘어나 바깥 스크롤이 생기고,
+           그러면 검색줄과 요약 카드까지 같이 밀려 올라간다. */
+        .layout-contents { display:flex; flex-direction:column; height:100vh;
+            overflow:hidden; box-sizing:border-box; }
+        .main-row { display:flex; flex-direction:column; gap:5px; flex:1 1 auto; min-height:0; }
+        .main-row > .section { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+
+        /* 본문만 스크롤.
+           ★ 스크롤 컨테이너에 padding-top 을 주면 안 된다.
+             sticky 헤더는 스크롤포트 기준으로 붙는데 패딩 영역이 그 위에 남아,
+             스크롤할 때 헤더 위 틈으로 다음 행이 잘려 보인다. */
+        .main-row > .section > .container-fluid { flex:1 1 auto; min-height:0; overflow:auto; padding-top:0; }
+        .main-row > .section > .section-top { flex:0 0 auto; margin-bottom:10px; }
+
+        table.work-table { width:100%; border-collapse:collapse; }
+        table.work-table th, table.work-table td {
+            border:1px solid #d7dde7; padding:5px 7px; font-size:12.5px;
+            text-align:center; white-space:nowrap; }
+        /* border-collapse 는 sticky 셀의 테두리를 떼어 간다. inset 그림자로 그린다 */
+        table.work-table th {
+            background:#eef2f8; color:#445; font-weight:700;
+            position:sticky; top:0; z-index:2;
+            box-shadow: inset 0 1px 0 #d7dde7, inset 0 -1px 0 #d7dde7; }
+        table.work-table td.l { text-align:left; }
+        table.work-table td.r { text-align:right; }
+        table.work-table tr:hover td { background:#f4f8ff; }
+
+        .badge { display:inline-block; border-radius:10px; padding:2px 9px; font-size:11.5px; font-weight:700; }
+        .badge.ordered { background:#e3f2e8; color:#1b6b3a; }
+        .badge.unordered { background:#eef0f4; color:#8b95a7; }
+        .badge.out { background:#fdeee3; color:#a2560f; }
+        .badge.in { background:#eaf1fb; color:#2b5f9e; }
+        .badge.none { background:#fff6d9; color:#8a6d1b; }
+
+        /* layout_page 의 .search-wrap ul li { flex:1 1 0; min-width:100px } 때문에
+           날짜·버튼이 각각 100px 을 차지해 검색줄이 과하게 넓어진다. */
+        .search-wrap ul li { flex:0 0 auto; min-width:0; }
+
+        .mut { color:#8b95a7; }
+        .empty { color:#99a; text-align:center; padding:22px 0; }
+        .prog { display:inline-block; min-width:54px; }
+        .prog b { color:#1f4e8c; }
+        .prog.done b { color:#1b6b3a; }
+
+        /* 요약 카드 */
+        .sum-row { display:flex; gap:8px; flex-wrap:wrap; padding:10px 13px; }
+        .sum-card { border:1px solid #d7dde7; border-radius:8px; padding:8px 14px; min-width:120px; background:#fff; }
+        .sum-card .l { font-size:12px; color:#5b6b86; font-weight:700; }
+        .sum-card .v { font-size:19px; font-weight:800; color:#1f4e8c; margin-top:2px; }
+        .sum-card.warn .v { color:#b06414; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>생산 지시 현황</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산관리</li>
+                <li>생산 지시 현황</li>
+            </ul>
+        </div>
+
+        <div class="main-row">
+            <section class="section" style="flex:0 0 auto;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl><dt>프로젝트</dt>
+                            <dd><select id="fProject" style="min-width:220px"></select></dd></dl>
+                        <dl><dt>지시 상태</dt>
+                            <dd><select id="fState" style="min-width:110px">
+                                <option value="">전체</option>
+                                <option value="Y">지시완료</option>
+                                <option value="N">미지시</option>
+                            </select></dd></dl>
+                        <dl><dt>검색</dt>
+                            <dd><input type="text" id="fKeyword" placeholder="품목명 · 라인"
+                                       style="min-width:180px"></dd></dl>
+                        <!-- 검색 버튼은 필터 바로 옆에. 오른쪽 끝이면 시선이 멀리 이동한다 -->
+                        <dl><dt>&nbsp;</dt>
+                            <dd><a class="btn btn-search" onclick="prodOrderStatus.search()">검색</a></dd></dl>
+                    </div>
+                </div>
+                <div class="sum-row" id="sumRow"></div>
+            </section>
+
+            <section class="section" style="flex:1;">
+                <div class="section-top">
+                    <span style="font-weight:700">지시 내역 <span class="mut" id="cntLab"></span></span>
+                </div>
+                <div class="container-fluid">
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:12%">  <!-- 프로젝트 -->
+                            <col style="width:7%">   <!-- 라인 -->
+                            <col style="width:11%">  <!-- 품목 -->
+                            <col style="width:10%">  <!-- 설비타입 -->
+                            <col style="width:9%">   <!-- 수주 -->
+                            <col style="width:6%">   <!-- 구분 -->
+                            <col style="width:7%">   <!-- 출도 -->
+                            <col style="width:6%">   <!-- 부품 -->
+                            <col style="width:7%">   <!-- 가공 -->
+                            <col style="width:7%">   <!-- 유닛 -->
+                            <col style="width:7%">   <!-- 공정 -->
+                            <col style="width:7%">   <!-- 검사 -->
+                            <col style="width:8%">   <!-- 지시 -->
+                        </colgroup>
+                        <thead>
+                        <tr>
+                            <th>프로젝트</th><th>라인</th><th>품목</th><th>설비타입</th><th>수주</th>
+                            <th>구분</th><th>출도</th><th>부품</th>
+                            <th>가공</th><th>유닛</th><th>공정</th><th>검사</th><th>지시</th>
+                        </tr>
+                        </thead>
+                        <tbody id="listBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        /*
+         * 생산 지시 현황
+         *
+         * 생산 지시 화면은 프로젝트를 하나 골라야 볼 수 있어, 전체가 어디까지 왔는지
+         * 확인할 데가 없었다. 여기서 프로젝트를 가로질러 본다.
+         *
+         * [진척의 축이 다르다]
+         *   유닛 12/24   유닛 조립 (mat_produce PO=1). 참값
+         *   공정  0/2    공정 조립 (PO=2). 참값이며 이게 끝나야 만든 것이다
+         *   검사  0/2    검사 (PO=3). 여기 닿으면 공정이 닫힌다
+         *   가공  340    설비가 처리한 횟수. <b>완성 개수가 아니다</b>
+         *
+         *   가공에 목표가 없는 이유는 어느 부품이 어느 공정을 거치는지 모르기 때문이다
+         *   (라우팅 없음 — SPEC 3-2). 그래서 진척률을 만들지 않고 합계만 보여준다.
+         *
+         * [통신] AjaxUtil 만 쓴다. $.ajax 직접 호출은 CSRF 가 빠져 403 이 난다.
+         */
+        class ProdOrderStatusPage {
+            constructor() {
+                this.API = '/api/production/prod_design';
+                this.spjangcd = $('#spjangcd').val() || 'ZZ';
+                this.rows = [];
+                this.init();
+            }
+
+            async init() {
+                await this.loadProjects();
+                await this.search();
+
+                ['fProject', 'fState'].forEach(id =>
+                    this.el(id).onchange = () => this.search());
+                this.el('fKeyword').onkeyup = e => { if (e.key === 'Enter') this.search(); };
+            }
+
+            async loadProjects() {
+                const res = await this.get(`${this.API}/project_list`, {spjangcd: this.spjangcd});
+                const list = res.data || [];
+                this.el('fProject').innerHTML = '<option value="">전체</option>'
+                    + list.map(p => `<option value="${this.esc(p.proj_no)}">`
+                        + `${this.escHtml(p.proj_no)} ${this.escHtml(p.proj_name || '')}</option>`).join('');
+            }
+
+            async search() {
+                const res = await this.get(`${this.API}/order_status`, {
+                    spjangcd: this.spjangcd,
+                    projNo: this.el('fProject').value,
+                    state: this.el('fState').value,
+                    keyword: this.el('fKeyword').value
+                });
+                this.rows = res.data || [];
+                this.renderSummary();
+                this.renderList();
+            }
+
+            renderSummary() {
+                const t = this.rows.length;
+                const ordered = this.rows.filter(r => r.order_state === '지시완료').length;
+                const out = this.rows.filter(r => r.make_type === 'outsource').length;
+                const noDraw = this.rows.filter(r => !r.draw_date).length;
+                // 공정 조립이 목표에 도달한 품목 = 만들어 낸 것
+                const done = this.rows.filter(r => +r.jig_qty > 0 && +r.set_done >= +r.jig_qty).length;
+
+                this.el('sumRow').innerHTML = `
+                    <div class="sum-card"><div class="l">품목</div><div class="v">${this.nf(t)}</div></div>
+                    <div class="sum-card"><div class="l">지시완료</div><div class="v">${this.nf(ordered)}</div></div>
+                    <div class="sum-card warn"><div class="l">미지시</div><div class="v">${this.nf(t - ordered)}</div></div>
+                    <div class="sum-card"><div class="l">제작완료</div><div class="v">${this.nf(done)}</div></div>
+                    <div class="sum-card"><div class="l">외작</div><div class="v">${this.nf(out)}</div></div>
+                    <div class="sum-card warn"><div class="l">미출도</div><div class="v">${this.nf(noDraw)}</div></div>`;
+            }
+
+            /* 완료/목표. 목표가 0 이면 '-' 로 둔다 —
+               0/0 을 100% 로 보이게 하면 아무것도 안 했는데 끝난 것처럼 읽힌다. */
+            prog(done, total) {
+                const t = +total || 0, d = +done || 0;
+                if (!t) return '<span class="mut">-</span>';
+                return `<span class="prog ${d >= t ? 'done' : ''}"><b>${this.nf(d)}</b>`
+                    + `<span class="mut">/${this.nf(t)}</span></span>`;
+            }
+
+            typeBadge(r) {
+                const t = (r.make_type || '').toLowerCase();
+                if (t === 'outsource') return '<span class="badge out">외작</span>';
+                if (t === 'self') return '<span class="badge in">내작</span>';
+                // 빈 값을 내작으로 뭉개면 누가 정한 것처럼 보인다
+                return '<span class="badge none">미지정</span>';
+            }
+
+            renderList() {
+                this.el('cntLab').textContent = this.rows.length ? `${this.nf(this.rows.length)}건` : '';
+
+                const body = this.el('listBody');
+                if (!this.rows.length) {
+                    body.innerHTML = '<tr><td colspan="13" class="empty">조회 결과가 없습니다.</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = this.rows.map(r => `
+                    <tr>
+                        <td class="l">${this.escHtml(r.proj_no)}
+                            <span class="mut">${this.escHtml(r.proj_name || '')}</span></td>
+                        <td>${this.escHtml(r.line_name || '')}</td>
+                        <td class="l" style="font-weight:700">${this.escHtml(r.item_name || '')}</td>
+                        <td class="mut">${this.escHtml(r.equip_type || '-')}</td>
+                        <td class="mut">${this.escHtml(r.suju_name || '-')}</td>
+                        <td>${this.typeBadge(r)}</td>
+                        <td class="mut">${r.draw_date
+                || '<span style="color:#b06414">미출도</span>'}</td>
+                        <td>${r.part_cnt || 0}</td>
+                        <td class="r">${+r.mach_qty
+                    ? this.nf(r.mach_qty) : '<span class="mut">-</span>'}</td>
+                        <td>${this.prog(r.unit_done, r.unit_qty)}</td>
+                        <td>${this.prog(r.set_done, r.jig_qty)}</td>
+                        <td>${this.prog(r.insp_done, r.jig_qty)}</td>
+                        <td><span class="badge ${r.order_state === '지시완료' ? 'ordered' : 'unordered'}">
+                            ${r.order_state}</span>
+                            ${r.order_date ? `<div class="mut" style="font-size:11px">${r.order_date}</div>` : ''}</td>
+                    </tr>`).join('');
+            }
+
+            // ===== helper =====
+
+            el(id) { return document.getElementById(id); }
+
+            nf(n) { return Number(n || 0).toLocaleString(); }
+
+            // AjaxUtil 이 CSRF / spjangcd / 로딩바를 처리한다. 콜백이라 Promise 로 감싼다
+            get(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.getAsyncData(url, data,
+                        res => resolve(res || {success: false, data: null}),
+                        () => resolve({success: false, data: null}));
+                });
+            }
+
+            escHtml(s) {
+                return (s == null ? '' : String(s))
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            esc(s) {
+                return (s == null ? '' : String(s)).replace(/"/g, '&quot;');
+            }
+        }
+
+        $(document).ready(function () {
+            window.prodOrderStatus = new ProdOrderStatusPage();
+        });
+    </script>
+</th:block>
+</html>

@@ -508,7 +508,241 @@ public class ProdAssemblyService {
 		syncJobResState(sujuId, user);
 
 		// ★ 공정 조립만 재고를 만든다. 유닛·가공품은 만들지 않는다.
-		if (STAGE_SET.equals(stage)) produceIn(toInt(w.get("id")), user);
+		if (STAGE_SET.equals(stage)) {
+			Integer mpId = toInt(w.get("id"));
+			produceIn(mpId, user);
+
+			/*
+			 * ★ 자재는 <b>전량 완성 시점에 한 번만</b> 뺀다.
+			 *
+			 *   부품표 수량이 공정(품목) 전체 총량이기 때문이다.
+			 *   "2대에 10개" 인데 완료를 누를 때마다 빼면 1대에 10개씩 20개가 나간다.
+			 *   1대당으로 나누는 방법도 있지만, 나누어떨어지지 않는 부품이 생기고
+			 *   반올림한 만큼 재고가 어긋난다.
+			 *
+			 *   이미 뺀 적이 있으면 다시 빼지 않는다 —
+			 *   완료를 취소했다 다시 눌러도 이중 차감이 되지 않아야 한다.
+			 */
+			if (isSetFinished(sujuId) && !alreadyConsumed(sujuId)) {
+				consumeParts(sujuId, mpId, user);
+			}
+		}
+	}
+
+	/** 공정 조립이 목표(지그 대수)에 도달했나 */
+	private boolean isSetFinished(Integer sujuId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("sujuId", sujuId);
+		Map<String, Object> r = sqlRunner.getRow("""
+            SELECT COALESCE(s."SujuQty", 0) AS target
+                 , COALESCE((SELECT SUM(COALESCE(mp."GoodQty", 0))
+                               FROM mat_produce mp
+                               JOIN job_res j2 ON j2.id = mp."JobResponse_id"
+                              WHERE j2."SourceTableName" = 'suju'
+                                AND j2."SourceDataPk" = s.id
+                                AND mp."ProcessOrder" = 2
+                                AND mp."State" = 'finished'), 0) AS done
+            FROM suju s WHERE s.id = :sujuId
+            """, p);
+		if (r == null) return false;
+		double target = toDouble(r.get("target"));
+		return target > 0 && toDouble(r.get("done")) >= target;
+	}
+
+	/**
+	 * 이 품목의 자재를 이미 뺐나.
+	 *
+	 * mat_inout 의 출고 이력으로 판단한다. 완료를 취소했다 다시 눌러도
+	 * 두 번 빠지지 않아야 하기 때문이다.
+	 */
+	private boolean alreadyConsumed(Integer sujuId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("sujuId", sujuId);
+		return sqlRunner.queryForCount("""
+            SELECT COUNT(*)
+            FROM mat_inout mi
+            JOIN mat_produce mp ON mp.id = mi."SourceDataPk"
+                               AND mi."SourceTableName" = 'mat_produce'
+            JOIN job_res j ON j.id = mp."JobResponse_id"
+                          AND j."SourceTableName" = 'suju'
+            WHERE j."SourceDataPk" = :sujuId
+              AND mi."InOut" = 'out'
+              AND mi."OutputType" = 'consumed_out'
+            """, p) > 0;
+	}
+
+	/**
+	 * 투입 예정 자재. 공정 조립을 완료하면 이만큼 재고에서 빠진다.
+	 *
+	 * 화면에 미리 보여 주는 이유는, 완료를 누른 뒤에야 재고가 모자랐다는 걸 알면
+	 * 이미 늦기 때문이다. 부족분은 화면이 붉게 표시한다.
+	 */
+	public List<Map<String, Object>> getConsumePlan(Integer sujuId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("sujuId", sujuId);
+
+		return sqlRunner.getRows("""
+            SELECT b."PartName"           AS part_name
+                 , b."Gubun"              AS gubun
+                 , COALESCE(b."Qty", 0)   AS need_qty
+                 , b."Material_id"        AS material_id
+                 , m."Name"               AS material_name
+                 , m."Code"               AS material_code
+                 , COALESCE((SELECT SUM(COALESCE(l."CurrentStock", 0))
+                               FROM mat_lot l
+                              WHERE l."Material_id" = b."Material_id"
+                                AND l.spjangcd = s.spjangcd), 0) AS stock
+            FROM iljin_suju_bom b
+            JOIN suju s ON s.id = b."Suju_id"
+            LEFT JOIN material m ON m.id = b."Material_id"
+            WHERE b."Suju_id" = :sujuId
+              AND COALESCE(b."Qty", 0) > 0
+              -- ★ 품목이 안 붙은 것도 <b>보여준다.</b>
+              --   실제 차감은 연결된 것만 하지만(consumeParts), 목록에서 빼 버리면
+              --   왜 안 빠지는지 화면에서 알 수 없다. 화면이 '미연결' 로 표시한다.
+            ORDER BY b."Gubun", b."PartName"
+            """, p);
+	}
+
+	/**
+	 * 자재 소요 — 공정 조립 완료 시 BOM 만큼 재고를 뺀다.
+	 *
+	 * ★ 판정 기준은 구분이 아니라 <b>품목마스터 연결 여부</b>다.
+	 *   가공품(제작품)은 프로젝트 1회성이라 품목을 안 붙이고 재고도 없다(SPEC 3-1).
+	 *   반대로 다리발처럼 <b>사 오기도 하고 만들기도 하는</b> 것은 구분이 그때그때 다른데,
+	 *   품목이 붙어 있으면 재고가 있는 자재라는 뜻이므로 빼야 한다.
+	 *   구분으로 거르면 사용자가 '제작품'으로 둔 순간 차감이 조용히 멈춘다.
+	 *
+	 * ★ 수량은 부품표 값을 <b>그대로</b> 뺀다.
+	 *   부품표가 공정(품목) 전체 총량 기준이고, 차감도 지그를 전량 완성한 시점에
+	 *   한 번만 하므로 나누기가 필요 없다.
+	 *
+	 * ★ 재고가 모자라도 막지 않는다.
+	 *   막으면 현장은 조립을 멈추는 게 아니라 시스템을 우회한다.
+	 *   입고 등록이 늦은 것일 뿐이므로 로그만 남기고 진행한다.
+	 *
+	 * 기존 MES 와 같은 방식이다: mat_lot_cons 에 소비를 기록하고
+	 * mat_lot 의 OutQtySum·CurrentStock 을 다시 계산한다. mat_inout(out) 도 남긴다.
+	 */
+	@Transactional
+	public void consumeParts(Integer sujuId, Integer matProduceId, User user) {
+
+		MapSqlParameterSource q = new MapSqlParameterSource();
+		q.addValue("sujuId", sujuId);
+
+		List<Map<String, Object>> parts = sqlRunner.getRows("""
+            SELECT b."Material_id"           AS material_id
+                 , b."PartName"              AS part_name
+                 , COALESCE(b."Qty", 0)      AS qty
+                 , m."Name"                  AS material_name
+                 , s.spjangcd                AS spjangcd
+            FROM iljin_suju_bom b
+            JOIN suju s ON s.id = b."Suju_id"
+            LEFT JOIN material m ON m.id = b."Material_id"
+            WHERE b."Suju_id" = :sujuId
+              AND b."Material_id" IS NOT NULL
+              AND COALESCE(b."Qty", 0) > 0
+            """, q);
+
+		for (Map<String, Object> b : parts) consumeOne(b, matProduceId, user);
+	}
+
+	/** 자재 한 건 소비. LOT 을 입고 순서대로 훑어 채운다 (선입선출) */
+	private void consumeOne(Map<String, Object> b, Integer matProduceId, User user) {
+
+		Integer materialId = toInt(b.get("material_id"));
+		double need = toDouble(b.get("qty"));
+		String spjangcd = str(b.get("spjangcd"));
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("materialId", materialId);
+		p.addValue("spjangcd", spjangcd);
+
+		List<Map<String, Object>> lots = sqlRunner.getRows("""
+            SELECT l.id, COALESCE(l."CurrentStock", 0) AS stock
+            FROM mat_lot l
+            WHERE l."Material_id" = :materialId
+              AND l.spjangcd = :spjangcd
+              AND COALESCE(l."CurrentStock", 0) > 0
+            ORDER BY l."InputDateTime", l.id
+            """, p);
+
+		double left = need;
+		for (Map<String, Object> lot : lots) {
+			if (left <= 0) break;
+			double take = Math.min(toDouble(lot.get("stock")), left);
+			writeConsume(toInt(lot.get("id")), take, matProduceId, spjangcd, user);
+			left -= take;
+		}
+
+		/*
+		 * 남은 수량은 LOT 없이 소비된 것이다. 재고보다 많이 썼다는 뜻이라 로그로 남긴다.
+		 * 막지 않는 이유는 위 주석에 있다.
+		 */
+		if (left > 0) {
+			log.warn("[prod_assembly] 재고 부족 — {} ({}) 필요 {} 중 {} 미차감. 입고 등록을 확인할 것.",
+					str(b.get("part_name")), str(b.get("material_name")), need, left);
+		}
+
+		MapSqlParameterSource io = new MapSqlParameterSource();
+		io.addValue("spjangcd", spjangcd);
+		io.addValue("materialId", materialId);
+		io.addValue("qty", need);
+		io.addValue("id", matProduceId);
+		io.addValue("userId", user.getId());
+		sqlRunner.execute("""
+            INSERT INTO mat_inout (
+                 spjangcd, "Material_id", "StoreHouse_id"
+               , "InoutDate", "InoutTime", "InOut", "OutputType", "OutputQty"
+               , "SourceTableName", "SourceDataPk", "State", "Description"
+               , _status, _created, _creater_id
+            )
+            SELECT :spjangcd, :materialId
+                 , (SELECT sh.id FROM store_house sh
+                     WHERE sh.spjangcd = :spjangcd AND sh."HouseType" = 'material'
+                     ORDER BY sh.id LIMIT 1)
+                 , CURRENT_DATE, LOCALTIME, 'out', 'consumed_out', :qty
+                 , 'mat_produce', :id, 'confirmed', '조립 투입'
+                 , 'a', now(), :userId
+            """, io);
+	}
+
+	/** LOT 하나에서 빼고 잔량을 다시 계산한다 */
+	private void writeConsume(Integer lotId, double qty, Integer matProduceId,
+							  String spjangcd, User user) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("lotId", lotId);
+		p.addValue("qty", qty);
+		p.addValue("id", matProduceId);
+		p.addValue("spjangcd", spjangcd);
+		p.addValue("userId", user.getId());
+
+		sqlRunner.execute("""
+            INSERT INTO mat_lot_cons (
+                 "MaterialLot_id", "OutputDateTime", "OutputQty", "Description"
+               , "SourceTableName", "SourceDataPk"
+               , "PrevStock", "CurrentStock", spjangcd
+               , _status, _created, _creater_id
+            )
+            SELECT l.id, now(), :qty, '조립 투입'
+                 , 'mat_produce', :id
+                 , COALESCE(l."CurrentStock", 0)
+                 , COALESCE(l."CurrentStock", 0) - :qty
+                 , :spjangcd
+                 , 'a', now(), :userId
+            FROM mat_lot l WHERE l.id = :lotId
+            """, p);
+
+		// 기존 MES 와 같은 방식으로 잔량을 다시 계산한다
+		sqlRunner.execute("""
+            UPDATE mat_lot
+            SET "OutQtySum" = COALESCE((SELECT SUM(c."OutputQty") FROM mat_lot_cons c
+                                        WHERE c."MaterialLot_id" = :lotId), 0)
+              , "CurrentStock" = COALESCE("InputQty", 0)
+                    - COALESCE((SELECT SUM(c."OutputQty") FROM mat_lot_cons c
+                                 WHERE c."MaterialLot_id" = :lotId), 0)
+            WHERE id = :lotId
+            """, p);
 	}
 
 	/**
@@ -547,7 +781,12 @@ public class ProdAssemblyService {
                  , mp."LotNumber"    AS lot_number
                  , COALESCE(mp."GoodQty", 0) AS good_qty
                  , mp."LotIndex"     AS lot_index
-                 , m."StoreHouse_id" AS store_house_id
+                 -- ★ 완성된 지그는 <b>제품창고</b>로 간다.
+                 --   material."StoreHouse_id" 는 그 자재를 <b>사 올 때</b> 넣는 창고라
+                 --   그대로 쓰면 완제품이 자재창고에 들어간다.
+                 , (SELECT sh.id FROM store_house sh
+                     WHERE sh.spjangcd = mp.spjangcd AND sh."HouseType" = 'product'
+                     ORDER BY sh.id LIMIT 1) AS store_house_id
                  , s.project_id      AS proj_no
                  , s."Material_Name" AS item_name
             FROM mat_produce mp
@@ -753,11 +992,13 @@ public class ProdAssemblyService {
 	 * "어제 완료한 것"이 화면에서 사라져 작업자가 중복 등록하게 된다.
 	 * 날짜를 넘기지 않으면 프로젝트 기준 최근 100건을 그대로 보여준다.
 	 */
-	public List<Map<String, Object>> getResultLog(String spjangcd, String prodDate,
+	public List<Map<String, Object>> getResultLog(String spjangcd, String dateFrom, String dateTo,
 												  String projNo, String stage) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
-		p.addValue("prodDate", nullIfEmpty(prodDate));
+		// 기간 조회. 한쪽만 주면 그쪽 조건만 걸린다
+		p.addValue("dateFrom", nullIfEmpty(dateFrom));
+		p.addValue("dateTo", nullIfEmpty(dateTo));
 		p.addValue("projNo", nullIfEmpty(projNo));
 		p.addValue("procOrder", stage == null || stage.isBlank() ? null : procOrderOf(normalizeStage(stage)));
 
@@ -789,8 +1030,10 @@ public class ProdAssemblyService {
             JOIN suju s    ON s.id = j."SourceDataPk"
             LEFT JOIN person pw ON pw.id = mp."Actor_id"
             WHERE mp.spjangcd = :spjangcd
-              AND (CAST(:prodDate AS date) IS NULL
-                   OR mp."ProductionDate" = CAST(:prodDate AS date))
+              AND (CAST(:dateFrom AS date) IS NULL
+                   OR mp."ProductionDate" >= CAST(:dateFrom AS date))
+              AND (CAST(:dateTo AS date) IS NULL
+                   OR mp."ProductionDate" <= CAST(:dateTo AS date))
               AND (CAST(:projNo AS varchar) IS NULL
                    OR s.project_id = CAST(:projNo AS varchar))
               AND (CAST(:procOrder AS smallint) IS NULL

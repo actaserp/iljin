@@ -1,0 +1,241 @@
+<html layout:decorate="~{layout_page}">
+<head>
+    <style>
+        /* ★ min-height 가 아니라 height 로 잡아야 안쪽만 스크롤된다.
+           min-height 면 내용이 길 때 페이지 전체가 늘어나 바깥 스크롤이 생기고,
+           그러면 검색줄과 요약 카드까지 같이 밀려 올라간다. */
+        .layout-contents { display:flex; flex-direction:column; height:100vh;
+            overflow:hidden; box-sizing:border-box; }
+        .main-row { display:flex; flex-direction:column; gap:5px; flex:1 1 auto; min-height:0; }
+        .main-row > .section { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+        /* 스크롤 컨테이너에 padding-top 을 주면 sticky 헤더 위로 행이 비쳐 보인다 */
+        .main-row > .section > .container-fluid { flex:1 1 auto; min-height:0; overflow:auto; padding-top:0; }
+        .main-row > .section > .section-top { flex:0 0 auto; margin-bottom:10px; }
+
+        table.work-table { width:100%; border-collapse:collapse; }
+        table.work-table th, table.work-table td {
+            border:1px solid #d7dde7; padding:5px 7px; font-size:12.5px;
+            text-align:center; white-space:nowrap; }
+        /* border-collapse 는 sticky 셀의 테두리를 떼어 간다 */
+        table.work-table th {
+            background:#eef2f8; color:#445; font-weight:700;
+            position:sticky; top:0; z-index:2;
+            box-shadow: inset 0 1px 0 #d7dde7, inset 0 -1px 0 #d7dde7; }
+        table.work-table td.l { text-align:left; }
+        table.work-table td.r { text-align:right; }
+        table.work-table tr:hover td { background:#f4f8ff; }
+        table.work-table tr.out td { color:#9aa3ad; }
+
+        /* layout_page 의 .search-wrap ul li { flex:1 1 0; min-width:100px } 때문에
+           날짜·버튼이 각각 100px 을 차지해 검색줄이 과하게 넓어진다. */
+        .search-wrap ul li { flex:0 0 auto; min-width:0; }
+
+        .mut { color:#8b95a7; }
+        .empty { color:#99a; text-align:center; padding:22px 0; }
+        .stock { font-weight:800; color:#1b6b3a; }
+        .stock.zero { color:#9aa3ad; font-weight:600; }
+        .lot { font-family:Consolas,monospace; font-size:11.5px; color:#5b6b86; }
+
+        .sum-row { display:flex; gap:8px; flex-wrap:wrap; padding:10px 13px; }
+        .sum-card { border:1px solid #d7dde7; border-radius:8px; padding:8px 14px;
+            min-width:120px; background:#fff; }
+        .sum-card .l { font-size:12px; color:#5b6b86; font-weight:700; }
+        .sum-card .v { font-size:19px; font-weight:800; color:#1f4e8c; margin-top:2px; }
+        .sum-note { font-size:11.5px; color:#8b95a7; padding:0 13px 10px; line-height:1.6; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>공정 재고 관리</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>생산관리</li>
+                <li>공정 재고 관리</li>
+            </ul>
+        </div>
+
+        <div class="main-row">
+            <section class="section" style="flex:0 0 auto;">
+                <div class="section-top">
+                    <div class="search-wrap">
+                        <dl><dt>프로젝트</dt>
+                            <dd><select id="fProject" style="min-width:210px"></select></dd></dl>
+                        <dl><dt>검색</dt>
+                            <dd><input type="text" id="fKeyword" placeholder="품목명 · LOT"
+                                       style="min-width:180px"></dd></dl>
+                        <dl><dt>보기</dt>
+                            <dd><label style="font-size:12.5px">
+                                <input type="checkbox" id="fHideOut"> 출고분 숨기기</label></dd></dl>
+                        <dl><dt>&nbsp;</dt>
+                            <dd><a class="btn btn-search" onclick="procStock.search()">검색</a></dd></dl>
+                    </div>
+                </div>
+                <div class="sum-row" id="sumRow"></div>
+            </section>
+
+            <section class="section" style="flex:1;">
+                <div class="section-top">
+                    <span style="font-weight:700">재고 내역 <span class="mut" id="cntLab"></span></span>
+                </div>
+                <div class="container-fluid">
+                    <table class="work-table">
+                        <colgroup>
+                            <col style="width:9%">   <!-- 입고일 -->
+                            <col style="width:18%">  <!-- LOT -->
+                            <col style="width:15%">  <!-- 프로젝트 -->
+                            <col style="width:7%">   <!-- 라인 -->
+                            <col style="width:10%">  <!-- 품목 -->
+                            <col style="width:11%">  <!-- 설비타입 -->
+                            <col style="width:10%">  <!-- 창고 -->
+                            <col style="width:6%">   <!-- 입고 -->
+                            <col style="width:6%">   <!-- 출고 -->
+                            <col style="width:8%">   <!-- 재고 -->
+                        </colgroup>
+                        <thead>
+                        <tr><th>입고일</th><th>LOT</th><th>프로젝트</th><th>라인</th><th>품목</th>
+                            <th>설비타입</th><th>창고</th><th>입고</th><th>출고</th><th>재고</th></tr>
+                        </thead>
+                        <tbody id="listBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        /*
+         * 공정 재고 관리
+         *
+         * ★ 여기 재고는 <b>조립을 마친 공정(지그) 완제품</b>이다.
+         *   가공품 재고는 만들지 않는다 (SPEC 3-1) —
+         *   파기를 기록하지 않아 차감 이벤트가 영원히 안 들어오고,
+         *   몇 달 뒤 "브라켓 재고 3,200개" 라는 거짓 숫자가 박힌다.
+         *
+         *   지그는 다르다. 1식이라 잔량이 안 생기고, 파기가 사실상 없으며,
+         *   시운전·출하에서 차감 이벤트가 반드시 들어온다.
+         *   그래서 같은 '재고' 라는 말이라도 한쪽만 참으로 유지된다.
+         *
+         * [통신] AjaxUtil 만 쓴다. $.ajax 직접 호출은 CSRF 가 빠져 403 이 난다.
+         */
+        class ProcStockPage {
+            constructor() {
+                this.API = '/api/production/dash_project';
+                this.spjangcd = $('#spjangcd').val() || 'ZZ';
+                this.rows = [];
+                this.init();
+            }
+
+            async init() {
+                await this.loadProjects();
+                await this.search();
+                this.el('fProject').onchange = () => this.search();
+                this.el('fHideOut').onchange = () => this.renderList();
+                this.el('fKeyword').onkeyup = e => {
+                    if (e.key === 'Enter') this.search();
+                };
+            }
+
+            async loadProjects() {
+                const res = await this.get('/api/production/prod_design/project_list',
+                    {spjangcd: this.spjangcd});
+                const list = res.data || [];
+                this.el('fProject').innerHTML = '<option value="">전체</option>'
+                    + list.map(p => `<option value="${this.esc(p.proj_no)}">`
+                        + `${this.escHtml(p.proj_no)} ${this.escHtml(p.proj_name || '')}</option>`).join('');
+            }
+
+            async search() {
+                const res = await this.get(`${this.API}/process_stock`, {
+                    spjangcd: this.spjangcd,
+                    projNo: this.el('fProject').value,
+                    keyword: this.el('fKeyword').value
+                });
+                this.rows = res.data || [];
+                this.renderSummary();
+                this.renderList();
+            }
+
+            renderSummary() {
+                const inQ = this.rows.reduce((s, r) => s + (+r.in_qty || 0), 0);
+                const outQ = this.rows.reduce((s, r) => s + (+r.out_qty || 0), 0);
+                const stock = this.rows.reduce((s, r) => s + (+r.stock || 0), 0);
+                const live = this.rows.filter(r => +r.stock > 0).length;
+
+                this.el('sumRow').innerHTML = `
+                    <div class="sum-card"><div class="l">LOT</div><div class="v">${this.nf(this.rows.length)}</div></div>
+                    <div class="sum-card"><div class="l">재고 보유 LOT</div><div class="v">${this.nf(live)}</div></div>
+                    <div class="sum-card"><div class="l">입고 누계</div><div class="v">${this.nf(inQ)}</div></div>
+                    <div class="sum-card"><div class="l">출고 누계</div><div class="v">${this.nf(outQ)}</div></div>
+                    <div class="sum-card"><div class="l">현재고</div><div class="v">${this.nf(stock)}</div></div>`;
+            }
+
+            renderList() {
+                const hideOut = this.el('fHideOut').checked;
+                const list = hideOut ? this.rows.filter(r => +r.stock > 0) : this.rows;
+
+                this.el('cntLab').textContent = list.length ? `${this.nf(list.length)}건` : '';
+                const body = this.el('listBody');
+                if (!list.length) {
+                    body.innerHTML = '<tr><td colspan="10" class="empty">재고가 없습니다.</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = list.map(r => {
+                    const gone = !(+r.stock > 0);
+                    return `<tr class="${gone ? 'out' : ''}">
+                        <td class="mut">${r.in_date || '-'}</td>
+                        <td class="l lot">${this.escHtml(r.lot_no || '')}</td>
+                        <td class="l">${this.escHtml(r.proj_no || '-')}
+                            <span class="mut">${this.escHtml(r.proj_name || '')}</span></td>
+                        <td>${this.escHtml(r.line_name || '-')}</td>
+                        <td style="font-weight:700">${this.escHtml(r.item_name || '-')}</td>
+                        <td class="mut">${this.escHtml(r.equip_type || '-')}</td>
+                        <td class="mut">${this.escHtml(r.store_name || '-')}</td>
+                        <td class="r">${this.nf(r.in_qty)}</td>
+                        <td class="r">${+r.out_qty ? this.nf(r.out_qty) : '<span class="mut">-</span>'}</td>
+                        <td class="r"><span class="stock ${gone ? 'zero' : ''}">${this.nf(r.stock)}</span></td>
+                    </tr>`;
+                }).join('');
+            }
+
+            // ===== helper =====
+
+            el(id) {
+                return document.getElementById(id);
+            }
+
+            nf(n) {
+                return Number(n || 0).toLocaleString();
+            }
+
+            get(url, data) {
+                return new Promise(resolve => {
+                    AjaxUtil.getAsyncData(url, data,
+                        res => resolve(res || {success: false, data: null}),
+                        () => resolve({success: false, data: null}));
+                });
+            }
+
+            escHtml(s) {
+                return (s == null ? '' : String(s))
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
+
+            esc(s) {
+                return (s == null ? '' : String(s)).replace(/"/g, '&quot;');
+            }
+        }
+
+        $(document).ready(function () {
+            window.procStock = new ProcStockPage();
+        });
+    </script>
+</th:block>
+</html>

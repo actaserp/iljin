@@ -55,7 +55,9 @@
         .stage-tabs button.on span{color:#c3d6ef;}
 
         /* 목표 / 조립완료 / 남음 — 나란히 놓는 세 숫자 */
-        .stat-row { display:flex; gap:8px; }
+        .stat-row { display:flex; gap:8px; align-items:stretch; }
+        .stat.name { flex:0 0 auto; min-width:120px; display:flex; flex-direction:column;
+            justify-content:center; gap:5px; background:#fff; border-color:#d4dae5; }
         .stat { flex:1; background:#f7f9fc; border:1px solid #e5eaf2; border-radius:8px; padding:10px 12px; }
         .stat .lab { display:block; font-size:11.5px; color:#7a8499; font-weight:700; }
         .stat .v { display:block; font-size:22px; font-weight:800; color:#1d2330; margin-top:2px; }
@@ -63,12 +65,23 @@
 
         .qty-line { display:flex; align-items:center; gap:10px; }
         .qty-line .lab { font-size:12.5px; color:#7a8499; font-weight:700; }
-        .qty-input { width:120px; text-align:right; font-size:20px; font-weight:800; padding:8px 12px;
+        /* 현장에서 누르는 자리라 크게 잡는다 */
+        .qty-input { width:150px; height:52px; text-align:right; font-size:24px; font-weight:800; padding:8px 14px;
             border:1px solid #cfd6e2; border-radius:7px; }
         .qty-input:disabled { background:#f2f4f7; color:#aab; }
 
-        .big-actions { display:flex; gap:10px; }
-        .big-actions .btn { flex:1; padding:14px; font-size:15px; font-weight:800; border-radius:8px; text-align:center; }
+        /* 투입 자재 */
+        .consume-bar { display:flex; align-items:center; gap:10px; margin-top:10px;
+            padding-top:10px; border-top:1px solid #e6eaf1; font-size:12.5px; }
+        .lack { color:#c2410c; font-weight:700; }
+        #consumeBody table { font-size:12.5px; }
+        #consumeBody td, #consumeBody th { padding:6px 8px; }
+
+        .act-row { display:flex; gap:10px; align-items:stretch; }
+        .act-row .qty-line { flex:0 0 auto; }
+        .act-row .btn { flex:1; padding:20px; font-size:18px; font-weight:800;
+            border-radius:10px; text-align:center; display:flex;
+            align-items:center; justify-content:center; }
         .btn-start { background:#1ca36b; border-color:#1ca36b; color:#fff; }
         .btn-end { background:#2f57d6; border-color:#2f57d6; color:#fff; }
         .btn-off { background:#eef0f4; border-color:#e2e5ea; color:#aab; cursor:not-allowed; }
@@ -90,7 +103,8 @@
 
         <div class="main-row">
             <!-- 좌: 조립 대상 품목 -->
-            <section class="section" style="flex:1;">
+            <!-- 좌: 조립 대상 목록. 6열뿐이라 넓을 필요가 없다 -->
+            <section class="section" style="flex:0 0 42%;">
                 <div class="section-top">
                     <div class="search-wrap" style="margin-bottom:0">
                         <dl>
@@ -151,16 +165,28 @@
                 </section>
 
                 <section class="section log-sec">
-                    <div class="section-top"><span style="font-weight:700;">조립 이력</span></div>
+                    <div class="section-top">
+                        <span style="font-weight:700;">조립 이력</span>
+                        <div class="button-wrap">
+                            <ul>
+                                <li><input type="date" id="logFrom" style="height:30px"></li>
+                                <li style="align-self:center">~</li>
+                                <li><input type="date" id="logTo" style="height:30px"></li>
+                                <li><a class="btn" onclick="prodAssembly.logRange(6)">7일</a></li>
+                                <li><a class="btn" onclick="prodAssembly.clearLogDate()">전체</a></li>
+                            </ul>
+                        </div>
+                    </div>
                     <div class="container-fluid">
                         <table class="work-table">
                             <colgroup>
-                                <col style="width:16%"><col><col style="width:12%">
-                                <col style="width:14%"><col style="width:14%"><col style="width:12%">
+                                <col style="width:11%"><col style="width:14%"><col>
+                                <col style="width:9%"><col style="width:12%">
+                                <col style="width:14%"><col style="width:10%">
                             </colgroup>
                             <thead>
                             <tr>
-                                <th>프로젝트</th><th>품목</th><th>수량</th>
+                                <th>생산일</th><th>프로젝트</th><th>품목</th><th>수량</th>
                                 <th>작업자</th><th>시작~종료</th><th>취소</th>
                             </tr>
                             </thead>
@@ -168,6 +194,22 @@
                         </table>
                     </div>
                 </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- 투입 자재. 상세가 좁아 목록을 펼치면 시작·완료 버튼이 밀린다 -->
+    <div id="consumeModal"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;
+                align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:10px;width:640px;max-width:94vw;max-height:82vh;
+                    display:flex;flex-direction:column;box-shadow:0 12px 36px rgba(0,0,0,.22);">
+            <div class="section-top" style="border-radius:10px 10px 0 0;padding:16px 22px;">
+                <div class="search-wrap" style="margin-bottom:0"><h3>투입 자재</h3></div>
+            </div>
+            <div style="flex:1 1 auto;overflow:auto;padding:18px 22px;" id="consumeBody"></div>
+            <div style="padding:14px 22px;border-top:1px solid #e9edf3;text-align:right;">
+                <a class="btn" onclick="prodAssembly.closeConsume()">닫기</a>
             </div>
         </div>
     </div>
@@ -296,13 +338,102 @@
                 this.renderList();
             }
 
+            /*
+             * 이력 기간 필터. 기본은 오늘~오늘이다.
+             * 어제 완료분이 안 보여 중복 등록이 생기는 걸 막으려고
+             * [7일]·[전체] 버튼을 옆에 둔다.
+             */
+            logRange(days) {
+                const to = new Date(), from = new Date();
+                from.setDate(from.getDate() - days);
+                this.el('logFrom').value = this.ymd(from);
+                this.el('logTo').value = this.ymd(to);
+                this.loadLog();
+            }
+
+            clearLogDate() {
+                this.el('logFrom').value = '';
+                this.el('logTo').value = '';
+                this.loadLog();
+            }
+
+            // 로컬 시간 기준 YYYY-MM-DD (toISOString 은 UTC라 KST에서 하루 밀린다)
+            ymd(d) {
+                const p = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+            }
+
+            /*
+             * 투입 예정 자재.
+             * 완료를 누른 뒤에야 재고가 모자랐다는 걸 알면 이미 늦다.
+             * 부족분은 붉게 표시해 미리 보이게 한다.
+             */
+            async loadConsume(sujuId) {
+                const bar = this.el('consumeBar');
+                if (!bar || !sujuId) return;
+
+                const res = await this.get(`${this.API}/consume_plan`, {sujuId: sujuId});
+                const rows = this.consumeRows = res.data || [];
+                if (!rows.length) {
+                    bar.innerHTML = '<p class="hint">투입 예정 자재 — 부품표에 등록된 부품이 없습니다.</p>';
+                    return;
+                }
+
+                // 미연결은 재고를 볼 대상이 아니라 부족 건수에서 뺀다
+                const lack = rows.filter(r => r.material_id
+                    && (+r.stock || 0) < (+r.need_qty || 0)).length;
+                const noMat = rows.filter(r => !r.material_id).length;
+                /* 상세에는 버튼만 둔다. 부족·미연결이 있으면 그것만 배지로 알린다 —
+                   목록 전체를 늘어놓으면 시작·완료 버튼이 화면 밖으로 밀린다. */
+                bar.innerHTML = `
+                    <div class="consume-bar">
+                        <a class="btn" id="btnConsume">투입 자재 ${rows.length}건 보기</a>
+                        ${lack ? `<b class="lack">부족 ${lack}건</b>` : ''}
+                        ${noMat ? `<b class="lack">미연결 ${noMat}건</b>` : ''}
+                    </div>`;
+                this.el('btnConsume').onclick = () => this.openConsume();
+            }
+
+            openConsume() {
+                const rows = this.consumeRows || [];
+                this.el('consumeBody').innerHTML = `
+                    <p class="hint" style="margin:0 0 10px">
+                        지그를 <b>전량 완성</b>하면 아래 수량이 한 번에 재고에서 빠집니다.</p>
+                    <table class="work-table">
+                        <thead><tr><th>부품</th><th>구분</th><th>품목</th><th>필요</th><th>재고</th></tr></thead>
+                        <tbody>${rows.map(r => {
+                    const short = r.material_id && (+r.stock || 0) < (+r.need_qty || 0);
+                    return `<tr>
+                                <td class="l">${this.esc(r.part_name)}</td>
+                                <td>${this.esc(r.gubun)}</td>
+                                <td class="l">${r.material_id
+                        ? this.esc(r.material_name || r.material_code || '')
+                        : '<span class="lack">미연결 · 차감 안 됨</span>'}</td>
+                                <td class="r">${r.need_qty}</td>
+                                <td class="r ${short ? 'lack' : ''}">${
+                        r.material_id ? r.stock : '-'}</td>
+                            </tr>`;
+                }).join('')}</tbody>
+                    </table>`;
+                this.el('consumeModal').style.display = 'flex';
+            }
+
+            closeConsume() {
+                this.el('consumeModal').style.display = 'none';
+            }
+
             async loadLog() {
-                // 생산일은 등록용이지 조회 조건이 아니다.
-                // 날짜로 자르면 어제 완료분이 안 보여 중복 등록이 생긴다
+                /*
+                 * 날짜는 <b>비워 두는 것이 기본</b>이다.
+                 * 자동으로 오늘만 보여주면 어제 완료분이 안 보여 중복 등록이 생긴다.
+                 * 필요할 때만 사용자가 직접 골라 좁힌다.
+                 */
                 const res = await this.get(`${this.API}/log`, {
                     spjangcd: this.spjangcd,
                     projNo: this.selProj,
-                    stage: this.stage
+                    stage: this.stage,
+                    dateFrom: this.el('logFrom') ? this.el('logFrom').value : '',
+                    dateTo: this.el('logTo') ? this.el('logTo').value : ''
                 });
                 this.log = res.data || [];
                 this.renderLog();
@@ -363,37 +494,44 @@
                 const run = !!it.working_id;
 
                 this.el('pickCard').innerHTML = `
-                    <div>
-                        <div class="pick-name">${this.esc(it.item_name)}</div>
-                        <div style="margin-top:6px">${this.badge(it)}
-                            ${run && it.working_worker
-                    ? `<span style="color:#8a6d1b;font-size:12.5px;font-weight:700"> · ${this.esc(it.working_worker)}</span>`
-                    : ''}</div>
-                    </div>
+                    <!-- 품목명·상태를 통계와 같은 줄에 둔다. 위아래로 나누면
+                         세로 공간만 먹고 이력 표가 눌린다. -->
                     <div class="stat-row">
+                        <div class="stat name">
+                            <span class="pick-name">${this.esc(it.item_name)}</span>
+                            <span>${this.badge(it)}${run && it.working_worker
+                    ? `<span style="color:#8a6d1b;font-size:12px;font-weight:700"> · ${this.esc(it.working_worker)}</span>`
+                    : ''}</span>
+                        </div>
                         <div class="stat"><span class="lab">${this.stage === 'set' ? '지그 대수' : '유닛 수'}</span>
                             <span class="v">${it.target_qty ?? 0}</span></div>
                         <div class="stat"><span class="lab">유닛 조립</span>
                             <span class="v">${it.unit_done ?? 0}/${it.unit_target ?? 0}</span></div>
                         <div class="stat"><span class="lab">공정 조립</span>
                             <span class="v">${it.set_done ?? 0}/${it.set_target ?? 0}</span></div>
-                        <div class="stat"><span class="lab">조립완료</span><span class="v">${it.done_qty ?? 0}</span></div>
+                        <!-- 조립완료·검사 박스는 두지 않는다.
+                             '유닛 조립'·'공정 조립' 이 같은 값을 이미 담고 있어
+                             같은 숫자가 두 번 나오면 어느 쪽을 봐야 할지 헷갈린다. -->
                         <div class="stat wip"><span class="lab">남음</span><span class="v">${it.wip_qty ?? 0}</span></div>
-                        <div class="stat"><span class="lab">검사</span>
-                            <span class="v">${it.insp_done ?? 0}/${it.set_target ?? 0}</span></div>
                     </div>
-                    <div class="qty-line">
-                        <span class="lab">완료 수량</span>
-                        <input type="number" class="qty-input" id="qty" value="1" min="1" ${run ? '' : 'disabled'}>
-                        <span style="font-size:12px;color:#8a93a3">대</span>
-                    </div>
-                    <div class="big-actions">
+                    <!-- 수량과 버튼을 한 줄에. 세로 공간을 이력 표에 넘긴다 -->
+                    <div class="act-row">
+                        <div class="qty-line">
+                            <span class="lab">완료 수량</span>
+                            <input type="number" class="qty-input" id="qty" value="1" min="1" ${run ? '' : 'disabled'}>
+                            <span style="font-size:12px;color:#8a93a3">대</span>
+                        </div>
                         <a class="btn ${run ? 'btn-off' : 'btn-start'}" id="btnStart">시작</a>
                         <a class="btn ${run ? 'btn-end' : 'btn-off'}" id="btnEnd">완료</a>
                     </div>
                     <p class="hint">${run
                     ? '진행중 — <b>완료</b>를 누르면 입력한 수량만큼 완제품이 생성됩니다.'
-                    : '대기 — <b>시작</b>을 누르면 조립을 시작합니다.'}</p>`;
+                    : '대기 — <b>시작</b>을 누르면 조립을 시작합니다.'}</p>
+                    <div id="consumeBar"></div>`;
+
+                // 투입 예정 자재는 공정 조립에서만 뺀다
+                if (this.stage === 'set') this.loadConsume(it.suju_id);
+                else this.el('consumeBar').innerHTML = '';
 
                 this.el('btnStart').onclick = () => {
                     if (!run) this.start();
@@ -406,12 +544,13 @@
             renderLog() {
                 const body = this.el('logBody');
                 if (!this.log.length) {
-                    body.innerHTML = '<tr><td colspan="6" class="empty">조립 내역이 없습니다</td></tr>';
+                    body.innerHTML = '<tr><td colspan="7" class="empty">조립 내역이 없습니다</td></tr>';
                     return;
                 }
 
                 body.innerHTML = this.log.map(l => `
                     <tr>
+                        <td>${l.prod_date || '-'}</td>
                         <td>${this.esc(l.proj_no)}</td>
                         <td class="l">${this.esc(l.item_name)}</td>
                         <td>${l.qty ?? 0}</td>
@@ -523,6 +662,12 @@
 
         $(document).ready(function () {
             window.prodAssembly = new ProdAssemblyPage();
+            ['logFrom', 'logTo'].forEach(id => {
+                const n = document.getElementById(id);
+                if (n) n.onchange = () => window.prodAssembly.loadLog();
+            });
+            // 기본은 오늘~오늘
+            window.prodAssembly.logRange(0);
             // 단계 탭. 인라인 onclick 대신 여기서 묶는다
             document.querySelectorAll('.stage-tabs button').forEach(b =>
                 b.onclick = () => window.prodAssembly.setStage(b.dataset.st));

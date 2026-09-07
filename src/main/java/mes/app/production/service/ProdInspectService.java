@@ -374,6 +374,8 @@ public class ProdInspectService {
 		p.addValue("workerId", toInt(payload.get("workerId")));
 		p.addValue("equipmentId", toInt(payload.get("equipmentId")));
 		p.addValue("description", str(payload.get("remark")));
+		// 판정. 화면 값을 그대로 담는다 (pass/fail/rework/remeasure/accept)
+		p.addValue("result", str(payload.get("result")));
 		p.addValue("userId", user.getId());
 
 		// LotIndex 는 NOT NULL. 같은 지시의 검사 단계 안에서 1부터 증가시킨다.
@@ -385,6 +387,10 @@ public class ProdInspectService {
                , "GoodQty", "DefectQty", "LossQty", "ScrapQty"
                , "State", "ProductionDate", "StartTime", "EndTime"
                , "Actor_id", "Equipment_id", "Description"
+               -- ★ 판정을 저장한다. 예전에는 DefectQty > 0 이면 'fail' 로 파생시켰는데,
+               --   그러면 재가공·재측정·특채처럼 <b>수량으로 표현되지 않는 판정</b>을 담을 수 없다.
+               --   사업계획서의 '부적합 조치 이력' 이 이 값을 쓴다.
+               , "InspectResult"
                , _status, _created, _creater_id
             )
             SELECT :spjangcd, :jobResId, :materialId, :processId, :workCenterId
@@ -397,6 +403,7 @@ public class ProdInspectService {
                  , COALESCE(CAST(:inspectDate AS date), CURRENT_DATE)
                  , now(), now()
                  , :workerId, :equipmentId, NULLIF(:description, '')
+                 , NULLIF(:result, '')
                  , 'a', now(), :userId
             RETURNING id
             """, p, (rs, rowNum) -> rs.getInt("id"));
@@ -482,12 +489,19 @@ public class ProdInspectService {
                  , COALESCE(s.make_type, 'inhouse') AS make_type
                  , COALESCE(mp."GoodQty", 0)   AS good_qty
                  , COALESCE(mp."DefectQty", 0) AS defect_qty
-                 , CASE WHEN COALESCE(mp."DefectQty", 0) > 0
-                        THEN 'fail' ELSE 'pass' END AS result
+                 -- 저장된 판정을 쓴다. 옛 데이터는 값이 없으므로 수량으로 떨어뜨린다
+                 , COALESCE(mp."InspectResult",
+                        CASE WHEN COALESCE(mp."DefectQty", 0) > 0
+                             THEN 'fail' ELSE 'pass' END) AS result
                  , mp."Actor_id"     AS worker_id
                  , pw."Name"         AS worker
                  , e."Name"          AS equipment_name
                  , mp."Description"  AS remark
+                 -- 첨부(성적서) 건수. 이력에서 어느 건에 붙었는지 바로 보이게 한다
+                 , (SELECT COUNT(*) FROM attach_file af
+                     WHERE af."TableName" = 'mat_produce'
+                       AND af."DataPk" = mp.id
+                       AND af."AttachName" = 'inspect') AS attach_cnt
                  , TO_CHAR(mp."ProductionDate", 'YYYY-MM-DD') AS inspect_date
             FROM mat_produce mp
             JOIN job_res j ON j.id = mp."JobResponse_id"
