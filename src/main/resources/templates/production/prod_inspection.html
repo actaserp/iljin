@@ -69,7 +69,45 @@
         #fileBox table { table-layout: fixed; width: 100%; }
         /* 업로더 위젯이 모달 벽에 붙지 않게 여백을 준다 */
         #inspectUpload span.fileuploadTitle { display:block; margin-bottom:10px; }
-        #inspectUpload [data-uploaded-box] { min-height:150px; padding:10px; }
+        /* 업로더 박스. 150px 고정이면 파일 1개만 올려도 빈 공간이 크게 남아
+           아래 성적서 영역이 스크롤 밖으로 밀린다 */
+        #inspectUpload [data-uploaded-box] { min-height:64px; padding:8px; }
+        #inspectUpload [data-ax5uploader-uploaded-item] { margin:0; }
+
+        /* ★ 버튼이 search-wrap 의 균등 분배에 걸려 폭이 제각각으로 늘어난다.
+           내용만큼만 차지하게 고정한다 */
+        #cmmBar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+        #cmmBar > * { flex:0 0 auto; }
+        #cmmBar .btn { width:auto; min-width:0; padding:0 12px; white-space:nowrap; }
+        #cmmBar label { margin:0 2px 0 0; font-size:13px; color:#4a5567; }
+        #cmmBar .spacer { flex:1 1 auto; }
+
+        /* 측정값 표. 모달 본문이 이미 스크롤이라 표까지 스크롤하면 두 겹이 된다.
+           헤더를 고정하고 한 겹만 남긴다 */
+        #cmmTableWrap { max-height:44vh; overflow:auto; overscroll-behavior:contain;
+            border:1px solid #e9edf3; border-radius:4px; }
+        #cmmTableWrap table { margin:0; }
+        /* ★ 2단 헤더라 두 줄 모두 top:0 이면 서로 겹쳐 늘어져 보인다.
+           윗줄은 0, 아랫줄은 윗줄 높이만큼 내려 붙인다 */
+        #cmmTableWrap thead th { position:sticky; z-index:2;
+            background:#f6f8fb; box-shadow:inset 0 -1px 0 #e0e6ef;
+            font-size:12px; padding:4px 6px; line-height:1.3; white-space:nowrap; }
+        #cmmTableWrap thead tr:first-child th { top:0; height:24px; }
+        #cmmTableWrap thead tr:nth-child(2) th { top:24px; }
+        /* rowspan 셀은 두 줄을 다 덮으므로 위에 있어야 한다 */
+        #cmmTableWrap thead th[rowspan] { top:0; z-index:3; }
+        #cmmTableWrap td { font-size:12px; padding:3px 6px; }
+
+        /* 공차 설정 모달. 규칙이 몇 줄뿐이라 스크롤이 생기면 안 된다.
+           추가 줄도 search-wrap 균등 분배에 걸려 '추가' 버튼이 오른쪽으로 밀려났었다 */
+        #tolModal .tol-box { width:660px; max-width:94vw; margin:8vh auto; padding:18px;
+            background:#fff; border-radius:6px; box-shadow:0 12px 36px rgba(0,0,0,.22); }
+        #tolAddBar { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:10px; }
+        #tolAddBar > * { flex:0 0 auto; }
+        #tolAddBar .btn { width:auto; min-width:0; padding:0 14px; white-space:nowrap; }
+        #tolAddBar input[type=number] { width:88px; }
+        #tolBody td { vertical-align:middle; }
+        #tolBody .btn { width:auto; min-width:0; padding:0 10px; }
         #fileBox td, #fileBox a { overflow: hidden; text-overflow: ellipsis;
             white-space: nowrap; word-break: break-all; }
 
@@ -83,13 +121,13 @@
     <div class="layout-contents">
         <div class="page-title-wrap">
             <div class="left">
-                <h2>검사</h2>
+                <h2>검사 공정</h2>
                 <a title="북마크" class="bookmark toggle">내 메뉴</a>
             </div>
             <ul class="page-navi">
                 <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
                 <li>생산관리</li>
-                <li>검사</li>
+                <li>검사 공정</li>
             </ul>
         </div>
 
@@ -128,16 +166,20 @@
                     </p>
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:4%">   <!-- 선택 -->
-                            <col style="width:7%">   <!-- 라인 -->
-                            <col style="width:16%">  <!-- 품목 -->
-                            <col style="width:14%">  <!-- 수주 -->
-                            <col style="width:7%">   <!-- 구분 -->
-                            <col style="width:12%">  <!-- 제작업체 -->
-                            <col style="width:10%">  <!-- 공정조립 -->
-                            <col style="width:10%">  <!-- 유닛조립 -->
-                            <col style="width:8%">   <!-- 검사수량 -->
-                            <col style="width:7%">   <!-- 상태 -->
+                            <!-- ★ 합이 100%가 되게 유지할 것.
+                                 예전에 112% 로 잡혀 있어 브라우저가 임의로 눌렀고,
+                                 그 탓에 3차원 측정 칸이 좁아져 글자가 접혔다 -->
+                            <col style="width:3%">   <!-- 선택 -->
+                            <col style="width:6%">   <!-- 라인 -->
+                            <col style="width:13%">  <!-- 품목 -->
+                            <col style="width:13%">  <!-- 수주 -->
+                            <col style="width:6%">   <!-- 구분 -->
+                            <col style="width:10%">  <!-- 제작업체 -->
+                            <col style="width:8%">   <!-- 공정조립 -->
+                            <col style="width:8%">   <!-- 유닛조립 -->
+                            <col style="width:7%">   <!-- 검사수량 -->
+                            <col style="width:6%">   <!-- 상태 -->
+                            <col style="width:13%">  <!-- 3차원 측정 -->
                             <col style="width:7%">   <!-- 최근검사 -->
                         </colgroup>
                         <thead>
@@ -152,6 +194,10 @@
                             <th>유닛조립</th>
                             <th>검사수량</th>
                             <th>상태</th>
+                            <!-- ★ 성적서 판정. 오른쪽 이력 패널은 340px 이라
+                                 컬럼이 접히고 가로 스크롤이 생겨 읽히지 않았다.
+                                 넓은 왼쪽 표에 두어야 목록을 훑으며 볼 수 있다 -->
+                            <th>3차원 측정</th>
                             <th>최근검사</th>
                         </tr>
                         </thead>
@@ -260,9 +306,124 @@
             <div style="flex:1 1 auto;overflow:auto;padding:22px 24px;min-width:0;">
                 <input type="hidden" id="srchFileId">
                 <div class="grid_box" id="inspectUpload"></div>
+
+                <div class="section" style="margin-top:12px">
+                    <div class="search-wrap" style="margin-bottom:8px">
+                        <h3>3차원 측정 성적서</h3>
+                        <span class="hint" id="cmmHint" style="margin-left:8px;color:#666"></span>
+                    </div>
+
+                    <div id="cmmBar">
+                        <!-- ★ 측정 구분 드롭다운을 없앴다.
+                             양식에 MAKER·KIA 두 벌의 실측 열이 있지만, 현장은
+                             자사 측정도 제출용이라 KIA 칸에 적는다. 사람이 고르게 하면
+                             개념(자사)과 칸 이름(KIA)이 어긋나 매번 빈 값이 저장됐다.
+                             이제 서버가 값이 든 열을 자동으로 고르고 결과만 알려 준다 -->
+
+                        <!-- ★ 호기 입력칸을 없앴다.
+                             "2대" 는 좌우 한 쌍(LH/RH)을 뜻하고, 그 좌우는 이미
+                             성적서 안에 컬럼으로 들어 있어 1부가 쌍을 다 담는다.
+                             사람이 1·2를 적어 나눌 대상이 아니다.
+                             같은 형상을 여러 대 만드는 경우가 확인되면 그때 되살린다 -->
+
+                        <!-- ★ 파일을 여기서 올리지 않는다. 위 업로더로 올린 xls 중에서 고른다 -->
+                        <select id="cmmAttach" style="min-width:200px;max-width:240px"></select>
+                        <a class="btn" id="btnCmmReload" title="첨부 목록 다시 읽기">↻</a>
+
+                        <span class="spacer"></span>
+
+                        <a class="btn" id="btnTolerance">공차 설정</a>
+                        <a class="btn" id="btnCmmParse">읽기 · 판정</a>
+                        <a class="btn btn-delete" id="btnCmmSave" style="display:none">저장</a>
+                    </div>
+
+                    <!-- 파싱 결과 -->
+                    <div id="cmmResult" style="display:none;margin-top:10px">
+                        <div id="cmmSummary" style="padding:8px 10px;border-radius:4px;margin-bottom:8px"></div>
+                        <div id="cmmSrc" style="font-size:12px;color:#666;margin-bottom:6px"></div>
+                        <div id="cmmWarn" style="margin-bottom:8px"></div>
+
+                        <div class="search-wrap" style="margin-bottom:6px">
+                            <label style="font-weight:normal">
+                                <input type="checkbox" id="cmmNgOnly"> 이탈 항목만 보기
+                            </label>
+                            <span class="hint" style="color:#888">측정점 × 축이라 행이 많습니다</span>
+                        </div>
+
+                        <div id="cmmTableWrap">
+                            <table class="work-table">
+                                <!-- ★ 원본 성적서와 같은 모양으로 둔다.
+                                     제작사·발주처 두 벌을 나란히 놓아야 대조가 된다 -->
+                                <thead>
+                                <tr>
+                                    <th rowspan="2" style="width:62px">측정점</th>
+                                    <th rowspan="2" style="width:34px">축</th>
+                                    <th rowspan="2" style="width:80px">설계값</th>
+                                    <th colspan="4" style="border-left:2px solid #dfe5ee">제작사</th>
+                                    <th colspan="4" style="border-left:2px solid #dfe5ee"
+                                        id="cmmCustHead">발주처</th>
+                                    <th rowspan="2" style="width:56px;border-left:2px solid #dfe5ee">판정</th>
+                                </tr>
+                                <tr>
+                                    <th style="border-left:2px solid #dfe5ee">LH</th><th>편차</th>
+                                    <th>RH</th><th>편차</th>
+                                    <th style="border-left:2px solid #dfe5ee">LH</th><th>편차</th>
+                                    <th>RH</th><th>편차</th>
+                                </tr>
+                                </thead>
+                                <tbody id="cmmBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
             <div style="padding:14px 24px;border-top:1px solid #e9edf3;text-align:right;">
                 <a class="btn" id="btnFileClose">닫기</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="tolModal"
+         style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1050">
+        <div class="tol-box">
+            <div class="search-wrap" style="margin-bottom:8px"><h3>공차 설정</h3></div>
+
+            <p class="hint" style="color:#666;margin:0 0 10px">
+                편차(실측 − 설계값)가 이 범위 안이면 합격입니다.
+                품목 기준이 있으면 전역 기준보다 우선합니다.
+                경도·CLAMP GAP 은 양식이 범위 문자열이라 자동판정하지 않습니다.
+            </p>
+
+            <table class="work-table">
+                <thead>
+                <tr>
+                    <th>적용 범위</th><th style="width:60px">축</th>
+                    <th style="width:90px">하한</th><th style="width:90px">상한</th>
+                    <th>비고</th><th style="width:60px"></th>
+                </tr>
+                </thead>
+                <tbody id="tolBody"></tbody>
+            </table>
+
+            <div id="tolAddBar">
+                <select id="tolScope" style="width:130px">
+                    <option value="GLOBAL">전체 공통</option>
+                    <option value="SUJU">선택 품목만</option>
+                </select>
+                <select id="tolAxis" style="width:100px">
+                    <option value="">전 축</option>
+                    <option value="T">T</option>
+                    <option value="L">L</option>
+                    <option value="H">H</option>
+                </select>
+                <input type="number" id="tolLower" step="0.001" value="-0.05" placeholder="하한">
+                <input type="number" id="tolUpper" step="0.001" value="0.05" placeholder="상한">
+                <input type="text" id="tolRemark" placeholder="비고" style="width:140px">
+                <a class="btn btn-delete" id="btnTolAdd">추가</a>
+            </div>
+
+            <div style="text-align:right;margin-top:14px">
+                <a class="btn" id="btnTolClose">닫기</a>
             </div>
         </div>
     </div>
@@ -284,16 +445,28 @@
          *   내작은 공정 조립 완료, 외작은 입고가 대상이 되며 둘 다 suju.id 로 수렴한다.
          */
 
-        function el(sel) { return document.querySelector(sel); }
-        function els(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+        function el(sel) {
+            return document.querySelector(sel);
+        }
+
+        function els(sel) {
+            return Array.prototype.slice.call(document.querySelectorAll(sel));
+        }
 
         /* 판정 표시. 합격 외에는 아직 끝나지 않았거나 조치가 필요한 상태다 */
         var RESULTS = {
             pass: '합격', fail: '불합격',
             rework: '재가공', remeasure: '재측정', accept: '특채'
         };
-        function resultName(v) { return RESULTS[v] || v || '-'; }
-        function resultCls(v) { return v === 'pass' ? 'done' : 'wait'; }
+
+        function resultName(v) {
+            return RESULTS[v] || v || '-';
+        }
+
+        function resultCls(v) {
+            return v === 'pass' ? 'done' : 'wait';
+        }
+
         function headText(t) {
             if (!t || !(t.suju_name || t.jumun_date)) return '<span class="muted">-</span>';
             var plan = t.suju_type === 'plan' ? ' (계획)' : '';
@@ -303,10 +476,42 @@
         function esc(v) {
             return (v === null || v === undefined) ? ''
                 : String(v).replace(/[&<>"']/g, function (c) {
-                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
                 });
         }
-        function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+        function num(v) {
+            var n = parseFloat(v);
+            return isNaN(n) ? 0 : n;
+        }
+
+        /*
+         * 검사 대상 목록의 '3차원 측정' 칸.
+         *
+         * 품목의 가장 최근 성적서 상태를 보여준다.
+         * 검사는 완료인데 성적서가 없는 품목을 찾는 게 이 칸의 목적이다.
+         * 자세한 측정값은 행을 눌러 첨부 관리에서 본다.
+         */
+        function measureCell(t) {
+            // 면제는 우리가 검사하지 않으므로 성적서를 물을 대상이 아니다
+            if (t.insp_state === 'exempt') return '<span class="muted">-</span>';
+            if (!num(t.insp_cnt)) return '<span class="muted">-</span>';
+
+            if (!t.report_id) {
+                return '<span class="badge wait" title="검사는 등록됐으나 성적서가 없습니다">'
+                    + '성적서 없음</span>';
+            }
+
+            var ng = num(t.measure_ng);
+            var res = t.measure_result;
+            var badge = res === 'pass' ? '<span class="badge done">합격</span>'
+                : res === 'fail' ? '<span class="badge wait">불합격</span>'
+                    : '<span class="badge wait">보류</span>';
+            return badge + '<div style="font-size:11px;white-space:nowrap;color:'
+                + (ng > 0 ? '#c0392b' : '#7b8698') + '">'
+                + num(t.measure_cnt) + '항목'
+                + (ng > 0 ? ' · 이탈 ' + ng : '') + '</div>';
+        }
 
         var API = '/api/production/prod_inspect';
 
@@ -405,6 +610,9 @@
                 el('#resultSel').addEventListener('change', function () {
                     _t.applyResultDefault();
                 });
+
+                // 3차원 성적서 파싱 · 자동판정 · 공차
+                this.bindCmm();
             },
 
             loadProjects: function () {
@@ -543,6 +751,7 @@
                             ? ' <span class="badge wait">불 ' + num(t.insp_defect_qty) + '</span>' : '')
                         + '</td>'
                         + '<td><span class="badge ' + st + '">' + stTxt + '</span></td>'
+                        + '<td>' + measureCell(t) + '</td>'
                         + '<td>' + esc(t.last_inspect_date || '-') + '</td>'
                         + '</tr>';
                 });
@@ -665,11 +874,19 @@
                      */
                     max_count: 3,
                     file_size: 15,
+                    /* ★ 올리고 나면 성적서 목록을 바로 갱신한다.
+                       예전에는 '목록 새로고침' 을 눌러야 떠서, 올린 사람이
+                       업로드가 실패한 줄 알고 다시 올리는 일이 있었다.
+                       ax5 가 서버 저장을 끝내기 전에 콜백이 오는 경우가 있어 살짝 늦춘다 */
                     upload_callback: function () {
-                        return;
+                        setTimeout(function () {
+                            page.loadAttachList(true);
+                        }, 300);
                     },
                     delete_callback: function () {
-                        return;
+                        setTimeout(function () {
+                            page.loadAttachList(true);
+                        }, 300);
                     },
                     file_click_callback: function () {
                         return;
@@ -945,6 +1162,446 @@
                     });
             }
         };
+
+        /* ---------------------------------------------------------------
+         * 성적서 파싱 · 자동판정
+         *
+         * [멀티파트만 예외적으로 XHR 을 쓴다]
+         *   AjaxUtil 은 JSON/폼 파라미터용이라 파일을 실어 보내지 못한다.
+         *   CSRF 헤더를 직접 넣는다 — 빠지면 403 이다.
+         *   기존 guardSize() 의 XHR 후킹은 /api/files/upload 만 보므로 여기는 통과한다.
+         * --------------------------------------------------------------- */
+        /* ---------------------------------------------------------------
+     * 성적서 파싱 · 자동판정
+     *
+     * [★ 파일을 여기서 올리지 않는다]
+     *   원본은 위 첨부 업로더(ax5)가 저장하고, 서버는 그 파일을 읽기만 한다.
+     *   그래서 멀티파트가 없고 통신은 전부 AjaxUtil 로 나간다 — CSRF 를 직접 다룰 일이 없다.
+     * --------------------------------------------------------------- */
+        var CMM_API = '/api/production/prod_inspect_measure';
+
+        var cmm = {
+
+            parsed: null,     // 미리보기 결과. 저장은 파일을 다시 보내 서버가 재파싱한다
+            rows: [],
+
+            bindCmm: function () {
+                var _t = this;
+
+                var rEl = el('#btnCmmReload');
+                if (rEl) rEl.addEventListener('click', function () {
+                    _t.loadAttachList();
+                });
+
+                var pEl = el('#btnCmmParse');
+                if (pEl) pEl.addEventListener('click', function () {
+                    _t.parseFile();
+                });
+
+                var sEl = el('#btnCmmSave');
+                if (sEl) sEl.addEventListener('click', function () {
+                    _t.saveReport();
+                });
+
+                var nEl = el('#cmmNgOnly');
+                if (nEl) nEl.addEventListener('change', function () {
+                    _t.renderMeasures();
+                });
+
+                var tEl = el('#btnTolerance');
+                if (tEl) tEl.addEventListener('click', function () {
+                    _t.openTolModal();
+                });
+
+                var tcEl = el('#btnTolClose');
+                if (tcEl) tcEl.addEventListener('click', function () {
+                    el('#tolModal').style.display = 'none';
+                });
+
+                var taEl = el('#btnTolAdd');
+                if (taEl) taEl.addEventListener('click', function () {
+                    _t.addTolerance();
+                });
+
+                // 첨부 모달을 열 때 이전 결과가 남아 있으면 다른 검사 건 것으로 오인된다
+                var fEl = el('#btnFile');
+                if (fEl) fEl.addEventListener('click', function () {
+                    _t.resetCmm();
+                });
+            },
+
+            resetCmm: function () {
+                this.parsed = null;
+                this.rows = [];
+                el('#cmmResult').style.display = 'none';
+                el('#btnCmmSave').style.display = 'none';
+                el('#cmmWarn').innerHTML = '';
+                this.loadReport();
+                this.loadAttachList();
+            },
+
+            /*
+             * 이미 저장된 성적서가 있으면 요약과 측정값을 그대로 보여준다.
+             *
+             * ★ 예전에는 요약 한 줄만 띄웠다. 그러면 저장한 값을 다시 보려고 매번
+             *   '읽기'를 눌러 재파싱해야 했는데, 그건 조회가 아니라 재계산이라
+             *   그 사이 공차가 바뀌면 저장값과 다른 화면을 보게 된다.
+             */
+            loadReport: function () {
+                var _t = this;
+                var hint = el('#cmmHint');
+                if (!hint) return;
+                if (!this.fileId) {
+                    hint.innerHTML = '검사 건을 먼저 선택하세요.';
+                    return;
+                }
+
+                AjaxUtil.getAsyncData(CMM_API + '/report', {matProduceId: this.fileId},
+                    function (res) {
+                        var r = res && res.data;
+                        if (!r) {
+                            hint.innerHTML = '등록된 성적서가 없습니다.';
+                            el('#cmmResult').style.display = 'none';
+                            return;
+                        }
+                        var v = r.result || r.auto_result;
+                        hint.innerHTML = '측정 ' + (r.point_cnt || 0) + '항목 · '
+                            + (r.ng_cnt > 0
+                                ? '<b style="color:#c0392b">이탈 ' + r.ng_cnt + '건</b>'
+                                : '<b style="color:#1b6b3a">이탈 없음</b>')
+                            + (v ? ' · 판정 ' + (v === 'pass' ? '합격' : '불합격') : '')
+                            + '<span style="color:#b06414"> — 다시 올리면 덮어씁니다</span>';
+
+                        _t.showSaved(r);
+                    },
+                    function () {
+                        hint.innerHTML = '';
+                    });
+            },
+
+            /* 저장된 성적서를 표로 편다. 재파싱하지 않고 DB 값을 읽는다 */
+            showSaved: function (r) {
+                var _t = this;
+                AjaxUtil.getAsyncData(CMM_API + '/measure_list', {reportId: r.id, ngOnly: false},
+                    function (res) {
+                        _t.rows = (res && res.data) || [];
+                        _t.parsed = {
+                            point_cnt: r.point_cnt,
+                            ng_cnt: r.ng_cnt,
+                            auto_result: r.result || r.auto_result,
+                            draw_name: r.draw_name,
+                            hardness_spec: r.hardness_spec,
+                            customer_name: r.customer_name,
+                            cust_value_mode: r.cust_value_mode,
+                            mfr_ng_cnt: r.mfr_ng_cnt,
+                            cust_ng_cnt: r.cust_ng_cnt,
+                            file_name: r.file_name,
+                            saved: true
+                        };
+                        _t.renderSummary();
+                        _t.renderMeasures();
+                        el('#cmmResult').style.display = '';
+                        el('#btnCmmSave').style.display = 'none';   // 조회 상태에는 저장 버튼을 숨긴다
+                    },
+                    function () {
+                    });
+            },
+
+            /*
+             * 첨부로 올라온 xls 목록. 도면 사진·pdf 는 서버가 걸러 준다.
+             *
+             * @param keepPick true 면 이미 고른 항목을 유지한다.
+             *   업로드 직후에는 새로 올린 것(id 가 가장 큼)이 맨 위이므로 그것을 고른다.
+             *   사용자가 이미 다른 파일을 골라 둔 상태라면 그 선택을 빼앗지 않는다.
+             */
+            loadAttachList: function (afterUpload) {
+                var sel = el('#cmmAttach');
+                if (!sel) return;
+                if (!this.fileId) {
+                    sel.innerHTML = '<option value="">검사 건을 먼저 선택</option>';
+                    return;
+                }
+
+                var prev = sel.value;
+
+                AjaxUtil.getAsyncData(CMM_API + '/attach_list', {matProduceId: this.fileId},
+                    function (res) {
+                        var rows = (res && res.data) || [];
+                        if (!rows.length) {
+                            sel.innerHTML = '<option value="">올라온 엑셀 성적서가 없습니다</option>';
+                            return;
+                        }
+                        sel.innerHTML = rows.map(function (r) {
+                            return '<option value="' + r.attach_id + '">' + esc(r.file_name) + '</option>';
+                        }).join('');
+
+                        /* 서버가 id 내림차순으로 준다 = 첫 항목이 가장 최근 것.
+                           업로드 직후면 그것을, 아니면 고르고 있던 것을 유지한다 */
+                        var keep = !afterUpload && prev
+                            && rows.some(function (r) {
+                                return String(r.attach_id) === String(prev);
+                            });
+                        sel.value = keep ? prev : String(rows[0].attach_id);
+                    },
+                    function () {
+                        sel.innerHTML = '<option value="">첨부 목록을 불러오지 못했습니다</option>';
+                    });
+            },
+
+            /* 파싱은 미리보기다. 저장은 서버가 첨부를 다시 읽어 재판정한다 */
+            parseFile: function () {
+                var _t = this;
+                if (!this.fileId) {
+                    Alert.alert('', '검사 건을 먼저 선택하세요.');
+                    return;
+                }
+
+                var attachId = el('#cmmAttach').value;
+                if (!attachId) {
+                    Alert.alert('', '위 첨부에 성적서 엑셀을 먼저 올린 뒤 목록에서 고르세요.');
+                    return;
+                }
+
+                AjaxUtil.getAsyncData(CMM_API + '/parse', {
+                    matProduceId: this.fileId,
+                    attachId: attachId
+                }, function (res) {
+                    if (res && res.success === false) {
+                        Alert.alert('성적서 읽기 실패', res.message);
+                        return;
+                    }
+                    _t.parsed = res.data;
+                    _t.rows = (res.data && res.data.rows) || [];
+                    _t.renderSummary();
+                    _t.renderMeasures();
+                    el('#cmmResult').style.display = '';
+                    el('#btnCmmSave').style.display = '';
+                }, function () {
+                    Alert.alert('', '성적서를 읽지 못했습니다.');
+                });
+            },
+
+            renderSummary: function () {
+                var d = this.parsed || {};
+                var box = el('#cmmSummary');
+
+                var auto = d.auto_result;
+                var color = auto === 'pass' ? '#1b6b3a' : (auto === 'fail' ? '#c0392b' : '#b06414');
+                var label = auto === 'pass' ? '합격' : (auto === 'fail' ? '불합격' : '판정 보류');
+
+                box.style.background = auto === 'pass' ? '#eef7f1'
+                    : (auto === 'fail' ? '#fdefee' : '#fdf6ec');
+                box.innerHTML =
+                    '<b style="color:' + color + ';font-size:15px">' + label + '</b>'
+                    + ' &nbsp; 측정 ' + (d.point_cnt || 0) + '항목'
+                    + ' · 판정 ' + (d.judged_cnt || 0) + '건'
+                    + ' · 이탈 <b style="color:#c0392b">' + (d.ng_cnt || 0) + '</b>건'
+                    + (d.draw_name ? ' &nbsp;|&nbsp; 도면 ' + esc(d.draw_name) : '')
+                    + (d.hardness_spec ? ' &nbsp;|&nbsp; ' + esc(d.hardness_spec) : '');
+
+                var warns = d.warnings || [];
+                /* 어느 열을 읽었는지, 지금 보는 게 저장본인지 미리보기인지 알린다 */
+                /* 발주처 이름은 양식에서 읽은 값이다. 물량마다 달라 코드에 박지 않는다 */
+                var cust = d.customer_name || '발주처';
+                var ch = el('#cmmCustHead');
+                /* 발주처 칸이 편차만 적힌 양식이면 실측 좌표 칸이 비므로 미리 알린다 */
+                if (ch) ch.innerHTML = esc(cust)
+                    + (d.cust_value_mode === 'DEV'
+                        ? ' <span style="font-weight:normal;font-size:11px;color:#b06414">(편차 기재)</span>'
+                        : '');
+
+                el('#cmmSrc').innerHTML =
+                    (d.saved ? '저장된 성적서' : '미리보기 — 아직 저장 전')
+                    + (d.file_name ? ' · ' + esc(d.file_name) : '')
+                    + ((d.mfr_ng_cnt != null || d.cust_ng_cnt != null)
+                        ? ' · 이탈 제작사 ' + (d.mfr_ng_cnt || 0)
+                        + ' / ' + esc(cust) + ' ' + (d.cust_ng_cnt || 0) : '');
+
+                el('#cmmWarn').innerHTML = warns.length
+                    ? warns.map(function (w) {
+                        return '<div style="color:#b06414;font-size:12px">· ' + esc(w) + '</div>';
+                    }).join('')
+                    : '';
+            },
+
+            /* 원본 성적서와 같은 배치로 그린다: 설계값 | 제작사 LH·RH | 발주처 LH·RH */
+            renderMeasures: function () {
+                function isNg(r) {
+                    return r.mfr_judge_lh === 'fail' || r.mfr_judge_rh === 'fail'
+                        || r.cust_judge_lh === 'fail' || r.cust_judge_rh === 'fail';
+                }
+
+                function isJudged(r) {
+                    return !!(r.mfr_judge_lh || r.mfr_judge_rh || r.cust_judge_lh || r.cust_judge_rh);
+                }
+
+                var ngOnly = el('#cmmNgOnly').checked;
+                var list = ngOnly ? this.rows.filter(isNg) : this.rows;
+
+                if (!list.length) {
+                    el('#cmmBody').innerHTML =
+                        '<tr><td colspan="12" style="text-align:center;color:#888;padding:16px">'
+                        + (ngOnly ? '이탈 항목이 없습니다.' : '측정값이 없습니다.') + '</td></tr>';
+                    return;
+                }
+
+                var SEP = 'border-left:2px solid #dfe5ee;';
+                var html = '';
+                list.forEach(function (r) {
+                    function cell(v, extra) {
+                        var st = 'text-align:right;' + (extra || '');
+                        return '<td style="' + st + '">'
+                            + ((v === null || v === undefined) ? '<span style="color:#ccc">-</span>' : v)
+                            + '</td>';
+                    }
+
+                    /* 편차에만 색을 준다. 실측값까지 물들이면 어디가 문제인지 흐려진다 */
+                    function dev(v, jd) {
+                        if (v === null || v === undefined)
+                            return '<td style="text-align:right;color:#ccc">-</td>';
+                        var c = jd === 'fail' ? '#c0392b' : (jd === 'pass' ? '#1b6b3a' : '#888');
+                        return '<td style="text-align:right;color:' + c + '">' + v + '</td>';
+                    }
+
+                    var bad = isNg(r);
+                    html += '<tr' + (bad ? ' style="background:#fdefee"' : '') + '>'
+                        + '<td>' + esc(r.point_no) + '</td>'
+                        + '<td>' + esc(r.axis) + '</td>'
+                        + cell(r.datum)
+                        + cell(r.mfr_lh, SEP)
+                        + dev(r.mfr_dev_lh, r.mfr_judge_lh)
+                        + cell(r.mfr_rh)
+                        + dev(r.mfr_dev_rh, r.mfr_judge_rh)
+                        + cell(r.cust_lh, SEP)
+                        + dev(r.cust_dev_lh, r.cust_judge_lh)
+                        + cell(r.cust_rh)
+                        + dev(r.cust_dev_rh, r.cust_judge_rh)
+                        + '<td style="' + SEP + '">'
+                        + (bad ? '<b style="color:#c0392b">이탈</b>'
+                            : (isJudged(r) ? '합격' : '<span style="color:#888">-</span>'))
+                        + '</td>'
+                        + '</tr>';
+                });
+                el('#cmmBody').innerHTML = html;
+            },
+
+            /* 저장. 서버가 첨부를 다시 읽어 재파싱·재판정한다 —
+               화면이 만든 판정값을 받으면 품질 이력이 근거를 잃는다 */
+            saveReport: function () {
+                var _t = this;
+                var attachId = el('#cmmAttach').value;
+                if (!attachId) {
+                    Alert.alert('', '성적서를 선택하세요.');
+                    return;
+                }
+
+                AjaxUtil.postJsonData(CMM_API + '/save', {
+                    matProduceId: this.fileId,
+                    attachId: attachId
+                }, function (res) {
+                    if (res && res.success === false) {
+                        Alert.alert('저장 실패', res.message);
+                        return;
+                    }
+                    Alert.alert('', (res && res.message) || '저장했습니다.');
+                    el('#btnCmmSave').style.display = 'none';
+                    _t.loadReport();
+                    _t.loadLog();      // 이력의 판정 컬럼이 바뀐다
+                    _t.loadTargets();
+                }, function () {
+                    Alert.alert('', '성적서를 저장하지 못했습니다.');
+                });
+            },
+
+            // ----------------------------------------------------------
+            // 공차
+            // ----------------------------------------------------------
+            openTolModal: function () {
+                el('#tolModal').style.display = '';
+                this.loadTolerance();
+            },
+
+            loadTolerance: function () {
+                var _t = this;
+                var sujuId = this.target ? this.target.suju_id : null;
+
+                AjaxUtil.getAsyncData(CMM_API + '/tolerance_list',
+                    {spjangcd: this.spjangcd, sujuId: sujuId},
+                    function (res) {
+                        var rows = (res && res.data) || [];
+                        if (!rows.length) {
+                            el('#tolBody').innerHTML =
+                                '<tr><td colspan="6" style="text-align:center;color:#888;padding:14px">'
+                                + '등록된 공차가 없습니다. 없으면 자동판정을 하지 않습니다.</td></tr>';
+                            return;
+                        }
+                        var html = '';
+                        rows.forEach(function (r) {
+                            html += '<tr>'
+                                + '<td>' + (r.scope === 'SUJU'
+                                    ? '품목 · ' + esc(r.item_name || r.suju_id) : '전체 공통') + '</td>'
+                                + '<td>' + (r.axis || '전 축') + '</td>'
+                                + '<td style="text-align:right">' + r.tol_lower + '</td>'
+                                + '<td style="text-align:right">' + r.tol_upper + '</td>'
+                                + '<td>' + esc(r.remark || '') + '</td>'
+                                + '<td><a class="btn" data-tol="' + r.id + '">삭제</a></td>'
+                                + '</tr>';
+                        });
+                        el('#tolBody').innerHTML = html;
+
+                        els('#tolBody a[data-tol]').forEach(function (a) {
+                            a.addEventListener('click', function () {
+                                _t.delTolerance(a.getAttribute('data-tol'));
+                            });
+                        });
+                    },
+                    function () {
+                    });
+            },
+
+            addTolerance: function () {
+                var _t = this;
+                var scope = el('#tolScope').value;
+                var sujuId = this.target ? this.target.suju_id : null;
+
+                if (scope === 'SUJU' && !sujuId) {
+                    Alert.alert('', '품목 기준을 추가하려면 목록에서 품목을 먼저 선택하세요.');
+                    return;
+                }
+
+                AjaxUtil.postJsonData(CMM_API + '/tolerance_save', {
+                    spjangcd: this.spjangcd,
+                    scope: scope,
+                    sujuId: scope === 'SUJU' ? sujuId : null,
+                    axis: el('#tolAxis').value,
+                    tolLower: el('#tolLower').value,
+                    tolUpper: el('#tolUpper').value,
+                    remark: el('#tolRemark').value
+                }, function (res) {
+                    Alert.alert('', (res && res.message) || '저장했습니다.');
+                    _t.loadTolerance();
+                }, function () {
+                    Alert.alert('', '공차 저장에 실패했습니다.');
+                });
+            },
+
+            delTolerance: function (id) {
+                var _t = this;
+                Alert.confirmAsync('', '이 공차 기준을 삭제할까요?').then(function (ok) {
+                    if (!ok) return;
+                    AjaxUtil.postJsonData(CMM_API + '/tolerance_delete', {id: id},
+                        function () {
+                            _t.loadTolerance();
+                        },
+                        function () {
+                            Alert.alert('', '삭제에 실패했습니다.');
+                        });
+                });
+            }
+        };
+
+        /* page 에 합친다. 별도 객체로 두면 this.fileId / this.target 을 못 본다 */
+        Object.assign(page, cmm);
 
         document.addEventListener('DOMContentLoaded', function () {
             page.init();

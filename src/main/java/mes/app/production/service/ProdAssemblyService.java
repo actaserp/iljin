@@ -222,7 +222,21 @@ public class ProdAssemblyService {
 	 *
 	 * 작업 지시된 품목만 노출한다 (지시 없는 조립은 관리 밖의 작업).
 	 */
+	/** 기존 호출부 호환. 완료 품목은 숨긴다 */
 	public List<Map<String, Object>> getItemList(String spjangcd, String projNo, String stage) {
+		return getItemList(spjangcd, projNo, stage, false);
+	}
+
+	/**
+	 * @param includeDone 완료(job_res finished)된 품목까지 포함할지.
+	 *
+	 * ★ 기본은 숨김이다. 조립·검사까지 끝난 품목이 키오스크에 계속 남으면
+	 *   목록만 길어진다. 다만 지우지 않고 숨기기만 한다 —
+	 *   현장이 며칠 뒤 실적을 몰아 넣는 일이 있어 아예 사라지면 그때 입력할 수 없다.
+	 *   완료 판정을 job_res 로 보는 이유는 ProdResultService.getItemList 주석 참고.
+	 */
+	public List<Map<String, Object>> getItemList(String spjangcd, String projNo, String stage,
+												 boolean includeDone) {
 
 		String st = normalizeStage(stage);
 
@@ -231,6 +245,7 @@ public class ProdAssemblyService {
 		p.addValue("projNo", nullIfEmpty(projNo));
 		p.addValue("stage", st);
 		p.addValue("procOrder", procOrderOf(st));
+		p.addValue("includeDone", includeDone);
 
 		return sqlRunner.getRows("""
             SELECT s.id                     AS suju_id
@@ -315,6 +330,9 @@ public class ProdAssemblyService {
             LEFT JOIN person pw ON pw.id = w."Actor_id"
             WHERE s.spjangcd = :spjangcd
               AND (CAST(:projNo AS varchar) IS NULL OR s.project_id = CAST(:projNo AS varchar))
+              -- 완료분 숨김. 검사를 취소해 다시 열리면 자동으로 되돌아온다
+              AND (CAST(:includeDone AS boolean)
+                   OR COALESCE(j."State", '') <> 'finished')
             ORDER BY s.line, s.id
             """, p);
 	}

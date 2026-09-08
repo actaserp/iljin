@@ -247,6 +247,15 @@ public class ProdInspectService {
                  , COALESCE(i.defect_qty, 0) AS insp_defect_qty
                  , COALESCE(i.insp_cnt, 0)   AS insp_cnt
                  , TO_CHAR(i.last_date, 'YYYY-MM-DD') AS last_inspect_date
+                 -- ★ 3차원 측정 성적서. 품목의 <b>가장 최근 1건</b>만 본다.
+                 --   목록에서 "검사는 완료인데 성적서가 없는 품목" 이 보이게 하는 게 목적이다.
+                 --   오른쪽 이력 패널(340px)에 넣었더니 컬럼이 접혀 못 읽었다.
+                 --   insp_report 가 아직 없는 환경도 있으므로 LEFT JOIN 으로 둔다
+                 , ir.report_id
+                 , ir.measure_cnt
+                 , ir.measure_ng
+                 , ir.customer_name
+                 , ir.measure_result
                  , CASE WHEN x.exempt_yn = 'Y' THEN 'Y' ELSE 'N' END AS exempt_yn
                  , CASE WHEN x.exempt_yn = 'Y'         THEN 'exempt'
                         WHEN COALESCE(i.insp_cnt, 0) > 0 THEN 'done'
@@ -287,6 +296,18 @@ public class ProdInspectService {
                 WHERE "ProcessOrder" = :inspOrder AND "State" = 'finished'
                 GROUP BY "JobResponse_id"
             ) i ON i."JobResponse_id" = j.id
+            -- 최근 성적서 1건. DISTINCT ON 으로 품목마다 가장 최근 것만 남긴다
+            LEFT JOIN (
+                SELECT DISTINCT ON (r."Suju_id")
+                       r."Suju_id"     AS suju_id
+                     , r.id            AS report_id
+                     , r.point_cnt     AS measure_cnt
+                     , r.ng_cnt        AS measure_ng
+                     , r.customer_name AS customer_name
+                     , COALESCE(r.final_result, r.auto_result) AS measure_result
+                FROM insp_report r
+                ORDER BY r."Suju_id", r.id DESC
+            ) ir ON ir.suju_id = s.id
             -- 검사 면제: 외작 입고분 중 업체 검사 완료로 등록된 것
             --   suju.id → balju."PlanDataPk" → mat_inout → mat_inout_inspect
             LEFT JOIN (

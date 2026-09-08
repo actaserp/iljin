@@ -92,6 +92,11 @@
                세로는 막지 않는다 — 부제가 여러 줄이면 타일이 늘어나야 한다. */
             min-width:0;max-width:100%;overflow-x:hidden;}
         .tile:hover{border-color:#9fb1d8;background:#fafbfe;}
+        /* 완료된 품목. 숨김이 기본이고 [완료 포함] 으로 꺼냈을 때만 보인다 */
+        .tile.done{background:#f5f6f8;border-color:#e0e4ec;}
+        .tile.done .tt{color:#8b95a7;}
+        .tile .done-tag{font-size:11px;font-weight:700;color:#1b6b3a;
+            background:#e6f3ec;border-radius:4px;padding:1px 5px;vertical-align:middle;}
         .tile .tt{font-size:17px;font-weight:800;color:#1d2330;
             width:100%;min-width:0;max-width:100%;
             overflow-wrap:anywhere;word-break:break-word;line-height:1.25;
@@ -130,7 +135,15 @@
         .qkey.grp{font-size:22px;letter-spacing:1px;color:#244a8a;}
         .qkey.spec{font-size:15px;color:#3d5a99;background:#f0f3f9;}
         /* 공정 검색칸 (좌측 목록 상단) */
-        .srch{display:flex;align-items:center;gap:9px;border:1.5px solid #c7cfdd;border-radius:10px;padding:10px 13px;margin-bottom:12px;background:#fff;position:sticky;top:0;z-index:2;}
+        /* ★ sticky 검색바.
+           top:0 로만 두면 컨테이너(.pick-body)의 14px 패딩 자리가 안 가려져
+           스크롤된 타일이 검색바 위쪽으로 비쳐 보인다.
+           ::before 로 그 띠만 덮는다 (아래는 건드리지 않는다). */
+        .srch{display:flex;align-items:center;gap:9px;border:1.5px solid #c7cfdd;
+            border-radius:10px;padding:10px 13px;margin-bottom:12px;background:#fff;
+            position:sticky;top:0;z-index:5;}
+        .srch::before{content:'';position:absolute;left:-14px;right:-14px;top:-15px;
+            height:15px;background:#fff;}
         .srch-ico{font-size:15px;}
         .srch-chips{flex:1;display:flex;gap:5px;flex-wrap:wrap;align-items:center;min-height:28px;}
         .qchip{font-size:14px;font-weight:800;color:#1b3a6b;background:#e7f1fb;border:1px solid #cfe0f2;border-radius:7px;padding:3px 9px;letter-spacing:.5px;}
@@ -579,7 +592,8 @@
                 const r = await getJSON(ASM_API + '/item_list', {
                     spjangcd: SPJANGCD,
                     projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : '',
-                    stage: MODE
+                    stage: MODE,
+                    includeDone: showDone
                 });
                 let list = r.data || [];
                 if (st.head >= 0) {
@@ -592,7 +606,8 @@
             const res = await getJSON(API + '/item_list', {
                 spjangcd: SPJANGCD,
                 projNo: st.proj >= 0 ? PROJECTS[st.proj].proj_no : '',
-                sujuHeadId: st.head >= 0 ? HEADS[st.head].suju_head_id : ''
+                sujuHeadId: st.head >= 0 ? HEADS[st.head].suju_head_id : '',
+                includeDone: showDone
             });
             ITEMS = res.data || [];
         }
@@ -628,6 +643,13 @@
         };
         let curDate = toYMD(new Date());
         let searchMode = false;      // 품목 단계에서 [검색] 을 눌렀을 때만 문자 패드
+        /*
+         * ★ 완료된 품목 표시 여부.
+         *   조립·검사까지 끝난 품목은 기본으로 숨긴다 — 목록만 길어진다.
+         *   다만 지우지는 않는다. 현장이 며칠 뒤 실적을 몰아 넣는 일이 있어
+         *   아예 사라지면 그때 입력할 방법이 없다. [완료] 로 다시 꺼낸다.
+         */
+        let showDone = false;
         let qTokens = [];            // 멀티탭 검색 패턴: 위치별 허용문자 토큰 [{face, chars[]}]
         let recentItems = [];        // 최근 사용 품목 키 `${proj}|${item}` (최신순)
 
@@ -831,8 +853,11 @@
                     const showHead = st.head < 0;
                     const showProj = st.proj < 0;   // 프로젝트를 안 좁혔으면 어느 프로젝트인지 보여준다
                     // 조립은 목표 대비 완료가 핵심 정보다. 가공품은 구성 정보를 보여준다
-                    const tile = (it, i) => `<button class="tile ${st.item === i ? 'on' : ''}" data-it="${i}">
-                            <span class="tt">${it.item_name}</span>
+                    // 완료분을 꺼내 봤을 때 흐리게 구분한다. 고를 수는 있다
+                    const tile = (it, i) => `<button class="tile ${st.item === i ? 'on' : ''}${
+                        it.done_yn === 'Y' ? ' done' : ''}" data-it="${i}">
+                            <span class="tt">${it.item_name}${
+                        it.done_yn === 'Y' ? ' <span class="done-tag">완료</span>' : ''}</span>
                             <span class="ts">${showProj && it.proj_no ? `${it.proj_no} · ` : ''}${
                         isAsm()
                             ? `완료 ${it.done_qty ?? 0} / ${it.target_qty ?? 0}`
@@ -850,6 +875,8 @@
                             <span class="srch-ico">🔎</span>
                             <span class="srch-chips">${chips}</span>
                             ${active ? `<button class="srch-clr" id="srchClr">✕</button>` : ''}
+                            <button class="srch-tgl" id="doneTgl"
+                                title="조립·검사까지 끝난 품목">${showDone ? '완료 숨김' : '완료 포함'}</button>
                             <button class="srch-tgl" id="srchTgl">${searchMode ? '닫기' : '검색'}</button>
                             <span class="srch-cnt">${items.length}개</span>
                         </div><div class="tiles">`;
@@ -935,6 +962,15 @@
             el('#pickBody').querySelectorAll('[data-k]').forEach(b => b.onclick = () => pickKind(b.dataset.k));
             const sc = el('#srchClr');
             if (sc) sc.onclick = () => { qTokens = []; renderPick(); };
+
+            const dtg = el('#doneTgl');
+            if (dtg) dtg.onclick = async () => {
+                showDone = !showDone;
+                st.item = -1;          // 목록이 바뀌므로 선택을 푼다 (인덱스가 밀린다)
+                await loadItems();
+                renderPick();
+                renderEntry();
+            };
 
             const stg = el('#srchTgl');
             if (stg) stg.onclick = () => {

@@ -84,13 +84,20 @@ public class ProdAssemblyController {
 		return result;
 	}
 
+	/**
+	 * @param includeDone 완료(job_res finished)된 품목까지 포함할지.
+	 *   기본은 숨김이다 — 조립·검사까지 끝난 품목이 키오스크에 계속 남으면
+	 *   목록만 길어진다. 다만 지우지 않고 숨기기만 하므로,
+	 *   현장이 며칠 뒤 실적을 몰아 넣을 때 [완료 포함] 으로 다시 꺼낼 수 있다.
+	 */
 	@GetMapping("/item_list")
 	public AjaxResult itemList(@RequestParam("spjangcd") String spjangcd,
 							   @RequestParam(value = "projNo", required = false) String projNo,
-							   @RequestParam(value = "stage", required = false) String stage) {
+							   @RequestParam(value = "stage", required = false) String stage,
+							   @RequestParam(value = "includeDone", defaultValue = "false") boolean includeDone) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodAssemblyService.getItemList(spjangcd, projNo, stage);
+		result.data = prodAssemblyService.getItemList(spjangcd, projNo, stage, includeDone);
 		return result;
 	}
 

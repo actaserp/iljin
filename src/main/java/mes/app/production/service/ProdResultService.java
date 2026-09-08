@@ -214,13 +214,34 @@ public class ProdResultService {
 		return sqlRunner.getRows(sql, p);
 	}
 
+	/** 기존 호출부 호환. 완료 품목은 숨긴다 */
+	public List<Map<String, Object>> getItemList(String spjangcd, String projNo,
+												 Integer sujuHeadId) {
+		return getItemList(spjangcd, projNo, sujuHeadId, false);
+	}
+
 	/**
 	 * 품목 목록.
 	 * 작업 지시된 품목만 보여준다 — 지시 없이 실적이 찍히면 관리 밖의 작업이 된다.
 	 * 부품(BOM)이 등록된 품목만 유형 타일을 그릴 수 있으므로 부품 수도 같이 준다.
+	 *
+	 * [★ 완료된 품목은 기본으로 숨긴다]
+	 *   조립·검사까지 끝난 품목이 키오스크에 계속 남아 있으면 목록만 길어진다.
+	 *
+	 *   완료 판정은 <b>job_res."State"='finished'</b> 로 본다. 이유:
+	 *     - 공정조립 누적으로 보면 안 된다. 현장이 조립 실적 입력을 건너뛰는 일이 있어
+	 *       (A14: 공정조립 0/2 인데 검사 완료 2) 영원히 안 닫힌다.
+	 *     - job_res 는 검사가 닫는다(ProdInspectService.syncJobResState).
+	 *       검사를 취소하면 다시 열리므로 되돌리기도 된다.
+	 *
+	 *   ★ 지우지 않고 <b>숨기기만</b> 한다. 현장이 며칠 뒤 실적을 몰아 넣는 일이 있어
+	 *     목록에서 아예 사라지면 그때 입력할 방법이 없어진다.
+	 *     includeDone=true 면 완료분도 나오고, done_yn 으로 구분해 표시한다.
+	 *
+	 * @param includeDone 완료된 품목까지 포함할지
 	 */
 	public List<Map<String, Object>> getItemList(String spjangcd, String projNo,
-												 Integer sujuHeadId) {
+												 Integer sujuHeadId, boolean includeDone) {
 
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("spjangcd", spjangcd);
@@ -228,6 +249,7 @@ public class ProdResultService {
 		//   둘 다 비면 전체가 나오고, 품목을 고르는 순간 서버가 역으로 채운다(headOf).
 		p.addValue("projNo", nullIfEmpty(projNo));
 		p.addValue("sujuHeadId", sujuHeadId);
+		p.addValue("includeDone", includeDone);
 
 		String sql = """
             SELECT s.id                    AS suju_id
@@ -241,6 +263,8 @@ public class ProdResultService {
                  , COALESCE(sh.suju_name, '') AS suju_name
                  , TO_CHAR(sh."JumunDate", 'MM-DD') AS jumun_date
                  , COALESCE(c."Name", '')  AS company
+                 -- 완료 여부. 숨기더라도 화면이 회색으로 구분할 수 있게 내려 준다
+                 , CASE WHEN j."State" = 'finished' THEN 'Y' ELSE 'N' END AS done_yn
             FROM suju s
             JOIN job_res j
               ON j."SourceTableName" = 'suju' AND j."SourceDataPk" = s.id
@@ -257,8 +281,12 @@ public class ProdResultService {
                    OR s.project_id = CAST(:projNo AS varchar))
               AND (CAST(:sujuHeadId AS integer) IS NULL
                    OR s."SujuHead_id" = CAST(:sujuHeadId AS integer))
+              -- 완료분 숨김. 검사를 취소해 다시 열리면 자동으로 되돌아온다
+              AND (CAST(:includeDone AS boolean)
+                   OR COALESCE(j."State", '') <> 'finished')
             GROUP BY s.id, s.line, s."Material_Name", s.unit_qty, b.part_cnt
                    , s."SujuHead_id", s.project_id, sh.suju_name, sh."JumunDate", c."Name"
+                   , j."State"
             ORDER BY sh."JumunDate", s.line, s.id
             """;
 

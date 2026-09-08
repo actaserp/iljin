@@ -97,10 +97,12 @@ public class ProdResultController {
 	@GetMapping("/item_list")
 	public AjaxResult itemList(@RequestParam("spjangcd") String spjangcd,
 							   @RequestParam(value = "projNo", required = false) String projNo,
-							   @RequestParam(value = "sujuHeadId", required = false) Integer sujuHeadId) {
+							   @RequestParam(value = "sujuHeadId", required = false) Integer sujuHeadId,
+							   // 완료(job_res finished)된 품목까지 볼지. 기본은 숨김
+							   @RequestParam(value = "includeDone", defaultValue = "false") boolean includeDone) {
 		AjaxResult result = new AjaxResult();
 		result.success = true;
-		result.data = prodResultService.getItemList(spjangcd, projNo, sujuHeadId);
+		result.data = prodResultService.getItemList(spjangcd, projNo, sujuHeadId, includeDone);
 		return result;
 	}
 
