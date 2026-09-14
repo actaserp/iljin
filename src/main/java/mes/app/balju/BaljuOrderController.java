@@ -172,9 +172,14 @@ public class BaljuOrderController {
 
       Integer materialId = Integer.parseInt(item.get("Material_id").toString());
       Double qty = Double.parseDouble(item.get("quantity").toString());
-      Double unitPrice = Double.parseDouble(item.get("unit_price").toString());
-      Double supply_price = Double.parseDouble(item.get("supply_price").toString());
-      Double vat = Double.parseDouble(item.get("vat").toString());
+      // ★ 금액 3종은 화면에서 빈 문자열("")이나 "면세" 같은 비숫자 문자열로 올라올 수 있다.
+      //   (단가 미등록 품목이면 balju_order.html 이 단가/공급가/부가세를 전부 ''로 비운다.)
+      //   Double.parseDouble 은 그 경우 NumberFormatException 을 던져 발주 저장 전체가 실패했다.
+      //   balju 의 "UnitPrice"/"Price"/"Vat" 는 NULL 허용이므로 값이 없으면 NULL 로 둔다.
+      //   0 으로 채우지 않는 이유: "단가 미정" 과 "0원(무상)" 이 구분되지 않기 때문.
+      Double unitPrice = CommonUtil.tryDoubleNull(item.get("unit_price"));
+      Double supply_price = CommonUtil.tryDoubleNull(item.get("supply_price"));
+      Double vat = CommonUtil.tryDoubleNull(item.get("vat"));
       String standard = java.util.Objects.toString(
         item.containsKey("Standard") ? item.get("Standard") : item.get("standard"),
         ""
@@ -204,13 +209,18 @@ public class BaljuOrderController {
       String editedFlag = String.valueOf(item.get("totalEdited")).toUpperCase();
       boolean isManual = "TRUE".equals(editedFlag) || "Y".equals(editedFlag);
 
+      // ★ 합계도 같은 이유로 파싱 실패 가능. 수기입력 값이 비어 있으면 자동계산으로 넘긴다.
+      Double totalAmount = null;
       if (isManual) {
-        detail.setTotalAmount(Double.parseDouble(item.get("total_price").toString()));
-        //log.info("✅ 수기입력 적용: total_price = {}", item.get("total_price"));
-      } else {
-        detail.setTotalAmount(supply_price + vat);
-        //log.info("⚙️ 자동계산 적용: supply + vat = {}", supply_price + vat);
+        totalAmount = CommonUtil.tryDoubleNull(item.get("total_price"));
       }
+      if (totalAmount == null && (supply_price != null || vat != null)) {
+        // 공급가·부가세 중 하나라도 값이 있으면 없는 쪽을 0 으로 보고 더한다.
+        totalAmount = (supply_price == null ? 0d : supply_price)
+                        + (vat == null ? 0d : vat);
+      }
+      // 셋 다 비어 있으면 합계도 NULL (금액 미정 발주)
+      detail.setTotalAmount(totalAmount);
 
 
       detail.setMaterialId(materialId);
@@ -229,7 +239,8 @@ public class BaljuOrderController {
       detail.set_status("manual");
       detail.setStandard(standard);
 
-      totalPriceSum += detail.getTotalAmount();
+      // ★ TotalAmount 가 NULL 일 수 있으므로 언박싱 NPE 방지
+      totalPriceSum += detail.getTotalAmount() == null ? 0d : detail.getTotalAmount();
       bujuRepository.save(detail);
     }
 
@@ -500,7 +511,15 @@ public class BaljuOrderController {
           row.getCell(1).setCellValue(i + 1); // NO
           row.getCell(2).setCellValue((String) item.get("product_name")); // 자재명
           row.getCell(4).setCellValue(((Number) item.get("quantity")).doubleValue()); // 수량
-          row.getCell(5).setCellValue(((Number) item.get("unit_price")).doubleValue()); // 단가
+          // ★ 단가는 NULL 일 수 있다(단가 미정으로 저장된 발주).
+          //   (Number) 캐스팅 후 doubleValue() 를 바로 부르면 NPE 로 발주서 출력이 통째로 실패한다.
+          //   미정인 단가를 0 으로 찍으면 거래처에 "0원 발주" 로 읽히므로 빈칸으로 둔다.
+          Object unitPriceVal = item.get("unit_price");
+          if (unitPriceVal == null) {
+            row.getCell(5).setCellValue(""); // 단가 (미정)
+          } else {
+            row.getCell(5).setCellValue(((Number) unitPriceVal).doubleValue()); // 단가
+          }
           row.getCell(6).setCellValue((String) item.get("description")); // 비고
         }
 
