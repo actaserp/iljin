@@ -1,6 +1,7 @@
 package mes.app.pda.controller;
 
 import lombok.RequiredArgsConstructor;
+import mes.app.production.service.ProdDesignService;
 import mes.app.production.service.ProdResultService;
 import mes.domain.entity.User;
 import mes.domain.model.AjaxResult;
@@ -31,6 +32,9 @@ import java.util.Map;
 public class ProdResultApiController {
 
     private final ProdResultService prodResultService;
+
+    /** 유형(부품 종류) 목록은 생산지시 쪽 서비스가 가진다 — 웹 불량 화면도 거기서 받는다 */
+    private final ProdDesignService prodDesignService;
 
     // ===== 마스터 =====
 
@@ -175,6 +179,126 @@ public class ProdResultApiController {
                           @RequestParam(value = "operation", required = false) String operation) {
         AjaxResult result = new AjaxResult();
         result.data = prodResultService.getResultLog(spjangcd, prodDate, equipment, operation);
+        return result;
+    }
+
+    // ===== 가공 불량 =====
+    //
+    // [웹 원본] templates/production/prod_result_defect.html
+    // 불량은 "가공하다 못 쓰게 만든 것"이다. 별도 테이블 없이 iljin_prod_result 에
+    // GoodQty=0, DefectQty>0 으로 같이 쌓는다 (집계 경로를 가르지 않기 위해).
+
+    /** 유형(부품 종류) 목록 — canon 이 유형 이름이다 */
+    @GetMapping("/kind_list")
+    public AjaxResult kindList(@RequestParam("spjangcd") String spjangcd) {
+        AjaxResult result = new AjaxResult();
+        result.data = prodDesignService.getKindList(spjangcd);
+        return result;
+    }
+
+    /** 불량 유형 목록 (defect_type) */
+    @GetMapping("/defect_type_list")
+    public AjaxResult defectTypeList(@RequestParam("spjangcd") String spjangcd,
+                                     @RequestParam(value = "operation", required = false) String operation) {
+        AjaxResult result = new AjaxResult();
+        result.data = prodResultService.getDefectTypes(spjangcd, operation);
+        return result;
+    }
+
+    /** 불량 내역 (그날 · 그 설비) */
+    @GetMapping("/defect_log")
+    public AjaxResult defectLog(@RequestParam("spjangcd") String spjangcd,
+                                @RequestParam(value = "prodDate", required = false) String prodDate,
+                                @RequestParam(value = "equipment", required = false) String equipment,
+                                @RequestParam(value = "operation", required = false) String operation) {
+        AjaxResult result = new AjaxResult();
+        result.data = prodResultService.getDefectLog(spjangcd, prodDate, equipment, operation);
+        return result;
+    }
+
+    /**
+     * 불량 등록.
+     * 공정은 화면 값을 믿지 않고 설비 코드로 서버가 정한다 (양품 등록과 같은 규칙).
+     */
+    @PostMapping("/defect_save")
+    @Transactional
+    public AjaxResult defectSave(@RequestBody Map<String, Object> payload, Authentication auth) {
+        AjaxResult result = new AjaxResult();
+
+        if (auth == null || !(auth.getPrincipal() instanceof User)) {
+            result.success = false;
+            result.message = "로그인이 필요합니다. 다시 로그인해 주세요.";
+            return result;
+        }
+        User user = (User) auth.getPrincipal();
+
+        String spjangcd = str(payload.get("spjangcd"));
+        String equipment = str(payload.get("equipment"));
+        double qty = toDouble(payload.get("defectQty"));
+
+        if (equipment.isEmpty()) {
+            result.success = false;
+            result.message = "설비를 선택하세요.";
+            return result;
+        }
+        if (qty <= 0) {
+            result.success = false;
+            result.message = "불량 수량을 입력하세요.";
+            return result;
+        }
+        if (str(payload.get("defectType")).isEmpty()) {
+            result.success = false;
+            result.message = "불량 유형을 선택하세요.";
+            return result;
+        }
+
+        String operation = prodResultService.operationOf(spjangcd, equipment);
+        if (operation.isEmpty()) {
+            result.success = false;
+            result.message = "설비에 연결된 가공공정이 없습니다: " + equipment;
+            return result;
+        }
+
+        prodResultService.saveDefect(payload, operation, user);
+        result.success = true;
+        result.message = "불량이 등록되었습니다.";
+        return result;
+    }
+
+    /**
+     * 수량 수정 (양품·불량 공용).
+     * 서버가 그 행이 불량 행인지 보고 고칠 칸을 정한다.
+     * 품목·유형·설비·작업자는 못 고친다 — 취소하고 다시 넣어야 이력이 남는다.
+     */
+    @PostMapping("/update_qty")
+    @Transactional
+    public AjaxResult updateQty(@RequestBody Map<String, Object> payload, Authentication auth) {
+        AjaxResult result = new AjaxResult();
+
+        if (auth == null || !(auth.getPrincipal() instanceof User)) {
+            result.success = false;
+            result.message = "로그인이 필요합니다. 다시 로그인해 주세요.";
+            return result;
+        }
+        User user = (User) auth.getPrincipal();
+
+        Integer id = toInt(payload.get("id"));
+        double qty = toDouble(payload.get("qty"));
+
+        if (id == null) {
+            result.success = false;
+            result.message = "수정할 실적이 지정되지 않았습니다.";
+            return result;
+        }
+        if (qty <= 0) {
+            result.success = false;
+            result.message = "수량을 입력하세요.";
+            return result;
+        }
+
+        prodResultService.updateQty(id, qty, user);
+        result.success = true;
+        result.message = "수정되었습니다.";
         return result;
     }
 

@@ -69,8 +69,13 @@ public class SecurityConfiguration {
                                 // 정적 리소스
                                 "/resource/**", "/img/**", "/images/**", "/js/**", "/css/**",
                                 "/assets_mobile/**", "/font/**", "/robots.txt", "/favicon.ico",
-                                // PDA 관련
-                                "/pda/login", "/pda/app/version/**", "/pda/**",
+                                // PDA — 로그인 전에 쓰는 경로만 연다.
+                                // 나머지 /pda/** 는 로그인이 필요하다. 예전에는 /pda/** 전체를 열어 두어
+                                //  ① 세션 없이도 재고·설비 같은 데이터가 조회됐고
+                                //  ② 세션이 끊겨도 앱이 알 방법이 없었다.
+                                // 앱은 X-Requested-With 헤더를 보내므로 세션이 없으면 로그인 페이지 대신
+                                // 401 을 받는다(AjaxAwareLoginUrlAuthenticationEntryPoint). 앱은 401 을 보고 재로그인으로 보낸다.
+                                "/pda/login", "/pda/logout", "/pda/app/version", "/pda/app/version/**",
                                 // API 및 외부 연동
                                 "/useridchk/**", "/user-auth/**", "/user-auth/save",
                                 "/popbill/webhook", "/api/transaction/input/**",
