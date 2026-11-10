@@ -4,7 +4,7 @@
         .proj-bar { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid #d7dde7; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; flex-wrap: wrap; }
         .proj-bar .fld { display: flex; align-items: center; gap: 8px; }
         .proj-bar label { font-weight: 700; color: #445; font-size: 12.5px; }
-        .proj-bar select { border: 1px solid #cfd6e2; border-radius: 5px; font-size: 12.5px; padding: 5px 8px; min-width: 200px; }
+        .proj-bar select { border: 1px solid #cfd6e2; border-radius: 5px; font-size: 13px; padding: 0 30px 0 10px; height: 30px; line-height: 28px; min-width: 200px; }
 
         .row2 { display: flex; gap: 8px; align-items: flex-start; }
         .row2 > .section.left { flex: 0 0 460px; }
@@ -25,8 +25,8 @@
 
         .form-grid { display: grid; grid-template-columns: 110px 1fr; gap: 10px 12px; align-items: center; }
         .form-grid label { font-weight: 700; color: #445; font-size: 12.5px; }
-        .form-grid input, .form-grid textarea { border: 1px solid #cfd6e2; border-radius: 5px; padding: 7px 9px; font-size: 12.5px; width: 100%; box-sizing: border-box; font-family: inherit; }
-        .form-grid textarea { resize: vertical; min-height: 60px; }
+        .form-grid input, .form-grid textarea { border: 1px solid #cfd6e2; border-radius: 5px; padding: 0 9px; height: 30px; line-height: 28px; font-size: 13px; width: 100%; box-sizing: border-box; font-family: inherit; }
+        .form-grid textarea { resize: vertical; min-height: 60px; height: auto; line-height: 1.5; padding: 7px 9px; }
         .form-grid .full { grid-column: 1 / -1; }
         .file-drop { border: 1.5px dashed #b9c4d6; border-radius: 8px; padding: 18px; text-align: center; color: #6f7d92; background: #f8fafd; cursor: pointer; }
         .file-drop.has { border-color: #2b5fc4; background: #eef4ff; color: #2b5fc4; font-weight: 700; }
@@ -290,7 +290,7 @@
                     + '<table class="work-table">'
                     + '  <colgroup><col style="width:12%"><col style="width:16%"><col style="width:32%"><col style="width:16%"><col style="width:14%"><col style="width:10%"></colgroup>'
                     + '  <thead><tr><th>버전</th><th>도면번호</th><th>파일명</th><th>등록일</th><th>최신</th><th>삭제</th></tr></thead>'
-                    + '  <tbody id="histBody"><tr><td colspan="6" class="pick-empty">' 
+                    + '  <tbody id="histBody"><tr><td colspan="6" class="pick-empty">'
                     + (u ? '조회 중...' : '유니트를 선택하면 이력이 표시됩니다.') + '</td></tr></tbody>'
                     + '</table>'
                 );

@@ -4,7 +4,7 @@
         .proj-bar { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid #d7dde7; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; flex-wrap: wrap; }
         .proj-bar .fld { display: flex; align-items: center; gap: 8px; }
         .proj-bar label { font-weight: 700; color: #445; font-size: 12.5px; }
-        .proj-bar select { border: 1px solid #cfd6e2; border-radius: 5px; font-size: 12.5px; padding: 5px 8px; min-width: 180px; }
+        .proj-bar select { border: 1px solid #cfd6e2; border-radius: 5px; font-size: 13px; padding: 0 30px 0 10px; height: 30px; line-height: 28px; min-width: 180px; }
 
         .row2 { display: flex; gap: 8px; align-items: flex-start; }
         .row2 > .section.left { flex: 0 0 460px; }
@@ -272,7 +272,7 @@
                             var latest = (r.latest_yn === 'Y') ? '<span class="badge latest">최신</span>' : '';
                             var fileCell = r.file_data_pk
                                 ? '<span class="hist-file" data-file="' + r.file_data_pk + '">'
-                                    + _this.esc(r.file_name) + '</span>'
+                                + _this.esc(r.file_name) + '</span>'
                                 : (_this.esc(r.file_name) || '-');
                             html += '<tr>'
                                 + '<td>' + _this.esc(r.version) + latest + '</td>'

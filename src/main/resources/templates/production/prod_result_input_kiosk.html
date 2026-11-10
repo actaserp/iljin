@@ -213,10 +213,12 @@
             50%,100%{background:#12161d;}
         }
         .alm-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
-        .alm-row input[type=time]{width:110px;padding:7px 9px;border:1px solid #cfd6e2;
-            border-radius:6px;font-size:15px;font-weight:700;}
-        .alm-row input[type=text]{flex:1;padding:7px 10px;border:1px solid #cfd6e2;
-            border-radius:6px;font-size:14px;}
+        /* 시각 칸: '오전 08:00' + 시계 아이콘이 들어갈 폭. 110px 에서는 분이 잘렸다.
+           공통 input 스타일(높이 30 · 좌우 여백 12)이 덮어서 높이·여백도 여기서 정한다 */
+        .alm-row input[type=time]{flex:none;width:168px;height:38px;line-height:36px;padding:0 10px;
+            border:1px solid #cfd6e2;border-radius:6px;font-size:15px;font-weight:700;box-sizing:border-box;}
+        .alm-row input[type=text]{flex:1;min-width:0;height:38px;line-height:36px;padding:0 10px;
+            border:1px solid #cfd6e2;border-radius:6px;font-size:14px;box-sizing:border-box;}
         .alm-row .del{border:1px solid #e2c9c7;background:#fff;color:#b3261e;
             border-radius:7px;padding:6px 11px;font-size:13px;cursor:pointer;}
 
@@ -309,6 +311,10 @@
                탭과 같은 높이의 정사각형이라 손이 어디로 가든 목표가 크다. -->
         <div class="tab-row">
             <div class="mode-tabs" id="modeTabs"></div>
+            <!-- 선택한 공정(품목)의 도면. 생산 지시 화면에서 올린 것 중 도면번호별 최신만 -->
+            <button class="sq-btn" id="btnDraw" title="선택한 공정의 도면 보기" disabled>
+                <span class="ic">📄</span><span class="tx">도면</span>
+            </button>
             <button class="sq-btn" id="btnReload" title="목록 새로고침">
                 <span class="ic">⟳</span><span class="tx">새로고침</span>
             </button>
@@ -427,6 +433,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <script th:src="@{/js/iljin_drawing.js}"></script>
     <script type="text/javascript" th:inline="none">
         // 주의: 전역 $ (jQuery) 를 덮으면 common.js 의 AjaxUtil 이 깨진다.
         // 최상위 const 는 전역 렉시컬 스코프를 점유하므로 반드시 다른 이름을 쓸 것.
@@ -1140,6 +1147,7 @@
                 : (derived || '선택하세요');
             pj.classList.toggle('empty', st.proj < 0 && !derived);
             el('#cxItem').textContent = it0 ? (it0.item_name || '') : '';
+            el('#btnDraw').disabled = !it0;
             // 작업 버튼 (작업자+설비+프로젝트+공정 선택 시 활성)
             const wa = el('#workArea');
             // 조립은 설비를 묻지 않는다. 품목만 있으면 시작할 수 있다
@@ -1963,6 +1971,17 @@
         };
 
         document.getElementById('btnFull').onclick = toggleFullscreen;
+
+        // 도면 보기 — 공정(품목)을 고른 뒤에만 누를 수 있다
+        el('#btnDraw').onclick = () => {
+            const it = st.item >= 0 ? ITEMS[st.item] : null;
+            if (!it) { flash('공정을 먼저 고르세요'); return; }
+            IljinDrawing.open({
+                sujuId: it.suju_id,
+                title: (it.proj_no ? it.proj_no + ' · ' : '') + (it.item_name || ''),
+                onEmpty: () => flash('이 공정에 올린 도면이 없습니다')
+            });
+        };
         document.addEventListener('fullscreenchange', renderFsBtn);
 
         el('#opSel').onchange = async () => {

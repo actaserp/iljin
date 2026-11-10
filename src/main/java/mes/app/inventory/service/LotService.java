@@ -75,16 +75,113 @@ public class LotService {
             , to_char(ml."EffectiveDate",'yyyy-MM-dd') as "EffectiveDate"
             , ml."Description"
             , ml."StoreHouse_id" as store_house_id
+            -- 외작 입고분이면 어느 프로젝트·라인의 지그인지 (라벨에 찍는다). 일반 구매품은 NULL
+            , s.project_id as "ProjNo"
+            , s.line as "LineName"
             from mat_lot ml  
                 left join material m on m.id = ml."Material_id"
                 left join mat_grp mg on mg.id = m."MaterialGroup_id" 
                 left join unit u on u.id = m."Unit_id" 
                 left join mat_inout mi on ml."SourceDataPk" = mi.id and ml."SourceTableName" ='mat_inout'
+                left join balju b on mi."SourceTableName" = 'balju' and b.id = mi."SourceDataPk"
+                left join suju s on b."PlanTableName" = 'suju' and s.id = b."PlanDataPk"
             where mi.id = cast(:mioId as Integer) 
 			""";
 
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, param);
 		return items;
+	}
+
+	/**
+	 * 외작 입고 → LOT 자동 부여.
+	 *
+	 * 예전에는 수불전표등록에서 [로트 입고 등록] → [저장] 을 눌러야 LOT 이 생겼다.
+	 * 외작 지그는 출하 때 LOT 라벨을 스캔해야 하므로 <b>입고 저장과 동시에</b> 만든다.
+	 *
+	 *  - 지그 1대 = LOT 1건 (InputQty 1). 2대가 들어오면 LOT 2건 → 라벨 2장.
+	 *    대수가 비정상적으로 크면(MAX_SPLIT 초과) 쪼개지 않고 1건으로 만든다 — 입력 실수 대비.
+	 *  - 확정(confirmed) 입고만. 입고검사 대기(가입고)는 확정될 때 수불전표등록에서 등록한다.
+	 *  - 이미 LOT 이 있으면 만들지 않는다 (재저장·중복 호출 안전).
+	 *  - 유효일시는 일진에 의미가 없어 2999-12-31.
+	 *  - 그 품목의 로트관리(LotUseYN)를 켠다. 꺼져 있으면 LOT 선택 팝업·LOT 재고조정에 안 보인다.
+	 *
+	 * 컬럼·값은 MaterialInoutController.lot_save 와 같다 (SourceTableName='mat_inout').
+	 *
+	 * @return 만든 LOT 번호 목록 (없으면 빈 목록)
+	 */
+	public List<String> autoLotsForReceipt(Integer mioId, Integer userId) {
+		final int MAX_SPLIT = 50;
+		List<String> made = new java.util.ArrayList<>();
+		if (mioId == null) return made;
+
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("mioId", mioId);
+
+		Map<String, Object> mi = this.sqlRunner.getRow("""
+			SELECT mi.id, mi.spjangcd, mi."Material_id" AS material_id, mi."StoreHouse_id" AS store_house_id
+			     , COALESCE(mi."InputQty", 0) AS qty, mi."State" AS state
+			     , (SELECT COUNT(*) FROM mat_lot ml
+			         WHERE ml."SourceTableName" = 'mat_inout' AND ml."SourceDataPk" = mi.id) AS lot_cnt
+			FROM mat_inout mi
+			WHERE mi.id = :mioId
+			""", p);
+		if (mi == null) return made;
+
+		double qty = Double.parseDouble(String.valueOf(mi.get("qty")));
+		long lotCnt = Long.parseLong(String.valueOf(mi.get("lot_cnt")));
+		if (!"confirmed".equals(String.valueOf(mi.get("state"))) || qty <= 0 || lotCnt > 0
+				|| mi.get("material_id") == null || mi.get("store_house_id") == null) {
+			return made;
+		}
+
+		// 1대씩. 소수(1.5 등)는 나머지를 마지막 LOT 에 싣는다
+		List<Double> sizes = new java.util.ArrayList<>();
+		if (qty > MAX_SPLIT) {
+			sizes.add(qty);
+		} else {
+			int whole = (int) Math.floor(qty);
+			for (int i = 0; i < whole; i++) sizes.add(1d);
+			double rest = qty - whole;
+			if (rest > 0) {
+				if (sizes.isEmpty()) sizes.add(rest);
+				else sizes.set(sizes.size() - 1, 1d + rest);
+			}
+		}
+
+		for (Double size : sizes) {
+			String lot = this.make_lot_in_number();
+			MapSqlParameterSource ip = new MapSqlParameterSource();
+			ip.addValue("spjangcd", mi.get("spjangcd"));
+			ip.addValue("lot", lot);
+			ip.addValue("materialId", mi.get("material_id"));
+			ip.addValue("qty", size);
+			ip.addValue("mioId", mioId);
+			ip.addValue("storeHouseId", mi.get("store_house_id"));
+			ip.addValue("userId", userId);
+			this.sqlRunner.execute("""
+				INSERT INTO mat_lot (
+				     spjangcd, "LotNumber", "Material_id", "InputDateTime"
+				   , "InputQty", "CurrentStock", "OutQtySum", "EffectiveDate", "Description"
+				   , "SourceTableName", "SourceDataPk", "StoreHouse_id"
+				   , _status, _created, _creater_id
+				) VALUES (
+				     :spjangcd, :lot, :materialId, now()
+				   , :qty, :qty, 0, TIMESTAMP '2999-12-31 00:00:00', '외작 입고 자동 LOT'
+				   , 'mat_inout', :mioId, :storeHouseId
+				   , 'a', now(), :userId
+				)
+				""", ip);
+			made.add(lot);
+		}
+
+		MapSqlParameterSource mp = new MapSqlParameterSource();
+		mp.addValue("mid", mi.get("material_id"));
+		this.sqlRunner.execute("""
+			UPDATE material SET "LotUseYN" = 'Y'
+			WHERE id = :mid AND COALESCE("LotUseYN", 'N') <> 'Y'
+			""", mp);
+
+		return made;
 	}
 
 	// Lot 번호 만들기

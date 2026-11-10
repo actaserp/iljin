@@ -190,7 +190,7 @@
                             <th>수주</th>
                             <th>구분</th>
                             <th>제작업체</th>
-                            <th>공정조립</th>
+                            <th>조립/입고</th>
                             <th>유닛조립</th>
                             <th>검사수량</th>
                             <th>상태</th>
@@ -263,6 +263,7 @@
                         <!-- 일괄 검사도 여기 둔다. 검사자·판정을 이 폼에서 받으므로
                              버튼이 목록 쪽에 있으면 어느 값이 쓰이는지 알 수 없다. -->
                         <a class="btn" id="btnBulk">선택 <b id="bulkCnt">0</b>건 일괄</a>
+                        <a class="btn" id="labelBtn" title="이 품목의 지그 라벨(100×50) 출력">지그 라벨</a>
                         <a class="btn btn-delete" id="saveBtn">검사 등록</a>
                     </div>
                 </div>
@@ -433,6 +434,9 @@
     <!-- 첨부 업로더. 공통 프래그먼트가 스크립트·스타일을 모두 넣어 준다
          (notice_board.html 과 같은 방식) -->
     <th:block th:replace="/common/ax5_uploader :: ax5_uploader"></th:block>
+    <!-- 지그 라벨 (Zebra ZD421T · 100×50mm). QR 라이브러리를 먼저 불러야 한다 -->
+    <script type="text/javascript" th:src="@{/resource/qrCode/qrcode.min.js}"></script>
+    <script type="text/javascript" th:src="@{/js/iljin_label.js}"></script>
     <script type="text/javascript">
 
         /*
@@ -606,6 +610,20 @@
                     _t.save();
                 });
 
+                el('#labelBtn').addEventListener('click', function () {
+                    if (!_t.sujuId) {
+                        Alert.alert('', '검사 대상을 선택하세요.');
+                        return;
+                    }
+                    // 외작 LOT 은 외작 입고 때 수불전표등록에서 만든다. 라벨도 거기서 뽑는다
+                    if (_t.target && _t.target.make_type === 'outsource') {
+                        Alert.alert('', '외작 지그 라벨은 <b>수불전표등록</b>에서 출력합니다.<br>'
+                            + '외작 입고 → 로트 입고등록 → 바코드 출력');
+                        return;
+                    }
+                    _t.printJigLabels(_t.sujuId);
+                });
+
                 // 판정을 바꾸면 수량 칸을 그에 맞게 밀어준다 (입력 실수 방지)
                 el('#resultSel').addEventListener('change', function () {
                     _t.applyResultDefault();
@@ -740,8 +758,14 @@
                         + '<td><span class="badge ' + (isOut ? 'out' : 'in') + '">'
                         + (isOut ? '외작' : '내작') + '</span></td>'
                         + '<td class="left">' + esc(t.make_comp || '') + '</td>'
-                        // 공정 조립(지그)과 검사는 같은 축이라 나란히 비교할 수 있다
-                        + '<td>' + num(t.ready_qty) + ' / ' + num(t.set_target) + '</td>'
+                        // 공정 조립(지그)과 검사는 같은 축이라 나란히 비교할 수 있다.
+                        // 외작은 조립이 없고 외작 입고(수불전표등록)가 그 자리를 채운다
+                        + '<td>' + (isOut
+                            ? (num(t.out_in_qty) > 0
+                                ? '<span title="외작 입고 ' + esc(t.out_in_date || '') + '">입고 '
+                                + num(t.out_in_qty) + ' / ' + num(t.set_target) + '</span>'
+                                : '<span class="muted">미입고</span>')
+                            : num(t.ready_qty) + ' / ' + num(t.set_target)) + '</td>'
                         // 유닛은 축이 달라 <b>따로</b> 보여준다.
                         // 예전에 유닛 실적을 지그 대수와 나란히 놓아 A12(지그 2·유닛 24)가
                         // '2/2 완료'로 보이는 일이 있었다.
@@ -1063,6 +1087,10 @@
                     return;
                 }
 
+                var savedSujuId = this.sujuId;
+                var savedResult = el('#resultSel').value;
+                var savedOut = !!(this.target && this.target.make_type === 'outsource');
+
                 AjaxUtil.postJsonData(API + '/save', {
                         spjangcd: this.spjangcd,
                         sujuId: this.sujuId,
@@ -1079,13 +1107,82 @@
                             Alert.alert('', res.message);
                             return;
                         }
-                        Alert.alert('', (res && res.message) || '등록되었습니다.');
                         el('#remark').value = '';
                         _t.loadTargets();
                         _t.loadLog();
+
+                        /* ★ 합격(특채 포함)이면 그 자리에서 지그 라벨을 찍게 한다.
+                           프린터가 측정실에 있으므로 검사 직후가 가장 자연스러운 시점이다.
+                           불합격·재가공·재측정에는 묻지 않는다 — 라벨이 붙으면 출하 스캔이 통과된다. */
+                        // 외작은 묻지 않는다 — 외작 LOT·라벨은 수불전표등록(외작 입고)에서 만든다
+                        var passed = !savedOut && (savedResult === 'pass' || savedResult === 'accept') && good > 0;
+                        var msg = (res && res.message) || '등록되었습니다.';
+                        if (!passed) {
+                            Alert.alert('', msg);
+                            return;
+                        }
+                        Alert.confirmAsync('', msg + '<br>지그 라벨을 출력할까요?').then(function (ok) {
+                            // 방금 합격한 건의 LOT 만 찍는다. 앞서 붙인 라벨이 또 나오지 않게
+                            if (ok) _t.printJigLabels(savedSujuId, res && res.data);
+                        });
                     },
                     function () {
                         Alert.alert('', '등록하지 못했습니다.');
+                    });
+            },
+
+            /**
+             * 지그 라벨 (100×50mm).
+             *
+             * LOT 은 서버가 검사 합격 등록 때 만든다(내작). 여기서는 찍기만 한다.
+             * 외작은 수불전표등록에서 외작 입고 → 로트 입고등록 → 출력한다.
+             * QR 값 = LOT 번호 그대로 — PDA 출하 스캔이 이 값으로 LOT 을 찾는다.
+             * 지그 1대 = LOT 1건이므로 LOT 마다 한 장씩 찍는다.
+             */
+            printJigLabels: function (sujuId, matProduceId) {
+                var _t = this;
+                var q = {spjangcd: this.spjangcd, sujuId: sujuId};
+                if (matProduceId) q.matProduceId = matProduceId;
+                AjaxUtil.getAsyncData('/api/production/prod_label/jig_lots', q,
+                    function (res) {
+                        var lots = (res && res.data) || [];
+                        /* ★ 방금 검사 건으로 만든 LOT 이 없으면 품목 전체로 다시 찾는다.
+                           예전 PC 화면에서 공정 조립을 등록한 품목은 그때 LOT 이 이미 있어서
+                           검사 합격 때 새로 만들지 않는다(재고 이중 계상 방지). */
+                        if (!lots.length && matProduceId) {
+                            _t.printJigLabels(sujuId);
+                            return;
+                        }
+                        if (!lots.length) {
+                            Alert.alert('', '출력할 지그 LOT 이 없습니다.<br>'
+                                + '합격 등록이 됐는지, 이미 출고되지 않았는지 확인하세요.');
+                            return;
+                        }
+                        /* ★ LOT 1건 = 라벨 1장. 지그 1대 = LOT 1건이라 번호가 모두 다르다.
+                           같은 LOT 라벨을 여러 장 찍으면 PDA 에서 수량이 겹쳐 잡힌다.
+                           오른쪽 아래 번호는 이번에 찍는 묶음 안의 순번이다 (1/2, 2/2). */
+                        var labels = lots.map(function (l, i) {
+                            return {
+                                qr: l.lot_number,
+                                title: l.item_name || '',
+                                sub: l.line_name || '',
+                                rows: [
+                                    ['프로젝트', (l.proj_no || '') + (l.proj_name ? ' ' + l.proj_name : '')],
+                                    ['발주처', l.order_company || ''],
+                                    ['설비타입', l.equip_type || ''],
+                                    ['검사합격', l.input_date || ''],
+                                    // 어느 도면 기준으로 만든 지그인가 — 검사 합격 시점까지 올라온 도면의 최종 등록일.
+                                    // 출하 스캔이 이 뒤에 리비전이 오른 도면이 있으면 막는다 (ShipmentApiService)
+                                    ['도면', l.dwg_base ? l.dwg_base + ' 기준' : '미등록']
+                                ],
+                                seq: lots.length > 1 ? ((i + 1) + '/' + lots.length) : ''
+                            };
+                        });
+                        try {
+                            IljinLabel.print(labels);
+                        } catch (e) {
+                            Alert.alert('', '라벨을 만들지 못했습니다. ' + e.message);
+                        }
                     });
             },
 

@@ -246,6 +246,13 @@ public class ProdInspectController {
 			return result;
 		}
 
+		// 합격으로 만든 지그 LOT 이 이미 출고됐으면 취소하지 않는다 (재고가 음수가 된다)
+		if (prodInspectService.isLotConsumed(id)) {
+			result.success = false;
+			result.message = "이미 출고된 지그라 검사를 취소할 수 없습니다.";
+			return result;
+		}
+
 		Integer sujuId = prodInspectService.sujuIdOf(id);
 		prodInspectService.delete(id);
 		// 취소로 누적이 내려가면 공정이 다시 열려야 한다

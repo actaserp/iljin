@@ -78,14 +78,14 @@ public class MaterialInoutController {
 	// 입출고 전체 리스트
 	@GetMapping("/read")
 	public AjaxResult getMaterialInout(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "house_pk", required=false) String housePk,
-		@RequestParam(value = "mat_type", required=false) String matType,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd,
-		@RequestParam(value = "in_test_yn", required=false) String inTestYn,
-		@RequestParam(value = "keyword", required=false) String keyword) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "house_pk", required=false) String housePk,
+			@RequestParam(value = "mat_type", required=false) String matType,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			@RequestParam(value = "in_test_yn", required=false) String inTestYn,
+			@RequestParam(value = "keyword", required=false) String keyword) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getMaterialInout(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd,inTestYn);
 
@@ -98,13 +98,13 @@ public class MaterialInoutController {
 	// 입출고 전체 리스트
 	@GetMapping("/read_receipt")
 	public AjaxResult getMaterialInout_receipt(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "house_pk", required=false) String housePk,
-		@RequestParam(value = "mat_type", required=false) String matType,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd,
-		@RequestParam(value = "keyword", required=false) String keyword) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "house_pk", required=false) String housePk,
+			@RequestParam(value = "mat_type", required=false) String matType,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			@RequestParam(value = "keyword", required=false) String keyword) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutReceipt(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd);
 
@@ -117,13 +117,13 @@ public class MaterialInoutController {
 	// 불출 리스트
 	@GetMapping("/read_issue")
 	public AjaxResult getMaterialInout_issue(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "house_pk", required=false) String housePk,
-		@RequestParam(value = "mat_type", required=false) String matType,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd,
-		@RequestParam(value = "keyword", required=false) String keyword) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "house_pk", required=false) String housePk,
+			@RequestParam(value = "mat_type", required=false) String matType,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			@RequestParam(value = "keyword", required=false) String keyword) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutIssue(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd);
 
@@ -136,16 +136,16 @@ public class MaterialInoutController {
 	// 제품 반입전표 (InOut=return, SourceTableName IS NULL)
 	@GetMapping("/read_product_receipt_slip")
 	public AjaxResult getProductReceiptSlipList(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt",   required=false) String srchEndDt,
-		@RequestParam(value = "house_pk",    required=false) String housePk,
-		@RequestParam(value = "mat_type",    required=false) String matType,
-		@RequestParam(value = "mat_grp_pk",  required=false) String matGrpPk,
-		@RequestParam(value = "keyword",     required=false) String keyword,
-		@RequestParam(value = "spjangcd",    required=false) String spjangcd) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt",   required=false) String srchEndDt,
+			@RequestParam(value = "house_pk",    required=false) String housePk,
+			@RequestParam(value = "mat_type",    required=false) String matType,
+			@RequestParam(value = "mat_grp_pk",  required=false) String matGrpPk,
+			@RequestParam(value = "keyword",     required=false) String keyword,
+			@RequestParam(value = "spjangcd",    required=false) String spjangcd) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getProductReceiptSlipList(
-			srchStartDt, srchEndDt, housePk, matType, matGrpPk, keyword, spjangcd);
+				srchStartDt, srchEndDt, housePk, matType, matGrpPk, keyword, spjangcd);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -155,16 +155,16 @@ public class MaterialInoutController {
 	// 반출전표 목록 (수동 반출만)
 	@GetMapping("/read_outbound_slip")
 	public AjaxResult getOutboundSlipList(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt",   required=false) String srchEndDt,
-		@RequestParam(value = "house_pk",    required=false) String housePk,
-		@RequestParam(value = "mat_type",    required=false) String matType,
-		@RequestParam(value = "mat_grp_pk",  required=false) String matGrpPk,
-		@RequestParam(value = "keyword",     required=false) String keyword,
-		@RequestParam(value = "spjangcd",    required=false) String spjangcd) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt",   required=false) String srchEndDt,
+			@RequestParam(value = "house_pk",    required=false) String housePk,
+			@RequestParam(value = "mat_type",    required=false) String matType,
+			@RequestParam(value = "mat_grp_pk",  required=false) String matGrpPk,
+			@RequestParam(value = "keyword",     required=false) String keyword,
+			@RequestParam(value = "spjangcd",    required=false) String spjangcd) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getOutboundSlipList(
-			srchStartDt, srchEndDt, housePk, matType, matGrpPk, keyword, spjangcd);
+				srchStartDt, srchEndDt, housePk, matType, matGrpPk, keyword, spjangcd);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -174,16 +174,16 @@ public class MaterialInoutController {
 	// 자재LOT현황
 	@GetMapping("/read_lot_status")
 	public AjaxResult getLotStatus(
-		@RequestParam(value = "mat_type",    required=false) String matType,
-		@RequestParam(value = "mat_grp_pk",  required=false) String matGrpPk,
-		@RequestParam(value = "house_pk",    required=false) String housePk,
-		@RequestParam(value = "keyword",     required=false) String keyword,
-		@RequestParam(value = "remain_only", required=false) String remainOnly,
-		@RequestParam(value = "lot_only",    required=false) String lotOnly,
-		@RequestParam(value = "spjangcd",    required=false) String spjangcd) {
+			@RequestParam(value = "mat_type",    required=false) String matType,
+			@RequestParam(value = "mat_grp_pk",  required=false) String matGrpPk,
+			@RequestParam(value = "house_pk",    required=false) String housePk,
+			@RequestParam(value = "keyword",     required=false) String keyword,
+			@RequestParam(value = "remain_only", required=false) String remainOnly,
+			@RequestParam(value = "lot_only",    required=false) String lotOnly,
+			@RequestParam(value = "spjangcd",    required=false) String spjangcd) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getLotStatus(
-			matType, matGrpPk, housePk, keyword, remainOnly, lotOnly, spjangcd);
+				matType, matGrpPk, housePk, keyword, remainOnly, lotOnly, spjangcd);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -193,15 +193,15 @@ public class MaterialInoutController {
 	// 수입검사현황 (test_result 기준 이력 조회)
 	@GetMapping("/read_inspection_history")
 	public AjaxResult getInspectionHistory(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "keyword", required=false) String keyword,
-		@RequestParam(value = "judge", required=false) String judge,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "keyword", required=false) String keyword,
+			@RequestParam(value = "judge", required=false) String judge,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getInspectionHistory(
-			srchStartDt, srchEndDt, matGrpPk, keyword, judge, spjangcd);
+				srchStartDt, srchEndDt, matGrpPk, keyword, judge, spjangcd);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -211,18 +211,18 @@ public class MaterialInoutController {
 	// 수입검사 대상 리스트
 	@GetMapping("/read_receiving_inspection")
 	public AjaxResult getReceivingInspectionList(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "house_pk", required=false) String housePk,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "status", required=false) String status,
-		@RequestParam(value = "in_test_yn", required=false) String inTestYn,
-		@RequestParam(value = "judge", required=false) String judge,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd,
-		@RequestParam(value = "keyword", required=false) String keyword) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "house_pk", required=false) String housePk,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "status", required=false) String status,
+			@RequestParam(value = "in_test_yn", required=false) String inTestYn,
+			@RequestParam(value = "judge", required=false) String judge,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			@RequestParam(value = "keyword", required=false) String keyword) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getReceivingInspectionList(
-			srchStartDt, srchEndDt, housePk, matGrpPk, keyword, status, inTestYn, spjangcd, judge);
+				srchStartDt, srchEndDt, housePk, matGrpPk, keyword, status, inTestYn, spjangcd, judge);
 
 		AjaxResult result = new AjaxResult();
 		result.data = items;
@@ -233,13 +233,13 @@ public class MaterialInoutController {
 	// 폐기 리스트
 	@GetMapping("/read_disposal")
 	public AjaxResult getMaterialInout_disposal(
-		@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
-		@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
-		@RequestParam(value = "house_pk", required=false) String housePk,
-		@RequestParam(value = "mat_type", required=false) String matType,
-		@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
-		@RequestParam(value = "spjangcd", required=false) String spjangcd,
-		@RequestParam(value = "keyword", required=false) String keyword) {
+			@RequestParam(value = "srchStartDt", required=false) String srchStartDt,
+			@RequestParam(value = "srchEndDt", required=false) String srchEndDt,
+			@RequestParam(value = "house_pk", required=false) String housePk,
+			@RequestParam(value = "mat_type", required=false) String matType,
+			@RequestParam(value = "mat_grp_pk", required=false) String matGrpPk,
+			@RequestParam(value = "spjangcd", required=false) String spjangcd,
+			@RequestParam(value = "keyword", required=false) String keyword) {
 
 		List<Map<String, Object>> items = this.materialInoutService.getMaterialInoutDisposal(srchStartDt,srchEndDt,housePk,matType,matGrpPk,keyword,spjangcd);
 
@@ -359,20 +359,20 @@ public class MaterialInoutController {
 	@PostMapping("/save")
 	@Transactional
 	public AjaxResult saveMaterialInout(
-		@RequestParam("Description") String description,
-		@RequestParam("InoutQty") String inoutQty,
-		@RequestParam("InoutType_hidden") String inoutType,
-		@RequestParam(value="cboCompany", required = false) Integer companyId,
-		@RequestParam("Material_id") String materialId,
-		@RequestParam("StoreHouse_id") String storeHouseId,
-		@RequestParam("inoutDate") String inoutDateStr,
-		@RequestParam(value = "mio_pk", required = false) Integer mio_pk,
-		@RequestParam("cboMaterialGroup") String cboMaterialGroup,
-		@RequestParam("cboMaterialType") String cboMaterialType,
-		@RequestParam("type") String type,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam("Description") String description,
+			@RequestParam("InoutQty") String inoutQty,
+			@RequestParam("InoutType_hidden") String inoutType,
+			@RequestParam(value="cboCompany", required = false) Integer companyId,
+			@RequestParam("Material_id") String materialId,
+			@RequestParam("StoreHouse_id") String storeHouseId,
+			@RequestParam("inoutDate") String inoutDateStr,
+			@RequestParam(value = "mio_pk", required = false) Integer mio_pk,
+			@RequestParam("cboMaterialGroup") String cboMaterialGroup,
+			@RequestParam("cboMaterialType") String cboMaterialType,
+			@RequestParam("type") String type,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -382,7 +382,7 @@ public class MaterialInoutController {
 		String state = "confirmed";
 		String _status = "a";
 		int qty = Integer.parseInt(
-			inoutQty.replace(",", "").replaceAll("[^\\d-]", "")
+				inoutQty.replace(",", "").replaceAll("[^\\d-]", "")
 		);
 
 		result.success = false;
@@ -393,7 +393,7 @@ public class MaterialInoutController {
 		if (mio_pk != null) {
 			isUpdate = true;
 			mi = matInoutRepository.findById(mio_pk)
-						 .orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
+					.orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
 		} else {
 			mi = new MaterialInout();
 		}
@@ -471,19 +471,19 @@ public class MaterialInoutController {
 	@PostMapping("/save_nocomp")
 	@Transactional
 	public AjaxResult saveMaterialInout_noComp(
-		@RequestParam("Description") String description,
-		@RequestParam("InoutQty") String inoutQty,
-		@RequestParam("InoutType_hidden") String inoutType,
-		@RequestParam("Material_id") String materialId,
-		@RequestParam("StoreHouse_id") String storeHouseId,
-		@RequestParam("inoutDate") String inoutDateStr,
-		@RequestParam(value = "mio_pk", required = false) Integer mio_pk,
-		@RequestParam("cboMaterialGroup") String cboMaterialGroup,
-		@RequestParam("cboMaterialType") String cboMaterialType,
-		@RequestParam("type") String type,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam("Description") String description,
+			@RequestParam("InoutQty") String inoutQty,
+			@RequestParam("InoutType_hidden") String inoutType,
+			@RequestParam("Material_id") String materialId,
+			@RequestParam("StoreHouse_id") String storeHouseId,
+			@RequestParam("inoutDate") String inoutDateStr,
+			@RequestParam(value = "mio_pk", required = false) Integer mio_pk,
+			@RequestParam("cboMaterialGroup") String cboMaterialGroup,
+			@RequestParam("cboMaterialType") String cboMaterialType,
+			@RequestParam("type") String type,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -493,7 +493,7 @@ public class MaterialInoutController {
 		String state = "confirmed";
 		String _status = "a";
 		int qty = Integer.parseInt(
-			inoutQty.replace(",", "").replaceAll("[^\\d-]", "")
+				inoutQty.replace(",", "").replaceAll("[^\\d-]", "")
 		);
 
 		result.success = false;
@@ -504,7 +504,7 @@ public class MaterialInoutController {
 		if (mio_pk != null) {
 			isUpdate = true;
 			mi = matInoutRepository.findById(mio_pk)
-						 .orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
+					.orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
 		} else {
 			mi = new MaterialInout();
 		}
@@ -580,7 +580,7 @@ public class MaterialInoutController {
 
 	@GetMapping("/matinout_detail")
 	public AjaxResult getMaterialInoutDetail(
-		@RequestParam(value = "mio_pk", required=false) Integer mio_pk) {
+			@RequestParam(value = "mio_pk", required=false) Integer mio_pk) {
 
 		List<Map<String, Object>> items = materialInoutService.getMaterialInoutDetail(mio_pk);
 
@@ -599,15 +599,15 @@ public class MaterialInoutController {
 
 		// 1️⃣ mat_inout 존재 여부 확인
 		MaterialInout mi = matInoutRepository.findById(mio_pk)
-												 .orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
+				.orElseThrow(() -> new RuntimeException("기존 데이터 없음: " + mio_pk));
 
 		Integer matPk = mi.getMaterialId();
 		Integer storeHouseId = mi.getStoreHouseId();
 
 		// 2️⃣ mat_lot 삭제 (참조되는 lot 데이터 제거)
 		jdbcTemplate.update(
-			"DELETE FROM mat_lot WHERE \"SourceTableName\" = ? AND \"SourceDataPk\" = ?",
-			"mat_inout", mio_pk
+				"DELETE FROM mat_lot WHERE \"SourceTableName\" = ? AND \"SourceDataPk\" = ?",
+				"mat_inout", mio_pk
 		);
 
 		// 3️⃣ mat_inout 삭제
@@ -624,7 +624,7 @@ public class MaterialInoutController {
 	@SuppressWarnings("unchecked")
 	@GetMapping("/trans_multi_input_data")
 	public AjaxResult transMultiInputData(
-		@RequestParam MultiValueMap<String,Object> Q
+			@RequestParam MultiValueMap<String,Object> Q
 	) throws JSONException, JsonMappingException, JsonProcessingException {
 
 		AjaxResult result = new AjaxResult();
@@ -655,14 +655,14 @@ public class MaterialInoutController {
 	@PostMapping("/save_multi_data")
 	@Transactional
 	public AjaxResult saveMultiData(
-		@RequestParam("Company_id") String companyId,
-		@RequestParam("InoutType") String inoutType,
-		@RequestParam MultiValueMap<String,Object> Q,
-		@RequestParam("StoreHouse_id") String storeHouseId,
-		@RequestParam("type") String type,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestParam("Company_id") String companyId,
+			@RequestParam("InoutType") String inoutType,
+			@RequestParam MultiValueMap<String,Object> Q,
+			@RequestParam("StoreHouse_id") String storeHouseId,
+			@RequestParam("type") String type,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -746,7 +746,7 @@ public class MaterialInoutController {
 
 	@GetMapping("/mio_lot_list")
 	public AjaxResult mioLotList(
-		@RequestParam("mio_id") String mioId) {
+			@RequestParam("mio_id") String mioId) {
 
 		List<Map<String, Object>> items = this.lotService.mioLotList(mioId);
 		AjaxResult result = new AjaxResult();
@@ -756,7 +756,7 @@ public class MaterialInoutController {
 
 	@GetMapping("/mio_test_list")
 	public AjaxResult mioTestList(
-		@RequestParam("mio_id") Integer mioId) {
+			@RequestParam("mio_id") Integer mioId) {
 
 
 		List<TestResult> trList = this.testResultRepository.findBySourceTableNameAndSourceDataPk("mat_inout", mioId);
@@ -801,13 +801,13 @@ public class MaterialInoutController {
 	@PostMapping("/lot_save")
 	@Transactional
 	public AjaxResult lotSave(
-		@RequestBody MultiValueMap<String,Object> Q,
-		@RequestParam("Material_id") String materialId,
-		@RequestParam("StoreHouse_id") Integer storeHouseId,
-		@RequestParam("mio_id") String mioId,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody MultiValueMap<String,Object> Q,
+			@RequestParam("Material_id") String materialId,
+			@RequestParam("StoreHouse_id") Integer storeHouseId,
+			@RequestParam("mio_id") String mioId,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -818,6 +818,23 @@ public class MaterialInoutController {
 		List<Map<String, Object>> data = CommonUtil.loadJsonListMap(Q.getFirst("Q").toString());
 
 		result.success = false;
+
+		/*
+		 * ★ 로트관리(LotUseYN)가 꺼진 품목도 로트 입고를 받는다.
+		 *   예전에는 화면이 "로트관리 안하는 자재는 로트입고 할 수 없습니다" 로 막았는데,
+		 *   외작 지그(공정 품목)·구매품은 품목을 만들 때 이 값을 켜지 않아 거의 다 막혔다.
+		 *   LOT 을 등록하는 순간 그 품목은 로트로 관리하는 것이므로 플래그를 켠다.
+		 *   켜 두지 않으면 LOT 선택 팝업·LOT 재고조정(LotUseYN='Y' 로 거른다)에 이 LOT 이 안 보인다.
+		 */
+		if (!data.isEmpty()) {
+			MapSqlParameterSource lp = new MapSqlParameterSource();
+			lp.addValue("mid", Integer.parseInt(materialId));
+			this.sqlRunner.execute("""
+				UPDATE material SET "LotUseYN" = 'Y'
+				WHERE id = :mid AND COALESCE("LotUseYN", 'N') <> 'Y'
+				""", lp);
+		}
+
 		for (int i=0; i < data.size(); i++) {
 			MaterialLot ml = null;
 			String LotNumber = null;
@@ -859,18 +876,18 @@ public class MaterialInoutController {
 	@PostMapping("/test_save")
 	@Transactional
 	public AjaxResult testSave(
-		@RequestBody MultiValueMap<String,Object> Q,
-		@RequestParam(value = "material_id", required = false) Integer materialId,
-		@RequestParam(value = "testRemark", required = false) String testRemark,
-		@RequestParam(value = "test_mast_id", required = false) String testMastId,
-		@RequestParam(value = "test_result_id", required = false) String testResultId,
-		@RequestParam(value = "judg_grp", required = false) String judgGrp,
-		@RequestParam(value = "test_date", required = false) String test_date,
-		@RequestParam(value = "effective_date", required = false) String effectiveDate,
-		@RequestParam(value = "mio_id", required = false) Integer mioId,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody MultiValueMap<String,Object> Q,
+			@RequestParam(value = "material_id", required = false) Integer materialId,
+			@RequestParam(value = "testRemark", required = false) String testRemark,
+			@RequestParam(value = "test_mast_id", required = false) String testMastId,
+			@RequestParam(value = "test_result_id", required = false) String testResultId,
+			@RequestParam(value = "judg_grp", required = false) String judgGrp,
+			@RequestParam(value = "test_date", required = false) String test_date,
+			@RequestParam(value = "effective_date", required = false) String effectiveDate,
+			@RequestParam(value = "mio_id", required = false) Integer mioId,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -959,9 +976,9 @@ public class MaterialInoutController {
 	@PostMapping("/check_in_test")
 	@Transactional
 	public AjaxResult checkInTest(
-		@RequestBody MultiValueMap<String,Object> Q,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody MultiValueMap<String,Object> Q,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 
@@ -986,11 +1003,11 @@ public class MaterialInoutController {
 
 	@GetMapping("/read_balju")
 	public AjaxResult getbaljuList(
-		@RequestParam(value="start", required=false) String start_date,
-		@RequestParam(value="end", required=false) String end_date,
-		@RequestParam(value="baljuType", required=false) String baljuType,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request) {
+			@RequestParam(value="start", required=false) String start_date,
+			@RequestParam(value="end", required=false) String end_date,
+			@RequestParam(value="baljuType", required=false) String baljuType,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request) {
 
 		start_date = start_date + " 00:00:00";
 		end_date = end_date + " 23:59:59";
@@ -1011,12 +1028,12 @@ public class MaterialInoutController {
 
 	@GetMapping("/read_balju_in")
 	public AjaxResult getbaljuInList(
-		@RequestParam(value="start", required=false) String start_date,
-		@RequestParam(value="end", required=false) String end_date,
-		@RequestParam(value="cboCompanyHidden", required=false) Integer cboCompany,
-		@RequestParam(value = "keyword", required=false) String keyword,
-		@RequestParam("spjangcd") String spjangcd,
-		HttpServletRequest request) {
+			@RequestParam(value="start", required=false) String start_date,
+			@RequestParam(value="end", required=false) String end_date,
+			@RequestParam(value="cboCompanyHidden", required=false) Integer cboCompany,
+			@RequestParam(value = "keyword", required=false) String keyword,
+			@RequestParam("spjangcd") String spjangcd,
+			HttpServletRequest request) {
 
 		start_date = start_date + " 00:00:00";
 		end_date = end_date + " 23:59:59";
@@ -1035,9 +1052,9 @@ public class MaterialInoutController {
 	@PostMapping("/save_balju")
 	@Transactional
 	public AjaxResult saveBaljuInout(
-		@RequestBody List<Map<String, Object>> baljuList,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody List<Map<String, Object>> baljuList,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 		AjaxResult result = new AjaxResult();
@@ -1110,8 +1127,14 @@ public class MaterialInoutController {
 				String inspectYn = (String) item.get("InspectYN");
 				if (inspectYn != null && !inspectYn.trim().isEmpty()) {
 					saveInoutInspect(mi.getId(), bal_pk, matPk,
-						"Y".equalsIgnoreCase(inspectYn.trim()) ? "Y" : "N",
-						(String) item.get("spjangcd"), user);
+							"Y".equalsIgnoreCase(inspectYn.trim()) ? "Y" : "N",
+							(String) item.get("spjangcd"), user);
+				}
+
+				// 외작 입고 : 지그 1대당 LOT 1건을 바로 부여한다 (출하 때 라벨을 스캔한다)
+				//  구매품(발주 입고)은 건드리지 않는다 — 박스 단위라 [로트 입고 등록]에서 정한다
+				if (isOutsource) {
+					this.lotService.autoLotsForReceipt(mi.getId(), user.getId());
 				}
 
 			} catch (Exception e) {
@@ -1135,7 +1158,7 @@ public class MaterialInoutController {
 	 *  MatInout_id 에 UNIQUE 가 걸려 있어 재저장 시 UPDATE 로 흡수된다.
 	 */
 	private void saveInoutInspect(Integer matInoutId, Integer baljuId, Integer materialId,
-																String inspectYn, String spjangcd, User user) {
+								  String inspectYn, String spjangcd, User user) {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("matInoutId", matInoutId);
 		p.addValue("baljuId", baljuId);
@@ -1174,9 +1197,9 @@ public class MaterialInoutController {
 	@PostMapping("/save_balju_return")
 	@Transactional
 	public AjaxResult saveBaljuReturn(
-		@RequestBody List<Map<String, Object>> baljuList,
-		HttpServletRequest request,
-		Authentication auth) {
+			@RequestBody List<Map<String, Object>> baljuList,
+			HttpServletRequest request,
+			Authentication auth) {
 
 		User user = (User)auth.getPrincipal();
 		AjaxResult result = new AjaxResult();

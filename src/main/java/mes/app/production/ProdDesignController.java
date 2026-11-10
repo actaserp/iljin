@@ -450,6 +450,13 @@ public class ProdDesignController {
 			return result;
 		}
 
+		// 외작은 업체가 만들어 온다. 가공·조립 지시를 내리면 키오스크에 올라가 실적이 섞인다
+		if ("outsource".equals(String.valueOf(item.get("make_type")))) {
+			result.success = false;
+			result.message = "외작 품목은 작업 지시 대상이 아닙니다. 입고 후 검사 공정에서 검사하세요.";
+			return result;
+		}
+
 		// 중복 지시 방지
 		if (prodDesignService.countOrder(sujuId) > 0) {
 			result.success = false;

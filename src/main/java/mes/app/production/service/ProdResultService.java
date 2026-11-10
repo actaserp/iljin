@@ -281,6 +281,9 @@ public class ProdResultService {
                    OR s.project_id = CAST(:projNo AS varchar))
               AND (CAST(:sujuHeadId AS integer) IS NULL
                    OR s."SujuHead_id" = CAST(:sujuHeadId AS integer))
+              -- ★ 외작은 업체가 만들어 온다. 우리 현장 실적(가공·조립) 대상이 아니다.
+              --   외작은 검사가 job_res(INSP-)를 만들어서 위 JOIN 에 걸려 올라왔다.
+              AND COALESCE(s.make_type, '') <> 'outsource'
               -- 완료분 숨김. 검사를 취소해 다시 열리면 자동으로 되돌아온다
               AND (CAST(:includeDone AS boolean)
                    OR COALESCE(j."State", '') <> 'finished')

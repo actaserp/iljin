@@ -1,5 +1,6 @@
 package mes.app.pda.controller;
 
+import mes.app.inventory.service.LotService;
 import mes.app.pda.service.ReceiveApiService;
 import mes.app.util.UtilClass;
 import mes.domain.entity.Balju;
@@ -34,6 +35,9 @@ public class ReceiveApiController {
 
     @Autowired
     private ReceiveApiService receiveApiService;
+
+    @Autowired
+    private LotService lotService;
 
     @Autowired
     private MaterialRepository materialRepository;
@@ -166,6 +170,9 @@ public class ReceiveApiController {
                     String inspectYn = "N".equals(String.valueOf(inspectRaw)) ? "N" : "Y";
                     saveInspect(mi.getId(), bal_pk, matPk, inspectYn,
                             (String) item.get("spjangcd"), user);
+
+                    // 웹 수불전표등록과 같이 지그 1대당 LOT 1건을 바로 부여한다
+                    lotService.autoLotsForReceipt(mi.getId(), user.getId());
                 }
 
             } catch (Exception e) {

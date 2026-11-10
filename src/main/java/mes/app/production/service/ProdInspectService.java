@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -240,7 +242,12 @@ public class ProdInspectService {
                  --   검사 누적이 대수에 도달하면 그 공정(품목)은 끝난 것이다.
                  --   공정 조립(PO=2) 단계를 없앤 뒤 그 역할이 여기로 왔다.
                  , COALESCE(s."SujuQty", 0) AS set_target
-                 , COALESCE(a.ready_qty, 0)  AS ready_qty      -- 공정 조립 (지그)
+                 -- ★ 검사 가능 수량. 내작은 공정 조립, 외작은 <b>외작 입고</b>(수불전표등록)다.
+                 --   외작은 조립 단계가 없어서, 입고가 들어와도 목록에 0 으로 보였다.
+                 , CASE WHEN s.make_type = 'outsource' THEN COALESCE(oi.in_qty, 0)
+                        ELSE COALESCE(a.ready_qty, 0) END AS ready_qty
+                 , COALESCE(oi.in_qty, 0)    AS out_in_qty     -- 외작 입고 누적
+                 , TO_CHAR(oi.last_in, 'YYYY-MM-DD') AS out_in_date
                  , COALESCE(au.ready_qty, 0) AS unit_done      -- 유닛 조립
                  , COALESCE(s.unit_qty, 0)   AS unit_qty       -- 구성 유닛 수
                  , COALESCE(i.insp_qty, 0)   AS insp_qty
@@ -278,6 +285,19 @@ public class ProdInspectService {
                 WHERE "ProcessOrder" = 2 AND "State" = 'finished'
                 GROUP BY "JobResponse_id"
             ) a ON a."JobResponse_id" = j.id
+            -- 외작 입고: suju.id → balju."PlanDataPk" → mat_inout(입고)
+            --   면제 판정(x)과 같은 경로다. 업체 검사 여부와 상관없이 들어온 수량을 센다
+            LEFT JOIN (
+                SELECT b."PlanDataPk"                 AS suju_id
+                     , SUM(COALESCE(mi."InputQty", 0)) AS in_qty
+                     , MAX(mi."InoutDate")             AS last_in
+                FROM balju b
+                JOIN mat_inout mi ON mi."SourceTableName" = 'balju'
+                                 AND mi."SourceDataPk" = b.id
+                                 AND mi."InOut" = 'in'
+                WHERE b."PlanTableName" = 'suju'
+                GROUP BY b."PlanDataPk"
+            ) oi ON oi.suju_id = s.id
             -- 유닛 조립. 축이 달라 검사 목표와 비교하지 않고 참고로만 보여준다
             LEFT JOIN (
                 SELECT "JobResponse_id", SUM(COALESCE("GoodQty", 0)) AS ready_qty
@@ -362,8 +382,13 @@ public class ProdInspectService {
 	 * 한 품목을 여러 번 검사할 수 있다 (나눠 입고되는 외작, 재검사).
 	 * 행을 계속 추가하며 UPDATE 하지 않는다.
 	 *
-	 * <b>재고를 만들지 않는다.</b> mat_lot / mat_inout 을 생성하지 않으며
-	 * mat_consu(투입)도 만들지 않는다.
+	 * <b>내작 합격(특채 포함)은 지그 재고와 LOT 을 만든다</b> (produceIn).
+	 *   예전에는 재고를 만들지 않았다 — 공정 조립(PO=2) 완료가 LOT 을 만들었기 때문이다.
+	 *   그런데 현장 조립 키오스크에서 공정 조립을 폐기하면서 지그 LOT 이 생기는 시점이
+	 *   없어졌고, 출하 PDA 가 스캔할 대상도 재고도 없어졌다.
+	 *   검사가 공정 완료 판정을 가져갔으므로 LOT 도 여기서 만든다.
+	 * 외작은 만들지 않는다 — 외작 입고(수불전표등록)가 이미 재고를 올리고 LOT 도 거기서 만든다.
+	 * mat_consu(투입)는 만들지 않는다.
 	 *
 	 * @return 저장된 mat_produce.id
 	 */
@@ -401,7 +426,7 @@ public class ProdInspectService {
 
 		// LotIndex 는 NOT NULL. 같은 지시의 검사 단계 안에서 1부터 증가시킨다.
 		// LastProcessYN='Y' — 검사가 마지막 공정이다.
-		return sqlRunner.queryForObject("""
+		Integer mpId = sqlRunner.queryForObject("""
             INSERT INTO mat_produce (
                  spjangcd, "JobResponse_id", "Material_id", "Process_id", "WorkCenter_id"
                , "ProcessOrder", "LastProcessYN", "LotIndex"
@@ -428,6 +453,173 @@ public class ProdInspectService {
                  , 'a', now(), :userId
             RETURNING id
             """, p, (rs, rowNum) -> rs.getInt("id"));
+
+		String result = str(payload.get("result"));
+		double good = toDouble(payload.get("goodQty"));
+		boolean outsource = "outsource".equals(str(item.get("make_type")));
+		if (mpId != null && !outsource && good > 0
+				&& ("pass".equals(result) || "accept".equals(result))) {
+			produceIn(mpId, jobResId, user);
+		}
+		return mpId;
+	}
+
+	/**
+	 * 내작 검사 합격분 → 지그 재고 입고 + LOT.
+	 *
+	 * ProdAssemblyService.produceIn(공정 조립 완료) 과 같은 컬럼·같은 값으로 넣는다.
+	 *   mat_lot   : SourceTableName='mat_produce', SourceDataPk=검사 실적 id, InputQty=CurrentStock=합격수량
+	 *   mat_inout : InOut='in', InputType='produced_in', State='confirmed', 제품창고
+	 * 그래서 지그 라벨(ProdLabelController)과 출하 LOT 검증(ShipmentApiService)이
+	 * 공정 조립 LOT 과 똑같이 이 LOT 을 찾는다.
+	 *
+	 * ★ 예전 PC 화면에서 공정 조립을 등록해 이미 LOT 이 있는 지시는 만들지 않는다.
+	 *   같은 지그가 재고에 두 번 잡히는 것을 막기 위해서다.
+	 * ★ 품목마스터 연결이나 제품창고가 없으면 만들지 않고 로그만 남긴다.
+	 *   mat_lot."Material_id", mat_inout."StoreHouse_id" 가 NOT NULL 이라
+	 *   억지로 넣으면 검사 등록 자체가 실패한다. 검사 실적은 남는다.
+	 */
+	private void produceIn(Integer mpId, Integer jobResId, User user) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("id", mpId);
+		p.addValue("jobResId", jobResId);
+
+		int legacy = sqlRunner.queryForCount("""
+            SELECT COUNT(*) FROM mat_lot ml
+            JOIN mat_produce m ON ml."SourceTableName" = 'mat_produce' AND m.id = ml."SourceDataPk"
+            WHERE m."JobResponse_id" = :jobResId AND m."ProcessOrder" = 2
+            """, p);
+		if (legacy > 0) {
+			log.info("[prod_inspect] 공정 조립 LOT 이 이미 있어 검사 LOT 을 만들지 않음 (job_res={})", jobResId);
+			return;
+		}
+
+		Map<String, Object> mp = sqlRunner.getRow("""
+            SELECT mp.id
+                 , mp.spjangcd
+                 , mp."Material_id"          AS material_id
+                 , COALESCE(mp."GoodQty", 0) AS good_qty
+                 , mp."LotIndex"             AS lot_index
+                 , (SELECT sh.id FROM store_house sh
+                     WHERE sh.spjangcd = mp.spjangcd AND sh."HouseType" = 'product'
+                     ORDER BY sh.id LIMIT 1) AS store_house_id
+                 , s.project_id              AS proj_no
+                 , s."Material_Name"         AS item_name
+            FROM mat_produce mp
+            JOIN job_res j ON j.id = mp."JobResponse_id" AND j."SourceTableName" = 'suju'
+            JOIN suju s    ON s.id = j."SourceDataPk"
+            WHERE mp.id = :id
+            """, p);
+		if (mp == null) return;
+
+		Integer materialId = toInt(mp.get("material_id"));
+		Integer storeHouseId = toInt(mp.get("store_house_id"));
+		double qty = toDouble(mp.get("good_qty"));
+		if (materialId == null || storeHouseId == null || qty <= 0) {
+			log.warn("[prod_inspect] 지그 재고 미생성 (mat_produce={}). materialId={}, storeHouseId={}, qty={}. "
+							+ "수주의 품목마스터 연결과 제품창고(HouseType='product')를 확인할 것.",
+					mpId, materialId, storeHouseId, qty);
+			return;
+		}
+
+		/*
+		 * ★ 지그 1대 = LOT 1건.
+		 *   2대 합격이면 LOT 2건(…-I3-1, …-I3-2)을 만들고 라벨도 2장이 각기 다른 번호로 나온다.
+		 *   같은 LOT 라벨을 2장 붙이면 PDA 가 한 장 찍을 때 2대를 다 잡거나,
+		 *   두 장을 따로 받아 4대를 출고하는 일이 생긴다. 외작 자동 LOT(LotService)도 대당 1건이다.
+		 *   소수(1.5 등)는 나머지를 마지막 LOT 에 싣는다. 50대 초과는 입력 실수로 보고 1건으로 만든다.
+		 *
+		 * LOT 번호: 프로젝트-품목-일자-I차수-순번. 공정 조립 LOT(…-차수)과 구분되게 I 를 붙인다.
+		 * varchar(50) 이므로 뒤(유일성 담당)는 살리고 앞의 품목명을 자른다.
+		 */
+		java.util.List<Double> sizes = new java.util.ArrayList<>();
+		if (qty > 50) {
+			sizes.add(qty);
+		} else {
+			int whole = (int) Math.floor(qty);
+			for (int i = 0; i < whole; i++) sizes.add(1d);
+			double rest = qty - whole;
+			if (rest > 0) {
+				if (sizes.isEmpty()) sizes.add(rest);
+				else sizes.set(sizes.size() - 1, 1d + rest);
+			}
+		}
+
+		String tailBase = "-" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+				+ "-I" + str(mp.get("lot_index"));
+		String headFull = str(mp.get("proj_no")) + "-" + str(mp.get("item_name"));
+		String firstLot = null;
+
+		for (int k = 0; k < sizes.size(); k++) {
+			String tail = sizes.size() > 1 ? tailBase + "-" + (k + 1) : tailBase;
+			int room = 50 - tail.length();
+			String head = headFull.length() > room ? headFull.substring(0, Math.max(0, room)) : headFull;
+			String lot = head + tail;
+			if (firstLot == null) firstLot = lot;
+
+			MapSqlParameterSource ip = new MapSqlParameterSource();
+			ip.addValue("id", mpId);
+			ip.addValue("spjangcd", str(mp.get("spjangcd")));
+			ip.addValue("materialId", materialId);
+			ip.addValue("storeHouseId", storeHouseId);
+			ip.addValue("lot", lot);
+			ip.addValue("qty", sizes.get(k));
+			ip.addValue("desc", str(mp.get("lot_index")) + "차 검사합격"
+					+ (sizes.size() > 1 ? " (" + (k + 1) + "/" + sizes.size() + ")" : ""));
+			ip.addValue("userId", user.getId());
+
+			sqlRunner.execute("""
+                INSERT INTO mat_lot (
+                     spjangcd, "LotNumber", "Material_id", "InputDateTime"
+                   , "InputQty", "CurrentStock", "OutQtySum", "Description"
+                   , "SourceTableName", "SourceDataPk", "StoreHouse_id"
+                   , _status, _created, _creater_id
+                ) VALUES (
+                     :spjangcd, :lot, :materialId, now()
+                   , :qty, :qty, 0, :desc
+                   , 'mat_produce', :id, :storeHouseId
+                   , 'a', now(), :userId
+                )
+                """, ip);
+
+			// 재고 입고도 LOT 마다 남긴다 (LOT 번호로 입출고를 추적할 수 있게)
+			sqlRunner.execute("""
+                INSERT INTO mat_inout (
+                     spjangcd, "Material_id", "StoreHouse_id", "LotNumber"
+                   , "InoutDate", "InoutTime", "InOut", "InputType", "InputQty"
+                   , "SourceTableName", "SourceDataPk", "State", "Description"
+                   , _status, _created, _creater_id
+                ) VALUES (
+                     :spjangcd, :materialId, :storeHouseId, :lot
+                   , CURRENT_DATE, LOCALTIME, 'in', 'produced_in', :qty
+                   , 'mat_produce', :id, 'confirmed', '검사합격 입고'
+                   , 'a', now(), :userId
+                )
+                """, ip);
+		}
+
+		// mat_produce 에는 대표(첫) LOT 번호를 남긴다
+		MapSqlParameterSource up = new MapSqlParameterSource();
+		up.addValue("id", mpId);
+		up.addValue("lot", firstLot);
+		up.addValue("storeHouseId", storeHouseId);
+		sqlRunner.execute("""
+            UPDATE mat_produce
+            SET "LotNumber" = :lot
+              , "StoreHouse_id" = COALESCE("StoreHouse_id", :storeHouseId)
+            WHERE id = :id
+            """, up);
+	}
+
+	/** 이 검사 실적으로 만든 LOT 이 이미 출고(소모)됐는지. 됐으면 검사를 취소할 수 없다 */
+	public boolean isLotConsumed(Integer matProduceId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("id", matProduceId);
+		return sqlRunner.queryForCount("""
+            SELECT COUNT(*) FROM mat_lot_cons c
+            JOIN mat_lot ml ON ml.id = c."MaterialLot_id"
+            WHERE ml."SourceTableName" = 'mat_produce' AND ml."SourceDataPk" = :id
+            """, p) > 0;
 	}
 
 	/** 검사 실적 id → 그 실적이 달린 품목(suju.id). 취소 후 상태 재계산에 필요하다 */
@@ -546,6 +738,20 @@ public class ProdInspectService {
 		MapSqlParameterSource p = new MapSqlParameterSource();
 		p.addValue("id", id);
 		p.addValue("inspOrder", PROCESS_ORDER_INSPECT);
+		// 검사 합격으로 만든 재고·LOT 을 먼저 지운다 (출고 여부는 컨트롤러가 먼저 막는다).
+		// 검사 행에 달린 것만 지운다 — 공정 조립 LOT 은 SourceDataPk 가 달라 영향 없다.
+		sqlRunner.execute("""
+            DELETE FROM mat_inout
+            WHERE "SourceTableName" = 'mat_produce' AND "SourceDataPk" = :id
+              AND "InOut" = 'in' AND "InputType" = 'produced_in'
+              AND EXISTS (SELECT 1 FROM mat_produce m WHERE m.id = :id AND m."ProcessOrder" = :inspOrder)
+            """, p);
+		sqlRunner.execute("""
+            DELETE FROM mat_lot
+            WHERE "SourceTableName" = 'mat_produce' AND "SourceDataPk" = :id
+              AND EXISTS (SELECT 1 FROM mat_produce m WHERE m.id = :id AND m."ProcessOrder" = :inspOrder)
+            """, p);
+
 		// 검사 행만 지운다. 실수로 조립 실적이 지워지지 않게 ProcessOrder 를 함께 건다.
 		sqlRunner.execute("""
             DELETE FROM mat_produce

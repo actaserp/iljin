@@ -1129,6 +1129,9 @@
 
 <th:block layout:fragment="scripts">
     <script type="text/javascript" th:src="@{/resource/jsBarcode/JsBarcode.all.min.js}"></script>
+    <!-- 입고 LOT 라벨 (Zebra ZD421T · 100×50mm). 지그 라벨과 같은 양식 -->
+    <script type="text/javascript" th:src="@{/resource/qrCode/qrcode.min.js}"></script>
+    <script type="text/javascript" th:src="@{/js/iljin_label.js}"></script>
     <th:block th:replace="/common/popup_material :: popup_material"></th:block>
     <th:block th:replace="/common/popup_company :: popup_company"></th:block>
 
@@ -1850,8 +1853,8 @@
 
                     let url = _this.url + '/save_balju_return';
                     let items = _this.baljuReturnGrid.rows
-                    .filter(row => row.isSelected)
-                    .map(row => row.dataItem);
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2029,8 +2032,8 @@
                     if (e.target?.type === 'checkbox') {
                         setTimeout(() => {
                             let items = _this.baljuInputGrid.rows
-                            .filter(row => row.isSelected)
-                            .map(row => row.dataItem);
+                                .filter(row => row.isSelected)
+                                .map(row => row.dataItem);
 
                             items.forEach(item => {
                                 if ((!item.inputQty || item.inputQty === '') && item.SujuQty) {
@@ -2099,8 +2102,8 @@
 
                     let url = _this.url + '/save_balju';
                     let items = _this.baljuInputGrid.rows
-                    .filter(row => row.isSelected)
-                    .map(row => row.dataItem);
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2146,8 +2149,8 @@
                 $content.find('#btnCompletionMat').on('click', function () {
                     let url = _this.url + '/force-complete';
                     let items = _this.baljuInputGrid.rows
-                    .filter(row => row.isSelected)
-                    .map(row => row.dataItem);
+                        .filter(row => row.isSelected)
+                        .map(row => row.dataItem);
 
                     console.log(items);
 
@@ -2197,11 +2200,9 @@
                     return;
                 }
 
-                if (items[0].lot_use !== 'Y') {
-                    Alert.alert('로트입고등록', '로트관리 안하는 자재는 로트입고 할 수 없습니다. ', function () {
-                    });
-                    return;
-                }
+                // ★ 로트관리 여부로 막지 않는다. 로트 입고를 하면 서버가 그 품목의 로트관리를 켠다
+                //   (MaterialInoutController.lot_save). 외작 지그·구매품이 품목 등록 때
+                //   이 값을 켜지 않아 거의 다 막혔다.
                 let item = items[0];
                 let content = tmpl('lotInputPopup', {});
                 let $content = $(content);
@@ -2260,14 +2261,22 @@
                 $MaterialName.val(item.material_name);
                 $mio_pk.val(item.mio_pk);
                 $UnitName.val(item.unit_name);
-                $LotSize.val(item.PackingUnitQty);
+                /*
+                 * ★ 로트당수량 기본값.
+                 *   외작 지그(반제품·'외작 입고')는 1 — 출하 때 지그 한 대에 라벨 한 장씩 붙여 스캔한다.
+                 *   구매품·STD 는 입고 1건 = LOT 1건 — 박스·봉지 단위로 한 장만 붙인다.
+                 *   품목에 포장단위(PackingUnitQty)가 잡혀 있으면 그 값을 쓴다.
+                 */
+                let isJig = item.material_type === '반제품' || /외작/.test(item.Description || '');
+                $LotSize.val(item.PackingUnitQty || (isJig ? 1 : item.InputQty));
                 $StoreHouseName.val(item.store_house_name);
                 $InputQty.val(item.InputQty);
                 $ValidDays.val(item.ValidDays);
-                if (item.ValidDays) {
-                    let valDate = CommonUtil.getYYYYMMDD(item.ValidDays);
-                    $EffectiveDate.val(valDate);
-                }
+                /*
+                 * ★ 유효일시는 일진에 의미가 없다(식품용 항목). 저장에는 필수라 2999-12-31 로 채운다.
+                 *   품목에 유효일수가 1 같은 기본값으로 들어가 있어 내일 날짜가 찍히던 것을 막는다.
+                 */
+                $EffectiveDate.val('2999-12-31');
 
                 let fnLoadLotList = function (mio_pk) {
                     let fnsuccess = function (result) {
@@ -2276,6 +2285,10 @@
                             $btnLotCalc.prop('disabled', 'disabled');
                         }
                         _this.matLotGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
+                        // 아직 LOT 이 없으면 기본값으로 바로 계산해 둔다. 확인하고 [저장]만 누르면 된다
+                        if (result.data.length === 0 && $LotSize.val()) {
+                            $btnLotCalc.click();
+                        }
                     };
                     let lotParam = {
                         mio_id: mio_pk,
@@ -2606,60 +2619,49 @@
                 });
             }
 
+            /**
+             * 입고 LOT 라벨 (100×50mm, QR).
+             *
+             * 예전 양식은 크기 지정이 없어(폭 400px 표 + 드라이버 기본 용지) Zebra 에서
+             * 두 장에 걸치거나 잘렸고, 식품용 칸(보관방법·유효기한)이 늘 비어 있었다.
+             * 지그 라벨과 같은 100×50mm 양식으로 통일한다 — 프린터가 1대라 롤을 갈지 않게.
+             * QR 값 = LOT 번호 그대로. PDA 는 1D/2D 겸용이라 QR 로 바꿔도 읽는 값은 같다.
+             */
             showBarcodePrint(barcodeItems) {
-
-                let _this = this;
-                let content = tmpl('barcode_tmpl', {});
-                let $content = $(content);
-                let modalContainer = new PopupDraggable('바코드 출력');
-                modalContainer.open({width: 470, height: 700, $content});
-                let $barcodeDiv = $content.find('#barcodeDiv');
-
-                $.each(barcodeItems, function (idx, item) {
-                    let svg_id = "barcode_" + item.LotNumber;
-                    let svg = "<div class='col-12'><svg id='" + svg_id + "'></svg></div>";
-
-                    let tmp_table = tmpl('barcode_table_tmpl', item);
-                    let $tmp_table = $(tmp_table);
-                    $tmp_table.find('.barcode_td').append(svg);
-
-                    $barcodeDiv.append($tmp_table);
+                let labels = $.map(barcodeItems, function (item) {
+                    let qty = (item.InputQty == null ? '' : item.InputQty) + (item.UnitName ? ' ' + item.UnitName : '');
+                    let inDate = String(item.InputDateTime || '').substring(0, 10);
+                    // 외작 입고 지그면 프로젝트·라인을 찍는다 (출하 때 이 라벨을 스캔한다)
+                    if (item.ProjNo) {
+                        return {
+                            qr: item.LotNumber,
+                            title: item.MaterialName || '',
+                            sub: item.LineName || '',
+                            rows: [
+                                ['프로젝트', item.ProjNo],
+                                ['구분', '외작'],
+                                ['수량', qty],
+                                ['입고일', inDate]
+                            ]
+                        };
+                    }
+                    return {
+                        qr: item.LotNumber,
+                        title: item.MaterialName || '',
+                        sub: item.MaterialGroupName || '',
+                        rows: [
+                            ['품목코드', item.MaterialCode || ''],
+                            ['수량', qty],
+                            ['입고일', inDate],
+                            ['비고', item.Description || '']
+                        ]
+                    };
                 });
-
-                $.each(barcodeItems, function (idx, item) {
-                    let svg_id = "#barcode_" + item.LotNumber;
-
-                    // use options
-                    JsBarcode(svg_id, item.LotNumber, {
-                        format: 'code128', // 바코드 포맷 / default: code128 / options: EAN, UPC, CODE39, ITF-14, MSI, Pharmacode, Codabar (각 옵션들에 대한 설명은 사이트 참조)
-                        width: 2, // 너비 / default: 2
-                        height: 100, // 높이 / default: 100
-                        displayValue: true, // 텍스트 표시 여부 / default: true
-                        text: item.LotNumber, // 데이터 대신 특정 텍스트 표시 / default: undefined
-                        fontOptions: '', // 폰트 설정 / default: '' / options: bold, italic, bold italic
-                        font: 'monospace', // 폰트 / default: monospace / options: fantasy, etc... 사이트 참조
-                        textAlign: 'center', // 텍스트 위치 / default: center / options: left, center, right
-                        textPosition: 'bottom', // 텍스트 위치 / default: bottom / options: top, bottom
-                        textMargin: 2, // 바코드와 텍스트 사이 여백 / default: 2
-                        fontSize: 20, // 폰트 크기 / default: 20
-                        background: '#ffffff', // 바코드 배경 색 / default: #ffffff
-                        lineColor: '#000000', // 바코드 라인 색 / default: #000000
-                        margin: 10, // 바코드 영역 주변 여백 / default: 10
-                    });
-                });
-
-                let $btnPopPrintBarcode = $content.find('#btnPopPrintBarcode');
-
-                // 바코드 인쇄 버튼 클릭
-                $btnPopPrintBarcode.click(function (e) {
-                    var popupWindow = window.open("barcode_print", "_blank", "width=400px");
-                    let css = $('#print_css')[0].outerHTML;
-
-                    let html = $barcodeDiv.html();
-                    popupWindow.document.write(css);
-                    popupWindow.document.write(html);
-                    popupWindow.print();
-                });
+                try {
+                    IljinLabel.print(labels);
+                } catch (e) {
+                    Alert.alert('', '라벨을 만들지 못했습니다. ' + e.message);
+                }
             }
         }
 

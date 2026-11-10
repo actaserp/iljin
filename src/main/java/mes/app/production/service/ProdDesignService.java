@@ -157,6 +157,10 @@ public class ProdDesignService {
                      , MIN("WorkOrderNumber") AS work_order_number
                 FROM job_res
                 WHERE "SourceTableName" = 'suju'
+                  -- ★ 검사가 만든 컨테이너(INSP-)는 작업 지시가 아니다.
+                  --   외작은 지시 없이 검사부터 하는데, 그때 생긴 job_res 때문에
+                  --   외작이 '지시완료'로 이 목록에 올라왔다 (HD06~HD50).
+                  AND COALESCE("WorkOrderNumber", '') NOT LIKE 'INSP-%'
                 GROUP BY "SourceDataPk"
             ) j ON j."SourceDataPk" = s.id
             WHERE s.spjangcd = :spjangcd
@@ -185,6 +189,7 @@ public class ProdDesignService {
                  , s.spjangcd        AS spjangcd
                  , s.leg_spec        AS leg_spec
                  , s.leg_cnt         AS leg_cnt
+                 , COALESCE(s.make_type, '') AS make_type
             FROM suju s
             WHERE s.id = :sujuId
             """;
