@@ -22,6 +22,11 @@
         .ctx-title .tag{display:inline-block;background:#c2410c;color:#fff;border-radius:6px;
             padding:1px 7px;font-size:11px;font-weight:800;margin-left:6px;vertical-align:2px;}
         .ctx-slots{display:flex;gap:10px;flex:1 1 auto;}
+        /* 레이아웃 CSS 의 button{height:30px} 무력화 */
+        .back-btn{flex:0 0 auto;height:auto !important;min-width:96px;border:0;border-radius:10px;cursor:pointer;
+            background:#2f57d6;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:0 14px;}
+        .back-btn:hover{background:#274ec2;} .back-btn:active{transform:scale(.97);}
+        .back-btn .ic{font-size:18px;line-height:1;} .back-btn .tx{font-size:15px;font-weight:800;}
         .ctx-slot{flex:1 1 0;background:#2c3a5e;border-radius:9px;padding:7px 12px;min-width:0;
             display:flex;flex-direction:column;justify-content:center;}
         .ctx-slot .lab{font-size:11px;color:#9fb0d4;font-weight:700;letter-spacing:.3px;}
@@ -138,6 +143,10 @@
 <th:block layout:fragment="content">
     <div class="kiosk">
         <div class="ctx-bar">
+            <!-- 생산 실적 키오스크에서 [불량] 으로 왔으면 그 탭으로 돌아간다 (레이저에서 왔으면 레이저로) -->
+            <button class="back-btn" id="btnBack" style="display:none" title="생산 실적 화면으로 돌아가기">
+                <span class="ic">◀</span><span class="tx">실적으로</span>
+            </button>
             <div class="ctx-title">
                 <h1>불량 등록<span class="tag">불량</span></h1>
                 <span class="sub" id="opLabel"></span>
@@ -206,6 +215,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <script th:src="@{/js/iljin_kiosk.js}"></script>
     <script type="text/javascript">
         /*
          * 가공 불량 등록 (키오스크)
@@ -405,7 +415,14 @@
                 advance('proj');
             });
             el('#pickBody').querySelectorAll('[data-it]').forEach(b => b.onclick = () => {
-                st.item = +b.dataset.it; advance('item');
+                st.item = +b.dataset.it;
+                // 품목을 고르면 그 품목의 프로젝트도 잡는다 (목록은 다시 받지 않는다 — 인덱스가 밀린다)
+                const it = ITEMS[st.item];
+                if (it && it.proj_no) {
+                    const pi = PROJECTS.findIndex(p => p.proj_no === it.proj_no);
+                    if (pi >= 0) st.proj = pi;
+                }
+                advance('item');
             });
             el('#pickBody').querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
                 st.kind = b.dataset.k; advance('kind');
@@ -415,15 +432,15 @@
             });
         }
 
-        /* 아직 값이 없는 다음 단계로. 품목은 선택사항이라 건너뛴다 */
+        /* 아직 값이 없는 다음 단계로. 프로젝트만 건너뛴다 */
         function advance(key) {
             const i = STEPS.findIndex(s => s.key === key);
             let next = i + 1;
-            /* 프로젝트·품목은 선택사항이라 값이 없어도 지나친다.
-               품목을 고르면 서버가 프로젝트를 역산하므로 순서상 문제가 없다. */
+            /* 프로젝트는 건너뛴다 — 품목을 고르면 서버가 프로젝트를 역산한다.
+               ★ 품목은 건너뛰지 않는다. 품목 없이 넣으면 프로젝트·품목 집계에 안 잡힌다.
+                 (꼭 없이 넣어야 하면 단계 탭에서 유형을 직접 눌러 넘어갈 수 있다) */
             while (next < STEPS.length
-            && (stepValue(STEPS[next].key) != null
-                || STEPS[next].key === 'item' || STEPS[next].key === 'proj')) next++;
+            && (stepValue(STEPS[next].key) != null || STEPS[next].key === 'proj')) next++;
             st.step = next < STEPS.length ? next : i;
             renderAll();
         }
@@ -596,21 +613,62 @@
         const shiftDate = n => {
             const d = new Date(curDate);
             d.setDate(d.getDate() + n);
-            return d.toISOString().slice(0, 10);
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         };
 
         el('#pdate').onchange = () => setDate(el('#pdate').value);
         el('#dPrev').onclick = () => setDate(shiftDate(-1));
         el('#dNext').onclick = () => setDate(shiftDate(1));
 
+        /*
+         * 생산 실적 키오스크에서 [불량] 으로 왔으면 그 공정·설비·작업자를 미리 박는다.
+         *   레이저 키오스크에서 왔으면 레이저 설비가 잡혀 있다. 다른 설비로 바꾸는 건 자유.
+         * 탭이 이미 열려 있으면 다시 열리지 않으므로, 넘어올 때마다(t 가 바뀌면) 다시 반영한다.
+         */
+        let ctxT = null;
+        function applyKioskCtx() {
+            const c = IljinKiosk.ctx();
+            if (!c || c.t === ctxT) return false;
+            ctxT = c.t;
+            if (c.op || c.machine) {
+                const ms = MACHINES.filter(m => !c.op || m.operation === c.op);
+                const pick = ms.find(m => m.code === c.machine) || (ms.length === 1 ? ms[0] : null);
+                if (pick) { st.machine = pick.code; CURRENT_OP = pick.operation || c.op || ''; }
+                else if (c.op) { st.machine = null; CURRENT_OP = c.op; }
+            }
+            if (c.worker) { st.worker = c.worker; st.workerId = c.workerId || null; }
+            // 아직 값이 없는 첫 단계로 (프로젝트는 건너뛰고 품목은 고르게 한다 — 집계)
+            const first = STEPS.findIndex(s => stepValue(s.key) == null && s.key !== 'proj');
+            st.step = first < 0 ? 0 : first;
+            return true;
+        }
+
+        el('#btnBack').onclick = () => IljinKiosk.back();
+        const syncBack = () => { el('#btnBack').style.display = IljinKiosk.from() ? '' : 'none'; };
+
+        // 로컬 날짜 (toISOString 은 UTC 라 아침 9시 전엔 어제가 된다)
+        const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+
         (async function init() {
-            curDate = new Date().toISOString().slice(0, 10);
+            IljinKiosk.useFooterArea();
+            curDate = todayStr();
             el('#pdate').value = curDate;
             buildKeys();
             await loadMasters();
             await loadItems();
+            applyKioskCtx();
+            syncBack();
             renderAll();
             await refreshLog();
+            // 탭이 열린 채로 실적 화면에서 다시 넘어오면 그때 값으로 다시 박는다
+            setInterval(async () => {
+                syncBack();
+                if (applyKioskCtx()) {
+                    cancelEdit();
+                    renderAll();
+                    await refreshLog();
+                }
+            }, 700);
         })();
     </script>
 </th:block>

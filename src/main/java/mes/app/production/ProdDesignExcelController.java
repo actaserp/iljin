@@ -70,14 +70,14 @@ public class ProdDesignExcelController {
 	/**
 	 * 부품표 양식(.xlsx).
 	 *
-	 * @param sujuId 선택한 품목. "프로젝트 공통" 행은 suju_id 가 없으므로 비어서 온다.
+	 * @param sujuId 선택한 품목. "프로젝트 전체" 행은 suju_id 가 없으므로 비어서 온다.
 	 */
 	@GetMapping("/excel_template")
 	public ResponseEntity<byte[]> excelTemplate(
 			@RequestParam("spjangcd") String spjangcd,
 			@RequestParam(value = "sujuId", required = false) Integer sujuId) {
 
-		String itemName = "프로젝트공통";
+		String itemName = "프로젝트전체";
 		String projNo = "";
 		if (sujuId != null) {
 			Map<String, Object> item = prodDesignService.getItem(sujuId);
@@ -283,7 +283,7 @@ public class ProdDesignExcelController {
 	//
 	//   [저장 규칙]  품목 단위 저장(part_save)과 같은 판정을 쓰되, 여러 품목을
 	//   한 트랜잭션으로 넣는다. 다른 점은 두 가지:
-	//     1) 지시가 나간 품목은 건드리지 않는다 (부품이 '확정'이고 현장이 쓰고 있다)
+	//     1) 지시가 나간 품목도 반영한다. 들어가는 부품은 '확정' (지시 = 품목 부품 확정 규칙과 같다)
 	//     2) STD·구매품 중 품목(자재)이 안 붙은 행은 저장하지 않고 돌려준다.
 	//        part_save 는 한 건만 안 붙어도 전체를 거부하는데, 프로젝트 전체를
 	//        그렇게 막으면 수십 개 품목이 구매품 하나 때문에 다 막힌다.
@@ -292,7 +292,7 @@ public class ProdDesignExcelController {
 
 	private static final String SHEET_ITEMS = "품목목록";
 	private static final String[] HEADERS_PROJECT = {"라인", "품목", "부품명", "수량", "구분", "유형", "비고"};
-	static final String COMMON_ITEM = "프로젝트 공통";
+	static final String COMMON_ITEM = "프로젝트 전체";   // 선행 가공 (2D 전, 품목 미지정)
 
 	/** 프로젝트 전체 부품표 양식. 품목 칸은 그 프로젝트 품목 드롭다운 */
 	@GetMapping("/excel_template_project")
@@ -343,7 +343,7 @@ public class ProdDesignExcelController {
 			Row cr = is.createRow(n++);
 			cr.createCell(0).setCellValue("");
 			cr.createCell(1).setCellValue(COMMON_ITEM);
-			cr.createCell(2).setCellValue("2D 전 계획 물량");
+			cr.createCell(2).setCellValue("선행 가공 (2D 전)");
 			for (Map<String, Object> it : items) {
 				Row r = is.createRow(n++);
 				r.createCell(0).setCellValue(str(it.get("line_name")));
@@ -377,7 +377,7 @@ public class ProdDesignExcelController {
 					{"프로젝트", projNo},
 					{"", ""},
 					{"라인 · 품목", "품목목록 시트에 있는 이름 그대로. 같은 품목이 이어지면 첫 행만 써도 됩니다 (빈 칸은 위 행과 같음)."},
-					{"", "품목 이름이 두 라인에 다 있으면 라인을 꼭 쓰세요. 품목에 '" + COMMON_ITEM + "'을 쓰면 공통 물량으로 들어갑니다."},
+					{"", "품목 이름이 두 라인에 다 있으면 라인을 꼭 쓰세요. 품목에 '" + COMMON_ITEM + "'을 쓰면 선행 가공(2D 전, 품목 미지정)으로 들어갑니다."},
 					{"부품명", "필수. 비어 있는 행은 건너뜁니다."},
 					{"수량", "품목 전체에 필요한 총량. 비우면 1."},
 					{"구분", "제작품 / STD / 구매품. 비우면 제작품."},
@@ -386,7 +386,7 @@ public class ProdDesignExcelController {
 					{"", ""},
 					{"올리기", "생산 지시 > 프로젝트 선택 > [엑셀 일괄] > [엑셀 올리기]. 품목별 미리보기를 확인하고 [저장]."},
 					{"이미 부품이 있는 품목", "기본은 건너뜁니다. '기존 부품 교체'를 켜면 지우고 새로 넣습니다."},
-					{"작업지시 나간 품목", "반영하지 않습니다. 해당 품목 화면에서 직접 고치세요."},
+					{"작업지시 나간 품목", "반영합니다. 들어가는 부품은 '확정' 상태가 됩니다."},
 					{"STD · 구매품", "자재 이름이 맞으면 자동으로 붙어 저장됩니다. 안 붙은 것은 저장되지 않고, 해당 품목을 열면 노란 칸에 다시 나옵니다."},
 					{"", ""},
 					{"유형 목록", String.join(", ", kinds)},
@@ -492,7 +492,7 @@ public class ProdDesignExcelController {
 	 * 프로젝트 전체 부품 저장 (한 트랜잭션).
 	 * payload: { spjangcd, projNo, replace,
 	 *            groups:[{sujuId(null=공통), items:[{partName, qty, gubun, kind, materialId}]}] }
-	 * 응답 data: [{sujuId, status: saved|skip_ordered|skip_existing|invalid, saved, deleted, unmatched:[...]}]
+	 * 응답 data: [{sujuId, status: saved|skip_existing|invalid, ordered, saved, deleted, unmatched:[...]}]
 	 */
 	@PostMapping("/part_save_project")
 	@Transactional
@@ -535,11 +535,14 @@ public class ProdDesignExcelController {
 					rep.put("status", "invalid");
 					continue;
 				}
-				if (prodDesignService.countOrder(sujuId) > 0) {
-					rep.put("status", "skip_ordered");
-					continue;
-				}
 			}
+			/*
+			 * 지시가 나간 품목도 반영한다 (도면이 늦게 나오거나 바뀌면 지시 후에 부품표가 채워진다).
+			 * 지시된 품목의 부품은 '확정' 이다 — 지시할 때 품목 부품을 통째로 확정하는 규칙과 맞춘다.
+			 * 가공 실적은 부품 행이 아니라 유형별 합계로 잡히므로 교체해도 실적이 끊기지 않는다.
+			 */
+			boolean ordered = sujuId != null && prodDesignService.countOrder(sujuId) > 0;
+			rep.put("ordered", ordered);
 
 			String where = sujuId != null
 					? "\"Suju_id\" = :sujuId"
@@ -567,7 +570,7 @@ public class ProdDesignExcelController {
 				String gubun = str(it.get("gubun"));
 				if (!Arrays.asList(GUBUN).contains(gubun)) gubun = "제작품";
 				it.put("gubun", gubun);
-				it.put("state", "계획");
+				it.put("state", ordered ? "확정" : "계획");
 				it.put("qtyType", "unit");
 				it.put("id", null);
 				it.put("partNo", String.valueOf(order + 1));

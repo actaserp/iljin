@@ -104,6 +104,16 @@ public class ProdDesignController {
 		return result;
 	}
 
+	/** 프로젝트 공통 화면: 유형별 품목 합계 · 공통 물량 (kind_summary 와 달리 둘을 나눠 준다) */
+	@GetMapping("/kind_split")
+	public AjaxResult kindSplit(@RequestParam("spjangcd") String spjangcd,
+								@RequestParam("projNo") String projNo) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = prodDesignService.getKindSplit(spjangcd, projNo);
+		return result;
+	}
+
 	/** 유형(분류) 목록 */
 	@GetMapping("/kind_list")
 	public AjaxResult kindList(@RequestParam("spjangcd") String spjangcd) {

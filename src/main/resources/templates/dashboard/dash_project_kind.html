@@ -6,13 +6,20 @@
     <title>일진테크 — 생산 현황판</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box;}
-        html{zoom:0.75;}
+        /* 큰 TV 에 걸린다. 예전 zoom:0.75 는 PC 화면에 맞춘 값이라 TV 에서 작은 글씨가 안 읽혔다.
+           PC 에서 한 화면에 다 보고 싶으면 주소에 ?zoom=0.75 */
         body{background:#161a21;color:#eef2f7;font-family:'Pretendard','Malgun Gothic',sans-serif;
-            padding:1.6vw 2vw;min-height:100vh;}
-        .wb-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.4vw;padding-bottom:1.1vw;border-bottom:2px solid #2c333d;}
-        .wb-head h1{font-size:clamp(28px,2.6vw,56px);font-weight:900;letter-spacing:-.5px;}
+            padding:1vw 1.4vw;min-height:100vh;}
+        .wb-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.8vw;padding-bottom:.6vw;border-bottom:2px solid #2c333d;}
+        .wb-head h1{font-size:clamp(22px,1.8vw,42px);font-weight:900;letter-spacing:-.5px;}
         .wb-head h1 small{font-size:clamp(14px,1vw,22px);color:#8d97a5;font-weight:600;margin-left:14px;}
-        .wb-clock{font-size:clamp(22px,1.8vw,40px);font-weight:800;color:#aeb7c4;font-variant-numeric:tabular-nums;}
+        .wb-clock{font-size:clamp(18px,1.3vw,32px);font-weight:800;color:#aeb7c4;font-variant-numeric:tabular-nums;}
+        .wb-hr{display:flex;align-items:center;gap:1vw;}
+        .wb-fs{width:clamp(36px,2.4vw,56px);height:clamp(36px,2.4vw,56px);border-radius:10px;border:1px solid #333d4b;background:#222a35;
+            color:#aeb7c4;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+        .wb-fs:hover{background:#2c3542;color:#fff;}
+        .wb-fs svg{width:55%;height:55%;}
+        body.idle{cursor:none;} body.idle .wb-fs{opacity:0;}
         /* KPI */
         .wb-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:1vw;margin-bottom:1.4vw;}
         .wk{background:#222a35;border:1px solid #333d4b;border-radius:16px;padding:1.2vw 1.5vw;}
@@ -20,21 +27,47 @@
         .wk .v{font-size:clamp(34px,3.4vw,72px);font-weight:900;line-height:1;letter-spacing:-1px;}
         .wk .v small{font-size:clamp(16px,1.2vw,26px);color:#9aa4b2;font-weight:700;margin-left:6px;}
         .wk.risk .v{color:#e2796f;} .wk.made .v{color:#67c6a3;}
+        /* 오늘 한 줄 (작게) */
+        .wb-strip{display:flex;align-items:baseline;gap:1.2vw;flex-wrap:wrap;background:#1d232c;border:1px solid #2c333d;
+            border-radius:12px;padding:.5vw 1.2vw;margin-bottom:.8vw;font-size:clamp(14px,1vw,24px);font-weight:700;color:#9aa4b2;}
+        .wb-strip .tv{font-size:clamp(22px,1.6vw,38px);font-weight:900;color:#67c6a3;font-variant-numeric:tabular-nums;}
+        .wb-strip .tv small{font-size:.5em;color:#9aa4b2;margin-left:4px;}
+        .wb-strip b{color:#dde3ea;} .wb-strip .to.z{opacity:.5;}
+        .wb-strip .tr{margin-left:auto;color:#e6c772;display:flex;align-items:baseline;gap:1vw;flex-wrap:wrap;justify-content:flex-end;}
+        .wb-strip .tr b{color:#e6c772;} .wb-strip .wn{white-space:nowrap;}
+        .wb-strip .wl{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.3vw 0;color:#dde3ea;font-weight:700;}
+        .wb-strip .wm{white-space:nowrap;}
+        .wb-strip .wg{padding:0 .9vw;border-left:1px solid #3a4350;}
+        .wb-strip .wg .wp{color:#6fa6d8;font-weight:800;} .wb-strip .wg small{color:#9aa4b2;font-size:.85em;margin-left:2px;}
+        .wb-strip .wg.more{color:#9aa4b2;}
+        /* 프로젝트 카드 — WBS 단계 · 다음 마일스톤 · 공정별 생산 */
+        .pc-steps{display:flex;gap:3px;}
+        .pc-steps .sp{flex:1;text-align:center;font-size:clamp(12px,.85vw,20px);font-weight:800;padding:.3vw 0;border-radius:6px;border:1px solid;white-space:nowrap;}
+        .pc-steps .sp.done{color:#67c6a3;border-color:rgba(92,191,155,.45);background:rgba(92,191,155,.12);}
+        .pc-steps .sp.cur{color:#e6c772;border-color:#d8b25f;background:rgba(216,178,95,.15);}
+        .pc-steps .sp.delay{color:#ff8a7f;border-color:#e2796f;background:rgba(226,121,111,.18);}
+        .pc-steps .sp.up{color:#6b7480;border-color:#333d4b;}
+        .pc-mile{font-size:clamp(14px,1vw,24px);font-weight:800;color:#c9d1dc;}
+        .pc-mile .late{color:#ff8a7f;}
+        .pc-ops{display:flex;flex-wrap:wrap;gap:.2vw 1vw;font-size:clamp(13px,.9vw,22px);font-weight:700;color:#9aa4b2;
+            border-top:1px solid #333d4b;padding-top:.5vw;}
+        .pc-ops b{color:#dde3ea;} .pc-ops.none{color:#5f6772;}
+        .pc-out{color:#6fa6d8;}
         /* 경보 띠 */
-        .wb-alert{display:flex;align-items:center;gap:1vw;background:rgba(226,121,111,.12);border:1px solid rgba(226,121,111,.4);
-            border-radius:14px;padding:1vw 1.4vw;margin-bottom:1.4vw;flex-wrap:wrap;}
-        .wb-alert .at{font-size:clamp(16px,1.3vw,28px);font-weight:900;color:#e2796f;white-space:nowrap;}
-        .wb-alert .ac{font-size:clamp(15px,1.15vw,24px);font-weight:700;background:#2a323d;border-radius:10px;padding:.5vw 1vw;}
+        .wb-alert{display:flex;align-items:center;gap:.8vw;background:rgba(226,121,111,.12);border:1px solid rgba(226,121,111,.4);
+            border-radius:12px;padding:.5vw 1.2vw;margin-bottom:.8vw;flex-wrap:wrap;}
+        .wb-alert .at{font-size:clamp(14px,1vw,24px);font-weight:900;color:#e2796f;white-space:nowrap;}
+        .wb-alert .ac{font-size:clamp(13px,.9vw,22px);font-weight:700;background:#2a323d;border-radius:8px;padding:.3vw .8vw;}
         .wb-alert .ac.d{color:#e2796f;} .wb-alert .ac.w{color:#d8b25f;} .wb-alert .ac.o{color:#6fa6d8;}
         .wb-alert.none{background:rgba(92,191,155,.1);border-color:rgba(92,191,155,.35);}
         .wb-alert.none .at{color:#67c6a3;}
         /* 프로젝트 카드 그리드 */
-        .wb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(480px,100%),1fr));gap:1.2vw;}
-        .pc{background:#222a35;border:1px solid #333d4b;border-radius:18px;padding:1.4vw 1.5vw;display:flex;flex-direction:column;gap:1vw;}
+        .wb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(330px,100%),1fr));gap:.8vw;}
+        .pc{background:#222a35;border:1px solid #333d4b;border-radius:14px;padding:.9vw 1vw;display:flex;flex-direction:column;gap:.6vw;}
         .pc.risk{border-color:rgba(226,121,111,.6);box-shadow:0 0 0 1px rgba(226,121,111,.3) inset;}
-        .pc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:1vw;}
-        .pc-nm{font-size:clamp(24px,2vw,42px);font-weight:900;letter-spacing:-.5px;}
-        .pc-due{font-size:clamp(16px,1.2vw,26px);font-weight:800;white-space:nowrap;background:#1a1f27;border:1px solid #333d4b;border-radius:10px;padding:.4vw 1vw;color:#9aa4b2;}
+        .pc-top{display:flex;justify-content:space-between;align-items:center;gap:.6vw;}
+        .pc-nm{font-size:clamp(18px,1.35vw,32px);font-weight:900;letter-spacing:-.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+        .pc-due{font-size:clamp(13px,.95vw,22px);font-weight:800;white-space:nowrap;background:#1a1f27;border:1px solid #333d4b;border-radius:8px;padding:.2vw .7vw;color:#9aa4b2;}
         .pc-due.soon{color:#e2796f;border-color:rgba(226,121,111,.5);}
         /* 단계점 */
         .wb-stages{display:flex;align-items:center;gap:.5vw;}
@@ -50,30 +83,35 @@
         .ws-conn{width:.7vw;height:3px;background:#333d4b;flex:0 0 auto;}
         /* 진척 */
         .pc-prog{display:flex;align-items:baseline;justify-content:space-between;gap:1vw;}
-        .pc-prog .big{font-size:clamp(40px,3.6vw,76px);font-weight:900;line-height:1;letter-spacing:-1px;}
-        .pc-prog .sub{font-size:clamp(16px,1.2vw,26px);color:#9aa4b2;font-weight:700;text-align:right;}
+        .pc-prog .big{font-size:clamp(28px,2.4vw,56px);font-weight:900;line-height:1;letter-spacing:-1px;}
+        .pc-prog .sub{font-size:clamp(13px,.95vw,22px);color:#9aa4b2;font-weight:700;text-align:right;}
         .pc-prog .sub b{color:#dde3ea;}
-        .pc-track{height:clamp(12px,1vw,20px);background:#39424f;border-radius:999px;overflow:hidden;}
+        .pc-track{height:clamp(8px,.6vw,14px);background:#39424f;border-radius:999px;overflow:hidden;}
         .pc-track .f{height:100%;border-radius:999px;}
-        .pc-foot{display:flex;gap:.6vw;flex-wrap:wrap;align-items:center;min-height:clamp(34px,2.6vw,52px);}
-        .tg{font-size:clamp(14px,1.05vw,23px);font-weight:800;padding:.4vw 1vw;border-radius:10px;}
+        .pc-foot{display:flex;gap:.4vw;flex-wrap:wrap;align-items:center;}
+        .tg{font-size:clamp(12px,.85vw,20px);font-weight:800;padding:.2vw .7vw;border-radius:8px;}
         .tg.danger{background:rgba(226,121,111,.16);color:#e2796f;} .tg.warn{background:rgba(216,178,95,.16);color:#d8b25f;}
         .tg.out{background:rgba(111,166,216,.14);color:#6fa6d8;} .tg.work{background:rgba(212,146,121,.16);color:#d49279;}
-        .pc-work{font-size:clamp(15px,1.15vw,25px);color:#d49279;font-weight:700;}
+        .pc-work{font-size:clamp(13px,.9vw,22px);color:#d49279;font-weight:700;}
     </style>
 </head>
 <body>
 <div class="wb-head">
     <h1>일진테크 생산 현황판<small>실시간 모니터링 · 보기 전용</small></h1>
-    <div class="wb-clock" id="wbClock"></div>
+    <div class="wb-hr">
+        <div class="wb-clock" id="wbClock"></div>
+        <button type="button" class="wb-fs" id="wbFs" title="전체화면" onclick="toggleFs()"></button>
+    </div>
 </div>
-<div class="wb-kpi" id="wbKpi"></div>
+<div class="wb-strip" id="wbTodayHd"></div>
 <div id="wbAlert"></div>
 <div class="wb-grid" id="wbGrid"></div>
 
 <script>
     /*
      * 생산 현황판 (벽걸이 전용, 읽기 전용).
+     *   회의록(6/23) "프로젝트별 진행 현황만": 주인공은 프로젝트 카드다.
+     *   1줄 오늘 합계(작게)  2줄 조기경보  3줄 프로젝트 (WBS 단계 · 다음 마일스톤 · 진척 · 공정별 생산 · 작업중)
      *
      * 이 페이지는 layout_page 를 쓰지 않는 <독립 HTML> 이다.
      * jQuery / AjaxUtil 이 없으므로 fetch 를 직접 쓴다.
@@ -83,10 +121,13 @@
      *   참값이 필요하면 parts.kinds 의 t/d 를 볼 것.
      */
     const API = '/api/production/dash_project';
+    const ZOOM = parseFloat(new URLSearchParams(location.search).get('zoom'));
+    if (ZOOM > 0) document.documentElement.style.zoom = ZOOM;
     const SPJANGCD = new URLSearchParams(location.search).get('spjangcd')
         || sessionStorage.getItem('spjangcd') || 'ZZ';
 
     let PROJECTS = [];
+    let MON = {equip: [], recent: []};   // 설비별 오늘 실적 · 작업중 (/monitor)
 
     async function loadData() {
         try {
@@ -95,6 +136,9 @@
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const res = await r.json();
             PROJECTS = res.data || [];
+            const m = await fetch(`${API}/monitor?spjangcd=${encodeURIComponent(SPJANGCD)}`,
+                {credentials: 'same-origin'});
+            if (m.ok) MON = (await m.json()).data || MON;
         } catch (e) {
             // 현황판은 사람이 붙어 있지 않다. 화면을 비우지 말고 직전 데이터를 유지한다.
             console.error('[dash_project_kind] 데이터 로드 실패', e);
@@ -176,6 +220,15 @@
             if (d < 0) { tags.push(['danger', '납기초과']); danger = true; }
             else if (near) { tags.push(['danger', 'D-' + d + ' 지연위험']); danger = true; }
         }
+        /*
+         * WBS 일정 지연도 위험으로 센다. 예전엔 납기만 봐서 카드에는 'WBS 지연'이 빨갛게
+         * 떠 있는데 경보 띠·지연 위험 카드는 '없음 / 0건'이라 서로 말이 달랐다.
+         */
+        if (!allDone && (+p.delayCnt || 0) > 0) {
+            const late = (p.milestones || []).filter(m => m.delay && m.s !== 'done').map(m => m.n);
+            tags.push(['danger', late.length ? late.join('·') + ' 지연' : 'WBS 지연 ' + p.delayCnt]);
+            danger = true;
+        }
         // 출도지연 = 임박 + 미출도 공정 존재
         if (near && a.outWait > 0) tags.push(['out', 'D-' + d + ' 출도지연 ' + a.outWait + '공정']);
         // 외주 미입고 = 임박 + 미입고 외작 존재 (전체 미입고는 외주현황 섹션에서)
@@ -202,19 +255,60 @@
     const el = s => document.querySelector(s);
     const nf = n => (n||0).toLocaleString();
 
-    function renderKpi(){
-        const all = PROJECTS.reduce((a,p)=>a.concat(flat(p)),[]);
-        const a = agg(all);
-        const riskN = PROJECTS.filter(p=>risk(p).danger).length;
-        el('#wbKpi').innerHTML =
-            /* ★ 축과 용어를 관리자 대시보드(dash_project)와 맞춘다.
-               need/made 는 <b>공정 대수</b>이지 유니트가 아니다.
-               '총 필요 유니트' 라고 적으면 유닛(2,710)과 혼동된다. */
-            '<div class="wk"><div class="l">공정 대수</div><div class="v">'+nf(a.need)+'<small>대</small></div></div>'
-            +'<div class="wk made"><div class="l">제작 완료</div><div class="v">'+nf(a.made)+'<small>대</small></div></div>'
-            +'<div class="wk"><div class="l">남음</div><div class="v" style="color:#d8b25f">'+nf(a.rem)+'<small>대</small></div></div>'
-            +'<div class="wk risk"><div class="l">지연 위험</div><div class="v">'+riskN+'<small>건</small></div></div>';
+    /*
+     * ★ 맨 위 한 줄: 오늘 합계 · 공정별 · 작업중 인원.
+     *   회의록(6/23)은 현황판에 <b>프로젝트별 진행 현황만</b> 표시하라고 했다.
+     *   오늘 실적은 크게 두지 않고 한 줄로만 — 주인공은 아래 프로젝트 카드다.
+     */
+    /* 프로젝트별 작업중 — 가공(mwork: 품목 미지정 포함) + 조립(품목 working). 같은 사람·공정은 한 번만 */
+    function workOf(p){
+        const out=[], seen=new Set();
+        const add=(stage,worker)=>{ if(!worker) return; const k=worker+'|'+(stage||''); if(seen.has(k)) return; seen.add(k); out.push({stage:stage||'',worker}); };
+        (p.mwork||[]).forEach(w=>add(w.stage,w.worker));
+        flat(p).forEach(it=>{ if(it.working) add(it.working.stage,it.working.worker); });
+        return out;
     }
+
+    function renderToday(){
+        const byOp = new Map();
+        let total = 0, runN = 0;
+        (MON.equip || []).forEach(e => {
+            const k = e.operation || '기타';
+            byOp.set(k, (byOp.get(k) || 0) + Number(e.today_qty || 0));
+            total += Number(e.today_qty || 0);
+            if (e.worker) runN++;
+        });
+        const t = new Date();
+        el('#wbTodayHd').innerHTML = '<span class="tl">오늘 ' + (t.getMonth() + 1) + '/' + t.getDate() + '</span>'
+            + '<span class="tv">' + nf(total) + '<small>개</small></span>'
+            + [...byOp.entries()].map(([k, v]) => '<span class="to ' + (v ? '' : 'z') + '">' + k + ' <b>' + nf(v) + '</b></span>').join('')
+            + '<span class="tr">' + workTxt(runN) + '</span>';
+    }
+
+    /* 상단 오른쪽: ▶ 작업중 n명 | p_202608 정우철(머시닝센터·N/C 선반 및 밀링), 홍길동(조립) | p_202607 …
+       프로젝트로 묶고, 한 사람이 여러 공정이면 괄호 안에 합친다. 많으면 앞의 MAX_W 명만 보이고 '외 n명' */
+    const MAX_W = 8;
+    function workTxt(runN){
+        const groups=[], names=new Set();
+        PROJECTS.forEach(p=>{
+            const byW=new Map();
+            workOf(p).forEach(w=>{ names.add(w.worker); const a=byW.get(w.worker)||[]; if(w.stage&&!a.includes(w.stage)) a.push(w.stage); byW.set(w.worker,a); });
+            if(byW.size) groups.push({name:p.name, ws:[...byW.entries()]});
+        });
+        const n=Math.max(names.size, runN);
+        if(!n) return '작업중 없음';
+        const shownW=new Set(); let shown=0;
+        const parts=groups.map(g=>{
+            const ws=g.ws.filter(([w])=>{ if(shown<MAX_W){ shown++; shownW.add(w); return true; } return false; });
+            if(!ws.length) return '';
+            return '<span class="wg"><span class="wp">'+g.name+'</span> '
+                +ws.map(([w,st])=>'<span class="wm">'+w+(st.length?'<small>('+st.join('·')+')</small>':'')+'</span>').join(', ')+'</span>';
+        }).filter(Boolean);
+        const hidden=Math.max(0, n-shownW.size);
+        return '<span class="wn">▶ 작업중 <b>'+n+'</b>명</span>'
+            +(parts.length?'<span class="wl">'+parts.join('')+(hidden?'<span class="wg more">외 '+hidden+'명</span>':'')+'</span>':'');
+    }
+
     function renderAlert(){
         const items=[];
         PROJECTS.forEach(p=>risk(p).tags.forEach(t=>{
@@ -227,39 +321,102 @@
         el('#wbAlert').innerHTML='<div class="wb-alert"><span class="at">⚠ 조기경보</span>'
             +items.map(x=>'<span class="ac '+x[0]+'">'+x[1]+'</span>').join('')+'</div>';
     }
-    function stageDots(items,dsteps){
-        // 단계 셋. '제작' 과 '조립' 이 같은 것을 세고 있어 관리자 대시보드에서 합쳤다
-        const ss=stageStats(items), keys=['design','make','insp'];
-        let h='';
-        STAGES.forEach((s,i)=>{
-            const st=ss[keys[i]];
-            const state=(i===0)?designState(items,dsteps):stageState(st);
-            const mk=state==='done'?'●':state==='cur'?'◐':'○';
-            h+='<div class="ws"><div class="dot '+state+'">'+mk+'</div><div class="nm">'+s+'</div><div class="ct">'+nf(st.d)+'/'+nf(st.t)+'</div></div>';
-            if(i<STAGES.length-1) h+='<div class="ws-conn"></div>';
+    /*
+     * WBS → 단계 칩 (설계 · 발주 · 가공 · 조립 · 검사 · 납품 …).
+     * 회의록(6/16): 프로젝트 시작~완료를 공정별 마일스톤으로 본다.
+     *   done  : 그 단계 행이 전부 완료
+     *   cur   : 하나라도 진행/완료
+     *   delay : 지연 행이 있음 (서버 판정: 계획 종료 < 오늘, 실적 종료 없음)
+     */
+    function wbsSteps(wbs){
+        const order = [], map = {};
+        (wbs || []).forEach(w => {
+            const k = w.step_name || '기타';
+            if (!map[k]) { map[k] = []; order.push(k); }
+            map[k].push(w);
         });
-        return '<div class="wb-stages">'+h+'</div>';
+        return order.map(k => {
+            const rs = map[k];
+            const done = rs.every(w => w.state === 'done');
+            const started = rs.some(w => w.state === 'done' || w.state === 'cur');
+            const delay = rs.some(w => w.delay_yn === 'Y');
+            return {name: k, st: delay ? 'delay' : done ? 'done' : started ? 'cur' : 'up'};
+        });
     }
+    // 다음 마일스톤: 아직 안 끝난 ◆ 중 가장 먼저 오는 것
+    function nextMile(wbs){
+        const ms = (wbs || []).filter(w => w.milestone_yn === 'Y' && w.state !== 'done');
+        const pick = ms.find(w => w.delay_yn === 'Y') || ms[0];
+        if (!pick) return '';
+        const ed = String(pick.pl_eddate || '');
+        const d = /^\d{8}$/.test(ed) ? dday(ed.slice(0,4) + '-' + ed.slice(4,6) + '-' + ed.slice(6,8)) : null;
+        const when = d == null ? '' : d < 0 ? ' <b class="late">' + (-d) + '일 지연</b>' : d === 0 ? ' <b class="late">오늘</b>' : ' D-' + d;
+        return '<div class="pc-mile">◆ 다음: ' + (pick.task_name || '') + when + '</div>';
+    }
+    // 공정별 생산 (가공품, 유형 합계). 회의록(6/23): 공정별로 몇 개씩 하는지
+    function opDone(p){
+        const out = {};
+        const ks = p.kinds || {};
+        Object.keys(ks).forEach(k => {
+            const ops = ks[k].ops || {};
+            Object.keys(ops).forEach(o => out[o] = (out[o] || 0) + (+ops[o] || 0));
+        });
+        return out;
+    }
+
     function render(){
         const list=PROJECTS.map((p,i)=>({p,i,s:score(p)})).filter(o=>!isAllDone(o.p)).sort((a,b)=>b.s-a.s);
         el('#wbGrid').innerHTML=list.map(o=>{
-            const p=o.p, a=agg(flat(p)), col=rateColor(a.prog), r=risk(p);
+            const p=o.p, items=flat(p), a=agg(items), col=rateColor(a.prog), r=risk(p);
             const d=r.d, soon=d<=7&&!r.allDone;
             const dueTxt=d<0?('납기 '+(-d)+'일 초과'):('D-'+d);
             const tags=r.tags.map(t=>'<span class="tg '+t[0]+'">'+t[1]+'</span>').join('');
-            const work=a.working.length?'<div class="pc-work">▶ '+a.working.map(w=>(w.working.stage||'')+'·'+w.working.worker).join(', ')+'</div>':'';
+
+            const steps=wbsSteps(p.wbs);
+            const stepH=steps.length?'<div class="pc-steps">'+steps.map(s=>'<span class="sp '+s.st+'">'+s.name+'</span>').join('')+'</div>':'';
+
+            const ops=opDone(p), opKeys=Object.keys(ops).sort();
+            const opH=opKeys.length?'<div class="pc-ops">'+opKeys.map(k=>'<span>'+k+' <b>'+nf(ops[k])+'</b></span>').join('')+'</div>'
+                :'<div class="pc-ops none">가공 실적 없음</div>';
+
+            const outTxt=a.outAll?'<span class="pc-out">외작 '+a.outRcv+'/'+a.outAll+' 품목 입고</span>':'';
+            const wk=workOf(p);
+            const work=wk.length?'<div class="pc-work">▶ '+wk.map(w=>(w.stage?w.stage+' ':'')+w.worker).join(' · ')+'</div>':'';
+
             return '<div class="pc '+(r.danger?'risk':'')+'">'
-                +'<div class="pc-top"><span class="pc-nm">'+p.name+'</span><span class="pc-due '+(soon?'soon':'')+'">'+dueTxt+'</span></div>'
-                +stageDots(flat(p),p.dsteps)
-                +'<div class="pc-prog"><span class="big" style="color:'+col+'">'+a.prog+'<small style="font-size:.4em;color:#9aa4b2">% 생산진척</small></span>'
-                +'<span class="sub">생산 <b>'+nf(a.made)+'</b>/'+nf(a.need)+'<br>남음 <b>'+nf(a.rem)+'</b></span></div>'
+                +'<div class="pc-top"><span class="pc-nm" title="'+p.name+'">'+p.name+'</span><span class="pc-due '+(soon?'soon':'')+'">'+dueTxt+'</span></div>'
+                +stepH+nextMile(p.wbs)
+                +'<div class="pc-prog"><span class="big" style="color:'+col+'">'+a.prog+'<small style="font-size:.4em;color:#9aa4b2">%</small></span>'
+                +'<span class="sub">생산 <b>'+nf(a.made)+'</b>/'+nf(a.need)+'대'+(outTxt?'<br>'+outTxt:'')+'</span></div>'
                 +'<div class="pc-track">'+fill(a.prog,col)+'</div>'
-                +'<div class="pc-foot">'+tags+work+'</div>'
+                +opH+work
+                +(tags?'<div class="pc-foot">'+tags+'</div>':'')
                 +'</div>';
         }).join('') || '<div style="padding:3vw;text-align:center;color:#9aa4b2;font-size:1.4vw">진행 중인 프로젝트가 없습니다</div>';
     }
+    /* 전체화면 — 마우스만 연결된 TV 용. 메인 화면 탭(iframe) 안이면 iframe 자체를 전체화면으로 */
+    const FS_ON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
+    const FS_OFF='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>';
+    function fsDoc(){ try{ if(window.frameElement) return window.parent.document; }catch(e){} return document; }
+    function fsTarget(){ try{ if(window.frameElement) return window.frameElement; }catch(e){} return document.documentElement; }
+    function toggleFs(){
+        const d=fsDoc();
+        if(d.fullscreenElement){ d.exitFullscreen().catch(()=>{}); return; }
+        fsTarget().requestFullscreen().catch(()=>document.documentElement.requestFullscreen().catch(()=>{}));
+    }
+    function fsIcon(){
+        const on=!!(fsDoc().fullscreenElement||document.fullscreenElement);
+        const b=el('#wbFs'); b.innerHTML=on?FS_OFF:FS_ON; b.title=on?'전체화면 끄기':'전체화면';
+    }
+    fsDoc().addEventListener('fullscreenchange',fsIcon);
+    if(fsDoc()!==document) document.addEventListener('fullscreenchange',fsIcon);
+    fsIcon();
+    /* 마우스 3초 안 움직이면 커서·버튼 숨김 */
+    let idleT; function wake(){ document.body.classList.remove('idle'); clearTimeout(idleT); idleT=setTimeout(()=>document.body.classList.add('idle'),3000); }
+    document.addEventListener('mousemove',wake); wake();
+
     function tick(){ el('#wbClock').textContent=new Date().toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',weekday:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
-    function renderAll(){ renderKpi(); renderAlert(); render(); }
+    function renderAll(){ renderToday(); renderAlert(); render(); }
 
     async function refreshAll(){ await loadData(); renderAll(); }
 

@@ -1009,6 +1009,30 @@ public class ProdDesignService {
 	// =================================================================
 
 	/** 품목 선택 시 — 그 품목의 유형별 소요/생산 */
+	/**
+	 * 프로젝트 공통 화면용: 유형별로 <b>품목 부품 합계</b>와 <b>공통(2D 전 계획) 물량</b>을 나눠 보여준다.
+	 * 2D 전 추정으로 잡은 공통 물량이 실제 품목 부품표와 얼마나 차이 나는지 보려는 것.
+	 * 제작품만 (STD·구매품은 가공하지 않는다).
+	 */
+	public List<Map<String, Object>> getKindSplit(String spjangcd, String projNo) {
+		MapSqlParameterSource params = new MapSqlParameterSource();
+		params.addValue("spjangcd", spjangcd);
+		params.addValue("projNo", projNo);
+		return sqlRunner.getRows("""
+            SELECT COALESCE(NULLIF(b."Kind", ''), 'etc')                         AS kind
+                 , COALESCE(SUM(b."Qty") FILTER (WHERE b."Suju_id" IS NOT NULL), 0) AS item_qty
+                 , COUNT(DISTINCT b."Suju_id")                                   AS item_cnt
+                 , COALESCE(SUM(b."Qty") FILTER (WHERE b."Suju_id" IS NULL), 0)     AS common_qty
+            FROM iljin_suju_bom b
+            LEFT JOIN suju s ON s.id = b."Suju_id"
+            WHERE b.spjangcd = :spjangcd
+              AND COALESCE(s.project_id, b."Project_id") = :projNo
+              AND b."Gubun" = '제작품'
+            GROUP BY COALESCE(NULLIF(b."Kind", ''), 'etc')
+            ORDER BY 2 DESC, 4 DESC
+            """, params);
+	}
+
 	public List<Map<String, Object>> getKindNeedByItem(Integer sujuId, String operation) {
 
 		MapSqlParameterSource params = new MapSqlParameterSource();

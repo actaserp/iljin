@@ -50,6 +50,7 @@
         .wb-title{font-size:15px;color:#d3aa55;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
         .wb-dot{width:9px;height:9px;border-radius:50%;background:#d3aa55;animation:udblink 1.1s infinite;}
         .wb-list{display:flex;flex-wrap:wrap;gap:9px;}
+        .wb-item .wp{color:#6fa6d8;font-weight:800;margin-right:8px;padding-right:8px;border-right:1px solid #404a59;}
         .wb-item{background:#2b333e;border-radius:9px;padding:6px 12px;border-left:3px solid #d3aa55;font-size:15px;}
         .wb-item b{color:#f3f6f9;} .wb-item .w{color:#ccd3dc;margin-left:6px;} .wb-item .p{color:#aeb7c4;margin-left:6px;font-size:14px;}
         .wb-empty{color:#9099a7;font-size:15px;}
@@ -215,6 +216,17 @@
         .dtab td.bad{color:#d4685f;font-weight:700;}
         .ktab td.op{color:#6c9fd1;font-weight:600;}
         .ktab td.op.zero{color:#4d545e;font-weight:400;}
+        .ktab td.ng{color:#e2796f;font-weight:800;} .ktab td.zero{color:#4d545e;font-weight:400;}
+        .kpi .kl .kavg{margin-left:8px;color:#7e8794;font-size:12px;}
+        .kpi .kl .kavg::before{content:'· ';}
+        /* KPI 진척 막대 */
+        .kpi .kp{display:flex;align-items:center;gap:8px;margin:8px 0 2px;font-size:13px;color:#8f98a5;}
+        .kpi .kp .kpl{flex:0 0 auto;min-width:52px;}
+        .kpi .kp .kpb{flex:1;height:8px;background:#39424f;border-radius:999px;overflow:hidden;}
+        .kpi .kp .kpb span{display:block;height:100%;background:#5f8fc0;border-radius:999px;}
+        .kpi .kp b{flex:0 0 auto;min-width:40px;text-align:right;color:#dde3ea;font-size:15px;}
+        .kpi .kl.ngl{border-top:1px solid #3a4350;margin-top:6px;padding-top:5px;}
+        .kpi .kl.ngl b{color:#8f98a5;} .kpi .kl.ngl b.ng{color:#e2796f;}
         .ktab tr.sum td{background:#232a34;color:#aeb7c4;font-weight:700;border-bottom:none;}
 
         /* WBS 표 */
@@ -303,19 +315,22 @@
             </div>
 
             <div class="kpi-row" id="kpiRow"></div>
-            <!-- KPI 분해. 벽걸이 모니터라 클릭할 사람이 없어 항상 펼쳐 둔다 -->
-            <div id="kpiBreak"></div>
             <div class="alert-bar" id="alertBar"></div>
             <div class="work-banner">
                 <div class="wb-title"><span class="wb-dot"></span>현재 작업중</div>
                 <div class="wb-list" id="workList"></div>
             </div>
 
+            <!-- ★ 프로젝트 카드를 위로. 진척·단계·지연이 한눈에 보이는 건 이쪽이다.
+                 숫자 표(프로젝트별 내역)는 열마다 단위가 달라 아래로 내린다 -->
             <div class="sec-label">
                 <span>프로젝트 (위험·진척 우선순위 순) — 행 클릭 시 라인 → 공정 펼침</span>
                 <span class="legend">단계 설계(출도)·제작·조립·검사 &nbsp;|&nbsp; ●완료 ◐진행 ○대기</span>
             </div>
             <div id="projRows"></div>
+
+            <!-- KPI 분해. 벽걸이 모니터라 클릭할 사람이 없어 항상 펼쳐 둔다 -->
+            <div id="kpiBreak" style="margin-top:22px"></div>
 
             <p class="sec-label" style="margin-top:22px">
                 <span>외주 현황 (외작) — 외주처별 입고, 행 클릭 시 공정 펼침</span>
@@ -402,7 +417,14 @@
             // 차이가 곧 '아직 지시 안 한 물량' 이다.
             const ordered = items.reduce((s, x) => s + (x.ordered || 0), 0);
             // 구성 유닛 수. 실적이 없는 참고 값이라 진척률에는 안 쓴다
-            const unit = items.reduce((s, x) => s + (x.unit || 0), 0);
+            /*
+             * ★ 유닛은 <b>내작만</b> 분모로 쓴다. 외작은 업체가 유닛까지 만들어 오므로
+             *   우리 유닛 조립 실적이 생기지 않는다. 합치면 'n / 2,710 완료' 가 영원히 차지 않는다.
+             *   외작 유닛은 따로(unitOut), 입고된 만큼(unitOutRcv) 보여준다.
+             */
+            const unit = items.filter(x => x.type !== '외작').reduce((s, x) => s + (x.unit || 0), 0);
+            const unitOut = items.filter(x => x.type === '외작').reduce((s, x) => s + (x.unit || 0), 0);
+            const unitOutRcv = items.filter(x => x.type === '외작' && x.rcv).reduce((s, x) => s + (x.unit || 0), 0);
             // 유닛 조립 실적 (참값). 지그 완료 비율 환산이 아니다
             const unitDone = items.reduce((s, x) => s + (x.unitDone || 0), 0);
             const made = items.reduce((s, x) => s + itemMade(x), 0);
@@ -428,6 +450,8 @@
                 ordered,
                 unit,        // 구성 유닛 수 (참고)
                 unitDone,    // 유닛 조립 실적 (참값)
+                unitOut,     // 외작 유닛 (업체 제작)
+                unitOutRcv,  // 그중 입고된 것
                 made,
                 asm,
                 insp,
@@ -554,6 +578,15 @@
                     danger = true;
                 }
             }
+            /*
+             * WBS 일정 지연도 위험으로 센다. 예전엔 납기만 봐서 카드에는 'WBS 지연'이 빨갛게
+             * 떠 있는데 경보 띠·지연 위험 카드는 '없음 / 0건'이라 서로 말이 달랐다.
+             */
+            if (!allDone && (+p.delayCnt || 0) > 0) {
+                const late = (p.milestones || []).filter(m => m.delay && m.s !== 'done').map(m => m.n);
+                tags.push(['danger', late.length ? late.join('·') + ' 지연' : 'WBS 지연 ' + p.delayCnt]);
+                danger = true;
+            }
             // 출도지연 = 임박 + 미출도 공정 존재
             if (near && a.outWait > 0) tags.push(['out', 'D-' + d + ' 출도지연 ' + a.outWait + '품목']);
             // 외주 미입고 = 임박 + 미입고 외작 존재 (전체 미입고는 외주현황 섹션에서)
@@ -618,20 +651,39 @@
              *   설비 숫자를 세로로 더하면 필요량보다 커질 수 있다. 정상이다.
              *   그래서 '필요 대비 몇 %' 를 만들지 않고 나란히만 놓는다.
              */
-            let partNeed = 0;
+            let partNeed = 0, partNg = 0, partDone = 0;   // partNg: 가공 불량 / partDone: 유형별 완료(필요량 상한)
             const opTotal = {};
             live.forEach(p => {
                 const ks = p.kinds || {};
                 Object.keys(ks).forEach(k => {
                     partNeed += (+ks[k].t || 0);
+                    partNg += (+ks[k].x || 0);
+                    partDone += Math.min(+ks[k].d || 0, +ks[k].t || 0);
                     const ops = ks[k].ops || {};
                     Object.keys(ops).forEach(o => {
                         opTotal[o] = (opTotal[o] || 0) + (+ops[o] || 0);
                     });
                 });
             });
+            /*
+             * 공정별 하루 평균 = 최근 2주 중 그 공정 실적이 있는 날의 평균 (p.daily, 서버가 14일치를 준다).
+             * 쉬는 날·실적 없는 날은 빼야 '작업하는 날 보통 몇 개' 가 된다.
+             * 공정끼리 더하지 않는다 — 한 부품이 공정마다 다시 세어진다.
+             */
+            const dayByOp = {};   // op → {date: qty}
+            live.forEach(p => (p.daily || []).forEach(r => {
+                const o = r.operation || '';
+                if (!o) return;
+                const m = dayByOp[o] || (dayByOp[o] = {});
+                m[r.d] = (m[r.d] || 0) + (+r.qty || 0);
+            }));
+            const avgOf = o => {
+                const v = Object.values(dayByOp[o] || {}).filter(q => q > 0);
+                return v.length ? Math.round(v.reduce((a2, b2) => a2 + b2, 0) / v.length) : 0;
+            };
             const opLines = Object.keys(opTotal).sort()
-                .map(o => '<div class="kl">' + o + ' <b>' + nf(opTotal[o]) + '</b></div>').join('');
+                .map(o => '<div class="kl">' + o + ' <b>' + nf(opTotal[o]) + '</b>'
+                    + (avgOf(o) ? '<span class="kavg">하루 ' + nf(avgOf(o)) + '</span>' : '') + '</div>').join('');
 
             // 유닛 조립 실적 (mat_produce PO=1). 환산이 아니라 참값이다
             const unitDone = a.unitDone || 0;
@@ -653,13 +705,16 @@
                 const g = agg(items);
                 const ks = p.kinds || {};
                 const partNeedP = Object.keys(ks).reduce((n, k) => n + (+ks[k].t || 0), 0);
+                const ngP = Object.keys(ks).reduce((n, k) => n + (+ks[k].x || 0), 0);
                 const opP = {};
                 Object.keys(ks).forEach(k => {
                     const ops = ks[k].ops || {};
-                    Object.keys(ops).forEach(o => { opP[o] = (opP[o] || 0) + (+ops[o] || 0); });
+                    Object.keys(ops).forEach(o => {
+                        opP[o] = (opP[o] || 0) + (+ops[o] || 0);
+                    });
                 });
                 const r = risk(p);
-                return {p, g, partNeedP, opP, danger: r.danger};
+                return {p, g, partNeedP, ngP, opP, danger: r.danger};
             });
 
             const opCols = Object.keys(opTotal).sort();
@@ -669,8 +724,10 @@
                 + '<span style="font-weight:400">· 열마다 단위가 다릅니다</span></div>'
                 + '<table class="dtab ktab kbreak">'
                 + '<tr><th>프로젝트</th><th>납기</th>'
-                + '<th class="r">공정(대)</th><th class="r">유닛</th><th class="r">가공품</th>'
+                + '<th class="r">공정(대)</th><th class="r" title="내작 유닛 조립 / 내작 유닛. 외작 유닛은 업체 제작이라 빠진다">유닛(내작)</th><th class="r">가공품</th>'
                 + opCols.map(o => '<th class="r">' + o + '</th>').join('')
+                // 불량 = 가공하다 못 쓰게 된 것(폐기 → 다시 만들어야 함). 설비 실적 뒤에 둔다
+                + '<th class="r" title="가공 불량 — 못 쓰게 되어 다시 만들어야 하는 수량 (불량 실적 화면에서 입력)">불량</th>'
                 + '<th class="c">지연</th></tr>'
                 + rows.map(r => '<tr>'
                     + '<td class="kn">' + r.p.name + '</td>'
@@ -682,12 +739,18 @@
                         const v = r.opP[o] || 0;
                         return '<td class="op r ' + (v ? '' : 'zero') + '">' + (v ? nf(v) : '-') + '</td>';
                     }).join('')
+                    + '<td class="r ' + (r.ngP ? 'ng' : 'zero') + '">' + (r.ngP ? nf(r.ngP) : '-') + '</td>'
                     + '<td class="c">' + (r.danger
                         ? '<span class="wst delay">위험</span>'
                         : '<span class="mut">-</span>') + '</td></tr>').join('')
                 + '</table></div>'
                 : '';
 
+            /* 카드마다 '얼마나 됐나' 막대 + % (필요량 대비). 단위가 달라 카드끼리 더하지 않는다 */
+            const pct = (d, n) => n ? Math.min(100, Math.round(d / n * 100)) : 0;
+            const bar = (d, n, label) => '<div class="kp"><span class="kpl">' + label + '</span>'
+                + '<span class="kpb"><span style="width:' + pct(d, n) + '%"></span></span>'
+                + '<b>' + pct(d, n) + '%</b></div>';
             el('#kpiRow').innerHTML =
                 /*
                  * 카드 넷. 앞의 셋이 '얼마나 만들어야 하나', 마지막이 '위험'.
@@ -701,15 +764,21 @@
                 + '<small> 대</small> <span class="sub">/ ' + nf(a.made) + ' 완료</span></div>'
                 + '<div class="kl">남은 ' + nf(a.rem) + '대'
                 + (notOrdered ? ' · <span class="warn">미지시 ' + nf(notOrdered) + '대</span>' : '')
-                + '</div></div>'
+                + '</div>' + bar(a.made, a.need, '완료') + '</div>'
 
-                + '<div class="kpi"><div class="l">총 유닛</div><div class="v">' + nf(a.unit)
-                + '<small> 개</small> <span class="sub">/ ' + nf(unitDone) + ' 완료</span></div>'
-                + '<div class="kl">유닛 조립 실적</div></div>'
+                // 내작 · 외작을 나눠 보여준다. 완료 기준이 다르다 (내작 = 유닛 조립, 외작 = 입고)
+                + '<div class="kpi"><div class="l">총 유닛</div><div class="v">' + nf(a.unit + a.unitOut)
+                + '<small> 개</small></div>'
+                + '<div class="kl">내작 <b>' + nf(a.unit) + '</b> · ' + nf(unitDone) + ' 조립</div>'
+                + '<div class="kl">외작 <b>' + nf(a.unitOut) + '</b> · ' + nf(a.unitOutRcv) + ' 입고</div>'
+                + bar(unitDone, a.unit, '내작 조립') + bar(a.unitOutRcv, a.unitOut, '외작 입고') + '</div>'
 
                 + '<div class="kpi"><div class="l">총 가공품</div><div class="v">' + nf(partNeed)
                 + '<small> 개</small></div>'
-                + (opLines || '<div class="kl">설비 실적 없음</div>') + '</div>'
+                + bar(partDone, partNeed, '가공')
+                + (Object.keys(dayByOp).length ? '<div class="kl" style="font-size:12px;color:#6b7480">하루 = 최근 2주 작업일 평균</div>' : '')
+                + (opLines || '<div class="kl">설비 실적 없음</div>')
+                + '<div class="kl ngl">불량 <b' + (partNg ? ' class="ng"' : '') + '>' + nf(partNg) + '</b></div></div>'
 
                 + '<div class="kpi risk"><div class="l">지연 위험</div><div class="v">' + riskN
                 + '<small> 건</small></div></div>';
@@ -762,11 +831,12 @@
 
             const all = mac.concat(asm);
             el('#workList').innerHTML = all.length
-                ? all.map(o => '<div class="wb-item"><b>' + o.code + '</b>'
+                // 프로젝트를 맨 앞에 크게 — '어느 프로젝트를 하고 있나' 가 먼저 읽히게
+                ? all.map(o => '<div class="wb-item"><span class="wp">' + o.pname + '</span>'
+                    + '<b>' + o.code + '</b>'
                     + ' <span style="color:#d3aa55">' + o.stage + '</span>'
                     + (o.machine ? ' <span style="color:#aeb7c4">' + o.machine + '</span>' : '')
-                    + '<span class="w">👤 ' + o.worker + '</span>'
-                    + '<span class="p">· ' + o.pname + '</span></div>').join('')
+                    + '<span class="w">👤 ' + o.worker + '</span></div>').join('')
                 : '<div class="wb-empty">작업중 없음</div>';
         }
 
@@ -788,7 +858,9 @@
             if (!rows.length) return '<div class="kempty">최근 14일 가공 실적이 없습니다.</div>';
 
             const ops = [];
-            rows.forEach(r => { if (r.operation && ops.indexOf(r.operation) < 0) ops.push(r.operation); });
+            rows.forEach(r => {
+                if (r.operation && ops.indexOf(r.operation) < 0) ops.push(r.operation);
+            });
             ops.sort();
 
             const byDate = {};
@@ -998,18 +1070,27 @@
 
             // 축 범위: 계획·실적을 모두 담고 오늘도 포함한다
             let min = null, max = null;
-            const push = d => { if (!d) return; if (!min || d < min) min = d; if (!max || d > max) max = d; };
+            const push = d => {
+                if (!d) return;
+                if (!min || d < min) min = d;
+                if (!max || d > max) max = d;
+            };
             rows.forEach(w => {
-                push(ymdToDate(w.pl_stdate)); push(ymdToDate(w.pl_eddate));
-                push(ymdToDate(w.ac_stdate)); push(ymdToDate(w.ac_eddate));
+                push(ymdToDate(w.pl_stdate));
+                push(ymdToDate(w.pl_eddate));
+                push(ymdToDate(w.ac_stdate));
+                push(ymdToDate(w.ac_eddate));
             });
-            const now = new Date(); now.setHours(0, 0, 0, 0);
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
             push(now);
             if (!min || !max) return '<div class="kempty">일정이 등록된 단계가 없습니다.</div>';
 
             // 주 경계로 넓혀 눈금이 딱 떨어지게 한다
-            min = new Date(min); min.setDate(min.getDate() - min.getDay() - 7);
-            max = new Date(max); max.setDate(max.getDate() + (6 - max.getDay()) + 7);
+            min = new Date(min);
+            min.setDate(min.getDate() - min.getDay() - 7);
+            max = new Date(max);
+            max.setDate(max.getDate() + (6 - max.getDay()) + 7);
             const span = Math.max(1, Math.round((max - min) / DAY));
             const pct = d => ((d - min) / DAY / span * 100);
 
@@ -1233,7 +1314,7 @@
                 const tags = r.tags.map(t => '<span class="tag ' + t[0] + '">' + t[1] + '</span>').join('')
                     + ((a.working.length + (p.mwork || []).length)
                         ? '<span class="tag work">작업중 ' + (a.working.length + (p.mwork || []).length) + '</span>' : '')
-                    + (p.delayCnt ? '<span class="tag danger">WBS 지연 ' + p.delayCnt + '</span>' : '')
+                    // WBS 지연은 risk() 태그로 이미 나온다 (중복이라 뺌)
                     // 출하했지만 납품 확인 전. 만들 건 없고 인수만 남았다
                     + (isShipped(p) && !isAllDone(p) ? '<span class="tag out">출하완료 · 납품대기</span>' : '');
 
@@ -1301,7 +1382,10 @@
             el('#pdModal').classList.toggle('on', !!on);
             document.body.classList.toggle('pd-open', !!on);
             document.documentElement.classList.toggle('pd-open', !!on);
-            if (!on) { el('#pdBody').innerHTML = ''; return; }
+            if (!on) {
+                el('#pdBody').innerHTML = '';
+                return;
+            }
 
             const p = PROJECTS[openP];
             el('#pdTitle').textContent = p.name + ' — 상세';
@@ -1468,7 +1552,9 @@
         el('#pdPrev').onclick = () => moveDetail(-1);
         el('#pdNext').onclick = () => moveDetail(1);
         // 바깥(어두운 영역)을 눌러도 닫는다. 상자 안쪽 클릭은 통과시키지 않는다
-        el('#pdModal').onclick = e => { if (e.target === el('#pdModal')) closeDetail(); };
+        el('#pdModal').onclick = e => {
+            if (e.target === el('#pdModal')) closeDetail();
+        };
         document.addEventListener('keydown', e => {
             if (openP < 0) return;
             if (e.key === 'Escape') closeDetail();

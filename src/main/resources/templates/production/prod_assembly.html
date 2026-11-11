@@ -53,6 +53,13 @@
         .stage-tabs button span{display:block;font-size:10.5px;font-weight:500;color:#98a2b3;}
         .stage-tabs button.on{background:#1f4e8c;border-color:#1f4e8c;color:#fff;}
         .stage-tabs button.on span{color:#c3d6ef;}
+        .done-toggle{display:flex;align-items:center;gap:4px;font-size:12px;color:#5b6b86;white-space:nowrap;cursor:pointer;margin-left:8px;}
+        /* 공통 input 스타일(높이 30 · appearance none)이 체크박스까지 덮어 박스가 크고 아래로 처졌다 */
+        .done-toggle input{-webkit-appearance:checkbox;appearance:auto;width:15px;height:15px;min-width:0;
+            padding:0;margin:0;line-height:normal;vertical-align:middle;flex:none;}
+        .done-toggle #doneCnt{color:#98a2b3;}
+        .badge.sdone { background:#e3eefc; color:#1f4e8c; }
+        tr.asy-row.sdone td { color:#98a2b3; }
 
         /* 목표 / 조립완료 / 남음 — 나란히 놓는 세 숫자 */
         .stat-row { display:flex; gap:8px; align-items:stretch; }
@@ -114,9 +121,17 @@
                         </dl>
                     </div>
                     <!-- 조립 2단계. 키오스크의 탭과 같은 stage 값을 쓴다 -->
-                    <div class="stage-tabs">
-                        <button data-st="unit" class="on">유닛 조립<span>가공품 → 유닛</span></button>
-                        <button data-st="set">공정 조립<span>유닛 → 지그</span></button>
+                    <!-- 탭과 '완료 포함' 을 한 묶음으로 세로 가운데 정렬 -->
+                    <div style="display:flex;align-items:center;">
+                        <div class="stage-tabs">
+                            <button data-st="unit" class="on">유닛 조립<span>가공품 → 유닛</span></button>
+                            <button data-st="set">공정 조립<span>유닛 → 지그</span></button>
+                        </div>
+                        <!-- 이 단계 수량을 다 채운 품목은 기본으로 숨긴다. 계속 남아 있으면 할 일과 섞인다 -->
+                        <label class="done-toggle" title="이 단계 조립을 다 채운 품목도 보기">
+                            <input type="checkbox" id="fShowDone" onchange="prodAssembly.loadItems()">
+                            완료 포함 <span id="doneCnt"></span>
+                        </label>
                     </div>
                 </div>
                 <div class="container-fluid">
@@ -332,9 +347,36 @@
             }
 
             async loadItems() {
+                // ★ 검사까지 끝난 공정(job_res finished)은 서버가 기본으로 빼서 준다.
+                //   '완료 포함' 을 켜면 그것까지 받아야 A12 처럼 검사 완료된 품목이 보인다.
+                const showDone = !!(this.el('fShowDone') && this.el('fShowDone').checked);
                 const res = await this.get(`${this.API}/item_list`,
-                    {spjangcd: this.spjangcd, projNo: this.selProj, stage: this.stage});
-                this.items = res.data || [];
+                    {spjangcd: this.spjangcd, projNo: this.selProj, stage: this.stage, includeDone: showDone});
+                this._all = res.data || [];
+                this.applyFilter();
+            }
+
+            /** 이 단계(유닛/공정 조립) 목표 수량을 다 채웠나. 공정 완료(검사)와는 다르다 */
+            stageDone(it) {
+                return it.done_yn === 'Y'   // 검사까지 끝난 공정
+                    || (+it.target_qty > 0 && +(it.done_qty || 0) >= +it.target_qty);
+            }
+
+            /*
+             * 다 채운 품목은 숨기고(완료 포함 체크 시 맨 아래로), 할 일만 위에 둔다.
+             * 지금 선택한 품목은 방금 완료했더라도 남긴다 — 완료 직후 상세가 사라지면 확인을 못 한다.
+             */
+            applyFilter() {
+                const keepId = this.item() ? this.item().suju_id : null;
+                const show = this.el('fShowDone') && this.el('fShowDone').checked;
+                const all = this._all || [];
+                const doneN = all.filter(x => this.stageDone(x)).length;
+                this.items = all
+                    .filter(x => show || !this.stageDone(x) || x.suju_id === keepId)
+                    .sort((a, b) => (this.stageDone(a) - this.stageDone(b)));
+                this.sel = keepId == null ? -1 : this.items.findIndex(x => x.suju_id === keepId);
+                const cnt = this.el('doneCnt');
+                if (cnt) cnt.textContent = doneN ? `(${doneN})` : '';
                 this.renderList();
             }
 
@@ -453,7 +495,7 @@
 
                 body.innerHTML = this.items.map((it, i) => {
                     const run = !!it.working_id;
-                    return `<tr class="asy-row ${this.sel === i ? 'on' : ''} ${run ? 'run' : ''}" data-i="${i}">
+                    return `<tr class="asy-row ${this.sel === i ? 'on' : ''} ${run ? 'run' : ''} ${this.stageDone(it) && !run ? 'sdone' : ''}" data-i="${i}">
                         <td>${it.line_name || ''}</td>
                         <td class="l">${this.esc(it.item_name)}</td>
                         <td>${(+it.target_qty > 0) ? it.target_qty
@@ -476,9 +518,10 @@
                 // 공정 완료 판정은 검사가 갖는다 (검사 누적 >= 지그 대수).
                 // 지그를 다 조립했어도 검사 전이면 완료가 아니다.
                 if (it.done_yn === 'Y') return '<span class="badge done">완료</span>';
-                return it.working_id
-                    ? `<span class="badge run">진행중 ${it.start_time || ''}</span>`
-                    : '<span class="badge wait">대기</span>';
+                if (it.working_id) return `<span class="badge run">진행중 ${it.start_time || ''}</span>`;
+                // 이 단계 수량은 다 채웠지만 공정(검사)은 아직 — '조립완료'
+                if (this.stageDone(it)) return '<span class="badge sdone" title="이 단계 조립 수량을 다 채웠습니다. 공정 완료는 검사 후">조립완료</span>';
+                return '<span class="badge wait">대기</span>';
             }
 
             renderDetail() {

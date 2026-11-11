@@ -71,7 +71,8 @@
             if (fe && window.parent && window.parent.document) {
                 var top = fe.getBoundingClientRect().top;
                 var ft = window.parent.document.querySelector('.footer');
-                var bottom = ft ? ft.getBoundingClientRect().top : window.parent.innerHeight;
+                // 키오스크는 푸터를 숨긴다(display:none → rect 가 0). 그때는 화면 바닥까지
+                var bottom = (ft && ft.getClientRects().length) ? ft.getBoundingClientRect().top : window.parent.innerHeight;
                 h = Math.min(h, Math.max(300, bottom - top));
             }
         } catch (e) { /* 다른 출처 — 그대로 */ }
@@ -111,6 +112,8 @@
 
     function renderList() {
         var list = box.querySelector('[data-r=list]');
+        // 도면이 하나뿐이면 목록은 자리만 차지한다 — 숨기고 도면을 넓게
+        list.style.display = state.rows.length > 1 ? '' : 'none';
         list.innerHTML = state.rows.map(function (d) {
             var on = d.id === state.cur;
             return '<div data-id="' + d.id + '" style="padding:14px 14px;border-bottom:1px solid #e2e8f0;cursor:pointer;'

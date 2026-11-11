@@ -198,7 +198,12 @@ public class DashProjectService {
 		// ★ 지시된 수량. 작업지시가 없으면 0 이다.
 		//   need 는 수주에 등록된 양이고 ordered 는 실제로 지시가 나간 양이라
 		//   둘의 차이가 곧 "아직 지시 안 한 물량" 이다.
-		boolean ordered = toInt(r.get("job_res_id")) != null;
+		//
+		//   ★ 외작은 작업지시 대상이 아니다 (업체가 만들어 온다, 지시는 서버가 막는다).
+		//     지시 안 한 물량으로 세면 '미지시' 가 영원히 0 이 되지 않는다 → 지시된 것으로 본다.
+		//   ★ 검사가 만든 컨테이너(WorkOrderNumber 'INSP-')는 작업지시가 아니다.
+		boolean ordered = isOut || (toInt(r.get("job_res_id")) != null
+				&& !str(r.get("work_order_no")).startsWith("INSP-"));
 		item.put("ordered", ordered ? need : 0d);
 		// ★ made 는 가공 실적으로 만들지 않는다. 아래 madeOf 주석 참조.
 		item.put("made", madeOf(r, need, isOut));
@@ -240,7 +245,14 @@ public class DashProjectService {
 	 */
 	private double madeOf(Map<String, Object> r, double need, boolean isOutsource) {
 		if (isOutsource || need <= 0) return 0d;
-		return Math.min(need, toDouble(r.get("asm_qty")));
+		/*
+		 * ★ 공정 조립(PO=2)은 폐기됐다. 이제 지그 완성은 <b>검사 합격</b>(PO=3 양품)이다.
+		 *   검사 합격 때 지그 LOT 이 생기고 라벨이 나온다 (ProdInspectService.produceIn).
+		 *   공정 조립만 보면 새 데이터의 내작은 영원히 0 대 완료로 남는다.
+		 *   예전 데이터(공정 조립만 있고 검사 전)는 그대로 인정한다 → 둘 중 큰 값.
+		 */
+		double done = Math.max(toDouble(r.get("asm_qty")), toDouble(r.get("insp_qty")));
+		return Math.min(need, done);
 	}
 
 	/**
@@ -578,6 +590,7 @@ public class DashProjectService {
                  -- 검사 목표 = 지그 대수. "Standard" 는 '1/1'(한 쌍) 표기가 섞여 쓰지 않는다
                  , COALESCE(s."SujuQty", 0) AS set_target
                  , j.id                       AS job_res_id
+                 , j."WorkOrderNumber"        AS work_order_no
                  , COALESCE(u.qty, 0)         AS asm_qty     -- 공정 조립 (지그)
                  , COALESCE(uu.qty, 0)        AS unit_done   -- 유닛 조립 (참값)
                  , COALESCE(i.qty, 0)         AS insp_qty

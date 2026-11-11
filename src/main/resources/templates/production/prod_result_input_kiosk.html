@@ -25,6 +25,8 @@
         .sq-btn:hover { background:#f2f5fb; }
         .sq-btn:active { transform:scale(.97); }
         .sq-btn:disabled { opacity:.5; cursor:default; }
+        .sq-btn.sq-defect { color:#c0466a; border-color:#ecc3d0; }
+        .sq-btn.sq-defect:hover { background:#fdf2f5; }
         .sq-btn .ic { font-size:24px; line-height:1; }
         .sq-btn .tx { font-size:11px; font-weight:700; }
         /* 시계 오른쪽 끝에 전체화면 아이콘 */
@@ -50,6 +52,7 @@
         .ctx-date label{font-size:11px;color:#9fb0d4;font-weight:700;}
         .clock{font-size:16px;font-weight:800;color:#ffd98a;letter-spacing:.5px;margin-bottom:2px;font-variant-numeric:tabular-nums;}
         .area-sel{margin-top:3px;border:1px solid #3c4d77;background:#2c3a5e;color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;}
+        .area-sel:disabled{opacity:1;cursor:default;appearance:none;-webkit-appearance:none;background-image:none;}
         /* 생산일 터치 스테퍼 */
         .date-pick{display:flex;align-items:center;gap:6px;margin-top:4px;}
         .date-nav{border:1px solid #3c4d77;background:#2c3a5e;color:#fff;border-radius:8px;width:36px;height:38px;font-size:15px;font-weight:800;cursor:pointer;}
@@ -171,7 +174,7 @@
         .btn-reg:not(:disabled):hover{background:#274ec2;}
 
         /* 최근 등록 (좌측 하단) */
-        .log-card{flex:0 0 220px;display:flex;flex-direction:column;background:#fff;border:1px solid #d4dae5;border-radius:12px;min-height:0;overflow:hidden;}
+        .log-card{flex:0 0 auto;display:flex;flex-direction:column;background:#fff;border:1px solid #d4dae5;border-radius:12px;min-height:0;overflow:hidden;}
         .log-head{padding:9px 14px;border-bottom:1px solid #e6eaf1;background:#f6f8fb;font-weight:800;font-size:13.5px;color:#39435a;flex:0 0 auto;}
         .log-scroll{flex:1 1 auto;min-height:0;overflow:auto;}
         table.log-table{width:100%;border-collapse:collapse;}
@@ -192,6 +195,8 @@
         .log-card.big table.log-table th{font-size:16px;padding:12px 10px;}
         .log-card.big table.log-table td{font-size:17px;padding:14px 10px;}
         .log-card.big .x-btn{font-size:16px;padding:12px 22px;border-radius:10px;}
+        /* 평소엔 한 줄만: 방금 넣은 실적(최신) 1건. 전체는 펼치기로 본다 */
+        .log-card:not(.big) #logBody tr:not(.pin){display:none;}
         .log-backdrop{position:fixed;inset:0;background:rgba(16,22,38,.45);z-index:59;display:none;}
         .log-backdrop.on{display:block;}
         .log-toggle{border:1px solid #cfd6e2;background:#fff;color:#39435a;border-radius:9px;
@@ -309,9 +314,13 @@
         <!-- 실적 종류. 장갑 낀 손으로 누르는 자리라 크게 둔다.
              ★ 새로고침·전체화면도 여기 둔다. 날짜 옆 아이콘(32px)으로는 못 누른다.
                탭과 같은 높이의 정사각형이라 손이 어디로 가든 목표가 크다. -->
-        <div class="tab-row">
+        <div class="tab-row" id="tabRow">
             <div class="mode-tabs" id="modeTabs"></div>
             <!-- 선택한 공정(품목)의 도면. 생산 지시 화면에서 올린 것 중 도면번호별 최신만 -->
+            <!-- 불량 입력은 별도 화면(불량 실적). 메뉴를 열지 않고 옆 탭으로 바로 연다 -->
+            <button class="sq-btn sq-defect" id="btnDefect" title="불량 실적 입력 화면 열기">
+                <span class="ic">⚠</span><span class="tx">불량</span>
+            </button>
             <button class="sq-btn" id="btnDraw" title="선택한 공정의 도면 보기" disabled>
                 <span class="ic">📄</span><span class="tx">도면</span>
             </button>
@@ -434,6 +443,7 @@
 
 <th:block layout:fragment="scripts">
     <script th:src="@{/js/iljin_drawing.js}"></script>
+    <script th:src="@{/js/iljin_kiosk.js}"></script>
     <script type="text/javascript" th:inline="none">
         // 주의: 전역 $ (jQuery) 를 덮으면 common.js 의 AjaxUtil 이 깨진다.
         // 최상위 const 는 전역 렉시컬 스코프를 점유하므로 반드시 다른 이름을 쓸 것.
@@ -497,24 +507,47 @@
 
         const QS = new URLSearchParams(location.search);
         /*
-         * ★ 탭은 어느 키오스크에서든 <b>셋 다</b> 보여준다.
-         *   메뉴로 들어가 화면을 바꾸는 것보다 탭 한 번이 훨씬 빠르고,
-         *   장갑 낀 손으로 메뉴 트리를 헤매게 하면 안 쓴다.
-         *   나중에 "레이저 옆에서는 조립을 안 쓴다" 가 확인되면
-         *   ?mode=machining 으로 좁히면 된다 — 그때 빼는 건 쉽다.
+         * ★ 키오스크는 <b>자리마다</b> 쓴다. 설비 옆 키오스크에서 조립을 넣을 일은 없다.
+         *   그런데 화면이 메뉴 iframe 으로 열려 주소(?mode=)를 바꿀 수 없고,
+         *   조립을 어느 키오스크에서 할지도 아직 안 정해졌다.
+         *   → <b>그 기기에서 한 번 고르면 기억</b>한다 (상단 키오스크 선택, localStorage).
          *
-         *   메뉴 코드는 여전히 <b>기본 탭과 공정</b>을 정한다.
-         *   머시닝 키오스크는 가공품 탭에서 시작하고 설비도 머시닝 것만 나온다.
+         *   키오스크 종류
+         *     'op'  : 설비 키오스크 (레이저·머시닝…)  → 가공품 탭만
+         *     'asm' : 조립 키오스크                   → 유닛 · 공정 조립 탭만
+         *     'all' : 전체 (사무실 확인·대리 입력)    → 셋 다
+         *   정하는 순서: 주소 ?mode= > 메뉴(설비 메뉴면 op, 조립 메뉴면 asm) > 이 기기에 저장한 값 > 전체
+         *
+         * ★ 키오스크 계정(kio01~03)은 사용자그룹 '첫화면'(user_group.gmenu)을 공정 메뉴
+         *   (prod_process_laser 등, MENU_MAP)로 둔다. 로그인하면 그 메뉴가 첫 탭으로 열리고
+         *   경로의 메뉴 코드로 공정이 <b>고정</b>된다 — 선택 박스도 잠근다.
          */
-        const MODE_PARAM = QS.get('mode') || 'all';
-        const VISIBLE_MODES = MODE_PARAM === 'machining' ? ['machining']
-            : MODE_PARAM === 'assembly' ? ['unit', 'set']
-                : ['machining', 'unit', 'set'];
-        // 조립 전용 메뉴(prod_process_assembly)면 유닛 탭에서 시작한다
-        let MODE = (MENU_HIT && MENU_MAP[MENU_CODE] === null && VISIBLE_MODES.includes('unit'))
-            ? 'unit' : VISIBLE_MODES[0];
+        const KIOSK_KEY = 'iljin.kiosk';
+        const loadKiosk = () => {
+            try { return JSON.parse(localStorage.getItem(KIOSK_KEY) || 'null'); } catch (e) { return null; }
+        };
+        const saveKiosk = v => {
+            try { localStorage.setItem(KIOSK_KEY, JSON.stringify(v)); } catch (e) { /* 저장 불가 — 이번만 적용 */ }
+        };
+        const SAVED = loadKiosk();   // {kind, op}
+        const QS_MODE = QS.get('mode');
+        let KIOSK_KIND = QS_MODE === 'machining' ? 'op' : QS_MODE === 'assembly' ? 'asm' : QS_MODE === 'all' ? 'all'
+            : MENU_HIT ? (MENU_MAP[MENU_CODE] === null ? 'asm' : 'op')
+                : (SAVED && SAVED.kind) || 'all';
+        const modesOf = k => k === 'op' ? ['machining'] : k === 'asm' ? ['unit', 'set'] : ['machining', 'unit', 'set'];
+        /*
+         * ★ 어떤 키오스크든 가공품·유닛·공정 세 탭을 항상 보인다.
+         *   탭을 숨기면 버튼만 남은 줄이 생겨 화면이 어색하다.
+         *   키오스크 종류는 '처음 열릴 탭'과 가공품 탭의 공정만 정한다.
+         */
+        const kindModes = () => ['machining', 'unit', 'set'];
+        let VISIBLE_MODES = kindModes(KIOSK_KIND);
+        let MODE = KIOSK_KIND === 'asm' ? 'unit' : 'machining';
         const isAsm = () => MODE !== 'machining';
         const SPJANGCD = sessionStorage.getItem('spjangcd') || 'ZZ';
+
+        // 메인 화면 푸터를 숨기고 그 자리까지 쓴다 (iljin_kiosk.js)
+        IljinKiosk.useFooterArea();
 
         const getJSON = (url, data) => new Promise(resolve => {
             AjaxUtil.getAsyncData(url, data,
@@ -533,7 +566,7 @@
         // URL ?operation=와이어커팅 으로 지정 (미지정이면 첫 공정).
         //  - 설비는 이 공정 것만 보인다.
         //  - 작업자(person)는 이 공정의 워크센터 인원이 위로 오되 다른 인원도 폴백으로 보인다.
-        let CURRENT_OP = QS.get('operation') || (MENU_HIT ? (MENU_MAP[MENU_CODE] || '') : '');
+        let CURRENT_OP = QS.get('operation') || (MENU_HIT ? (MENU_MAP[MENU_CODE] || '') : '') || (SAVED && SAVED.op) || '';
 
         let OPERATIONS = [];   // [{operation, workcenter_id, workcenter_name, equip_cnt}]
         let EQUIPMENTS = [];   // [{code, operation, workcenter_id}]
@@ -739,8 +772,9 @@
         function renderModeTabs() {
             const box = el('#modeTabs');
             if (!box) return;
-            // 탭이 하나뿐이면(=URL 로 고정) 굳이 보여주지 않는다
+            // 탭이 하나뿐이면 굳이 보여주지 않는다
             if (VISIBLE_MODES.length < 2) { box.style.display = 'none'; return; }
+            box.style.display = '';
             box.innerHTML = VISIBLE_MODES.map(k => {
                 const m = MODES.find(x => x.key === k);
                 return `<button data-m="${k}" class="m-${k} ${MODE === k ? 'on' : ''}">${m.t}
@@ -766,7 +800,6 @@
             searchMode = false;
             st.step = STEPS.findIndex(x => stepValue(x.key) == null && !SKIP_STEPS.includes(x.key));
             if (st.step < 0) st.step = STEPS.length - 1;
-            el('#opSel').style.display = isAsm() ? 'none' : '';
             await loadItems();
             await loadTiles();
             await refreshLog();
@@ -814,14 +847,8 @@
                 const tile = w => `<button class="tile ${st.workerId === w.id ? 'on' : ''}"
                         data-w="${w.name}" data-wid="${w.id}">
                         <span class="tt">${w.name}</span></button>`;
-                const wcName = (OPERATIONS.find(o => o.operation === CURRENT_OP) || {}).workcenter_name;
-                html = `<p class="pick-head">작업자를 선택하세요${wcName ? ` — ${wcName} 담당 우선` : ''}</p><div class="tiles">`;
-                if (team.length) {
-                    html += `<div class="group-lab">${wcName || '담당'}</div>` + team.map(tile).join('');
-                }
-                if (rest.length) {
-                    html += `<div class="group-lab">그 외 작업자</div>` + rest.map(tile).join('');
-                }
+                // 안내 문구·그룹 제목 없이 타일만 (담당 공정 인원이 앞). 화면이 낮아 한 줄이라도 아낀다
+                html = `<div class="tiles">` + team.map(tile).join('') + rest.map(tile).join('');
                 if (!WORKERS.length) {
                     html += `<div class="pick-empty" style="grid-column:1/-1">등록된 직원이 없습니다. 기준정보 &gt; 사원관리에서 등록하세요.</div>`;
                 }
@@ -1394,7 +1421,8 @@
                 const pj = st.proj >= 0 ? PROJECTS[st.proj].proj_no : '';
                 const [w, l] = await Promise.all([
                     getJSON(ASM_API + '/working_list', {spjangcd: SPJANGCD, projNo: pj, stage: MODE}),
-                    getJSON(ASM_API + '/log', {spjangcd: SPJANGCD, prodDate: curDate, projNo: pj, stage: MODE})
+                    // ★ 조립 API 는 prodDate 가 아니라 dateFrom/dateTo 를 받는다. prodDate 로 보내면 날짜 없이 전체가 왔다
+                    getJSON(ASM_API + '/log', {spjangcd: SPJANGCD, dateFrom: curDate, dateTo: curDate, projNo: pj, stage: MODE})
                 ]);
                 working = w.data || [];
                 log = l.data || [];
@@ -1458,7 +1486,7 @@
                 '<tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr>';
 
             if (!working.length && !log.length) {
-                el('#logBody').innerHTML = `<tr><td colspan="${cols.length}" class="log-empty">`
+                el('#logBody').innerHTML = `<tr class="pin"><td colspan="${cols.length}" class="log-empty">`
                     + '작업중·등록 내역이 없습니다.</td></tr>';
                 return;
             }
@@ -1495,6 +1523,9 @@
                 <td><button class="x-btn" data-i="${l.id}">삭제</button></td></tr>`).join('');
 
             el('#logBody').innerHTML = html;
+            // 접힌 상태에서 보일 한 줄 = 최신 등록 실적. 없으면 첫 줄(작업중)
+            const pin = el('#logBody').querySelector('.log-row') || el('#logBody').querySelector('tr');
+            if (pin) pin.classList.add('pin');
 
             // 펼친 상태에서 목록이 비면 자동으로 닫는다 (덮어 둘 이유가 없다)
             if (logBig && !working.length && !log.length) toggleLogBig(false);
@@ -1898,9 +1929,16 @@
         };
 
         /* ===== 키오스크(공정) 전환 ===== */
+        // 키오스크 종류 선택. 설비 키오스크들 + 조립 + 전체. 이 기기에 기억한다 (KIOSK_KEY)
         function buildOpSelect() {
             el('#opSel').innerHTML = OPERATIONS.map(o =>
-                `<option value="${o.operation}" ${CURRENT_OP === o.operation ? 'selected' : ''}>${o.operation} 키오스크</option>`).join('');
+                    `<option value="${o.operation}" ${KIOSK_KIND === 'op' && CURRENT_OP === o.operation ? 'selected' : ''}>${o.operation} 키오스크</option>`).join('')
+                + `<option value="__asm__" ${KIOSK_KIND === 'asm' ? 'selected' : ''}>조립 키오스크</option>`
+                + `<option value="__all__" ${KIOSK_KIND === 'all' ? 'selected' : ''}>전체 (사무실)</option>`;
+            // 공정 메뉴로 열렸으면(키오스크 계정) 바꾸지 못하게 잠근다
+            const locked = MENU_HIT && !QS.get('mode');
+            el('#opSel').disabled = locked;
+            el('#opSel').title = locked ? '이 계정에 고정된 공정입니다' : '';
         }
 
         /**
@@ -1931,6 +1969,18 @@
         };
 
         el('#logToggle').onclick = () => toggleLogBig();
+
+        /*
+         * 불량 실적 화면을 메인 화면의 탭으로 연다 (이미 열려 있으면 그 탭으로).
+         * 지금 탭(메뉴 코드)과 공정·설비·작업자를 넘긴다 →
+         *   불량 화면은 그 값을 미리 박고, [실적으로] 를 누르면 이 탭으로 돌아온다.
+         */
+        el('#btnDefect').onclick = () => {
+            IljinKiosk.openTab('prod_result_defect', '불량 실적', MENU_CODE, {
+                op: CURRENT_OP || '', machine: st.machine || '',
+                worker: st.worker || '', workerId: st.workerId || null
+            });
+        };
         el('#logBackdrop').onclick = () => toggleLogBig(false);
         // 펼친 상태에서 작업중 행을 누르면 그 작업을 불러오므로 자동으로 닫는다
         document.addEventListener('keydown', e => {
@@ -1985,7 +2035,21 @@
         document.addEventListener('fullscreenchange', renderFsBtn);
 
         el('#opSel').onchange = async () => {
-            CURRENT_OP = el('#opSel').value;
+            const v = el('#opSel').value;
+            KIOSK_KIND = v === '__asm__' ? 'asm' : v === '__all__' ? 'all' : 'op';
+            if (KIOSK_KIND === 'op') CURRENT_OP = v;          // 조립·전체는 가공 공정을 그대로 둔다
+            saveKiosk({kind: KIOSK_KIND, op: CURRENT_OP});
+            VISIBLE_MODES = kindModes(KIOSK_KIND);
+            renderModeTabs();
+            // 탭은 늘 셋. 조립 키오스크를 고르면 유닛 탭으로, 설비 키오스크면 가공품 탭으로 옮긴다
+            const want = KIOSK_KIND === 'asm' ? 'unit' : KIOSK_KIND === 'op' ? 'machining' : MODE;
+            if (want !== MODE) {
+                st.machine = null;
+                if (KIOSK_KIND === 'op') await loadMasters();   // 설비·작업자를 새 공정 것으로
+                await switchMode(want);                       // 탭이 바뀌면 단계·목록도 다시 잡는다
+                flash(el('#opSel').selectedOptions[0].textContent + '로 설정했습니다');
+                return;
+            }
             st.machine = null;                               // 공정이 바뀌면 설비도 초기화
             st.worker = null;
             st.step = 0;                                     // 작업자 단계부터
@@ -2010,8 +2074,8 @@
             STEPS = isAsm() ? STEPS_ASM : STEPS_MACH;
             setDate(ymd(0));
             await loadOperations();
-            buildOpSelect();
-            el('#opSel').style.display = isAsm() ? 'none' : '';   // 조립엔 공정 선택이 없다
+            if (!OPERATIONS.some(o => o.operation === CURRENT_OP) && OPERATIONS.length) CURRENT_OP = OPERATIONS[0].operation;
+            buildOpSelect();   // 조립 키오스크여도 보인다 — 이 기기의 키오스크 종류를 바꾸는 곳이다
             await loadMasters();
             // 프로젝트를 안 골라도 품목 단계가 비어 보이지 않게 전체를 미리 받아 둔다.
             await loadItems();
