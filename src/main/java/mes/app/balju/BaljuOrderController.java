@@ -373,6 +373,10 @@ public class BaljuOrderController {
     String content = (String) payload.get("content");
     Integer bhId = (Integer) payload.get("bhId");
     String replyTo = (String) payload.get("replyTo");
+    // 주문번호 QR. 화면이 IljinLabel.qrDataUrl() 로 만든 PNG data URL 과 그 원문.
+    //   (검사 공정 지그 라벨과 같은 라이브러리·같은 설정 → PDA 가 똑같이 읽는다)
+    String qrImage = (String) payload.get("qrImage");
+    String qrText = (String) payload.get("qrText");
 
     // 1. 로그인 사용자 정보 추출
     User user = (User) auth.getPrincipal();
@@ -597,6 +601,19 @@ public class BaljuOrderController {
         Cell noteCell = noteRow.getCell(1);
         noteCell.setCellValue("***특이사항 : " + header.get("Description"));
 
+        // 7. 주문번호 QR (PDA 입고 시 스캔용)
+        //   QR 생성 실패가 발주서/메일 발송을 막으면 안 되므로 여기서 삼킨다.
+        //   화면이 보낸 QR 이 이 발주의 주문번호가 아니면 넣지 않는다 (다른 발주 QR 오삽입 방지)
+        try {
+          if (qrImage != null && jumunNumber != null && jumunNumber.equals(qrText)) {
+            insertQrImage(workbook, sheet, qrImage);
+          } else if (qrImage != null) {
+            log.warn("발주서 QR 값 불일치로 생략. bhId={}, jumunNumber={}, qrText={}", bhId, jumunNumber, qrText);
+          }
+        } catch (Exception qe) {
+          log.error("발주서 QR 삽입 실패. bhId={}, jumunNumber={}", bhId, jumunNumber, qe);
+        }
+
         //파일 생성 후 저장
         workbook.write(fos);
         fos.flush();
@@ -698,6 +715,41 @@ public class BaljuOrderController {
     } catch (Exception ex) {
       log.error("발주서 메일 발송 이력 저장 실패. bhId={}", bhId, ex);
     }
+  }
+
+  // ── 발주서 QR 위치 (0-based, 템플릿에 맞게 조정) ──
+  //   기본값: G9 ~ H12 영역 (col1/row1 = 좌상단 셀, col2/row2 = 우하단 "다음" 셀)
+  private static final int QR_COL1 = 6;   // G
+  private static final int QR_ROW1 = 8;   // 9행
+  private static final int QR_COL2 = 8;   // I 직전까지 = G~H
+  private static final int QR_ROW2 = 12;  // 13행 직전까지 = 9~12행
+  private static final int QR_MAX_BYTES = 200 * 1024;  // QR 256px PNG 는 수 KB. 이보다 크면 이상한 값
+
+  /**
+   * 화면이 만든 QR(PNG data URL)을 시트에 이미지로 넣는다.
+   * QR 은 검사 공정 지그 라벨과 같은 qrcode.min.js / IljinLabel.qrDataUrl() 로 만든다.
+   * 값은 주문번호 그대로 (라벨 규칙과 동일: QR 값 = PDA 가 읽는 값).
+   */
+  private void insertQrImage(Workbook workbook, Sheet sheet, String dataUrl) {
+    String prefix = "data:image/png;base64,";
+    if (dataUrl == null || !dataUrl.startsWith(prefix)) {
+      throw new IllegalArgumentException("QR 이미지 형식이 PNG data URL 이 아닙니다.");
+    }
+    byte[] png = Base64.getDecoder().decode(dataUrl.substring(prefix.length()));
+    if (png.length == 0 || png.length > QR_MAX_BYTES) {
+      throw new IllegalArgumentException("QR 이미지 크기가 올바르지 않습니다: " + png.length);
+    }
+
+    int pictureIdx = workbook.addPicture(png, Workbook.PICTURE_TYPE_PNG);
+    CreationHelper helper = workbook.getCreationHelper();
+    ClientAnchor anchor = helper.createClientAnchor();
+    anchor.setCol1(QR_COL1);
+    anchor.setRow1(QR_ROW1);
+    anchor.setCol2(QR_COL2);
+    anchor.setRow2(QR_ROW2);
+    anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_DONT_RESIZE);
+
+    sheet.createDrawingPatriarch().createPicture(anchor, pictureIdx);
   }
 
   public static void setCell(Sheet sheet, int rowIdx, int colIdx, String value) {

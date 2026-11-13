@@ -1,0 +1,351 @@
+﻿<html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
+<head>
+    <style>
+        .ms-wrap { max-width: 860px; }
+        .ms-wrap .write-table th { width: 160px; text-align: center; }
+        .ms-wrap .write-table td input[type=text],
+        .ms-wrap .write-table td input[type=password],
+        .ms-wrap .write-table td input[type=number],
+        .ms-wrap .write-table td select { width: 100%; box-sizing: border-box; }
+        .ms-hint { margin-top: 4px; font-size: 12px; color: #6B7688; line-height: 1.5; }
+        .ms-row { display: flex; gap: 8px; align-items: center; }
+        .ms-row > * { flex: 1; }
+        .ms-row > .fix { flex: 0 0 auto; }
+        .ms-check { display: inline-flex; align-items: center; gap: 6px; margin-right: 18px; cursor: pointer; white-space: nowrap; }
+        .ms-state { padding: 10px 14px; border-radius: 4px; margin-bottom: 12px; font-size: 13px; line-height: 1.6; }
+        .ms-state.ok   { background: #EAF6EE; border: 1px solid #B9DFC5; color: #1F5E33; }
+        .ms-state.warn { background: #FBEFD8; border: 1px solid #E9CF9E; color: #6B4A12; }
+        .ms-state.err  { background: #FBE3E1; border: 1px solid #EDB4AE; color: #8A2219; }
+        .ms-cc { max-height: 280px; overflow-y: auto; border: 1px solid #DDE3E9; border-radius: 4px; }
+        .ms-cc label { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid #EEF1F4; cursor: pointer; font-size: 13px; }
+        .ms-cc label:last-child { border-bottom: 0; }
+        .ms-cc label.off { color: #9AA6B2; cursor: default; }
+        .ms-cc .em { color: #6B7688; margin-left: auto; }
+        .ms-preview { font-size: 13px; color: #1B2430; background: #F5F7FA; border: 1px solid #DDE3E9; padding: 8px 12px; border-radius: 4px; }
+    </style>
+</head>
+
+<th:block layout:fragment="content">
+    <div class="layout-contents">
+        <div class="page-title-wrap">
+            <div class="left">
+                <h2>메일 설정</h2>
+                <a title="북마크" class="bookmark toggle">내 메뉴</a>
+            </div>
+            <ul class="page-navi">
+                <li><img th:src="@{/images/icon/ico-nav-home.svg}" alt="홈아이콘"></li>
+                <li>시스템관리</li>
+                <li>메일 설정</li>
+            </ul>
+        </div>
+
+        <section class="section">
+            <div class="section-top">
+                <div class="button-wrap">
+                    <ul>
+                        <li>
+                            <button type="button" class="btn-default" id="btnTest" style="height:36px; padding:0 16px;">
+                                <i class="fas fa-paper-plane"></i> 시험 발송
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button" class="btn-edit btn-default" id="btnSave" style="height:36px; width:115px;">
+                                <i class="fas fa-save"></i> 저장
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="ms-wrap">
+                <div id="msState" class="ms-state warn">불러오는 중...</div>
+
+                <form id="msForm" autocomplete="off" onsubmit="return false;">
+                    <table class="write-table">
+                        <caption>회사 공용 발송 계정</caption>
+                        <tbody>
+                        <tr>
+                            <th><label for="provider">메일 서비스</label></th>
+                            <td>
+                                <select id="provider"></select>
+                                <div class="ms-hint">고르면 서버·포트가 채워집니다. 목록에 없으면 「직접 입력」.</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="host">SMTP 서버</label></th>
+                            <td>
+                                <div class="ms-row">
+                                    <input type="text" id="host" placeholder="예: smtps.hiworks.com">
+                                    <input type="number" id="port" class="fix" style="width:100px" placeholder="465" min="1" max="65535">
+                                    <select id="security" class="fix" style="width:140px">
+                                        <option value="ssl">SSL (465)</option>
+                                        <option value="starttls">STARTTLS (587)</option>
+                                        <option value="none">암호화 안 함</option>
+                                    </select>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="username">아이디</label></th>
+                            <td>
+                                <input type="text" id="username" placeholder="보통 메일 주소 전체 (예: order@jooai.com)">
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="password">비밀번호</label></th>
+                            <td>
+                                <input type="password" id="password" placeholder="" autocomplete="new-password">
+                                <div class="ms-hint" id="pwHint">2단계 인증을 쓰는 계정은 메일 서비스에서 만든 <b>앱 비밀번호</b>를 넣으세요.
+                                    비밀번호는 암호화해서 저장하고 화면에 다시 보여 주지 않습니다.</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="from_addr">보내는 주소</label></th>
+                            <td>
+                                <input type="text" id="from_addr" placeholder="비우면 아이디와 같음">
+                                <div class="ms-hint">대부분의 메일 서비스는 로그인한 계정 주소로만 보낼 수 있습니다. 특별한 이유가 없으면 비워 두세요.</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="from_name">보내는 이름</label></th>
+                            <td>
+                                <input type="text" id="from_name" placeholder="예: 일진테크">
+                                <div style="margin-top:8px">
+                                    <label class="ms-check"><input type="checkbox" id="name_with_user"> 보낸 담당자 이름 붙이기</label>
+                                    <label class="ms-check"><input type="checkbox" id="bcc_sender"> 보낸 담당자에게 숨은참조로 사본 보내기</label>
+                                </div>
+                                <div class="ms-preview" id="namePreview" style="margin-top:8px"></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="use_yn">사용</label></th>
+                            <td>
+                                <label class="ms-check"><input type="checkbox" id="use_yn"> 이 계정으로 메일 보내기</label>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th><label for="test_to">시험 받을 주소</label></th>
+                            <td>
+                                <input type="text" id="test_to" placeholder="비우면 내 이메일(사용자 관리)로 보냅니다">
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </form>
+
+                <table class="write-table" style="margin-top:24px">
+                    <caption>발주메일 고정 참조</caption>
+                    <tbody>
+                    <tr>
+                        <th>참조 받을 사람</th>
+                        <td>
+                            <input type="text" id="ccFilter" placeholder="이름·아이디·이메일 찾기" style="width:100%;box-sizing:border-box;margin-bottom:8px">
+                            <div id="ccList" class="ms-cc">불러오는 중...</div>
+                            <div class="ms-hint">체크한 사람은 발주서 메일을 보낼 때마다 참조에 들어갑니다. 이메일이 없는 사용자는 사용자 관리에서 먼저 넣으세요.</div>
+                            <div style="margin-top:8px"><button type="button" class="btn-default" id="btnCcSave" style="height:32px;padding:0 14px"><i class="fas fa-save"></i> 참조 저장</button></div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+
+                <div class="ms-hint" style="margin-top:12px">
+                    업체가 [답장]을 누르면 발주서를 보낸 담당자(회신 주소)에게 바로 갑니다.
+                    인증이 연속 3회 실패하면 계정 잠금을 막으려고 30분 동안 발송을 멈춥니다. 설정을 다시 저장하면 바로 풀립니다.
+                </div>
+            </div>
+        </section>
+    </div>
+</th:block>
+
+<th:block layout:fragment="scripts">
+    <script type="text/javascript">
+        (function () {
+            const URL = '/api/system/mail_setting';
+            const csrf = $("[name=_csrf]").val();
+            // 서버가 목록을 못 주더라도 선택 칸은 채운다
+            let presets = [
+                {code: 'hiworks', name: '하이웍스', host: 'smtps.hiworks.com', port: 465, security: 'ssl'},
+                {code: 'worksmobile', name: '네이버웍스', host: 'smtp.worksmobile.com', port: 465, security: 'ssl'},
+                {code: 'google', name: '구글 워크스페이스 / Gmail', host: 'smtp.gmail.com', port: 465, security: 'ssl'},
+                {code: 'ms365', name: 'Microsoft 365 / Outlook', host: 'smtp.office365.com', port: 587, security: 'starttls'},
+                {code: 'daouoffice', name: '다우오피스', host: 'smtp.daouoffice.com', port: 465, security: 'ssl'},
+                {code: 'naver', name: '네이버 메일', host: 'smtp.naver.com', port: 465, security: 'ssl'},
+                {code: 'daum', name: '다음 메일', host: 'smtp.daum.net', port: 465, security: 'ssl'},
+                {code: 'custom', name: '직접 입력', host: '', port: 465, security: 'ssl'}
+            ];
+            function fillPresets() {
+                const $p = $('#provider'), cur = $p.val();
+                $p.empty();
+                presets.forEach(p => $p.append($('<option>').val(p.code).text(p.name)));
+                if (cur) $p.val(cur);
+            }
+            let hasPassword = false;
+
+            const val = id => ($('#' + id).val() || '').trim();
+
+            function post(path, body, done) {
+                AjaxUtil.showLoading && AjaxUtil.showLoading();
+                $.ajax({
+                    url: URL + path, type: 'POST', contentType: 'application/json',
+                    headers: {'X-CSRF-TOKEN': csrf}, data: JSON.stringify(body),
+                    complete: () => AjaxUtil.hideLoading && AjaxUtil.hideLoading(),
+                    success: done,
+                    error: xhr => Alert.alert('', '서버 오류: ' + (xhr.status || ''))
+                });
+            }
+
+            function formData() {
+                return {
+                    provider: val('provider'),
+                    host: val('host'),
+                    port: Number(val('port')) || null,
+                    security: val('security'),
+                    username: val('username'),
+                    password: $('#password').val(),   // 공백 포함 그대로
+                    from_addr: val('from_addr'),
+                    from_name: val('from_name'),
+                    name_with_user: $('#name_with_user').is(':checked') ? 'Y' : 'N',
+                    bcc_sender: $('#bcc_sender').is(':checked') ? 'Y' : 'N',
+                    use_yn: $('#use_yn').is(':checked') ? 'Y' : 'N'
+                };
+            }
+
+            function preview() {
+                const name = val('from_name');
+                const addr = val('from_addr') || val('username') || '(아이디)';
+                const who = $('#name_with_user').is(':checked') ? ' 홍길동' : '';
+                const shown = (name + who).trim();
+                $('#namePreview').text('업체에 보이는 보낸 사람: ' + (shown ? shown + ' <' + addr + '>' : addr)
+                    + ($('#bcc_sender').is(':checked') ? '  ·  담당자 메일함에 사본' : ''));
+            }
+
+            function showState(s, secretReady) {
+                const $s = $('#msState').removeClass('ok warn err');
+                if (!secretReady) {
+                    $s.addClass('err').text('서버에 암호화 키 파일을 만들지 못해 비밀번호를 저장할 수 없습니다. 서버 로그를 확인하세요.');
+                    return;
+                }
+                if (!s) { $s.addClass('warn').text('아직 발송 계정이 없습니다. 아래를 채우고 [시험 발송] → [저장] 하세요.'); return; }
+                const locked = s.locked_until && new Date(s.locked_until) > new Date();
+                if (s.use_yn !== 'Y') { $s.addClass('warn').text('메일 발송이 꺼져 있습니다.'); return; }
+                if (locked) {
+                    $s.addClass('err').text('인증이 연속 실패해 ' + String(s.locked_until).substring(0, 16).replace('T', ' ')
+                        + ' 까지 발송을 멈췄습니다. 비밀번호를 확인하고 다시 저장하세요. (' + (s.last_error || '') + ')');
+                    return;
+                }
+                let msg = '발송 계정: ' + (s.from_addr || s.username);
+                if (s.last_ok_at) msg += ' · 마지막 성공 ' + String(s.last_ok_at).substring(0, 16).replace('T', ' ');
+                if (s.last_error) { $s.addClass('warn').text(msg + ' · 마지막 오류: ' + s.last_error); return; }
+                $s.addClass('ok').text(msg);
+            }
+
+            function load() {
+                fillPresets();
+                $.get(URL + '/read').fail(function (xhr) {
+                    $('#msState').removeClass('ok warn').addClass('err')
+                        .text('설정을 불러오지 못했습니다 (서버 ' + (xhr.status || '응답 없음') + '). mail_smtp_1103.sql 실행·서버 재시작 여부를 확인하세요.');
+                }).done(function (res) {
+                    if (!res || res.success === false) { $('#msState').removeClass('ok warn').addClass('err').text((res && res.message) || '불러오지 못했습니다.'); return; }
+                    const d = res.data || {};
+                    if (Array.isArray(d.presets) && d.presets.length) { presets = d.presets; fillPresets(); }
+
+                    const s = d.setting;
+                    hasPassword = !!(s && s.has_password);
+                    $('#provider').val((s && s.provider) || 'custom');
+                    $('#host').val(s ? s.host : '');
+                    $('#port').val(s ? s.port : 465);
+                    $('#security').val(s ? s.security : 'ssl');
+                    $('#username').val(s ? s.username : '');
+                    $('#password').val('').attr('placeholder', hasPassword ? '저장됨 — 바꿀 때만 입력' : '');
+                    $('#from_addr').val(s && s.from_addr !== s.username ? s.from_addr : '');
+                    $('#from_name').val(s ? (s.from_name || '') : '일진테크');
+                    $('#name_with_user').prop('checked', s ? s.name_with_user === 'Y' : true);
+                    $('#bcc_sender').prop('checked', s ? s.bcc_sender === 'Y' : true);
+                    $('#use_yn').prop('checked', s ? s.use_yn === 'Y' : true);
+                    showState(s, d.secretReady);
+                    preview();
+                });
+            }
+
+            $(document).on('change', '#provider', function () {
+                const p = presets.find(x => x.code === this.value);
+                if (!p || p.code === 'custom') return;
+                $('#host').val(p.host); $('#port').val(p.port); $('#security').val(p.security);
+            });
+            $(document).on('change', '#security', function () {
+                const port = val('port');
+                if (this.value === 'ssl' && (!port || port === '587')) $('#port').val(465);
+                if (this.value === 'starttls' && (!port || port === '465')) $('#port').val(587);
+            });
+            $(document).on('input change', '#from_name, #from_addr, #username, #name_with_user, #bcc_sender', preview);
+
+            function check(d, forSave) {
+                if (!d.host) return 'SMTP 서버 주소를 입력하세요.';
+                if (!d.port) return '포트를 입력하세요.';
+                if (!d.username) return '아이디를 입력하세요.';
+                if (!d.password && !hasPassword) return '비밀번호(앱 비밀번호)를 입력하세요.';
+                if (d.from_addr && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.from_addr)) return '보내는 주소 형식이 올바르지 않습니다.';
+                if (!d.from_addr && !/@/.test(d.username)) return '아이디가 메일 주소가 아니면 보내는 주소를 입력하세요.';
+                return null;
+            }
+
+            $('#btnTest').on('click', function () {
+                const d = formData();
+                const err = check(d, false);
+                if (err) { Alert.alert('', err); return; }
+                const to = val('test_to');
+                if (to && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { Alert.alert('', '시험 받을 주소 형식이 올바르지 않습니다.'); return; }
+                d.to = to;
+                post('/test', d, res => Alert.alert('', (res && res.message) || (res && res.success === false ? '시험 발송 실패' : '보냈습니다.')));
+            });
+
+            $('#btnSave').on('click', function () {
+                const d = formData();
+                const err = check(d, true);
+                if (err) { Alert.alert('', err); return; }
+                Alert.confirm('', '저장하시겠습니까?', function () {
+                    post('/save', d, res => {
+                        if (res && res.success === false) { Alert.alert('', res.message || '저장하지 못했습니다.'); return; }
+                        Notify.success('저장되었습니다.');
+                        load();
+                    });
+                });
+            });
+
+            // ---- 발주메일 고정 참조 ----
+            let ccUsers = [];
+            function renderCc() {
+                const q = val('ccFilter').toLowerCase();
+                const $l = $('#ccList').empty();
+                const rows = ccUsers.filter(u => !q || [u.name, u.username, u.email].some(x => (x || '').toLowerCase().includes(q)));
+                if (!rows.length) { $l.text(ccUsers.length ? '찾는 사용자가 없습니다.' : '사용자가 없습니다.'); return; }
+                rows.forEach(u => {
+                    const has = !!(u.email && u.email.includes('@'));
+                    const $cb = $('<input type="checkbox">').prop('checked', !!u.checked).prop('disabled', !has)
+                        .on('change', function () { u.checked = this.checked; });
+                    $('<label>').toggleClass('off', !has).append($cb)
+                        .append($('<span>').text((u.name || '') + ' (' + (u.username || '') + ')'))
+                        .append($('<span class="em">').text(has ? u.email : '이메일 없음'))
+                        .appendTo($l);
+                });
+            }
+            function loadCc() {
+                $.get(URL + '/cc_list').fail(() => $('#ccList').text('불러오지 못했습니다.'))
+                    .done(res => { ccUsers = (res && res.data) || []; renderCc(); });
+            }
+            $(document).on('input', '#ccFilter', renderCc);
+            $('#btnCcSave').on('click', function () {
+                const ids = ccUsers.filter(u => u.checked).map(u => u.id);
+                post('/cc_save', {ids: ids}, res => {
+                    if (res && res.success === false) { Alert.alert('', res.message || '저장하지 못했습니다.'); return; }
+                    Notify.success('참조 ' + ids.length + '명 저장했습니다.');
+                    loadCc();
+                });
+            });
+
+            $(function () { load(); loadCc(); });
+        })();
+    </script>
+</th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+</html>

@@ -907,6 +907,9 @@
   <!--  <th:block th:replace="/sales/popup_suju_company :: popup_suju_company"></th:block>-->
   <th:block th:replace="/common/popup_company_purchase :: popup_company_Purchase"></th:block>
   <th:block th:replace="/balju_rp/popup_balju_material_save :: popup_balju_material_new_save"></th:block>
+  <!-- 발주서 주문번호 QR. 검사 공정 지그 라벨과 같은 라이브러리를 쓴다 (QR 라이브러리를 먼저 불러야 한다) -->
+  <script type="text/javascript" th:src="@{/resource/qrCode/qrcode.min.js}"></script>
+  <script type="text/javascript" th:src="@{/js/iljin_label.js}"></script>
   <script type="text/javascript">
    class NeedStockPopup {
     constructor() { this.rows = []; this.callback = null; }
@@ -1294,6 +1297,7 @@
 
          const result = {
           id: bhId,
+          jumunNumber: selected.JumunNumber,   // 발주서 QR 값
           mode: 'mail',
           recipients: Array.isArray(response.data) ? response.data : [response.data], // 반드시 배열이어야 함
           title: '',
@@ -1486,6 +1490,15 @@
        return;
       }
 
+      // 주문번호 QR (검사 공정 지그 라벨과 같은 IljinLabel.qrDataUrl).
+      //   QR 을 못 만들어도 발주서는 보낸다 — 서버가 QR 없이 엑셀을 만든다.
+      let qrImage = null;
+      try {
+       if (data.jumunNumber) qrImage = IljinLabel.qrDataUrl(data.jumunNumber);
+      } catch (e) {
+       console.warn('발주서 QR 생성 실패', e);
+      }
+
       // Ajax로 전송
       // 발주서 엑셀 생성 + 메일 발송이라 수 초 걸린다.
       // 로딩을 걸지 않으면 사용자가 전송 버튼을 연타해 메일이 중복 발송된다.
@@ -1505,7 +1518,9 @@
         recipients: recipients,
         title: title,
         content: mailContent,
-        bhId: data.id
+        bhId: data.id,
+        qrText: data.jumunNumber || null,
+        qrImage: qrImage
        }),
        complete: function () {
         AjaxUtil.hideLoading();
