@@ -103,16 +103,29 @@ public class PartDrawingController {
 	 *   [원본 열기] 가 안 열리는 PC 는 화면 안내의 [처음이면 설치] 로 이걸 받아 열고 '예' 만 누르면 된다.
 	 *   관리자 권한이 필요 없는 HKCU(그 Windows 계정)에 'iljindwg:' 링크 처리기를 등록한다.
 	 *   처리기 본문(PowerShell 한 줄)도 레지스트리 값(Script)에 넣어 파일을 하나도 안 남긴다.
-	 *   허용 서버 = 이 파일을 받은 서버 주소. 서버 주소가 바뀌면 다시 받아 열면 된다.
+	 *   허용 서버 = 이 파일을 받은 서버 주소 + iljin.dwg.hosts (사내 IP · 외부 도메인 · localhost).
+	 *   그래서 사내(192.168.0.230)에서 설치해도 외부 도메인(jin-admin.actascld.co.kr)에서 그대로 열린다.
+	 *   목록에 없는 서버에서 누르면 '다시 설치' 안내 창을 띄운다.
 	 * 처리기가 하는 일: 받은 링크가 이 서버의 /file 이고 DWG/DXF 일 때만 %TEMP%\IljinDwg 에 받아
 	 *   .dwg/.dxf 에 연결된 뷰어로 연다. 하루 지난 임시 파일은 지운다.
 	 */
-	private static final String HANDLER_PS = "$ProgressPreference='SilentlyContinue';$l=$args[0];$h=@('__HOST__','localhost');try{$q=$l.Substring($l.IndexOf('?')+1);$kv=@{};foreach($p in $q.Split('&')){$i=$p.IndexOf('=');if($i -gt 0){$kv[$p.Substring(0,$i)]=[Uri]::UnescapeDataString($p.Substring($i+1))}};$u=[Uri]$kv['u'];if($h -notcontains $u.Host){exit};if(-not $u.AbsolutePath.EndsWith('/api/production/part_drawing/file')){exit};$n=[IO.Path]::GetFileName([string]$kv['n']) -replace '[\\\\/:*?<>|]','_';if(-not $n){$n='drawing.dwg'};$e=[IO.Path]::GetExtension($n).ToLower();if(@('.dwg','.dxf') -notcontains $e){exit};$d=Join-Path $env:TEMP 'IljinDwg';New-Item -ItemType Directory -Force -Path $d|Out-Null;Get-ChildItem $d -File|Where-Object{$_.LastWriteTime -lt (Get-Date).AddDays(-1)}|Remove-Item -Force -ErrorAction SilentlyContinue;$o=Join-Path $d $n;if(Test-Path $o){try{Remove-Item $o -Force -ErrorAction Stop}catch{$o=Join-Path $d ([IO.Path]::GetFileNameWithoutExtension($n)+'_'+(Get-Date -Format HHmmss)+$e)}};(New-Object Net.WebClient).DownloadFile($u.AbsoluteUri,$o);Start-Process -FilePath $o}catch{Add-Type -AssemblyName PresentationFramework;[System.Windows.MessageBox]::Show('원본을 열지 못했습니다. 화면에서 다시 눌러 주세요. '+$_.Exception.Message,'도면 원본 열기')|Out-Null}";
+	private static final String HANDLER_PS = "$ProgressPreference='SilentlyContinue';$l=$args[0];$h=@(__HOSTS__);try{$q=$l.Substring($l.IndexOf('?')+1);$kv=@{};foreach($p in $q.Split('&')){$i=$p.IndexOf('=');if($i -gt 0){$kv[$p.Substring(0,$i)]=[Uri]::UnescapeDataString($p.Substring($i+1))}};$u=[Uri]$kv['u'];if($h -notcontains $u.Host){throw ('등록되지 않은 서버('+$u.Host+')입니다. 화면의 [처음이면 설치]로 다시 설치해 주세요.')};if(-not $u.AbsolutePath.EndsWith('/api/production/part_drawing/file')){exit};$n=[IO.Path]::GetFileName([string]$kv['n']) -replace '[\\\\/:*?<>|]','_';if(-not $n){$n='drawing.dwg'};$e=[IO.Path]::GetExtension($n).ToLower();if(@('.dwg','.dxf') -notcontains $e){exit};$d=Join-Path $env:TEMP 'IljinDwg';New-Item -ItemType Directory -Force -Path $d|Out-Null;Get-ChildItem $d -File|Where-Object{$_.LastWriteTime -lt (Get-Date).AddDays(-1)}|Remove-Item -Force -ErrorAction SilentlyContinue;$o=Join-Path $d $n;if(Test-Path $o){try{Remove-Item $o -Force -ErrorAction Stop}catch{$o=Join-Path $d ([IO.Path]::GetFileNameWithoutExtension($n)+'_'+(Get-Date -Format HHmmss)+$e)}};(New-Object Net.WebClient).DownloadFile($u.AbsoluteUri,$o);Start-Process -FilePath $o}catch{Add-Type -AssemblyName PresentationFramework;[System.Windows.MessageBox]::Show('원본을 열지 못했습니다. 화면에서 다시 눌러 주세요. '+$_.Exception.Message,'도면 원본 열기')|Out-Null}";
+
+	/** 원본 열기 처리기가 받아 주는 서버 주소 (쉼표 구분). 설치 파일을 받은 주소는 자동으로 더한다 */
+	@org.springframework.beans.factory.annotation.Value("${iljin.dwg.hosts:jin-admin.actascld.co.kr,192.168.0.230,localhost,127.0.0.1}")
+	private String dwgHosts;
 
 	@GetMapping("/installer")
 	public void installer(javax.servlet.http.HttpServletRequest req, HttpServletResponse res) throws Exception {
-		String host = req.getServerName().replaceAll("[^A-Za-z0-9.\\-]", "");
-		String script = HANDLER_PS.replace("__HOST__", host);
+		java.util.LinkedHashSet<String> hosts = new java.util.LinkedHashSet<>();
+		hosts.add(req.getServerName());
+		for (String h : dwgHosts.split(",")) hosts.add(h.trim());
+		String list = hosts.stream()
+				.map(h -> h.replaceAll("[^A-Za-z0-9.\\-]", ""))
+				.filter(h -> !h.isEmpty())
+				.map(h -> "'" + h + "'")
+				.collect(java.util.stream.Collectors.joining(","));
+		String script = HANDLER_PS.replace("__HOSTS__", list);
 		String cmd = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command "
 				+ "\"& ([scriptblock]::Create((Get-ItemProperty 'HKCU:\\Software\\Classes\\iljindwg').Script)) '%1'\"";
 		String reg = "Windows Registry Editor Version 5.00\r\n\r\n"

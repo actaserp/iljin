@@ -589,7 +589,7 @@
      * 다운로드 폴더에 복사본이 쌓이지 않고, 임시 폴더는 처리기가 하루 지난 것을 지운다.
      * 처리기에는 로그인이 없어 서버가 한 번 쓰는 표(2분)를 준다 (PartDrawingController.ticket).
      * 처리기를 안 깐 PC 는 아무 일도 안 일어나므로, 안내에 [처음이면 설치] · [내려받기] 를 잠깐 띄운다.
-     *   [처음이면 설치] = 서버가 만들어 주는 .reg 하나. 열고 '예' 만 누르면 끝 (관리자 권한 불필요).
+     *   [처음이면 설치] = 서버가 만드는 .reg (PC 마다 한 번, 관리자 권한 불필요). http 라 크롬이 경고하면 다운로드 목록에서 [유지].
      */
     /** [원본 열기] 버튼 — 품목 파일 전부를 보고 짝을 찾는다 (검색 결과엔 원본이 빠져 있을 수 있어 품목 목록을 받아 온다) */
     function setOrig(d) {
@@ -681,6 +681,7 @@
     function toast(html, id) {
         var t = toastBox();
         var bcss = 'height:40px;padding:0 14px;border:0;border-radius:8px;font-weight:800;font-size:15px;cursor:pointer;';
+        // 처리기 설치 파일(.reg)은 서버가 만들어 준다 (/installer). http 라 크롬이 경고하면 다운로드 목록에서 [유지]
         t.innerHTML = '<span>' + html + '</span>'
             + (id ? '<span style="color:#cbd5e0;font-size:13px">안 열리면</span>'
                 + '<button data-inst style="' + bcss + 'background:#ffd166;color:#1f2a44;">처음이면 설치</button>'
@@ -691,8 +692,11 @@
         if (ins) ins.onclick = function () {
             window.location.href = url(API + '/installer');
             clearTimeout(toast._t);
-            t.innerHTML = '<span style="line-height:1.6">받은 <b>iljin_dwg_open.reg</b> 를 열고 <b>[예]</b> 를 누르세요.<br>'
-                + '그다음 [원본 열기] 를 다시 누르면 됩니다. (PC 에 도면 뷰어가 깔려 있어야 합니다)</span>'
+            t.innerHTML = '<span style="line-height:1.7">이 PC 에 한 번만 하면 됩니다.<br>'
+                + '1. 크롬 오른쪽 위 다운로드에서 <b>iljin_dwg_open.reg</b> 를 엽니다.<br>'
+                + '&nbsp;&nbsp;&nbsp;\'안전하지 않음\' 경고가 뜨면 <b>[유지]</b> 를 누른 뒤 엽니다.<br>'
+                + '2. 확인 창에서 <b>[예]</b> → 끝나면 [원본 열기] 를 다시 누릅니다.<br>'
+                + '<span style="color:#cbd5e0;font-size:12.5px">PC 에 도면 뷰어(DWG FastView 등)가 깔려 있어야 합니다.</span></span>'
                 + '<button data-x style="' + bcss + 'background:#4a5568;color:#fff;">닫기</button>';
             t.querySelector('[data-x]').onclick = function () { t.style.display = 'none'; };
         };
