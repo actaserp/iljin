@@ -132,6 +132,7 @@
         .pd-title{font-size:21px;font-weight:800;color:#f3f6f9;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #46505f;}
         .pd-title .owner{font-size:14px;color:#aeb7c4;font-weight:500;margin-left:6px;}
         .sub-h{font-size:16px;color:#f3f6f9;font-weight:800;margin:0 0 9px;padding-left:11px;border-left:4px solid #5f8fc0;line-height:1.2;}
+        .ktab td.kout{color:#d49279;font-weight:700;} .ktab .kr{color:#8f98a5;font-weight:400;}
         .make-split{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-bottom:8px;}
         .ms-card{background:#20262f;border:1px solid #404a59;border-radius:8px;padding:10px 13px;}
         .ms-card .mh{display:flex;justify-content:space-between;font-size:15px;margin-bottom:6px;color:#aeb7c4;}
@@ -165,7 +166,7 @@
         .ib{font-size:13px;font-weight:700;padding:4px 8px;border-radius:6px;}
         .ib.in{background:rgba(96,165,250,.14);color:#6c9fd1;} .ib.out{background:rgba(240,153,123,.14);color:#d49279;}
         .ib.dok{background:rgba(52,211,153,.16);color:#5cbf9b;} .ib.dno{background:rgba(251,191,36,.16);color:#d3aa55;}
-        .ib.work{background:rgba(240,153,123,.2);color:#d49279;}
+        .ib.work{background:rgba(240,153,123,.2);color:#d49279;} .ib.up{background:rgba(143,152,165,.16);color:#aeb7c4;}
         .ship-chips{display:flex;gap:7px;margin-top:10px;}
         .ship{font-size:15px;color:#aeb7c4;background:#20262f;border:1px solid #404a59;border-radius:7px;padding:6px 12px;}
         .ship b{color:#ccd3dc;}
@@ -333,7 +334,7 @@
             <div id="kpiBreak" style="margin-top:22px"></div>
 
             <p class="sec-label" style="margin-top:22px">
-                <span>외주 현황 (외작) — 외주처별 입고, 행 클릭 시 공정 펼침</span>
+                <span>외주 현황 (외작) — 외주처별 입고 (공정은 대, 부품은 개), 행 클릭 시 펼침</span>
                 <span class="legend" id="vendorAlertLab"></span>
             </p>
             <div id="vendorRows"></div>
@@ -651,14 +652,16 @@
              *   설비 숫자를 세로로 더하면 필요량보다 커질 수 있다. 정상이다.
              *   그래서 '필요 대비 몇 %' 를 만들지 않고 나란히만 놓는다.
              */
-            let partNeed = 0, partNg = 0, partDone = 0;   // partNg: 가공 불량 / partDone: 유형별 완료(필요량 상한)
+            let partNeed = 0, partNg = 0, partDone = 0, partOut = 0, partOutRcv = 0;   // partOut: 유형별 외작 발주 / 입고   // partNg: 가공 불량 / partDone: 유형별 완료(필요량 상한)
             const opTotal = {};
             live.forEach(p => {
                 const ks = p.kinds || {};
                 Object.keys(ks).forEach(k => {
                     partNeed += (+ks[k].t || 0);
                     partNg += (+ks[k].x || 0);
-                    partDone += Math.min(+ks[k].d || 0, +ks[k].t || 0);
+                    partDone += Math.min(+ks[k].d || 0, +ks[k].t || 0);   // d 에 외작 입고분이 이미 들어 있다
+                    partOut += (+ks[k].o || 0);
+                    partOutRcv += (+ks[k].r || 0);
                     const ops = ks[k].ops || {};
                     Object.keys(ops).forEach(o => {
                         opTotal[o] = (opTotal[o] || 0) + (+ops[o] || 0);
@@ -709,9 +712,7 @@
                 const opP = {};
                 Object.keys(ks).forEach(k => {
                     const ops = ks[k].ops || {};
-                    Object.keys(ops).forEach(o => {
-                        opP[o] = (opP[o] || 0) + (+ops[o] || 0);
-                    });
+                    Object.keys(ops).forEach(o => { opP[o] = (opP[o] || 0) + (+ops[o] || 0); });
                 });
                 const r = risk(p);
                 return {p, g, partNeedP, ngP, opP, danger: r.danger};
@@ -776,6 +777,7 @@
                 + '<div class="kpi"><div class="l">총 가공품</div><div class="v">' + nf(partNeed)
                 + '<small> 개</small></div>'
                 + bar(partDone, partNeed, '가공')
+                + (partOut ? '<div class="kl">유형 외작 <b>' + nf(partOut) + '</b> · ' + nf(partOutRcv) + ' 입고</div>' : '')
                 + (Object.keys(dayByOp).length ? '<div class="kl" style="font-size:12px;color:#6b7480">하루 = 최근 2주 작업일 평균</div>' : '')
                 + (opLines || '<div class="kl">설비 실적 없음</div>')
                 + '<div class="kl ngl">불량 <b' + (partNg ? ' class="ng"' : '') + '>' + nf(partNg) + '</b></div></div>'
@@ -797,9 +799,9 @@
                 return;
             }
             el('#alertBar').innerHTML = '<span class="at"><span class="ad"></span>조기경보</span>'
-                + dangers.map(x => '<span class="alert-chip danger">🔴 ' + x + '</span>').join('')
-                + warns.map(x => '<span class="alert-chip warn">🟡 ' + x + '</span>').join('')
-                + outs.map(x => '<span class="alert-chip out">📐 ' + x + '</span>').join('');
+                + dangers.map(x => '<span class="alert-chip danger">' + x + '</span>').join('')
+                + warns.map(x => '<span class="alert-chip warn">' + x + '</span>').join('')
+                + outs.map(x => '<span class="alert-chip out">' + x + '</span>').join('');
         }
 
         /*
@@ -836,7 +838,7 @@
                     + '<b>' + o.code + '</b>'
                     + ' <span style="color:#d3aa55">' + o.stage + '</span>'
                     + (o.machine ? ' <span style="color:#aeb7c4">' + o.machine + '</span>' : '')
-                    + '<span class="w">👤 ' + o.worker + '</span></div>').join('')
+                    + '<span class="w">' + o.worker + '</span></div>').join('')
                 : '<div class="wb-empty">작업중 없음</div>';
         }
 
@@ -858,9 +860,7 @@
             if (!rows.length) return '<div class="kempty">최근 14일 가공 실적이 없습니다.</div>';
 
             const ops = [];
-            rows.forEach(r => {
-                if (r.operation && ops.indexOf(r.operation) < 0) ops.push(r.operation);
-            });
+            rows.forEach(r => { if (r.operation && ops.indexOf(r.operation) < 0) ops.push(r.operation); });
             ops.sort();
 
             const byDate = {};
@@ -958,6 +958,34 @@
          *   한 부품이 절단 → 가공 → 와이어커팅을 거치며 공정마다 다시 세어지므로
          *   더하면 실물보다 큰 수가 된다 (절단 340 + 가공 120 = 460 > 실물 340).
          */
+        /* 부품 외작 — 생산 지시 [외작] 으로 보낸 유형별 외작. 외주처 · 유형별 발주 / 입고 (단위: 개) */
+        function kindOutTable(p) {
+            const rows = (p.kindOut || []).slice();
+            if (!rows.length) return '';
+            rows.sort((a, b) => String(a.kind).localeCompare(String(b.kind), 'ko') || String(a.vendor).localeCompare(String(b.vendor), 'ko'));
+            const tq = rows.reduce((s2, x) => s2 + (+x.qty || 0), 0);
+            const tr = rows.reduce((s2, x) => s2 + Math.min(+x.rcv || 0, +x.qty || 0), 0);
+            const rate = tq ? Math.round(tr / tq * 100) : 0;
+            const body = rows.map(x => {
+                const q = +x.qty || 0, r = +x.rcv || 0, due = x.due || p.due, d = dday(due);
+                const done = r >= q, near = !done && (d < 0 || d <= NEAR);
+                const st = done ? '<span class="ib dok">입고</span>'
+                    : r > 0 ? '<span class="ib up">부분입고</span>'
+                        : '<span class="ib ' + (near ? 'dno' : 'up') + '">미입고</span>';
+                return '<tr><td class="kn">' + x.kind + '</td><td>' + (x.vendor || '(미지정)') + '</td>'
+                    + '<td class="c">' + nf(q) + '</td><td class="c">' + nf(r) + '</td>'
+                    + '<td class="c ' + (done ? 'zero' : '') + '">' + nf(Math.max(q - r, 0)) + '</td>'
+                    + '<td class="c ' + (near ? 'bad' : '') + '">' + (due || '-') + (due ? ' (' + (d < 0 ? '초과' : 'D-' + d) + ')' : '') + '</td>'
+                    + '<td class="c">' + st + (near ? ' <span class="tag warn">임박</span>' : '') + '</td></tr>';
+            }).join('');
+            return '<div class="sub-h" style="margin-top:22px">부품 외작 — 외주처별 입고'
+                + ' <span style="font-size:.72em;font-weight:400;color:#8f98a5">' + nf(tr) + '/' + nf(tq) + ' 개 · ' + rate + '%</span></div>'
+                + '<table class="dtab ktab"><colgroup><col style="width:15%"><col style="width:23%"><col style="width:11%">'
+                + '<col style="width:11%"><col style="width:11%"><col style="width:17%"><col style="width:12%"></colgroup>'
+                + '<tr><th>유형</th><th>외주처</th><th class="c">발주</th><th class="c">입고</th>'
+                + '<th class="c">남음</th><th class="c">납기</th><th class="c">상태</th></tr>' + body + '</table>';
+        }
+
         function kindTable(kinds) {
             const ks = kinds || {};
             const names = Object.keys(ks);
@@ -973,8 +1001,11 @@
 
             // 불량이 하나도 없으면 열을 만들지 않는다 (대부분의 경우 0 만 늘어선다)
             const anyX = names.some(k => (ks[k].x || 0) > 0);
+            // 유형별(부품) 외작이 있으면 열 하나 — 발주 (입고)
+            const anyO = names.some(k => (ks[k].o || 0) > 0);
             const head = '<tr><th>유형</th><th class="r">필요</th>'
                 + ops.map(o => '<th class="r">' + o + '</th>').join('')
+                + (anyO ? '<th class="r" title="외작 발주 수량 (입고 수량)">외작(입고)</th>' : '')
                 + (anyX ? '<th class="r">불량</th>' : '') + '</tr>';
 
             const body = names.map(k => {
@@ -985,6 +1016,8 @@
                         const v = o2[o] || 0;
                         return '<td class="op r ' + (v ? '' : 'zero') + '">' + nf(v) + '</td>';
                     }).join('')
+                    + (anyO ? '<td class="r ' + ((e.o || 0) ? 'kout' : 'zero') + '">'
+                        + ((e.o || 0) ? nf(e.o) + ' <span class="kr">(' + nf(e.r || 0) + ')</span>' : '0') + '</td>' : '')
                     + (anyX ? '<td class="r ' + ((e.x || 0) ? 'bad' : 'zero') + '">'
                         + nf(e.x || 0) + '</td>' : '') + '</tr>';
             }).join('');
@@ -994,6 +1027,8 @@
                 + ops.map(o => '<td class="r">'
                     + nf(names.reduce((s2, k) => s2 + ((ks[k].ops || {})[o] || 0), 0))
                     + '</td>').join('')
+                + (anyO ? '<td class="r kout">' + nf(names.reduce((s2, k) => s2 + (ks[k].o || 0), 0))
+                    + ' <span class="kr">(' + nf(names.reduce((s2, k) => s2 + (ks[k].r || 0), 0)) + ')</span></td>' : '')
                 + (anyX ? '<td class="r bad">'
                     + nf(names.reduce((s2, k) => s2 + (ks[k].x || 0), 0)) + '</td>' : '') + '</tr>';
 
@@ -1070,27 +1105,18 @@
 
             // 축 범위: 계획·실적을 모두 담고 오늘도 포함한다
             let min = null, max = null;
-            const push = d => {
-                if (!d) return;
-                if (!min || d < min) min = d;
-                if (!max || d > max) max = d;
-            };
+            const push = d => { if (!d) return; if (!min || d < min) min = d; if (!max || d > max) max = d; };
             rows.forEach(w => {
-                push(ymdToDate(w.pl_stdate));
-                push(ymdToDate(w.pl_eddate));
-                push(ymdToDate(w.ac_stdate));
-                push(ymdToDate(w.ac_eddate));
+                push(ymdToDate(w.pl_stdate)); push(ymdToDate(w.pl_eddate));
+                push(ymdToDate(w.ac_stdate)); push(ymdToDate(w.ac_eddate));
             });
-            const now = new Date();
-            now.setHours(0, 0, 0, 0);
+            const now = new Date(); now.setHours(0, 0, 0, 0);
             push(now);
             if (!min || !max) return '<div class="kempty">일정이 등록된 단계가 없습니다.</div>';
 
             // 주 경계로 넓혀 눈금이 딱 떨어지게 한다
-            min = new Date(min);
-            min.setDate(min.getDate() - min.getDay() - 7);
-            max = new Date(max);
-            max.setDate(max.getDate() + (6 - max.getDay()) + 7);
+            min = new Date(min); min.setDate(min.getDate() - min.getDay() - 7);
+            max = new Date(max); max.setDate(max.getDate() + (6 - max.getDay()) + 7);
             const span = Math.max(1, Math.round((max - min) / DAY));
             const pct = d => ((d - min) / DAY / span * 100);
 
@@ -1382,10 +1408,7 @@
             el('#pdModal').classList.toggle('on', !!on);
             document.body.classList.toggle('pd-open', !!on);
             document.documentElement.classList.toggle('pd-open', !!on);
-            if (!on) {
-                el('#pdBody').innerHTML = '';
-                return;
-            }
+            if (!on) { el('#pdBody').innerHTML = ''; return; }
 
             const p = PROJECTS[openP];
             el('#pdTitle').textContent = p.name + ' — 상세';
@@ -1449,6 +1472,7 @@
                 + '<div class="sub-h" style="margin-top:22px">가공품 — 유형별 필요량 / 설비 작업량'
                 + ' <span style="font-size:.72em;font-weight:400;color:#8f98a5">참고</span></div>'
                 + kindTable(p.kinds)
+                + kindOutTable(p)
                 + '<div class="sub-h" style="margin-top:22px">가동 현황 — 진행중인 설비 / 작업자</div>'
                 + runTable(p)
                 + '<div class="sub-h" style="margin-top:22px">일자별 가공 실적 <span style="font-size:.72em;font-weight:400;color:#8f98a5">최근 14일 · 설비 작업량</span></div>'
@@ -1489,14 +1513,15 @@
         }
 
         // ── 외주 현황 (전사 외주처별) ──────────────────────────────
+        // 공정(지그) 외작은 '대', 유형별(부품) 외작은 '개' — 단위가 달라 따로 세고 따로 적는다
         function renderVendors() {
-            const map = {};   // vendor → [{code, proj, need, rcv, due, d}]
+            const map = {};   // vendor → {jig: [{code, proj, need, rcv, due, d}], part: [{kind, proj, qty, rcv, d}]}
+            const slot = v => (map[v] = map[v] || {jig: [], part: []});
             PROJECTS.forEach(p => {
                 if (hideDone && isAllDone(p)) return;   // 완료 프로젝트 제외(목록·외주 정리)
                 flat(p).forEach(x => {
                     if (x.type !== '외작') return;
-                    const v = x.vendor || '(미지정)';
-                    (map[v] = map[v] || []).push({
+                    slot(x.vendor || '(미지정)').jig.push({
                         code: x.code,
                         proj: p.name,
                         need: x.need,
@@ -1505,41 +1530,70 @@
                         d: dday(p.due)
                     });
                 });
+                // 생산 지시 [외작] 으로 보낸 유형별(부품) 외작. 납기는 외작에 적은 날, 없으면 프로젝트 납기
+                (p.kindOut || []).forEach(k => {
+                    const due = k.due || p.due;
+                    slot(k.vendor || '(미지정)').part.push({
+                        kind: k.kind, proj: p.name, qty: +k.qty || 0, rcv: +k.rcv || 0, d: dday(due)
+                    });
+                });
             });
             const vendors = Object.keys(map).sort();
             let nearMiss = 0;
             const html = vendors.map((v, vi) => {
-                const its = map[v];
-                // 대수 기준으로 센다 (제작 섹션·품목 행과 축을 맞춘다)
-                const total = its.reduce((s2, x) => s2 + (x.need || 0), 0);
-                const rcvN = its.filter(x => x.rcv).reduce((s2, x) => s2 + (x.need || 0), 0);
-                const rate = total ? Math.round(rcvN / total * 100) : 0;
-                const miss = its.filter(x => !x.rcv);
-                const missNear = miss.filter(x => x.d >= 0 && x.d <= NEAR || x.d < 0).length;
+                const jig = map[v].jig, part = map[v].part;
+                // 공정: 대수 기준 (제작 섹션·품목 행과 축을 맞춘다)
+                const total = jig.reduce((s2, x) => s2 + (x.need || 0), 0);
+                const rcvN = jig.filter(x => x.rcv).reduce((s2, x) => s2 + (x.need || 0), 0);
+                // 부품: 개수 기준
+                const pTotal = part.reduce((s2, x) => s2 + x.qty, 0);
+                const pRcv = part.reduce((s2, x) => s2 + Math.min(x.rcv, x.qty), 0);
+                // 막대·% 는 공정이 있으면 공정(대), 부품만 맡긴 업체면 부품(개)
+                const rate = total ? Math.round(rcvN / total * 100) : pTotal ? Math.round(pRcv / pTotal * 100) : 0;
+                const isNear = (done, d) => !done && (d < 0 || d <= NEAR);
+                const missNear = jig.filter(x => isNear(x.rcv, x.d)).length
+                    + part.filter(x => isNear(x.rcv >= x.qty, x.d)).length;
                 nearMiss += missNear;
                 const col = rate >= 100 ? '#5cbf9b' : rate >= 50 ? '#d3aa55' : '#d49279';
                 const open = openV === vi;
-                const warn = missNear > 0 ? '<span class="tag warn">⚠ 임박 미입고 ' + missNear + '</span>' : '';
-                const rows = its.sort((a, b) => a.rcv - b.rcv || a.d - b.d).map(x => {
-                    const near = !x.rcv && (x.d < 0 || x.d <= NEAR);
+                const warn = missNear > 0 ? '<span class="tag warn">임박 미입고 ' + missNear + '</span>' : '';
+                const dTxt = d => (d < 0 ? '납기초과' : 'D-' + d);
+                const jigRows = jig.sort((a, b) => a.rcv - b.rcv || a.d - b.d).map(x => {
+                    const near = isNear(x.rcv, x.d);
                     const st = x.rcv ? '<span class="ib dok">입고</span>' : ('<span class="ib ' + (near ? 'dno' : 'up') + '">미입고</span>');
                     return '<div class="vrow"><span class="icode">' + x.code + '</span>'
                         + '<span class="v">' + x.proj + '</span>'
                         // 외작은 입고 여부라 0 또는 전량이다. 대수로 적는다
                         + '<span class="inum">' + nf(x.rcv ? x.need : 0) + '/' + nf(x.need)
                         + ' <span class="iu">공정(대)</span></span>'
-                        + '<span class="vd ' + (near ? 'soon' : '') + '">' + (x.d < 0 ? '납기초과' : 'D-' + x.d) + '</span>'
+                        + '<span class="vd ' + (near ? 'soon' : '') + '">' + dTxt(x.d) + '</span>'
                         + '<span class="ibadges">' + st + (near ? '<span class="tag warn">임박</span>' : '') + '</span></div>';
                 }).join('');
+                const partRows = part.sort((a, b) => (a.rcv >= a.qty) - (b.rcv >= b.qty) || a.d - b.d).map(x => {
+                    const done = x.rcv >= x.qty;
+                    const near = isNear(done, x.d);
+                    const st = done ? '<span class="ib dok">입고</span>'
+                        : x.rcv > 0 ? '<span class="ib up">부분입고</span>'
+                            : '<span class="ib ' + (near ? 'dno' : 'up') + '">미입고</span>';
+                    return '<div class="vrow"><span class="icode">' + x.kind + '</span>'
+                        + '<span class="v">' + x.proj + '</span>'
+                        + '<span class="inum">' + nf(x.rcv) + '/' + nf(x.qty) + ' <span class="iu">부품(개)</span></span>'
+                        + '<span class="vd ' + (near ? 'soon' : '') + '">' + dTxt(x.d) + '</span>'
+                        + '<span class="ibadges">' + st + (near ? '<span class="tag warn">임박</span>' : '') + '</span></div>';
+                }).join('');
+                const right = [
+                    total ? '입고 <b>' + nf(rcvN) + '</b>/' + nf(total) + ' 대' : '',
+                    pTotal ? (total ? '부품 ' : '부품 입고 ') + '<b>' + nf(pRcv) + '</b>/' + nf(pTotal) + ' 개' : ''
+                ].filter(Boolean).join(' · ');
                 return '<div class="lblock ' + (open ? 'open' : '') + '">'
-                    + '<div class="lhead vhead" data-vendor="' + vi + '" style="grid-template-columns:150px 1fr 170px">'
-                    + '<span class="lname"><span class="lchev">▶</span>🏭 ' + v + '</span>'
+                    + '<div class="lhead vhead" data-vendor="' + vi + '" style="grid-template-columns:150px 1fr auto">'
+                    + '<span class="lname"><span class="lchev">▶</span>' + v + '</span>'
                     + '<div class="lmini">' + fill(rate, col) + '</div>'
-                    + '<span class="lright">입고 <b>' + nf(rcvN) + '</b>/' + nf(total) + ' 대 <span class="r" style="color:' + col + '">' + rate + '%</span> ' + warn + '</span>'
-                    + '</div><div class="litems">' + rows + '</div></div>';
+                    + '<span class="lright">' + right + ' <span class="r" style="color:' + col + '">' + rate + '%</span> ' + warn + '</span>'
+                    + '</div><div class="litems">' + jigRows + partRows + '</div></div>';
             }).join('');
-            el('#vendorRows').innerHTML = html || '<div style="padding:14px;color:#7e8794;font-size:13px">외작 공정이 없습니다</div>';
-            el('#vendorAlertLab').innerHTML = nearMiss > 0 ? '<span style="color:#d3aa55;font-weight:700">⚠ 임박 미입고 ' + nearMiss + '건</span>' : '<span style="color:#5cbf9b">임박 미입고 없음</span>';
+            el('#vendorRows').innerHTML = html || '<div style="padding:14px;color:#7e8794;font-size:13px">외작이 없습니다</div>';
+            el('#vendorAlertLab').innerHTML = nearMiss > 0 ? '<span style="color:#d3aa55;font-weight:700">임박 미입고 ' + nearMiss + '건</span>' : '<span style="color:#5cbf9b">임박 미입고 없음</span>';
             el('#vendorRows').querySelectorAll('[data-vendor]').forEach(node => node.onclick = () => {
                 const vi = +node.dataset.vendor;
                 openV = (openV === vi) ? -1 : vi;
@@ -1552,9 +1606,7 @@
         el('#pdPrev').onclick = () => moveDetail(-1);
         el('#pdNext').onclick = () => moveDetail(1);
         // 바깥(어두운 영역)을 눌러도 닫는다. 상자 안쪽 클릭은 통과시키지 않는다
-        el('#pdModal').onclick = e => {
-            if (e.target === el('#pdModal')) closeDetail();
-        };
+        el('#pdModal').onclick = e => { if (e.target === el('#pdModal')) closeDetail(); };
         document.addEventListener('keydown', e => {
             if (openP < 0) return;
             if (e.key === 'Escape') closeDetail();

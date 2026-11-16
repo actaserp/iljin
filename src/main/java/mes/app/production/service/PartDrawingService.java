@@ -57,6 +57,38 @@ public class PartDrawingService {
             """, p);
   }
 
+  /**
+   * 도면 검색 (키오스크). 파일 이름에서 '-'·공백을 빼고 비교해 '0103' 으로도 FD10-01-03 이 걸린다.
+   * projNo 가 있으면 그 프로젝트만, 없으면 진행 중(완료 아님) 프로젝트 전체. 최근 것부터 500건.
+   * 품목 도면(suju_drawing)만 본다 — 시험용 부품 도면 행은 품목을 거쳐야 해서 뺀다.
+   */
+  public List<Map<String, Object>> search(String q, String projNo) {
+    MapSqlParameterSource p = new MapSqlParameterSource();
+    String key = q == null ? "" : q.toUpperCase().replaceAll("[\\s\\-_.]", "");
+    p.addValue("q", "%" + key + "%");
+    p.addValue("projNo", projNo == null || projNo.isBlank() ? null : projNo);
+    return sqlRunner.getRows("""
+            SELECT a.id
+                 , a."DataPk"                   AS suju_id
+                 , s."Material_Name"            AS item_name
+                 , s.project_id                 AS proj_no
+                 , d.projnm                     AS proj_name
+                 , a."FileName"                 AS file_name
+                 , LOWER(COALESCE(a."ExtName", '')) AS ext
+                 , TO_CHAR(a._created, 'YYYY-MM-DD HH24:MI') AS created
+            FROM attach_file a
+            JOIN suju s          ON s.id = a."DataPk"
+            LEFT JOIN tb_da003 d ON d.projno = s.project_id
+            WHERE a."AttachName" = 'drawing'
+              AND a."TableName"  = 'suju_drawing'
+              AND REGEXP_REPLACE(UPPER(a."FileName"), '[[:space:]_.-]', '', 'g') LIKE :q
+              AND (CAST(:projNo AS varchar) IS NULL OR s.project_id = CAST(:projNo AS varchar))
+              AND COALESCE(d.endflag, '0') <> '1'
+            ORDER BY a.id DESC
+            LIMIT 500
+            """, p);
+  }
+
   /** 화면이 보낸 첨부 id 가 정말 부품/품목 도면인지 */
   public Map<String, Object> get(Integer id) {
     MapSqlParameterSource p = new MapSqlParameterSource();

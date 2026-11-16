@@ -79,6 +79,20 @@ public class DashProjectService {
 
 		// 프로젝트 단위 유형 집계 — 품목 미지정 실적까지 포함한다
 		Map<String, Map<String, Object>> kindsByProj = groupProjectKinds(getProjectKinds(spjangcd, projNo));
+		// 유형별 외작 (발주 o / 입고 r). 입고분은 그 유형의 완료(d)에 더한다
+		List<Map<String, Object>> kindOutRows = getKindOut(spjangcd, projNo);
+		mergeKindOut(kindsByProj, kindOutRows);
+		// 외주 현황(외주처별)에 붙일 부품 외작 줄 — 프로젝트별
+		Map<String, List<Map<String, Object>>> kindOutByProj = new LinkedHashMap<>();
+		for (Map<String, Object> r : kindOutRows) {
+			Map<String, Object> m = new LinkedHashMap<>();
+			m.put("kind", str(r.get("kind")));
+			m.put("vendor", str(r.get("company_name")));
+			m.put("qty", toDouble(r.get("out_qty")));
+			m.put("rcv", toDouble(r.get("rcv_qty")));
+			m.put("due", str(r.get("due_date")));
+			kindOutByProj.computeIfAbsent(str(r.get("proj_no")), k -> new ArrayList<>()).add(m);
+		}
 
 		// WBS 계획 / 마일스톤 / 지연
 		Map<String, List<Map<String, Object>>> wbsByProj = groupWbs(getWbs(spjangcd, projNo));
@@ -132,6 +146,8 @@ public class DashProjectService {
 			proj.put("dsteps", buildDesignSteps(rows));
 			// 가공품 축 요약. 품목별 합계보다 클 수 있다 (품목 미지정 실적이 여기만 잡힘)
 			proj.put("kinds", kindsByProj.getOrDefault(pno, new LinkedHashMap<>()));
+			// 유형별(부품) 외작 — 외주처 · 유형별 발주 수량 / 입고 수량 (단위: 개)
+			proj.put("kindOut", kindOutByProj.getOrDefault(pno, new ArrayList<>()));
 
 			List<Map<String, Object>> wbs = wbsByProj.getOrDefault(pno, new ArrayList<>());
 			proj.put("wbs", wbs);
@@ -473,7 +489,7 @@ public class DashProjectService {
                  , w."Worker"        AS worker
                  , w."Kind"          AS kind
                  , s."Material_Name" AS item_name
-                 , TO_CHAR(w."StartTime", 'HH24:MI') AS start_time
+                 , TO_CHAR(w."StartTime", 'YYYY-MM-DD HH24:MI') AS start_time
             FROM iljin_prod_working w
             LEFT JOIN suju s ON s.id = w."Suju_id"
             WHERE w.spjangcd = :spjangcd
@@ -780,6 +796,64 @@ public class DashProjectService {
             """, p);
 	}
 
+	/**
+	 * 유형별 외작 — 프로젝트·유형·외주처별 외작 발주 수량과 입고 수량.
+	 * iljin_kind_out (생산 지시 화면) → balju(PlanTableName='iljin_kind_out') → mat_inout 입고.
+	 * 테이블이 아직 없으면(DDL 전) 빈 목록으로 넘긴다 — 대시보드가 통째로 죽지 않게.
+	 */
+	private List<Map<String, Object>> getKindOut(String spjangcd, String projNo) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("projNo", nullIfEmpty(projNo));
+		try {
+			// SqlRunner 는 SQL 오류를 삼키고 null 을 돌려준다 → null 도 빈 목록으로
+			List<Map<String, Object>> r = sqlRunner.getRows("""
+                SELECT k.proj_no, k.kind
+                     , COALESCE(NULLIF(k.company_name, ''), '(미지정)') AS company_name
+                     , TO_CHAR(MIN(k.due_date), 'YYYY-MM-DD') AS due_date
+                     , SUM(k.qty) AS out_qty
+                     , SUM(COALESCE(mi.in_qty, 0)) AS rcv_qty
+                FROM iljin_kind_out k
+                LEFT JOIN (
+                    SELECT "SourceDataPk", SUM("InputQty") AS in_qty
+                    FROM mat_inout
+                    WHERE "SourceTableName" = 'balju' AND "InOut" = 'in' AND COALESCE("_status", 'a') = 'a'
+                    GROUP BY "SourceDataPk"
+                ) mi ON mi."SourceDataPk" = k.balju_id
+                WHERE k.state = 'active'
+                  AND (CAST(:projNo AS varchar) IS NULL OR k.proj_no = CAST(:projNo AS varchar))
+                GROUP BY k.proj_no, k.kind, COALESCE(NULLIF(k.company_name, ''), '(미지정)')
+                """, p);
+			return r == null ? new ArrayList<>() : r;
+		} catch (Exception e) {
+			log.warn("[dash] 유형별 외작 조회 실패 (iljin_kind_out DDL 확인): {}", e.getMessage());
+			return new ArrayList<>();
+		}
+	}
+
+	/** 유형 항목에 o(외작 발주) · r(외작 입고) 를 붙이고, 입고분을 완료 d 에 더한다 */
+	@SuppressWarnings("unchecked")
+	private void mergeKindOut(Map<String, Map<String, Object>> kindsByProj, List<Map<String, Object>> rows) {
+		for (Map<String, Object> r : rows) {
+			String pno = str(r.get("proj_no"));
+			String kind = str(r.get("kind"));
+			if (pno.isEmpty() || kind.isEmpty()) continue;
+			Map<String, Object> byKind = kindsByProj.computeIfAbsent(pno, k -> new LinkedHashMap<>());
+			Map<String, Object> e = (Map<String, Object>) byKind.computeIfAbsent(kind, k -> {
+				Map<String, Object> m = new LinkedHashMap<>();
+				m.put("t", 0d);
+				m.put("d", 0d);
+				m.put("x", 0d);
+				m.put("ops", new LinkedHashMap<String, Object>());
+				return m;
+			});
+			// 한 유형을 여러 업체에 나눠 보내므로 업체별 줄을 더한다
+			double o = toDouble(r.get("out_qty")), rc = toDouble(r.get("rcv_qty"));
+			e.put("o", toDouble(e.get("o")) + o);
+			e.put("r", toDouble(e.get("r")) + rc);
+			e.put("d", toDouble(e.get("d")) + rc);
+		}
+	}
+
 	/** proj_no → {유형: {t, d, ops}} — groupKinds 와 같은 모양 */
 	private Map<String, Map<String, Object>> groupProjectKinds(List<Map<String, Object>> rows) {
 		Map<String, Map<String, Object>> out = new LinkedHashMap<>();
@@ -1038,7 +1112,7 @@ public class DashProjectService {
                  , w."Kind"          AS kind
                  , s."Material_Name" AS item_name
                  , w."Project_id"    AS proj_no
-                 , TO_CHAR(w."StartTime", 'HH24:MI') AS start_time
+                 , TO_CHAR(w."StartTime", 'YYYY-MM-DD HH24:MI') AS start_time
             FROM iljin_prod_working w
             LEFT JOIN suju s ON s.id = w."Suju_id"
             WHERE w.spjangcd = :spjangcd
@@ -1183,7 +1257,7 @@ public class DashProjectService {
                  , w."Worker"      AS worker
                  , w."Kind"        AS kind
                  , s."Material_Name" AS item_name
-                 , TO_CHAR(w."StartTime", 'HH24:MI') AS start_time
+                 , TO_CHAR(w."StartTime", 'YYYY-MM-DD HH24:MI') AS start_time
             FROM equ e
             JOIN work_center wc ON wc.id = e."WorkCenter_id"
             JOIN equ_grp g ON g.id = e."EquipmentGroup_id" AND g."Code" NOT IN ('CMM')

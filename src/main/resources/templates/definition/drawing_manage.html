@@ -38,6 +38,40 @@
         .hist-title { margin: 18px 0 6px; font-size: 13px; font-weight: 700; color: #445; }
         .link-dl { color: #2b5fc4; cursor: pointer; text-decoration: underline; }
         .btn-mini { font-size: 11px; padding: 2px 7px; border: 1px solid #e0a0a0; background: #fff; color: #c00; cursor: pointer; border-radius: 3px; }
+
+        /* 도면 올리기 — 생산 지시 [도면 일괄] 과 같은 저장소(attach_file 'suju_drawing') */
+        .du-rule { background: #f5f8fc; border: 1px solid #dbe4f0; border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: #2d3748; line-height: 1.6; }
+        .du-rule .du-ex { font-family: Consolas, monospace; font-size: 12.5px; color: #1f4e8c; margin: 2px 0 4px; }
+        .du-rule .du-ex span { color: #b45309; font-weight: 700; }
+        .du-zones { display: flex; gap: 10px; margin-top: 10px; }
+        .du-zone { flex: 1; border: 2px dashed #9fb3d1; border-radius: 10px; padding: 16px 10px; text-align: center; cursor: pointer; background: #f8fbff; }
+        .du-zone:hover { background: #eef4ff; }
+        .du-zone.over { background: #dbe7ff; border-color: #1f4e8c; }
+        .du-zone.orig { border-color: #d6b98a; background: #fffcf6; }
+        .du-zone.orig:hover { background: #fff4e2; }
+        .du-zone.orig.over { background: #ffe9c2; border-color: #b45309; }
+        .du-zone .du-zt { font-size: 14px; font-weight: 800; color: #1f2a44; }
+        .du-zone .du-zs { font-size: 12px; color: #4a5568; margin-top: 2px; }
+        .du-zone .du-zh { font-size: 11.5px; color: #8b95a7; margin-top: 5px; }
+        .du-count { margin: 10px 0 6px; font-size: 12.5px; color: #4a5568; }
+
+        .badge { white-space: nowrap; }
+        .badge.part { background: #e3f3ea; color: #1f8f53; }
+        .badge.unit { background: #e8f0fe; color: #1f4e8c; }
+        .badge.whole { background: #fff4d6; color: #9a6400; }
+        .badge.miss { background: #fde8e8; color: #b3261e; }
+        .badge.old { background: #eef0f3; color: #888; }
+        .dh-sum { font-size: 12.5px; color: #445; padding: 4px 2px; line-height: 1.7; }
+        .dh-sum b { color: #1f2a44; }
+        .hist-title small { font-weight: 400; color: #8a93a3; font-size: 11.5px; margin-left: 6px; }
+        tr.old td { color: #8a93a3; background: #fafbfc; }
+        tr.old .link-dl { color: #7d8aa3; }
+        tr.grp-start td { border-top: 2px solid #c9d3e3; }
+        .link-dl { word-break: break-all; }
+        .orig-cell { text-align: left !important; line-height: 1.6; }
+        .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+        .chips span { background: #f1f4f9; border-radius: 4px; padding: 1px 6px; font-size: 11.5px; color: #445; }
+        .dh-legend { font-size: 11.5px; color: #8a93a3; margin-top: 6px; line-height: 1.7; }
     </style>
 </head>
 <th:block layout:fragment="content">
@@ -72,10 +106,10 @@
                 <div class="container-fluid" style="padding:0;">
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:18%"><col style="width:38%"><col style="width:14%"><col style="width:14%"><col style="width:16%">
+                            <col style="width:16%"><col style="width:36%"><col style="width:12%"><col style="width:14%"><col style="width:11%"><col style="width:11%">
                         </colgroup>
                         <thead>
-                        <tr><th>라인</th><th>공정명</th><th>유니트</th><th>설비타입</th><th>최신도면</th></tr>
+                        <tr><th>라인</th><th>공정명</th><th>유니트</th><th>설비타입</th><th>도면</th><th>원본</th></tr>
                         </thead>
                         <tbody id="unitBody"></tbody>
                     </table>
@@ -85,12 +119,12 @@
             <!-- 우: 도면 첨부 / 이력 -->
             <section class="section right">
                 <div class="section-top">
-                    <h3>도면 첨부 / 등록</h3>
+                    <h3>도면 올리기 / 이력</h3>
                     <span class="target-tag" id="targetTag">유니트를 선택하세요</span>
                 </div>
                 <div class="container-fluid">
                     <div id="formArea">
-                        <p class="pick-empty">왼쪽에서 유니트(공정)를 선택하면 도면을 첨부할 수 있습니다.</p>
+                        <p class="pick-empty">왼쪽에서 유니트(공정)를 선택하면 도면을 올릴 수 있습니다.</p>
                     </div>
                 </div>
             </section>
@@ -99,7 +133,17 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <script th:src="@{/js/iljin_drawing.js}"></script>
     <script type="text/javascript">
+        /*
+         * 도면 관리 — 유니트(공정 = 생산 지시의 품목) 도면을 올리고 이력을 본다.
+         *   저장은 생산 지시 [도면 일괄] 과 같은 곳 (attach_file TableName='suju_drawing', DataPk=suju.id).
+         *   그래서 여기서 올린 도면이 생산 지시 · 키오스크 · 도면 이력 관리에 그대로 나온다.
+         *   도면(PDF·그림)과 원본(DWG·DXF)은 칸을 나눠 올리고, 파일 이름으로 도면번호 · REV · 원본 짝을 정한다
+         *   (iljin_drawing.js parse · findOriginals — 키오스크와 같은 규칙).
+         */
+        var IMG_EXT = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'];
+        var MAX_BYTES = 200 * 1024 * 1024;   // application.properties max-file-size 와 같이
 
         var dm = {
             spjangcd: null,
@@ -107,6 +151,9 @@
             lineName: '',
             units: [],
             selUnit: null,     // 선택된 유니트(suju) 객체
+            files: [],         // 선택 유니트에 올라간 파일
+            pending: [],       // 올릴 파일
+            busy: false,
 
             /* ---------------- 초기화 ---------------- */
             init: function () {
@@ -201,6 +248,22 @@
                     });
             },
 
+            /** 왼쪽 목록의 도면 · 원본 개수 */
+            loadCounts: function () {
+                // 도면 · 원본 개수는 /units 에 같이 온다 — 올리기 · 삭제 뒤 선택은 그대로 두고 개수만 새로
+                var _this = this, proj = this.projNo;
+                if (!proj) return;
+                AjaxUtil.getAsyncData('/api/drawing-manage/units',
+                    {spjangcd: this.spjangcd, project_no: proj, line_name: ''},
+                    function (result) {
+                        if (proj !== _this.projNo) return;
+                        _this.units = (result && result.data) || [];
+                        var sel = _this.selUnit;
+                        if (sel) _this.selUnit = _this.units.filter(function (u) { return u.suju_id === sel.suju_id; })[0] || sel;
+                        _this.renderUnits();
+                    });
+            },
+
             filteredUnits: function () {
                 var _this = this;
                 if (!this.lineName) return this.units;
@@ -215,22 +278,24 @@
                 var html = '';
                 list.forEach(function (u) {
                     var on = (_this.selUnit && _this.selUnit.suju_id === u.suju_id) ? ' on' : '';
-                    var latest = u.latest_version
-                        ? '<span class="badge has">' + _this.esc(u.latest_version) + '</span>'
-                        : '<span class="badge none">없음</span>';
+                    var c = u;   // draw_cnt · orig_cnt 는 /units 에 같이 온다
+                    var n = function (v) {
+                        return +v ? '<span class="badge has">' + (+v) + '</span>' : '<span class="badge none">0</span>';
+                    };
                     html += '<tr class="unit-row' + on + '" data-suju="' + u.suju_id + '">'
                         + '<td>' + _this.esc(u.line_name) + '</td>'
                         + '<td class="l">' + _this.esc(u.proc_name) + '</td>'
                         + '<td>' + _this.esc(u.unit_qty) + '</td>'
                         + '<td>' + _this.esc(u.equip_type) + '</td>'
-                        + '<td>' + latest + '</td>'
+                        + '<td>' + n(c.draw_cnt) + '</td>'
+                        + '<td>' + n(c.orig_cnt) + '</td>'
                         + '</tr>';
                 });
 
                 // 데이터가 없더라도 화면이 비지 않도록 빈 행으로 채움 (최소 10행)
                 var fillCount = Math.max(10 - list.length, 0);
                 for (var i = 0; i < fillCount; i++) {
-                    html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
+                    html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>';
                 }
 
                 $body.html(html);
@@ -245,192 +310,332 @@
                 this.renderForm();
             },
 
-            /* ---------------- 우측 폼 ---------------- */
+            /* ---------------- 우측: 올리기 + 이력 ---------------- */
             renderForm: function () {
                 var u = this.selUnit;
+                this.pending = [];
+                this.files = [];
 
                 if (!u) {
                     $('#targetTag').text('좌측에서 유니트를 선택하세요');
-                } else {
-                    $('#targetTag').html('<b>' + this.esc(this.projNo) + '</b> · '
-                        + this.esc(u.line_name) + ' · ' + this.esc(u.proc_name));
+                    $('#formArea').html('<p class="pick-empty">왼쪽에서 유니트(공정)를 선택하면 도면을 올릴 수 있습니다.</p>');
+                    return;
                 }
-
-                var targetText = u
-                    ? (this.esc(u.line_name) + ' · <b>' + this.esc(u.proc_name) + '</b>'
-                        + ' (유니트 ' + this.esc(u.unit_qty) + ' / ' + this.esc(u.equip_type) + ')')
-                    : '<span style="color:#99a2b2;">좌측에서 유니트(공정)를 선택하세요</span>';
-
-                var nextVer = 'v' + (this.nextVersionNum(u ? u.latest_version : null));
+                $('#targetTag').html('<b>' + this.esc(this.projNo) + '</b> · '
+                    + this.esc(u.line_name) + ' · ' + this.esc(u.proc_name));
 
                 $('#formArea').html(
-                    '<div class="form-grid">'
-                    + '  <label>대상</label>'
-                    + '  <div id="targetInfo">' + targetText + '</div>'
-                    + '  <label for="fDrawNo">도면번호</label>'
-                    + '  <div><input id="fDrawNo" type="text" placeholder="도면번호"></div>'
-                    + '  <label for="fVer">버전</label>'
-                    + '  <div><input id="fVer" type="text" value="' + nextVer + '" style="max-width:120px;display:inline-block">'
-                    + '    <span class="hint">자동 제안값 (수정 가능)</span></div>'
-                    + '  <label for="fDate">등록일</label>'
-                    + '  <div><input id="fDate" type="date" value="' + this.todayYMD() + '" style="max-width:170px"></div>'
-                    + '  <label class="full">도면 파일</label>'
-                    + '  <div class="full">'
-                    + '    <div class="file-drop" id="fileDrop">클릭하여 도면 파일 첨부 (PDF, DWG, 이미지)</div>'
-                    + '    <input id="fileInput" type="file" style="display:none">'
-                    + '  </div>'
-                    + '  <label class="full">비고</label>'
-                    + '  <div class="full"><textarea id="fMemo" placeholder="변경 사유, 특이사항 등"></textarea></div>'
+                    '<div class="du-rule">'
+                    + '  <b>파일 이름 규칙</b> — 형식과 상관없이 <b>도면번호-REV번호</b> 로 같게, 확장자만 다르게'
+                    + '  <div class="du-ex">FD10-01-03-REV11<span>.pdf</span> · FD10-01-03-REV11<span>.png</span> · FD10-01-03-REV11<span>.dwg</span></div>'
+                    + '  <div style="color:#718096;font-size:12px;">원본은 유닛 하나(FD10-01-00.dxf)나 공정 전체를 한 파일로 올려도 됩니다 — 도면번호 앞부분으로 짝을 찾습니다.'
+                    + '   같은 도면번호는 REV 높은 것이 최신, 나머지는 이력. 이미 올린 파일 이름은 건너뜁니다.</div>'
                     + '</div>'
-                    + '<div class="form-actions">'
-                    + '  <a class="btn" id="btnCancel">초기화</a>'
-                    + '  <a class="btn primary y_write_auth" id="btnSaveDrawing">도면 등록</a>'
+                    + '<input type="file" id="drawFile" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.webp" style="display:none">'
+                    + '<input type="file" id="origFile" multiple accept=".dwg,.dxf" style="display:none">'
+                    + '<div class="du-zones">'
+                    + '  <div class="du-zone" id="duZoneDraw"><div class="du-zt">도면 올리기</div><div class="du-zs">PDF · PNG · JPG</div>'
+                    + '    <div class="du-zh">여기로 끌어다 놓거나 눌러서 선택 (폴더도 됨)</div></div>'
+                    + '  <div class="du-zone orig" id="duZoneOrig"><div class="du-zt">원본 올리기</div><div class="du-zs">DWG · DXF</div>'
+                    + '    <div class="du-zh">여기로 끌어다 놓거나 눌러서 선택 (폴더도 됨)</div></div>'
                     + '</div>'
+                    + '<div id="duPending"></div>'
                     + '<div class="hist-title">도면 이력</div>'
-                    + '<table class="work-table">'
-                    + '  <colgroup><col style="width:12%"><col style="width:16%"><col style="width:32%"><col style="width:16%"><col style="width:14%"><col style="width:10%"></colgroup>'
-                    + '  <thead><tr><th>버전</th><th>도면번호</th><th>파일명</th><th>등록일</th><th>최신</th><th>삭제</th></tr></thead>'
-                    + '  <tbody id="histBody"><tr><td colspan="6" class="pick-empty">'
-                    + (u ? '조회 중...' : '유니트를 선택하면 이력이 표시됩니다.') + '</td></tr></tbody>'
-                    + '</table>'
+                    + '<div id="histArea"><p class="pick-empty">조회 중...</p></div>'
                 );
-
-                if (u) this.loadHistory(u.suju_id);
+                this.renderPending();
+                this.loadFiles();
             },
 
-            nextVersionNum: function (latestVersion) {
-                var n = parseInt(String(latestVersion || '').replace(/[^0-9]/g, ''), 10);
-                return (isNaN(n) ? 0 : n) + 1;
-            },
+            ext: function (name) { return (String(name || '').split('.').pop() || '').toLowerCase(); },
+            isCadName: function (name) { var e = this.ext(name); return e === 'dwg' || e === 'dxf'; },
+            rank: function (name) { var e = this.ext(name); return e === 'pdf' ? 0 : IMG_EXT.indexOf(e) >= 0 ? 1 : 2; },
 
-            /* ---------------- 이력 ---------------- */
-            loadHistory: function (sujuId) {
-                var _this = this;
-                AjaxUtil.getAsyncData('/api/drawing-manage/history', {suju_id: sujuId},
-                    function (result) {
-                        var rows = (result && result.data) || [];
-                        if (!rows.length) {
-                            $('#histBody').html('<tr><td colspan="6" class="pick-empty">등록된 도면이 없습니다.</td></tr>');
-                            return;
-                        }
-                        var html = '';
-                        rows.forEach(function (r) {
-                            var fileCell = r.file_data_pk
-                                ? '<span class="link-dl" data-file="' + r.file_data_pk + '">' + _this.esc(r.file_name) + '</span>'
-                                : _this.esc(r.file_name);
-                            html += '<tr>'
-                                + '<td>' + _this.esc(r.version) + '</td>'
-                                + '<td>' + _this.esc(r.drawing_no) + '</td>'
-                                + '<td class="l">' + fileCell + '</td>'
-                                + '<td>' + _this.esc(r.reg_date) + '</td>'
-                                + '<td>' + (r.latest_yn === 'Y' ? '<span class="badge has">최신</span>' : '') + '</td>'
-                                + '<td><button type="button" class="btn-mini" data-del="' + r.id + '">삭제</button></td>'
-                                + '</tr>';
-                        });
-                        $('#histBody').html(html);
+            /** 선택 유니트에 올라간 파일 → 이력 표 */
+            loadFiles: function () {
+                var _this = this, u = this.selUnit;
+                if (!u) return;
+                AjaxUtil.getAsyncData('/api/drawing-manage/files', {suju_id: u.suju_id}, function (res) {
+                    if (!_this.selUnit || _this.selUnit.suju_id !== u.suju_id) return;
+                    _this.files = ((res && res.data) || []).map(function (f) {
+                        var p = IljinDrawing.parse(f.file_name);
+                        return Object.assign({}, f, {suju_id: u.suju_id, _no: p.no, _rev: p.rev, _r: p.rev == null ? -1 : p.rev});
                     });
+                    _this.renderPending();
+                    _this.drawHistory();
+                });
             },
 
-            /* ---------------- 저장 ---------------- */
-            save: function () {
-                var _this = this;
-                var u = this.selUnit;
-                if (!u) {
-                    Alert.alert('', '좌측에서 유니트(공정)를 먼저 선택하세요.');
-                    return;
-                }
-
-                var fileInput = document.getElementById('fileInput');
-                var hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
-                if (!hasFile) {
-                    Alert.alert('', '도면 파일을 첨부하세요.');
-                    return;
-                }
-
-                var version = ($('#fVer').val() || '').trim();
-                if (!version) {
-                    Alert.alert('', '버전을 입력하세요.');
-                    return;
-                }
-
-                Alert.confirm('', '도면을 등록하시겠습니까?', function () {
-
-                    // 1) 도면 행 저장 (파일 정보 제외) → id 확보
-                    var param = {
-                        spjangcd: _this.spjangcd,
-                        suju_id: u.suju_id,
-                        project_no: _this.projNo,
-                        line_name: u.line_name || '',
-                        unit_code: u.proc_code || u.proc_name || '',
-                        process_name: u.proc_name || '',
-                        drawing_no: ($('#fDrawNo').val() || '').trim(),
-                        version: version,
-                        latest_yn: 'Y',
-                        reg_date: $('#fDate').val() || _this.todayYMD(),
-                        remark: ($('#fMemo').val() || '').trim()
-                    };
-
-                    AjaxUtil.postAsyncData('/api/drawing-manage/save', param, function (res) {
-                        if (!res || !res.success) {
-                            Alert.alert('저장 실패', (res && res.message) || '알 수 없는 오류');
-                            return;
-                        }
-
-                        var drawingId = res.data && res.data.id;
-
-                        // 2) 파일 업로드 (기존 첨부 시스템 재사용)
-                        var fd = new FormData();
-                        fd.append('uploadfile', fileInput.files[0]);
-                        fd.append('tableName', 'dwg_drawing');
-                        fd.append('others', 'dwg_drawing');   // 다운로드 경로와 일치시켜야 함
-                        fd.append('attachName', 'drawing');
-                        fd.append('DataPk', drawingId);
-                        fd.append('onlyOne', 1);
-
-                        var up = AjaxUtil.postFileSyncData('/api/files/upload', fd);
-                        if (!up || !up.success) {
-                            Alert.alert('업로드 실패', (up && up.message) || '파일 업로드에 실패했습니다.');
-                            return;
-                        }
-
-                        // 3) 파일 정보 반영 (2차 저장)
-                        param.id = drawingId;
-                        param.file_data_pk = up.fileId;
-                        param.file_name = up.fileNm;
-
-                        AjaxUtil.postAsyncData('/api/drawing-manage/save', param, function (res2) {
-                            if (res2 && res2.success) {
-                                Notify.success('도면이 등록되었습니다.');
-                                _this.loadUnits(false);
-                            } else {
-                                Alert.alert('저장 실패', (res2 && res2.message) || '알 수 없는 오류');
-                            }
+            /* ---------------- 올릴 파일 ---------------- */
+            filesFromDrop: function (dt) {
+                var items = Array.prototype.map.call(dt.items || [], function (i) { return i.webkitGetAsEntry && i.webkitGetAsEntry(); })
+                    .filter(Boolean);
+                if (!items.length) return Promise.resolve(Array.prototype.slice.call(dt.files || []));
+                var out = [];
+                var walk = function (entry) {
+                    if (entry.isFile) return new Promise(function (res) { entry.file(function (f) { out.push(f); res(); }, function () { res(); }); });
+                    if (!entry.isDirectory) return Promise.resolve();
+                    var reader = entry.createReader();
+                    var more = function () {
+                        return new Promise(function (res) { reader.readEntries(res, function () { res([]); }); }).then(function (batch) {
+                            if (!batch.length) return;
+                            return batch.reduce(function (p, c) { return p.then(function () { return walk(c); }); }, Promise.resolve()).then(more);
                         });
+                    };
+                    return more();
+                };
+                return items.reduce(function (p, en) { return p.then(function () { return walk(en); }); }, Promise.resolve())
+                    .then(function () { return out; });
+            },
+
+            addFiles: function (list) {
+                var _this = this;
+                if (!this.selUnit) return;
+                var seen = {};
+                this.pending.forEach(function (r) { seen[r.file.name.toLowerCase()] = 1; });
+                Array.prototype.forEach.call(list || [], function (f) {
+                    if (!f || !f.name || f.name.charAt(0) === '.' || seen[f.name.toLowerCase()]) return;
+                    seen[f.name.toLowerCase()] = 1;
+                    var p = IljinDrawing.parse(f.name);
+                    _this.pending.push({file: f, no: p.no, rev: p.rev, big: f.size > MAX_BYTES});
+                });
+                this.pending.sort(function (a, b) { return a.no.localeCompare(b.no, 'ko', {numeric: true}) || a.file.name.localeCompare(b.file.name); });
+                this.renderPending();
+            },
+
+            /** 올릴 파일 한 줄의 상태 — 새 도면 / 최신으로 교체 / 이력 / 원본 종류 / 건너뜀 */
+            status: function (r) {
+                var _this = this;
+                var name = r.file.name;
+                if (r.big) return {t: '200MB 초과 — 올릴 수 없음', c: '#b3261e', skip: true};
+                if (this.files.some(function (f) { return String(f.file_name || '').toLowerCase() === name.toLowerCase(); }))
+                    return {t: '이미 있음 — 건너뜀', c: '#718096', skip: true};
+                var rv = r.rev == null ? -1 : r.rev;
+                if (this.isCadName(name)) {
+                    // 원본: 이미 올린 도면 + 이번에 올리는 도면 번호로 종류를 본다
+                    var nos = {};
+                    this.files.forEach(function (f) { if (!_this.isCadName(f.file_name)) nos[f._no] = 1; });
+                    this.pending.forEach(function (x) { if (!x.big && !_this.isCadName(x.file.name)) nos[x.no] = 1; });
+                    var k = IljinDrawing.origKind(name, Object.keys(nos));
+                    var fx = this.ext(name).toUpperCase();
+                    if (k.kind === 'part') return {t: '원본 ' + fx + ' — 이 도면 원본', c: '#1f6f3f'};
+                    if (k.kind === 'unit') return {t: '원본 ' + fx + ' — 유닛 원본 (유닛 도면들에서 열림)', c: '#1f4e8c'};
+                    if (k.kind === 'whole') return {t: '원본 ' + fx + ' — 전체 원본 (이 공정 도면 전부에서 열림)', c: '#9a6400'};
+                    return {t: '원본 ' + fx + ' — 짝 도면 없음 (같은 이름 PDF 를 올리면 연결)', c: '#b45309'};
+                }
+                var old = -2;
+                this.files.forEach(function (f) { if (!_this.isCadName(f.file_name) && f._no === r.no) old = Math.max(old, f._r); });
+                var top = old;
+                this.pending.forEach(function (x) { if (!x.big && !_this.isCadName(x.file.name) && x.no === r.no) top = Math.max(top, x.rev == null ? -1 : x.rev); });
+                if (old === -2) return rv < top ? {t: '이력 (최신은 REV' + top + ')', c: '#718096'} : {t: '새 도면', c: '#1f6f3f'};
+                if (rv === old) return {t: '같은 REV' + (old < 0 ? '' : old) + ' — ' + this.ext(name).toUpperCase() + ' 추가', c: '#1f6f3f'};
+                if (rv >= top) return {t: '최신으로 교체' + (old >= 0 ? ' (기존 REV' + old + ')' : ''), c: '#1f6f3f'};
+                return {t: '이력으로 보관 (최신은 REV' + top + ')', c: '#718096'};
+            },
+
+            renderPending: function () {
+                var _this = this, rows = this.pending, box = $('#duPending');
+                if (!box.length) return;
+                if (!rows.length) { box.html(''); return; }
+                var go = 0;
+                var html = '<div class="du-count">올릴 파일 <b>' + rows.length + '</b>개</div>'
+                    + '<table class="work-table"><colgroup><col style="width:42%"><col style="width:12%"><col style="width:38%"><col style="width:8%"></colgroup>'
+                    + '<thead><tr><th>파일</th><th>REV</th><th>상태</th><th></th></tr></thead><tbody>';
+                rows.forEach(function (r, i) {
+                    var st = _this.status(r);
+                    if (!st.skip) go++;
+                    html += '<tr><td class="l" style="word-break:break-all">' + _this.esc(r.file.name) + '</td>'
+                        + '<td>' + (r.rev != null ? r.rev : '-') + '</td>'
+                        + '<td class="l" style="color:' + st.c + '">' + _this.esc(st.t) + '</td>'
+                        + '<td><button type="button" class="btn-mini" data-pdel="' + i + '">빼기</button></td></tr>';
+                });
+                html += '</tbody></table>'
+                    + '<div class="form-actions">'
+                    + '  <a class="btn" id="btnCancel">비우기</a>'
+                    + '  <a class="btn primary y_write_auth" id="btnSaveDrawing">' + (go ? '올리기 (' + go + ')' : '올릴 파일 없음') + '</a>'
+                    + '</div>';
+                box.html(html);
+            },
+
+            uploadOne: function (file, sujuId) {
+                return new Promise(function (resolve) {
+                    var fd = new FormData();
+                    fd.append('uploadfile', file);
+                    fd.append('tableName', 'suju_drawing');
+                    fd.append('others', 'suju_drawing');
+                    fd.append('attachName', 'drawing');
+                    fd.append('DataPk', sujuId);
+                    AjaxUtil.postFileAsyncData('/api/files/upload', fd,
+                        function (res) { resolve(!!(res && res.success !== false && res.fileId)); },
+                        function () { resolve(false); });
+                });
+            },
+
+            upload: function () {
+                var _this = this, u = this.selUnit;
+                if (!u) { Alert.alert('', '좌측에서 유니트(공정)를 먼저 선택하세요.'); return; }
+                if (this.busy) return;
+                var go = this.pending.filter(function (r) { return !_this.status(r).skip; });
+                if (!go.length) { Alert.alert('', '올릴 파일이 없습니다. (이미 올린 파일은 건너뜁니다)'); return; }
+                this.busy = true;
+                var btn = $('#btnSaveDrawing'), fail = [], next = 0, done = 0;
+                // 수백 개라 3개씩 동시에
+                var worker = function () {
+                    if (next >= go.length) return Promise.resolve();
+                    var r = go[next++];
+                    return _this.uploadOne(r.file, u.suju_id).then(function (ok) {
+                        if (!ok) fail.push(r.file.name);
+                        btn.text('올리는 중 ' + (++done) + '/' + go.length);
+                        return worker();
+                    });
+                };
+                Promise.all([worker(), worker(), worker()]).then(function () {
+                    _this.busy = false;
+                    _this.pending = _this.pending.filter(function (r) { return fail.indexOf(r.file.name) >= 0; });
+                    Alert.alert('', '도면 ' + (go.length - fail.length) + '개를 올렸습니다.'
+                        + (fail.length ? '<br>실패 ' + fail.length + '개: ' + fail.slice(0, 10).map(_this.esc).join(', ')
+                            + (fail.length > 10 ? ' 외 ' + (fail.length - 10) + '개' : '') + '<br>[올리기] 를 다시 누르면 실패한 것만 올립니다.' : ''));
+                    _this.loadFiles();
+                    _this.loadCounts();
+                });
+            },
+
+            /* ---------------- 이력 (도면 / 원본 + 짝) ---------------- */
+            drawHistory: function () {
+                var _this = this, files = this.files;
+                if (!files.length) {
+                    $('#histArea').html('<p class="pick-empty" style="padding:20px 10px">올린 도면이 없습니다.</p>');
+                    return;
+                }
+                var draws = files.filter(function (f) { return !_this.isCadName(f.file_name); });
+                var cads = files.filter(function (f) { return _this.isCadName(f.file_name); });
+
+                var groups = {}, order = [];
+                draws.forEach(function (f) {
+                    if (!groups[f._no]) { groups[f._no] = []; order.push(f._no); }
+                    groups[f._no].push(f);
+                });
+                order.sort(function (a, b) { return a.localeCompare(b, 'ko', {numeric: true}); });
+                order.forEach(function (no) {
+                    groups[no].sort(function (a, b) { return (b._r - a._r) || (_this.rank(a.file_name) - _this.rank(b.file_name)) || (b.id - a.id); });
+                });
+
+                // 도면번호마다 [원본 열기] 가 여는 원본 — 원본 표의 '열리는 도면' 도 여기서
+                var origOf = {}, openedBy = {}, kindOf = {};
+                order.forEach(function (no) {
+                    var os = IljinDrawing.findOriginals(groups[no][0], files);
+                    origOf[no] = os;
+                    os.forEach(function (o) {
+                        (openedBy[o.id] = openedBy[o.id] || []).push(no);
+                        if (!kindOf[o.id]) kindOf[o.id] = o.kind;
                     });
                 });
+                var badge = function (kind) {
+                    return kind === 'part' ? '<span class="badge part">이 도면 원본</span>'
+                        : kind === 'unit' ? '<span class="badge unit">유닛 원본</span>'
+                            : kind === 'whole' ? '<span class="badge whole">전체 원본</span>'
+                                : '<span class="badge miss">원본 없음</span>';
+                };
+                var cnt = function (list, test) { return list.filter(test).length; };
+                var noOrig = order.filter(function (no) { return !origOf[no].length; }).length;
+
+                var sum = '<div class="dh-sum">도면 <b>' + order.length + '종</b> (PDF ' + cnt(draws, function (f) { return _this.ext(f.file_name) === 'pdf'; })
+                    + ' · 그림 ' + cnt(draws, function (f) { return _this.rank(f.file_name) === 1; }) + ')'
+                    + ' &nbsp;|&nbsp; 원본 <b>' + cads.length + '개</b> (DWG ' + cnt(cads, function (f) { return _this.ext(f.file_name) === 'dwg'; })
+                    + ' · DXF ' + cnt(cads, function (f) { return _this.ext(f.file_name) === 'dxf'; }) + ')'
+                    + (order.length ? ' &nbsp;|&nbsp; ' + (noOrig ? '원본 없는 도면 <b style="color:#b3261e">' + noOrig + '</b>'
+                        : '<span style="color:#1f8f53">모든 도면에서 원본을 열 수 있음</span>') : '') + '</div>';
+
+                // 도면 표
+                var t1 = '<div class="hist-title">도면 (PDF·그림)<small>파일 이름을 누르면 도면을 봅니다</small></div>'
+                    + '<table class="work-table"><colgroup><col style="width:17%"><col style="width:8%"><col style="width:7%">'
+                    + '<col style="width:27%"><col style="width:11%"><col style="width:23%"><col style="width:7%"></colgroup>'
+                    + '<thead><tr><th>도면번호</th><th>REV</th><th>형식</th><th>파일명</th><th>등록일</th><th>원본 (원본 열기 시)</th><th>삭제</th></tr></thead><tbody>';
+                if (!order.length) t1 += '<tr><td colspan="7" class="pick-empty" style="padding:14px">PDF·그림 도면이 없습니다.</td></tr>';
+                order.forEach(function (no) {
+                    var g = groups[no], top = g[0]._r, os = origOf[no];
+                    var origHtml = os.length ? os.map(function (o) {
+                        return badge(o.kind) + ' <span class="link-dl" data-orig="' + o.id + '" data-no="' + _this.esc(no) + '">' + _this.esc(o.name) + '</span>';
+                    }).join('<br>') : badge('');
+                    g.forEach(function (f, i) {
+                        var old = f._r !== top;
+                        t1 += '<tr class="' + (i === 0 ? 'grp-start' : '') + (old ? ' old' : '') + '">'
+                            + (i === 0 ? '<td rowspan="' + g.length + '" class="l"><b>' + _this.esc(no) + '</b></td>' : '')
+                            + '<td>' + (f._rev != null ? f._rev : '-') + (old ? ' <span class="badge old">이전</span>' : '') + '</td>'
+                            + '<td>' + _this.esc(_this.ext(f.file_name).toUpperCase()) + '</td>'
+                            + '<td class="l"><span class="link-dl" data-view="' + f.id + '">' + _this.esc(f.file_name) + '</span></td>'
+                            + '<td>' + _this.esc(String(f.created || '').slice(0, 10)) + '</td>'
+                            + (i === 0 ? '<td rowspan="' + g.length + '" class="orig-cell">' + origHtml + '</td>' : '')
+                            + '<td><button type="button" class="btn-mini" data-del="' + f.id + '">삭제</button></td></tr>';
+                    });
+                });
+                t1 += '</tbody></table>';
+
+                // 원본 표
+                cads.sort(function (a, b) { return a._no.localeCompare(b._no, 'ko', {numeric: true}) || (b._r - a._r) || (b.id - a.id); });
+                var t2 = '<div class="hist-title">원본 (DWG·DXF)<small>파일 이름을 누르면 PC 의 도면 뷰어로 엽니다</small></div>'
+                    + '<table class="work-table"><colgroup><col style="width:27%"><col style="width:7%"><col style="width:7%">'
+                    + '<col style="width:13%"><col style="width:28%"><col style="width:11%"><col style="width:7%"></colgroup>'
+                    + '<thead><tr><th>원본 파일</th><th>형식</th><th>REV</th><th>종류</th><th>열리는 도면</th><th>등록일</th><th>삭제</th></tr></thead><tbody>';
+                if (!cads.length) t2 += '<tr><td colspan="7" class="pick-empty" style="padding:14px">원본(DWG·DXF)이 없습니다.</td></tr>';
+                cads.forEach(function (c) {
+                    var by = openedBy[c.id] || [];
+                    var newer = !by.length && cads.some(function (o) {
+                        return o !== c && o._no === c._no && _this.ext(o.file_name) === _this.ext(c.file_name) && o._r > c._r;
+                    });
+                    var kind = by.length ? badge(kindOf[c.id])
+                        : newer ? '<span class="badge old">이전 리비전</span>' : '<span class="badge miss">짝 도면 없음</span>';
+                    var chips = by.length
+                        ? '<div class="chips">' + by.slice(0, 8).map(function (n) { return '<span>' + _this.esc(n) + '</span>'; }).join('')
+                        + (by.length > 8 ? '<span>외 ' + (by.length - 8) + '장</span>' : '') + '</div>'
+                        : '<span style="color:#99a2b2">-</span>';
+                    t2 += '<tr' + (newer ? ' class="old"' : '') + '>'
+                        + '<td class="l"><span class="link-dl" data-orig="' + c.id + '">' + _this.esc(c.file_name) + '</span></td>'
+                        + '<td>' + _this.esc(_this.ext(c.file_name).toUpperCase()) + '</td>'
+                        + '<td>' + (c._rev != null ? c._rev : '-') + '</td>'
+                        + '<td>' + kind + '</td>'
+                        + '<td class="l">' + chips + '</td>'
+                        + '<td>' + _this.esc(String(c.created || '').slice(0, 10)) + '</td>'
+                        + '<td><button type="button" class="btn-mini" data-del="' + c.id + '">삭제</button></td></tr>';
+                });
+                t2 += '</tbody></table>'
+                    + '<div class="dh-legend">이 도면 원본 = 이름이 같은 원본 · 유닛 원본 = 유닛 하나를 묶은 원본 (FD10-01-00) · '
+                    + '전체 원본 = 공정(지그) 전체가 한 파일 · 짝 도면 없음 = 어느 도면에서도 열리지 않음 (이름 확인)</div>';
+
+                $('#histArea').html(sum + t1 + t2);
+            },
+
+            view: function (id) {
+                var u = this.selUnit;
+                if (u) IljinDrawing.open({sujuId: u.suju_id, title: u.proc_name || '', projNo: this.projNo, focusId: id});
+            },
+
+            openOrig: function (id, no) {
+                var _this = this;
+                if (no) {   // 도면 표에서 누름 — 유닛 · 전체 원본이면 '안에서 이 장을 찾으세요' 안내
+                    var top = this.files.filter(function (x) { return x._no === no && !_this.isCadName(x.file_name); })
+                        .sort(function (a, b) { return (b._r - a._r) || (_this.rank(a.file_name) - _this.rank(b.file_name)); })[0];
+                    var c = top ? IljinDrawing.findOriginals(top, this.files).filter(function (o) { return o.id === id; })[0] : null;
+                    if (c) { IljinDrawing.openOriginals([c], no); return; }
+                }
+                IljinDrawing.openOriginal(id);
             },
 
             /* ---------------- 삭제 ---------------- */
             remove: function (id) {
                 var _this = this;
-                Alert.confirm('', '해당 도면을 삭제하시겠습니까?', function () {
+                var f = this.files.filter(function (x) { return x.id === id; })[0];
+                Alert.confirm('', "'" + (f ? f.file_name : '') + "' 을(를) 삭제하시겠습니까?", function () {
                     AjaxUtil.postJsonData('/api/drawing-manage/delete', {id: id}, function (res) {
                         if (res && res.success) {
                             Notify.success('삭제되었습니다.');
-                            _this.loadUnits(false);
+                            _this.loadFiles();
+                            _this.loadCounts();
                         } else {
                             Alert.alert('삭제 실패', (res && res.message) || '알 수 없는 오류');
                         }
                     });
                 });
-            },
-
-            download: function (fileId) {
-                var a = document.createElement('a');
-                a.href = '/api/files/download?file_id=' + fileId;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
             }
         };
 
@@ -442,26 +647,28 @@
                 dm.selectUnit($(this).data('suju'));
             });
 
-            // 파일 선택
-            $(document).on('click', '#fileDrop', function () {
-                $('#fileInput').click();
+            // 파일 고르기 · 끌어다 놓기 (도면 칸 / 원본 칸)
+            $(document).on('click', '#duZoneDraw', function () { $('#drawFile').click(); });
+            $(document).on('click', '#duZoneOrig', function () { $('#origFile').click(); });
+            $(document).on('change', '#drawFile, #origFile', function () { dm.addFiles(this.files); this.value = ''; });
+            $(document).on('dragover', '.du-zone', function (e) { e.preventDefault(); $(this).addClass('over'); });
+            $(document).on('dragleave', '.du-zone', function () { $(this).removeClass('over'); });
+            $(document).on('drop', '.du-zone', function (e) {
+                e.preventDefault();
+                $(this).removeClass('over');
+                dm.filesFromDrop(e.originalEvent.dataTransfer).then(function (fs) { dm.addFiles(fs); });
             });
-            $(document).on('change', '#fileInput', function () {
-                var f = this.files && this.files[0];
-                if (f) $('#fileDrop').addClass('has').text(f.name);
-            });
+            $(document).on('dragover drop', '#formArea', function (e) { e.preventDefault(); });   // 칸 밖에 놓아도 브라우저가 파일을 열지 않게
 
             // 버튼
-            $(document).on('click', '#btnSaveDrawing', function () { dm.save(); });
-            $(document).on('click', '#btnCancel', function () {
-                dm.selUnit = null;
-                dm.renderUnits();
-                dm.renderForm();
-            });
+            $(document).on('click', '#btnSaveDrawing', function () { dm.upload(); });
+            $(document).on('click', '#btnCancel', function () { dm.pending = []; dm.renderPending(); });
+            $(document).on('click', '[data-pdel]', function () { dm.pending.splice(+$(this).attr('data-pdel'), 1); dm.renderPending(); });
 
-            // 이력 - 다운로드 / 삭제
-            $(document).on('click', '.link-dl', function () { dm.download($(this).data('file')); });
-            $(document).on('click', '[data-del]', function () { dm.remove($(this).data('del')); });
+            // 이력 — 도면 보기 / 원본 열기 / 삭제
+            $(document).on('click', '[data-view]', function () { dm.view(+$(this).attr('data-view')); });
+            $(document).on('click', '[data-orig]', function () { dm.openOrig(+$(this).attr('data-orig'), $(this).attr('data-no')); });
+            $(document).on('click', '[data-del]', function () { dm.remove(+$(this).attr('data-del')); });
         });
     </script>
 </th:block>

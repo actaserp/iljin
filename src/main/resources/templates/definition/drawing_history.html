@@ -19,16 +19,33 @@
         .unit-row.on { background: #eaf1ff; }
         .unit-row.on td { font-weight: 700; }
         .empty-row td { color: #c9cfd8; height: 30px; }
-        .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+        .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
         .badge.has { background: #e3f3ea; color: #1f8f53; }
         .badge.none { background: #eef0f3; color: #888; }
-        .badge.latest { background: #2b5fc4; color: #fff; margin-left: 4px; }
+        .badge.part { background: #e3f3ea; color: #1f8f53; }
+        .badge.unit { background: #e8f0fe; color: #1f4e8c; }
+        .badge.whole { background: #fff4d6; color: #9a6400; }
+        .badge.miss { background: #fde8e8; color: #b3261e; }
+        .badge.old { background: #eef0f3; color: #888; }
 
-        .hist-file { color: #2b5fc4; font-weight: 600; cursor: pointer; text-decoration: underline; }
-        .memo-cell { text-align: left; color: #555; }
+        .hist-file { color: #2b5fc4; font-weight: 600; cursor: pointer; text-decoration: underline; word-break: break-all; }
         .pick-empty { color: #99a2b2; font-size: 12.5px; padding: 34px 10px; text-align: center; }
         .hist-head { font-size: 12.5px; color: #445; }
         .hist-head b { color: #2b5fc4; }
+
+        .dh-sum { font-size: 12.5px; color: #445; padding: 8px 2px 4px; line-height: 1.7; }
+        .dh-sum b { color: #1f2a44; }
+        .dh-title { margin: 14px 0 6px; font-size: 13px; font-weight: 700; color: #445; display: flex; align-items: baseline; gap: 8px; }
+        .dh-title small { font-weight: 400; color: #8a93a3; font-size: 11.5px; }
+        tr.old td { color: #8a93a3; background: #fafbfc; }
+        tr.old .hist-file { color: #7d8aa3; font-weight: 400; }
+        tr.grp-start td { border-top: 2px solid #c9d3e3; }
+        .orig-cell { text-align: left; line-height: 1.6; }
+        .orig-cell .hist-file { font-weight: 400; }
+        .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+        .chips span { background: #f1f4f9; border-radius: 4px; padding: 1px 6px; font-size: 11.5px; color: #445; }
+        .btn-mini { font-size: 11px; padding: 2px 7px; border: 1px solid #e0a0a0; background: #fff; color: #c00; cursor: pointer; border-radius: 3px; }
+        .dh-legend { font-size: 11.5px; color: #8a93a3; margin-top: 6px; line-height: 1.7; }
     </style>
 </head>
 <th:block layout:fragment="content">
@@ -63,34 +80,24 @@
                 <div class="container-fluid" style="padding:0;">
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:18%"><col style="width:38%"><col style="width:14%"><col style="width:14%"><col style="width:16%">
+                            <col style="width:16%"><col style="width:36%"><col style="width:12%"><col style="width:14%"><col style="width:11%"><col style="width:11%">
                         </colgroup>
                         <thead>
-                        <tr><th>라인</th><th>공정명</th><th>유니트</th><th>설비타입</th><th>최신버전</th></tr>
+                        <tr><th>라인</th><th>공정명</th><th>유니트</th><th>설비타입</th><th>도면</th><th>원본</th></tr>
                         </thead>
                         <tbody id="unitBody"></tbody>
                     </table>
                 </div>
             </section>
 
-            <!-- 우: 버전 이력 -->
+            <!-- 우: 도면 · 원본 이력 (생산 지시 [도면 일괄]로 올린 파일) -->
             <section class="section right">
                 <div class="section-top">
-                    <h3>버전 이력</h3>
+                    <h3>도면 이력</h3>
                     <span class="hist-head" id="histHead">유니트를 선택하세요</span>
                 </div>
-                <div class="container-fluid" style="padding:0;">
-                    <table class="work-table">
-                        <colgroup>
-                            <col style="width:12%"><col style="width:16%"><col style="width:30%"><col style="width:14%"><col style="width:28%">
-                        </colgroup>
-                        <thead>
-                        <tr><th>버전</th><th>도면번호</th><th>도면 파일</th><th>등록일</th><th>비고</th></tr>
-                        </thead>
-                        <tbody id="histBody">
-                        <tr><td colspan="5" class="pick-empty">왼쪽에서 유니트를 선택하면 버전 이력이 표시됩니다.</td></tr>
-                        </tbody>
-                    </table>
+                <div class="container-fluid" style="padding:0;" id="histArea">
+                    <p class="pick-empty">왼쪽에서 유니트를 선택하면 도면 이력이 표시됩니다.</p>
                 </div>
             </section>
         </div>
@@ -98,7 +105,16 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <script th:src="@{/js/iljin_drawing.js}"></script>
     <script type="text/javascript">
+        /*
+         * 도면 이력 관리 — 생산 지시 · 도면 관리에서 올린 품목 도면(attach_file 'suju_drawing')을 보여 준다.
+         *   위 표: 도면(PDF·그림). 도면번호마다 최신 리비전이 굵게, 이전 리비전은 아래 회색.
+         *          [원본] 칸 = 이 도면에서 [원본 열기] 를 누르면 열리는 원본 (이 도면 / 유닛 / 전체)
+         *   아래 표: 원본(DWG·DXF). 어떤 종류의 원본인지, 어느 도면들에서 열리는지.
+         * 도면번호 · 리비전 · 원본 짝짓기는 키오스크와 같은 규칙 (iljin_drawing.js parse · findOriginals).
+         */
+        var IMG = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'];
 
         var dh = {
             spjangcd: null,
@@ -106,13 +122,14 @@
             lineName: '',
             units: [],
             selUnit: null,
+            files: [],
 
             init: function () {
                 var _this = this;
                 this.spjangcd = sessionStorage.getItem('spjangcd');
                 this.loadProjects();
-                this.renderUnits();   // 빈 그리드라도 채워서 표시
-                this.renderHist();    // 우측 이력 영역 처음부터 표시
+                this.renderUnits();
+                this.renderHist();
 
                 $('#projSel').on('change', function () {
                     _this.projNo = $(this).val();
@@ -132,24 +149,20 @@
                 return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
                     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             },
+            ext: function (f) { return String(f.ext || '').replace('.', '').toLowerCase(); },
+            isCad: function (f) { var e = this.ext(f); return e === 'dwg' || e === 'dxf'; },
+            rank: function (f) { var e = this.ext(f); return e === 'pdf' ? 0 : IMG.indexOf(e) >= 0 ? 1 : 2; },
 
             /* ---------- 프로젝트 ---------- */
             loadProjects: function () {
                 var _this = this;
                 AjaxUtil.getAsyncData('/api/transaction/projectRegistration/read',
-                    {
-                        spjangcd: this.spjangcd,
-                        srchStartDt: '2000-01-01',
-                        srchEndDt: '2999-12-31',
-                        txtDescription: ''
-                    },
+                    {spjangcd: this.spjangcd, srchStartDt: '2000-01-01', srchEndDt: '2999-12-31', txtDescription: ''},
                     function (result) {
                         var list = (result && result.data) || [];
                         var html = '<option value="">프로젝트 선택</option>';
                         list.forEach(function (p) {
-                            var no = _this.esc(p.projno);
-                            var nm = _this.esc(p.projnm);
-                            html += '<option value="' + no + '">' + no + ' / ' + nm + '</option>';
+                            html += '<option value="' + _this.esc(p.projno) + '">' + _this.esc(p.projno) + ' / ' + _this.esc(p.projnm) + '</option>';
                         });
                         $('#projSel').html(html);
                     });
@@ -172,21 +185,32 @@
                     {spjangcd: this.spjangcd, project_no: this.projNo, line_name: ''},
                     function (result) {
                         _this.units = (result && result.data) || [];
-
                         if (rebuildLine) {
                             var lines = [];
                             _this.units.forEach(function (u) {
                                 if (u.line_name && lines.indexOf(u.line_name) < 0) lines.push(u.line_name);
                             });
                             var h = '<option value="">전체</option>';
-                            lines.forEach(function (l) {
-                                h += '<option value="' + _this.esc(l) + '">' + _this.esc(l) + '</option>';
-                            });
+                            lines.forEach(function (l) { h += '<option value="' + _this.esc(l) + '">' + _this.esc(l) + '</option>'; });
                             $('#lineSel').html(h);
                         }
-
                         _this.renderUnits();
                         _this.renderHist();
+                    });
+            },
+
+            loadCounts: function () {
+                // 도면 · 원본 개수는 /units 에 같이 온다 — 올리기 · 삭제 뒤 선택은 그대로 두고 개수만 새로
+                var _this = this, proj = this.projNo;
+                if (!proj) return;
+                AjaxUtil.getAsyncData('/api/drawing-manage/units',
+                    {spjangcd: this.spjangcd, project_no: proj, line_name: ''},
+                    function (result) {
+                        if (proj !== _this.projNo) return;
+                        _this.units = (result && result.data) || [];
+                        var sel = _this.selUnit;
+                        if (sel) _this.selUnit = _this.units.filter(function (u) { return u.suju_id === sel.suju_id; })[0] || sel;
+                        _this.renderUnits();
                     });
             },
 
@@ -199,116 +223,220 @@
             renderUnits: function () {
                 var _this = this;
                 var list = this.filteredUnits();
-                var $body = $('#unitBody');
-
                 var html = '';
                 list.forEach(function (u) {
                     var on = (_this.selUnit && _this.selUnit.suju_id === u.suju_id) ? ' on' : '';
-                    var ver = u.latest_version
-                        ? '<span class="badge has">' + _this.esc(u.latest_version) + '</span>'
-                        : '<span class="badge none">없음</span>';
+                    var c = u;   // draw_cnt · orig_cnt 는 /units 에 같이 온다
+                    var n = function (v) {
+                        return +v ? '<span class="badge has">' + (+v) + '</span>' : '<span class="badge none">0</span>';
+                    };
                     html += '<tr class="unit-row' + on + '" data-suju="' + u.suju_id + '">'
                         + '<td>' + _this.esc(u.line_name) + '</td>'
                         + '<td class="l">' + _this.esc(u.proc_name) + '</td>'
                         + '<td>' + _this.esc(u.unit_qty) + '</td>'
                         + '<td>' + _this.esc(u.equip_type) + '</td>'
-                        + '<td>' + ver + '</td>'
+                        + '<td>' + n(c.draw_cnt) + '</td>'
+                        + '<td>' + n(c.orig_cnt) + '</td>'
                         + '</tr>';
                 });
-
-                // 데이터가 없더라도 화면이 비지 않도록 빈 행으로 채움 (최소 10행)
-                var fillCount = Math.max(10 - list.length, 0);
-                for (var i = 0; i < fillCount; i++) {
-                    html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
+                for (var i = list.length; i < 10; i++) {
+                    html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>';
                 }
-
-                $body.html(html);
+                $('#unitBody').html(html);
             },
 
             selectUnit: function (sujuId) {
-                this.selUnit = this.units.filter(function (u) {
-                    return String(u.suju_id) === String(sujuId);
-                })[0] || null;
+                this.selUnit = this.units.filter(function (u) { return String(u.suju_id) === String(sujuId); })[0] || null;
                 this.renderUnits();
                 this.renderHist();
             },
 
-            /* ---------- 버전 이력 ---------- */
+            /* ---------- 도면 이력 ---------- */
             renderHist: function () {
-                var _this = this;
-                var u = this.selUnit;
-
-                var fillEmpty = function (msg) {
-                    var html = '';
-                    if (msg) {
-                        html += '<tr><td colspan="5" class="pick-empty">' + msg + '</td></tr>';
-                    }
-                    var start = msg ? 1 : 0;
-                    for (var i = start; i < 10; i++) {
-                        html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
-                    }
-                    $('#histBody').html(html);
-                };
-
+                var _this = this, u = this.selUnit;
                 if (!u) {
                     $('#histHead').text('좌측에서 유니트를 선택하세요');
-                    fillEmpty('왼쪽에서 유니트를 선택하면 버전 이력이 표시됩니다.');
+                    $('#histArea').html('<p class="pick-empty">왼쪽에서 유니트를 선택하면 도면 이력이 표시됩니다.</p>');
                     return;
                 }
-
-                $('#histHead').html('<b>' + this.esc(this.projNo) + '</b> · '
-                    + this.esc(u.line_name) + ' · ' + this.esc(u.proc_name));
-                fillEmpty('조회 중...');
-
-                AjaxUtil.getAsyncData('/api/drawing-manage/history', {suju_id: u.suju_id},
-                    function (result) {
-                        var rows = (result && result.data) || [];
-                        if (!rows.length) {
-                            fillEmpty('등록된 도면 이력이 없습니다.');
-                            return;
-                        }
-                        var html = '';
-                        rows.forEach(function (r) {
-                            var latest = (r.latest_yn === 'Y') ? '<span class="badge latest">최신</span>' : '';
-                            var fileCell = r.file_data_pk
-                                ? '<span class="hist-file" data-file="' + r.file_data_pk + '">'
-                                + _this.esc(r.file_name) + '</span>'
-                                : (_this.esc(r.file_name) || '-');
-                            html += '<tr>'
-                                + '<td>' + _this.esc(r.version) + latest + '</td>'
-                                + '<td>' + (_this.esc(r.drawing_no) || '-') + '</td>'
-                                + '<td class="l">' + fileCell + '</td>'
-                                + '<td>' + _this.esc(r.reg_date) + '</td>'
-                                + '<td class="memo-cell">' + (_this.esc(r.remark) || '-') + '</td>'
-                                + '</tr>';
-                        });
-                        // 최소 10행 유지
-                        for (var i = rows.length; i < 10; i++) {
-                            html += '<tr class="empty-row"><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
-                        }
-                        $('#histBody').html(html);
+                $('#histHead').html('<b>' + this.esc(this.projNo) + '</b> · ' + this.esc(u.line_name) + ' · ' + this.esc(u.proc_name));
+                $('#histArea').html('<p class="pick-empty">조회 중...</p>');
+                AjaxUtil.getAsyncData('/api/drawing-manage/files', {suju_id: u.suju_id}, function (res) {
+                    if (!_this.selUnit || _this.selUnit.suju_id !== u.suju_id) return;
+                    _this.files = ((res && res.data) || []).map(function (f) {
+                        var p = IljinDrawing.parse(f.file_name);
+                        return Object.assign({}, f, {suju_id: u.suju_id, _no: p.no, _rev: p.rev, _r: p.rev == null ? -1 : p.rev});
                     });
+                    _this.drawTables();
+                });
             },
 
-            download: function (fileId) {
-                var a = document.createElement('a');
-                a.href = '/api/files/download?file_id=' + fileId;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+            drawTables: function () {
+                var _this = this, files = this.files;
+                if (!files.length) {
+                    $('#histArea').html('<p class="pick-empty">올린 도면이 없습니다. 도면 관리 화면이나 생산 지시 [도면 일괄]로 올립니다.</p>');
+                    return;
+                }
+                var draws = files.filter(function (f) { return !_this.isCad(f); });
+                var cads = files.filter(function (f) { return _this.isCad(f); });
+
+                // 도면번호별 묶음 — 최신 리비전 먼저, 같은 리비전이면 PDF → 그림
+                var groups = {}, order = [];
+                draws.forEach(function (f) {
+                    if (!groups[f._no]) { groups[f._no] = []; order.push(f._no); }
+                    groups[f._no].push(f);
+                });
+                order.sort(function (a, b) { return a.localeCompare(b, 'ko', {numeric: true}); });
+                order.forEach(function (no) {
+                    groups[no].sort(function (a, b) { return (b._r - a._r) || (_this.rank(a) - _this.rank(b)) || (b.id - a.id); });
+                });
+
+                // 도면번호마다 [원본 열기] 가 여는 원본 (최신 리비전 기준) — 원본 표의 '열리는 도면' 도 여기서
+                var origOf = {}, openedBy = {}, kindOf = {};
+                order.forEach(function (no) {
+                    var top = groups[no][0];
+                    var os = IljinDrawing.findOriginals(top, files);
+                    origOf[no] = os;
+                    os.forEach(function (o) {
+                        (openedBy[o.id] = openedBy[o.id] || []).push(no);
+                        if (!kindOf[o.id]) kindOf[o.id] = o.kind;
+                    });
+                });
+
+                var badge = function (kind) {
+                    return kind === 'part' ? '<span class="badge part">이 도면 원본</span>'
+                        : kind === 'unit' ? '<span class="badge unit">유닛 원본</span>'
+                            : kind === 'whole' ? '<span class="badge whole">전체 원본</span>'
+                                : '<span class="badge miss">원본 없음</span>';
+                };
+
+                // ----- 요약 -----
+                var cnt = function (list, test) { return list.filter(test).length; };
+                var noOrig = order.filter(function (no) { return !origOf[no].length; }).length;
+                var lonely = cads.filter(function (c) { return !openedBy[c.id]; });
+                var sum = '도면 <b>' + order.length + '종</b> (PDF ' + cnt(draws, function (f) { return _this.ext(f) === 'pdf'; })
+                    + ' · 그림 ' + cnt(draws, function (f) { return _this.rank(f) === 1; }) + ')'
+                    + ' &nbsp;|&nbsp; 원본 <b>' + cads.length + '개</b> (DWG ' + cnt(cads, function (f) { return _this.ext(f) === 'dwg'; })
+                    + ' · DXF ' + cnt(cads, function (f) { return _this.ext(f) === 'dxf'; }) + ')'
+                    + (order.length ? ' &nbsp;|&nbsp; ' + (noOrig
+                        ? '원본 없는 도면 <b style="color:#b3261e">' + noOrig + '</b>'
+                        : '<span style="color:#1f8f53">모든 도면에서 원본을 열 수 있음</span>') : '');
+
+                // ----- 도면 표 -----
+                var dh1 = '<div class="dh-title">도면 (PDF·그림) <small>파일 이름을 누르면 도면을 봅니다</small></div>'
+                    + '<table class="work-table"><colgroup><col style="width:17%"><col style="width:7%"><col style="width:7%">'
+                    + '<col style="width:27%"><col style="width:11%"><col style="width:25%"><col style="width:6%"></colgroup>'
+                    + '<thead><tr><th>도면번호</th><th>REV</th><th>형식</th><th>파일</th><th>등록일</th><th>원본 (원본 열기 시)</th><th>삭제</th></tr></thead><tbody>';
+                if (!order.length) dh1 += '<tr><td colspan="7" class="pick-empty">PDF·그림 도면이 없습니다.</td></tr>';
+                order.forEach(function (no) {
+                    var g = groups[no], top = g[0]._r, os = origOf[no];
+                    var origHtml = os.length
+                        ? os.map(function (o) {
+                            return badge(o.kind) + ' <span class="hist-file" data-orig="' + o.id + '" data-no="' + _this.esc(no) + '">'
+                                + _this.esc(o.name) + '</span>';
+                        }).join('<br>')
+                        : badge('');
+                    g.forEach(function (f, i) {
+                        var old = f._r !== top;
+                        dh1 += '<tr class="' + (i === 0 ? 'grp-start' : '') + (old ? ' old' : '') + '">'
+                            + (i === 0 ? '<td rowspan="' + g.length + '" class="l"><b>' + _this.esc(no) + '</b></td>' : '')
+                            + '<td>' + (f._rev != null ? f._rev : '-') + (old ? ' <span class="badge old">이전</span>' : '') + '</td>'
+                            + '<td>' + _this.esc(_this.ext(f).toUpperCase()) + '</td>'
+                            + '<td class="l"><span class="hist-file" data-view="' + f.id + '">' + _this.esc(f.file_name) + '</span></td>'
+                            + '<td>' + _this.esc(String(f.created || '').slice(0, 10)) + '</td>'
+                            + (i === 0 ? '<td rowspan="' + g.length + '" class="orig-cell">' + origHtml + '</td>' : '')
+                            + '<td><button type="button" class="btn-mini" data-del="' + f.id + '">삭제</button></td>'
+                            + '</tr>';
+                    });
+                });
+                dh1 += '</tbody></table>';
+
+                // ----- 원본 표 -----
+                cads.sort(function (a, b) { return a._no.localeCompare(b._no, 'ko', {numeric: true}) || (b._r - a._r) || (b.id - a.id); });
+                var dh2 = '<div class="dh-title">원본 (DWG·DXF) <small>파일 이름을 누르면 PC 의 도면 뷰어로 엽니다</small></div>'
+                    + '<table class="work-table"><colgroup><col style="width:27%"><col style="width:7%"><col style="width:7%">'
+                    + '<col style="width:13%"><col style="width:29%"><col style="width:11%"><col style="width:6%"></colgroup>'
+                    + '<thead><tr><th>원본 파일</th><th>형식</th><th>REV</th><th>종류</th><th>열리는 도면</th><th>등록일</th><th>삭제</th></tr></thead><tbody>';
+                if (!cads.length) dh2 += '<tr><td colspan="7" class="pick-empty">원본(DWG·DXF)이 없습니다.</td></tr>';
+                cads.forEach(function (c) {
+                    var by = openedBy[c.id] || [];
+                    // 짝이 없는 원본: 같은 번호의 더 새 리비전이 있으면 '이전', 아니면 '짝 없음'
+                    var newer = !by.length && cads.some(function (o) { return o !== c && o._no === c._no && _this.ext(o) === _this.ext(c) && o._r > c._r; });
+                    var kind = by.length ? badge(kindOf[c.id])
+                        : newer ? '<span class="badge old">이전 리비전</span>' : '<span class="badge miss">짝 도면 없음</span>';
+                    var lim = 8;
+                    var chips = by.length
+                        ? '<div class="chips">' + by.slice(0, lim).map(function (n) { return '<span>' + _this.esc(n) + '</span>'; }).join('')
+                        + (by.length > lim ? '<span>외 ' + (by.length - lim) + '장</span>' : '') + '</div>'
+                        : '<span style="color:#99a2b2">-</span>';
+                    dh2 += '<tr' + (newer ? ' class="old"' : '') + '>'
+                        + '<td class="l"><span class="hist-file" data-orig="' + c.id + '">' + _this.esc(c.file_name) + '</span></td>'
+                        + '<td>' + _this.esc(_this.ext(c).toUpperCase()) + '</td>'
+                        + '<td>' + (c._rev != null ? c._rev : '-') + '</td>'
+                        + '<td>' + kind + '</td>'
+                        + '<td class="l">' + chips + '</td>'
+                        + '<td>' + _this.esc(String(c.created || '').slice(0, 10)) + '</td>'
+                        + '<td><button type="button" class="btn-mini" data-del="' + c.id + '">삭제</button></td>'
+                        + '</tr>';
+                });
+                dh2 += '</tbody></table>'
+                    + '<div class="dh-legend">이 도면 원본 = 이름이 같은 원본 · 유닛 원본 = 유닛 하나를 묶은 원본 (FD10-01-00) · '
+                    + '전체 원본 = 공정(지그) 전체가 한 파일 · 짝 도면 없음 = 어느 도면에서도 열리지 않음 (이름 확인)</div>';
+
+                $('#histArea').html('<div class="dh-sum">' + sum + '</div>' + dh1 + dh2);
+            },
+
+            view: function (id) {
+                var u = this.selUnit;
+                if (!u) return;
+                IljinDrawing.open({sujuId: u.suju_id, title: u.proc_name || '', projNo: this.projNo, focusId: id});
+            },
+
+            openOrig: function (id, no) {
+                var f = this.files.filter(function (x) { return x.id === id; })[0];
+                if (!f) return;
+                if (no) {   // 도면 표에서 누름 — 그 도면 기준 안내(유닛·전체면 '안에서 이 장을 찾으세요')
+                    var top = this.files.filter(function (x) { return x._no === no && !dh.isCad(x); })
+                        .sort(function (a, b) { return (b._r - a._r) || (dh.rank(a) - dh.rank(b)); })[0];
+                    var c = top ? IljinDrawing.findOriginals(top, this.files).filter(function (o) { return o.id === id; })[0] : null;
+                    if (c) { IljinDrawing.openOriginals([c], no); return; }
+                }
+                IljinDrawing.openOriginal(id);
+            },
+
+            remove: function (id) {
+                var _this = this;
+                var f = this.files.filter(function (x) { return x.id === id; })[0];
+                Alert.confirm('', "'" + (f ? f.file_name : '') + "' 을(를) 삭제하시겠습니까?", function () {
+                    AjaxUtil.postJsonData('/api/drawing-manage/delete', {id: id}, function (res) {
+                        if (res && res.success) {
+                            Notify.success('삭제되었습니다.');
+                            _this.renderHist();
+                            _this.loadCounts();
+                        } else {
+                            Alert.alert('삭제 실패', (res && res.message) || '알 수 없는 오류');
+                        }
+                    });
+                });
             }
         };
 
         $(document).ready(function () {
             dh.init();
-
             $(document).on('click', '.unit-row', function () {
                 dh.selectUnit($(this).data('suju'));
             });
-            $(document).on('click', '.hist-file', function () {
-                dh.download($(this).data('file'));
+            $(document).on('click', '[data-view]', function () {
+                dh.view(+$(this).attr('data-view'));
+            });
+            $(document).on('click', '[data-orig]', function () {
+                dh.openOrig(+$(this).attr('data-orig'), $(this).attr('data-no'));
+            });
+            $(document).on('click', '[data-del]', function () {
+                dh.remove(+$(this).attr('data-del'));
             });
         });
     </script>
 </th:block>
+<input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
 </html>

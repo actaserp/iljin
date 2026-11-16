@@ -87,6 +87,35 @@
             font-size:10px; font-weight:800; vertical-align:top; }
 
         /* 부품 일괄 입력 안내 */
+        /* 도면 올리기 모달 */
+        .du-rule{background:#f5f8fc;border:1px solid #dbe4f0;border-radius:8px;padding:10px 14px;font-size:13px;color:#2d3748;line-height:1.6;}
+        .du-rule .du-ex{font-family:Consolas,monospace;font-size:12.5px;color:#1f4e8c;margin:2px 0 4px;}
+        .du-rule .du-ex span{color:#b45309;font-weight:700;}
+        .du-zones{display:flex;gap:12px;margin-top:12px;}
+        .du-zone{flex:1;border:2px dashed #9fb3d1;border-radius:10px;padding:18px 10px;text-align:center;cursor:pointer;
+            background:#fafcff;transition:background .12s,border-color .12s;}
+        .du-zone:hover{background:#eef4ff;}
+        .du-zone.over{background:#dbe7ff;border-color:#1f4e8c;}
+        .du-zone.orig{border-color:#d6b98a;background:#fffcf6;}
+        .du-zone.orig:hover{background:#fff4e2;}
+        .du-zone.orig.over{background:#ffe9c2;border-color:#b45309;}
+        .du-zone .du-zt{font-size:15px;font-weight:800;color:#1f2a44;}
+        .du-zone .du-zs{font-size:12.5px;color:#4a5568;margin-top:2px;}
+        .du-zone .du-zh{font-size:12px;color:#8b95a7;margin-top:6px;}
+        .du-have{margin-top:12px;font-size:12.5px;color:#4a5568;}
+        .du-have .du-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;max-height:96px;overflow:auto;}
+        .du-have .du-chips span{background:#fff4e2;border:1px solid #f0d7ad;color:#8a5a14;border-radius:5px;padding:1px 7px;font-size:11.5px;}
+        .du-have a{cursor:pointer;color:#1f4e8c;text-decoration:underline;margin-left:6px;}
+        /* 유형별 외작 모달 */
+        .ko-form{display:grid;grid-template-columns:72px 1fr;gap:12px 12px;align-items:center;}
+        .ko-form > label{margin:0;font-size:13px;font-weight:700;color:#4a5568;text-align:right;}
+        .ko-form .ko-row{display:flex;gap:6px;align-items:center;}
+        .ko-form .btn{flex:none;height:36px !important;line-height:34px !important;padding:0 16px;margin:0;}
+        /* 입력칸은 모두 같은 높이 · 같은 폭 (레이아웃 CSS 의 30px 고정을 푼다) */
+        .ko-form input.form-control{height:36px !important;line-height:34px !important;width:100% !important;
+            box-sizing:border-box;padding:0 10px !important;font-size:14px;}
+        .ko-form .ko-row > input.form-control{flex:1;min-width:0;}
+        .ko-form .ko-tip{display:block;margin-top:4px;color:#8b95a7;font-size:12px;}
         .bulk-guide { display:block; margin-bottom:10px; font-size:12.5px; color:#2d3748; line-height:1.5; }
         .bulk-ways { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
         .bulk-way { display:flex; gap:8px; align-items:flex-start; padding:8px 10px;
@@ -181,8 +210,7 @@
                             <li><a class="btn" title="설비타입별 표준 BOM 관리" onclick="prodDesign.openTpl()">표준 BOM</a></li>
                             <li><a class="btn" title="유형(분류) 관리" onclick="prodDesign.openKindManager()">유형 관리</a></li>
                             <!-- '일괄 입력'(품목 하나에 붙여넣기)은 뺐다. 왼쪽 [엑셀 일괄]이 같은 일을 프로젝트 단위로 한다 -->
-                            <li><a class="btn" title="이 품목에 도면 파일 여러 개를 한 번에 올립니다"
-                                   onclick="prodDesign.pickDrawings()">도면 올리기</a></li>
+                            <!-- 품목별 [도면 올리기]는 뺐다. 왼쪽 [도면 일괄]이 파일 이름으로 품목을 찾아 나눠 올린다 -->
                             <li><a class="btn" id="drawViewBtn" title="이 품목의 도면 보기"
                                    onclick="prodDesign.openDrawView()">도면 보기</a></li>
                             <li>
@@ -374,11 +402,11 @@
         <!-- ===== 도면 올리기 (여러 파일 → 선택 품목) =====
              도면은 품목 단위로만 둔다. 부품표는 유형 단위라(설계 업체마다 부품 이름이 달라서)
              도면과 부품을 짝짓지 않는다. 파일 이름에서 도면번호 · 리비전만 읽어 정리한다. -->
-        <input type="file" id="drawFile" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.webp,.dwg,.dxf,.zip"
-               style="display:none" onchange="prodDesign.prepDrawings(this)">
-        <!-- 프로젝트 도면 일괄: 폴더째 고르거나(webkitdirectory) 파일 여러 개 -->
-        <input type="file" id="projDrawFile" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.webp,.dwg,.dxf,.zip"
-               style="display:none" onchange="prodDesign.prepDrawings(this, true)">
+        <!-- 도면 올리기 모달의 두 칸(도면 / 원본)이 각각 쓰는 파일 선택 -->
+        <input type="file" id="drawFile" multiple accept=".pdf,.png,.jpg,.jpeg,.gif,.bmp,.webp"
+               style="display:none" onchange="prodDesign.addDrawFiles(this.files); this.value=''">
+        <input type="file" id="origFile" multiple accept=".dwg,.dxf"
+               style="display:none" onchange="prodDesign.addDrawFiles(this.files); this.value=''">
         <div id="drawUpModal"
              style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
             <div class="modal-box" style="background:#fff;border-radius:8px;width:820px;max-width:94vw;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
@@ -386,16 +414,38 @@
                     <h3 id="duTitle">도면 올리기</h3>
                 </div>
                 <div class="modal-body" style="overflow:auto;">
-                    <div id="duCount" style="margin:0 0 8px;font-size:12.5px;color:#4a5568;"></div>
-                    <table class="work-table">
+                    <!-- 파일 이름 규칙 -->
+                    <div class="du-rule">
+                        <b>파일 이름 규칙</b> — 형식과 상관없이 <b>도면번호-REV번호</b> 로 같게, 확장자만 다르게
+                        <div class="du-ex">FD10-01-03-REV11<span>.pdf</span> · FD10-01-03-REV11<span>.png</span> · FD10-01-03-REV11<span>.dwg</span></div>
+                        <div style="color:#718096;font-size:12px;">이름이 같으면 한 도면으로 묶여 화면에는 PDF(없으면 그림)가 뜨고, DWG·DXF 는 [원본 열기] 로 PC 뷰어에서 열립니다.
+                            리비전 없는 4단 번호 끝의 <b>-00</b> 은 REV0. 같은 도면번호는 리비전 높은 것이 최신, 나머지는 이력.
+                            이미 올린 파일 이름은 건너뜁니다 — 폴더 전체를 다시 골라도 새 파일만 올라갑니다.</div>
+                    </div>
+
+                    <!-- 놓는 칸 두 개. 눌러서 고르거나 파일·폴더 내용을 끌어다 놓는다 -->
+                    <div class="du-zones">
+                        <div class="du-zone" id="duZoneDraw" onclick="prodDesign.el('drawFile').click()">
+                            <div class="du-zt">도면 올리기</div>
+                            <div class="du-zs">PDF · PNG · JPG</div>
+                            <div class="du-zh">여기로 끌어다 놓거나 눌러서 선택</div>
+                        </div>
+                        <div class="du-zone orig" id="duZoneOrig" onclick="prodDesign.el('origFile').click()">
+                            <div class="du-zt">원본 올리기</div>
+                            <div class="du-zs">DWG · DXF</div>
+                            <div class="du-zh">여기로 끌어다 놓거나 눌러서 선택</div>
+                        </div>
+                    </div>
+
+                    <!-- 이 품목에 이미 올라간 것: 200장을 다 늘어놓지 않고 요약 + 빠진 것만 -->
+                    <div id="duHaveSum" class="du-have"></div>
+
+                    <div id="duCount" style="margin:12px 0 8px;font-size:12.5px;color:#4a5568;"></div>
+                    <table class="work-table" id="duTable" style="display:none">
                         <colgroup id="duCols"></colgroup>
                         <thead><tr id="duHead"></tr></thead>
                         <tbody id="duBody"></tbody>
                     </table>
-                    <div class="bulk-sub" style="margin-top:8px;">
-                        PDF · 이미지는 화면에서 바로 보입니다. DWG 는 내려받기만 됩니다 — 가능하면 PDF 로 같이 올려 주세요.
-                        같은 도면번호를 다시 올리면 리비전이 높은 것이 최신이 되고, 나머지는 이력으로 남습니다.
-                    </div>
                 </div>
                 <div class="modal-foot">
                     <a class="btn" onclick="prodDesign.closeDrawUp()">닫기</a>
@@ -413,16 +463,64 @@
                     <h3 id="dvTitle">도면</h3>
                     <div class="button-wrap" style="margin-bottom:0">
                         <ul>
+                            <!-- 같은 이름의 DWG/DXF 를 올려 두었으면 보인다. PC 에 설치한 도면 뷰어로 연다 -->
+                            <li><a class="btn" id="dvOrig" style="display:none" onclick="prodDesign.openOriginal()">원본 열기</a></li>
                             <li><a class="btn" id="dvDown" onclick="prodDesign.downDrawing()">내려받기</a></li>
                             <li><a class="btn" onclick="prodDesign.closeDrawView()">닫기</a></li>
                         </ul>
                     </div>
                 </div>
                 <div style="flex:1;display:flex;min-height:0;">
-                    <div style="width:300px;flex:none;border-right:1px solid #e2e8f0;overflow:auto;padding:8px;">
-                        <div id="dvList"></div>
+                    <div style="width:300px;flex:none;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;min-height:0;">
+                        <!-- 도면번호 검색. '-'·공백 무시 → '0103' 도 FD10-01-03 -->
+                        <div style="padding:8px 8px 0;">
+                            <input type="search" id="dvQ" class="form-control" placeholder="도면번호·파일명 검색 (예: 0103)"
+                                   oninput="prodDesign.renderDrawList()" autocomplete="off" style="width:100%;box-sizing:border-box;">
+                        </div>
+                        <div id="dvList" style="flex:1;overflow:auto;padding:8px;"></div>
                     </div>
                     <div id="dvPane" style="flex:1;min-width:0;background:#525659;display:flex;align-items:center;justify-content:center;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== 유형별 외작 (프로젝트 전체) ===== -->
+        <div id="koModal"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;align-items:center;justify-content:center;">
+            <div class="modal-box" style="background:#fff;border-radius:8px;width:540px;max-width:94vw;display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+                <div class="section-top" style="border-radius:8px 8px 0 0;">
+                    <h3 id="koTitle">유형 외작</h3>
+                </div>
+                <!-- 표(work-table)는 칸을 가운데 정렬하고 td 를 flex 로 만들면 줄이 어긋난다 → 단순 2열 그리드 -->
+                <div style="padding:16px 20px 6px;">
+                    <div class="ko-form">
+                        <label>유형</label>
+                        <div><b id="koKind" style="font-size:14px"></b></div>
+
+                        <label for="koQty">수량</label>
+                        <div><input type="number" id="koQty" class="form-control" min="0"></div>
+
+                        <label for="koComp">외주처</label>
+                        <div class="ko-row">
+                            <input type="text" id="koComp" class="form-control" readonly style="cursor:pointer"
+                                   onclick="prodDesign.pickKindOutComp()" placeholder="눌러서 선택">
+                            <a class="btn" onclick="prodDesign.pickKindOutComp()">선택</a>
+                        </div>
+
+                        <label for="koDue" style="align-self:start;padding-top:9px">납기</label>
+                        <div>
+                            <input type="date" id="koDue" class="form-control">
+                            <span class="ko-tip">비우면 프로젝트 납기</span>
+                        </div>
+
+                        <label for="koRemark">비고</label>
+                        <div><input type="text" id="koRemark" class="form-control"></div>
+                    </div>
+                    <div id="koHint" style="font-size:12px;color:#718096;margin-top:8px;line-height:1.5;"></div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:6px;padding:0 18px 14px;">
+                    <a class="btn" onclick="prodDesign.closeKindOut()">닫기</a>
+                    <a class="btn btn-primary" onclick="prodDesign.saveKindOut()">저장</a>
                 </div>
             </div>
         </div>
@@ -535,6 +633,9 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <!-- 유형별 외작의 외주처 선택 (수주 화면과 같은 매입처 팝업) -->
+    <th:block th:replace="/common/popup_company :: popup_company"></th:block>
+    <script th:src="@{/js/iljin_drawing.js}"></script>
     <script type="text/javascript">
 
         /**
@@ -584,6 +685,8 @@
                 this.spjangcd = $('#spjangcd').val() || 'ZZ';
 
                 this.GUBUN = ['제작품', 'STD', '구매품'];
+                this.KO_API = '/api/production/kind_out';   // 유형별 외작
+                this.kindOut = [];
                 /* 계획 → 확정. 작업지시를 내리면 그 품목 부품이 통째로 확정이 된다.
                    생산계획 화면은 '계획' 만 다루고, 생산지시 화면이 확정으로 바꾼다. */
                 this.STATES = ['계획', '확정'];
@@ -783,6 +886,13 @@
                         projNo: this.selProj
                     })).data || [])
                     : null;
+                // 유형별 외작 (프로젝트 단위). 프로젝트 전체를 볼 때만
+                this.kindOut = it.common
+                    ? ((await this.get(this.KO_API + '/list', {
+                        spjangcd: this.spjangcd,
+                        projNo: this.selProj
+                    })).data || [])
+                    : [];
                 await this.loadDrawings();
 
                 // 프로젝트 일괄 입력에서 자재가 안 붙어 저장되지 못한 STD·구매품. 저장 전 행으로 다시 깐다
@@ -832,35 +942,171 @@
              * 프로젝트 공통 선택 시: 유형별 [품목 부품 합계 | 공통(2D 전 계획)].
              * 2D 전에 추정으로 잡은 공통 물량과, 품목별로 확정된 부품표를 나란히 본다.
              */
+
+            /*
+             * 프로젝트 전체 → 유형별 합계 + 유형별 외작.
+             *   필요 = 품목 부품 합계 + 선행 가공.  외작 = 이 프로젝트에서 그 유형을 외주로 보낸 수량(발주/입고).
+             *   내작 = 필요 − 외작.  [외작] 은 기본 '남은 필요 수량 통째로', 수량을 고쳐 일부만 · 여러 업체로 나눌 수 있다.
+             *   발주는 기존 외작 발주로 나가고, [외작 입고] 화면에서 받으면 대시보드 진척에 들어간다.
+             */
             renderKindSum(it) {
                 const box = this.el('kindSum');
-                const rows = (it && it.common) ? (this.kindSum || []) : [];
+                const rows = (it && it.common) ? [...(this.kindSum || [])] : [];   // 복사 — 아래서 외작만 있는 유형을 덧붙인다
+                const outs = (it && it.common) ? (this.kindOut || []) : [];
+                // 부품표엔 없지만 외작만 걸린 유형도 표에 보이게
+                const kinds = rows.map(r => r.kind);
+                outs.forEach(o => {
+                    if (!kinds.includes(o.kind)) {
+                        kinds.push(o.kind);
+                        rows.push({kind: o.kind, item_qty: 0, item_cnt: 0, common_qty: 0});
+                    }
+                });
                 if (!rows.length) {
                     box.style.display = 'none';
                     box.innerHTML = '';
                     return;
                 }
                 const n = v => Number(v || 0).toLocaleString();
-                const tItem = rows.reduce((s, r) => s + Number(r.item_qty || 0), 0);
-                const tCommon = rows.reduce((s, r) => s + Number(r.common_qty || 0), 0);
+                const outOf = k => outs.filter(o => o.kind === k);
+                const sum = (a, f) => a.reduce((s, x) => s + Number(f(x) || 0), 0);
+                const tItem = sum(rows, r => r.item_qty), tCommon = sum(rows, r => r.common_qty);
+                const tOut = sum(outs, o => o.qty), tRcv = sum(outs, o => o.in_qty);
                 box.style.display = 'block';
                 box.innerHTML = `
                     <div style="font-size:12.5px;font-weight:700;color:#2d3748;margin-bottom:5px;">
-                        유형별 합계 <span style="font-weight:400;color:#718096">· 제작품</span></div>
-                    <table class="work-table" style="max-width:560px;">
-                        <colgroup><col style="width:30%"><col style="width:35%"><col style="width:35%"></colgroup>
-                        <thead><tr><th>유형</th><th>품목 부품 합계</th><th>선행 가공 (2D 전)</th></tr></thead>
+                        유형별 합계 <span style="font-weight:400;color:#718096">· 제작품 · [외작] 으로 유형을 통째로(또는 일부) 외주 발주</span></div>
+                    <table class="work-table" style="max-width:820px;">
+                        <thead><tr><th>유형</th><th>품목 부품 합계</th><th>선행 가공 (2D 전)</th><th>필요</th>
+                            <th>외작 (입고)</th><th>내작</th><th style="width:70px"></th></tr></thead>
                         <tbody>
-                        ${rows.map(r => `<tr>
+                        ${rows.map(r => {
+                    const need = Number(r.item_qty || 0) + Number(r.common_qty || 0);
+                    const os = outOf(r.kind), oq = sum(os, o => o.qty), rq = sum(os, o => o.in_qty);
+                    return `<tr>
                             <td>${this.escHtml(r.kind)}</td>
                             <td><b>${n(r.item_qty)}</b>${Number(r.item_cnt) ? ` <span style="color:#8b95a7;font-size:11.5px">(${n(r.item_cnt)}품목)</span>` : ''}</td>
                             <td>${Number(r.common_qty) ? n(r.common_qty) : '<span style="color:#c3c9d4">-</span>'}</td>
-                        </tr>`).join('')}
+                            <td><b>${n(need)}</b></td>
+                            <td>${oq ? `<b style="color:#b45309">${n(oq)}</b> <span style="color:#2f855a;font-size:11.5px">(${n(rq)})</span>` : '<span style="color:#c3c9d4">-</span>'}</td>
+                            <td>${n(Math.max(0, need - oq))}</td>
+                            <td><a class="btn" style="height:26px;line-height:26px;padding:0 10px;font-size:12px;"
+                                   data-kind="${this.esc(r.kind)}" onclick="prodDesign.openKindOut(null, this.dataset.kind, ${Math.max(0, need - oq)})">외작</a></td>
+                        </tr>`;
+                }).join('')}
                         <tr style="background:#f5f7fb;font-weight:700;">
-                            <td>합계</td><td>${n(tItem)}</td><td>${tCommon ? n(tCommon) : '-'}</td>
+                            <td>합계</td><td>${n(tItem)}</td><td>${tCommon ? n(tCommon) : '-'}</td><td>${n(tItem + tCommon)}</td>
+                            <td>${tOut ? `${n(tOut)} <span style="color:#2f855a;font-size:11.5px">(${n(tRcv)})</span>` : '-'}</td>
+                            <td>${n(Math.max(0, tItem + tCommon - tOut))}</td><td></td>
                         </tr>
                         </tbody>
-                    </table>`;
+                    </table>
+                    ${outs.length ? `
+                    <div style="font-size:12.5px;font-weight:700;color:#2d3748;margin:12px 0 5px;">
+                        유형별 외작 <span style="font-weight:400;color:#718096">· 입고는 [외작 입고] 화면에서 받습니다. 단가는 발주 화면에서</span></div>
+                    <table class="work-table" style="max-width:820px;">
+                        <thead><tr><th>유형</th><th>외주처</th><th>수량</th><th>입고</th><th>납기</th><th>발주번호</th><th>비고</th><th style="width:110px"></th></tr></thead>
+                        <tbody>${outs.map(o => `<tr>
+                            <td>${this.escHtml(o.kind)}</td>
+                            <td>${this.escHtml(o.company_name || '')}</td>
+                            <td><b>${n(o.qty)}</b></td>
+                            <td style="color:${Number(o.in_qty) >= Number(o.qty) ? '#2f855a' : '#4a5568'}">${n(o.in_qty)}</td>
+                            <td>${this.escHtml(o.due_date || '')}</td>
+                            <td>${this.escHtml(o.jumun_number || '')}</td>
+                            <td style="text-align:left">${this.escHtml(o.remark || '')}</td>
+                            <td><a class="btn" style="height:26px;line-height:26px;padding:0 8px;font-size:12px;" onclick="prodDesign.openKindOut(${o.id})">수정</a>
+                                ${Number(o.in_qty) > 0 ? '' : `<a class="btn" style="height:26px;line-height:26px;padding:0 8px;font-size:12px;color:#b3261e" onclick="prodDesign.cancelKindOut(${o.id})">취소</a>`}</td>
+                        </tr>`).join('')}</tbody>
+                    </table>` : ''}`;
+            }
+
+            /* ===== 유형별 외작 ===== */
+            openKindOut(id, kind, defQty) {
+                const o = id ? (this.kindOut || []).find(x => x.id === id) : null;
+                this._ko = {
+                    id: o ? o.id : null,
+                    kind: o ? o.kind : kind,
+                    companyId: o ? o.company_id : null,
+                    companyName: o ? o.company_name : '',
+                    minQty: o ? Number(o.in_qty || 0) : 0
+                };
+                this.el('koTitle').textContent = `${this._ko.kind} 외작 ${o ? '수정' : '발주'}`;
+                this.el('koKind').textContent = this._ko.kind;
+                this.el('koQty').value = o ? Number(o.qty) : (defQty || '');
+                this.el('koComp').value = this._ko.companyName || '';
+                this.el('koDue').value = o ? (o.due_date || '') : '';
+                this.el('koRemark').value = o ? (o.remark || '') : '';
+                this.el('koHint').innerHTML = o && Number(o.in_qty) > 0
+                    ? `입고 <b>${Number(o.in_qty).toLocaleString()}</b> 가 있어 그 미만으로 줄일 수 없고 외주처도 바꿀 수 없습니다.`
+                    : (o ? '' : '기본 수량은 아직 외작으로 안 보낸 필요 수량입니다. 일부만 보내려면 고치세요. 다른 업체로 나눠 보내려면 [외작] 을 한 번 더 누르세요.');
+                this.el('koModal').style.display = 'flex';
+            }
+
+            pickKindOutComp() {
+                if (typeof PopCompComponent === 'undefined') {
+                    Alert.alert('', '업체 선택 팝업을 불러오지 못했습니다.');
+                    return;
+                }
+                if (this._ko && this._ko.minQty > 0) return;   // 입고 있으면 업체 고정
+                const pop = new PopCompComponent(null, {companyType: 'purchase', title: '외주처 선택 (매입처)'});
+                pop.show(items => {
+                    this._ko.companyId = items.id || null;
+                    this._ko.companyName = items.compname || '';
+                    this.el('koComp').value = this._ko.companyName;
+                });
+            }
+
+            closeKindOut() {
+                this.el('koModal').style.display = 'none';
+            }
+
+            async saveKindOut() {
+                const k = this._ko;
+                const qty = Number(this.el('koQty').value);
+                if (!(qty > 0)) {
+                    Alert.alert('', '수량을 넣으세요.');
+                    return;
+                }
+                if (qty < k.minQty) {
+                    Alert.alert('', `입고된 ${k.minQty} 미만으로 줄일 수 없습니다.`);
+                    return;
+                }
+                if (!k.companyId) {
+                    Alert.alert('', '외주처를 고르세요.');
+                    return;
+                }
+                const res = await this.post(this.KO_API + '/save', {
+                    id: k.id, spjangcd: this.spjangcd, projNo: this.selProj, kind: k.kind, qty,
+                    companyId: k.companyId, companyName: k.companyName,
+                    dueDate: this.el('koDue').value || '', remark: this.el('koRemark').value || ''
+                });
+                if (!res.success) {
+                    Alert.alert('', res.message || '저장하지 못했습니다.');
+                    return;
+                }
+                this.closeKindOut();
+                await this.reloadKindOut();
+                Alert.alert('', k.id ? '외작을 고쳤습니다. 발주 수량도 같이 바뀌었습니다.'
+                    : '외작 발주를 만들었습니다. 단가는 발주 화면에서, 입고는 [외작 입고] 에서 받으세요.');
+            }
+
+            async cancelKindOut(id) {
+                const o = (this.kindOut || []).find(x => x.id === id);
+                const ok = await Alert.confirmAsync('', `${o ? o.kind + ' ' + Number(o.qty).toLocaleString() + '개 (' + (o.company_name || '') + ')' : ''} 외작을 취소할까요? 발주도 중지됩니다.`);
+                if (!ok) return;
+                const res = await this.post(this.KO_API + '/cancel', {id});
+                if (!res.success) {
+                    Alert.alert('', res.message || '취소하지 못했습니다.');
+                    return;
+                }
+                await this.reloadKindOut();
+            }
+
+            async reloadKindOut() {
+                this.kindOut = ((await this.get(this.KO_API + '/list', {
+                    spjangcd: this.spjangcd,
+                    projNo: this.selProj
+                })).data) || [];
+                this.renderKindSum(this.item());
             }
 
             renderPart() {
@@ -1693,7 +1939,8 @@
                 const acts = groups.map(g => this.projBulkAction(g, replace));
                 const okCnt = acts.filter(a => a.ok).length;
                 const okParts = groups.reduce((s, g, i) => s + (acts[i].ok ? g.rows.length : 0), 0);
-                const hasExisting = groups.some(g => g.item && g.item.ordered_yn !== 'Y' && Number(g.item.part_cnt || 0) > 0);
+                // 지시 나간 품목도 덮어쓸 수 있으므로 지시 여부와 관계없이 '기존 부품 있음' 이면 체크박스를 보인다
+                const hasExisting = groups.some(g => g.item && !g.item.common && Number(g.item.part_cnt || 0) > 0);
 
                 const cnt = this.el('pbCount');
                 cnt.style.display = typed ? 'block' : 'none';
@@ -1858,15 +2105,37 @@
                 });
                 const groups = [...map.entries()].map(([no, ds]) => ({
                     no,
-                    ds: ds.sort((a, b) => ((b._rev ?? -1) - (a._rev ?? -1)) || (b.id - a.id))
+                    // 같은 리비전이면 PDF → 그림(PNG 등) → DWG/DXF 순. 화면엔 맨 앞 파일이 뜨고 DWG/DXF 는 [원본 열기] 로
+                    ds: ds.sort((a, b) => ((b._rev ?? -1) - (a._rev ?? -1))
+                        || (this.fileRank(a) - this.fileRank(b)) || (b.id - a.id))
                 }));
                 return groups.sort((a, b) => a.no.localeCompare(b.no, 'ko', {numeric: true}));
+            }
+
+            /** 도면 보기 목록 — PDF·그림만. DWG/DXF 원본은 목록에 없고 [원본 열기] 로 짝을 찾아 연다 */
+            viewGroups() {
+                return this.drawGroups()
+                    .map(g => ({no: g.no, ds: g.ds.filter(d => !this.isCad(d))}))
+                    .filter(g => g.ds.length);
+            }
+
+            /** 같은 리비전 안에서 보여 줄 순서: PDF 0 · 그림 1 · 기타 2 · DWG/DXF 3 */
+            fileRank(d) {
+                const e = String(d.ext || '').replace('.', '').toLowerCase();
+                if (e === 'pdf') return 0;
+                if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(e)) return 1;
+                return this.isCad(d) ? 3 : 2;
+            }
+
+            /** CAD 원본(DWG·DXF) — 브라우저는 못 열고 PC 에 설치한 뷰어로 연다 */
+            isCad(d) {
+                return ['dwg', 'dxf'].includes(String(d.ext || '').replace('.', '').toLowerCase()) ? 1 : 0;
             }
 
             /** 부품표 위 안내 줄 */
             drawHint(it) {
                 const btn = this.el('drawViewBtn');
-                const n = (!it || it.common) ? 0 : this.drawGroups().length;
+                const n = (!it || it.common) ? 0 : this.viewGroups().length;
                 if (btn) btn.textContent = n ? `도면 보기 (${n})` : '도면 보기';
                 return '';
             }
@@ -1881,7 +2150,7 @@
                     Alert.alert('', '프로젝트 전체에는 도면을 올릴 수 없습니다. 품목을 선택하세요.');
                     return;
                 }
-                this.el('drawFile').click();
+                this.openDrawUp(false);
             }
 
             pickProjDrawings() {
@@ -1889,7 +2158,7 @@
                     Alert.alert('', '프로젝트를 먼저 선택하세요.');
                     return;
                 }
-                this.el('projDrawFile').click();
+                this.openDrawUp(true);
             }
 
             /**
@@ -1900,68 +2169,238 @@
             itemForDrawing(no) {
                 const norm = v => String(v || '').toUpperCase().replace(/\s+/g, '');
                 const dn = norm(no);
-                const hit = this.items.filter(x => !x.common && x.suju_id != null).filter(x => {
+                const items = this.items.filter(x => !x.common && x.suju_id != null);
+                let hit = items.filter(x => {
                     const n = norm(x.item_name);
                     return n && (dn === n || dn.startsWith(n + '-') || dn.startsWith(n + '_'));
                 });
+                // 번호 중간에 품목명이 한 마디로 들어 있는 경우 (68005-5S000-PRF20-01-03 → PRF20)
+                if (!hit.length) {
+                    const segs = dn.split(/[-_.]+/);
+                    hit = items.filter(x => {
+                        const n = norm(x.item_name);
+                        return n && segs.includes(n);
+                    });
+                }
                 if (!hit.length) return {item: null, cand: []};
                 const max = Math.max(...hit.map(x => norm(x.item_name).length));
                 const best = hit.filter(x => norm(x.item_name).length === max);
                 return best.length === 1 ? {item: best[0], cand: best} : {item: null, cand: best};
             }
 
-            /** proj=true 면 프로젝트 일괄(품목을 도면번호로 찾음), 아니면 선택 품목에 전부 */
-            async prepDrawings(input, proj) {
-                const files = [...(input.files || [])];
-                input.value = '';
-                if (!files.length) return;
-                const MAX = 50 * 1024 * 1024;
+            /*
+             * 도면 올리기 모달.
+             *   proj=false : 선택 품목에 전부 / proj=true : 프로젝트 일괄(품목을 도면번호 앞자리로 찾음)
+             *   [도면 올리기] 칸(PDF·그림) · [원본 올리기] 칸(DWG·DXF) 에 끌어다 놓거나 눌러서 고른다.
+             *   형식별로 폴더가 따로 있어도 칸마다 따로 넣으면 된다 — 묶는 기준은 '파일 이름' 이다.
+             *   위에는 이미 올린 것의 요약과 '원본 없는 도면' 만 보여 준다 (수백 장을 다 늘어놓지 않는다).
+             */
+            async openDrawUp(proj) {
                 const it = this.item();
-
                 this._duProj = !!proj;
-                this._du = files
-                    .map(f => {
-                        const r = Object.assign({file: f, big: f.size > MAX}, this.drawParse(f.name));
-                        if (proj) {
-                            const m = this.itemForDrawing(r.no);
-                            r.sujuId = m.item ? m.item.suju_id : '';
-                            r.why = m.item ? '' : (m.cand.length ? `같은 이름 품목 ${m.cand.length}개` : '맞는 품목 없음');
-                        } else {
-                            r.sujuId = it.suju_id;
-                        }
-                        return r;
-                    })
-                    .sort((a, b) => a.no.localeCompare(b.no, 'ko', {numeric: true}));
-
-                // 리비전 판정용: 대상 품목들의 기존 도면
+                this._du = [];
                 this._duHave = {};
-                const ids = [...new Set(this._du.map(r => r.sujuId).filter(v => v !== ''))];
-                for (const id of ids) {
-                    const res = (!proj || (it && it.suju_id === id))
-                        ? {data: this.drawings}
-                        : await this.get(`${this.DRAW_API}/list`, {sujuId: id});
-                    const m = new Map();
-                    (res.data || []).forEach(d => {
-                        const {no, rev} = this.drawParse(d.file_name);
-                        m.set(no, Math.max(m.get(no) ?? -1, rev ?? -1));
-                    });
-                    this._duHave[id] = m;
-                }
+                this._duNames = {};
+                this._duExt = {};
+                if (!proj) await this.loadHave([it.suju_id]);
 
                 this.el('duTitle').textContent = proj ? `${this.selProj} 도면 일괄 올리기` : `${it.item_name} 도면 올리기`;
                 this.el('duCols').innerHTML = proj
-                    ? '<col style="width:34%"><col style="width:18%"><col style="width:20%"><col style="width:28%">'
-                    : '<col style="width:44%"><col style="width:22%"><col style="width:34%">';
+                    ? '<col style="width:32%"><col style="width:17%"><col style="width:19%"><col style="width:26%"><col style="width:6%">'
+                    : '<col style="width:44%"><col style="width:20%"><col style="width:30%"><col style="width:6%">';
                 this.el('duHead').innerHTML = proj
-                    ? '<th>파일</th><th>도면번호</th><th>품목</th><th>처리</th>'
-                    : '<th>파일</th><th>도면번호</th><th>처리</th>';
+                    ? '<th>파일</th><th>도면번호</th><th>품목</th><th>처리</th><th></th>'
+                    : '<th>파일</th><th>도면번호</th><th>처리</th><th></th>';
+                this.renderHaveSum();
                 this.renderDrawUp();
+                this.bindDropZones();
                 this.el('drawUpModal').style.display = 'flex';
                 // 파일이 많으면 길어진다. 메인 푸터에 가리지 않게 보이는 높이 안에 맞춘다
                 const box = this.el('drawUpModal').querySelector('.modal-box');
                 const vh = this.visibleHeight();
                 this.el('drawUpModal').style.height = vh + 'px';
                 if (box) box.style.maxHeight = (vh - 40) + 'px';
+            }
+
+            /** 놓는 칸 — 한 번만 묶는다. 칸과 상관없이 파일은 확장자로 알아서 갈린다 */
+            bindDropZones() {
+                if (this._dzBound) return;
+                this._dzBound = true;
+                ['duZoneDraw', 'duZoneOrig'].forEach(id => {
+                    const z = this.el(id);
+                    z.addEventListener('dragover', e => {
+                        e.preventDefault();
+                        z.classList.add('over');
+                    });
+                    z.addEventListener('dragleave', () => z.classList.remove('over'));
+                    z.addEventListener('drop', async e => {
+                        e.preventDefault();
+                        z.classList.remove('over');
+                        const files = await this.filesFromDrop(e.dataTransfer);
+                        this.addDrawFiles(files);
+                    });
+                });
+                // 칸 밖에 떨어뜨려 브라우저가 파일을 열어 버리는 것 막기
+                this.el('drawUpModal').addEventListener('dragover', e => e.preventDefault());
+                this.el('drawUpModal').addEventListener('drop', e => e.preventDefault());
+            }
+
+            /** 끌어다 놓은 것에서 파일만 — 폴더를 놓으면 그 안(하위 폴더까지)을 꺼낸다 */
+            async filesFromDrop(dt) {
+                const items = [...(dt.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+                if (!items.length) return [...(dt.files || [])];
+                const out = [];
+                const walk = async entry => {
+                    if (entry.isFile) {
+                        out.push(await new Promise(res => entry.file(res, () => res(null))));
+                    } else if (entry.isDirectory) {
+                        const reader = entry.createReader();
+                        let batch;
+                        do {
+                            batch = await new Promise(res => reader.readEntries(res, () => res([])));
+                            for (const c of batch) await walk(c);
+                        } while (batch.length);
+                    }
+                };
+                for (const en of items) await walk(en);
+                return out.filter(Boolean);
+            }
+
+            /** 고르거나 놓은 파일을 올릴 목록에 더한다 (같은 이름은 한 번만) */
+            async addDrawFiles(fileList) {
+                const files = [...(fileList || [])].filter(f => f && f.name && !f.name.startsWith('.'));
+                if (!files.length) return;
+                const MAX = 200 * 1024 * 1024;   // application.properties max-file-size 와 같이
+                const it = this.item();
+                const proj = this._duProj;
+                const seen = new Set(this._du.map(r => r.file.name.toLowerCase()));
+                const add = [];
+                files.forEach(f => {
+                    if (seen.has(f.name.toLowerCase())) return;
+                    seen.add(f.name.toLowerCase());
+                    const r = Object.assign({file: f, big: f.size > MAX}, this.drawParse(f.name));
+                    if (proj) {
+                        const m = this.itemForDrawing(r.no);
+                        // 이름으로 못 찾으면 오른쪽에서 고른 품목으로 (FD10-01-03 처럼 품목명이 안 들어간 이름)
+                        const sel = !m.item && !m.cand.length && it && !it.common && it.suju_id != null ? it : null;
+                        r.sujuId = m.item ? m.item.suju_id : sel ? sel.suju_id : '';
+                        r.why = m.item ? '' : (m.cand.length ? `같은 이름 품목 ${m.cand.length}개` : '맞는 품목 없음');
+                        r.bySel = !!sel;
+                    } else {
+                        r.sujuId = it.suju_id;
+                    }
+                    add.push(r);
+                });
+                await this.loadHave(add.map(r => r.sujuId));
+                this._du = this._du.concat(add)
+                    .sort((a, b) => a.no.localeCompare(b.no, 'ko', {numeric: true}) || a.file.name.localeCompare(b.file.name));
+                this.renderDrawUp();
+            }
+
+            /** 프로젝트 일괄에서 품목을 직접 고름 — 그 품목의 기존 도면도 읽어 중복 · 리비전 판정 */
+            async setDuItem(i, v) {
+                this._du[i].sujuId = v === '' ? '' : +v;
+                await this.loadHave([this._du[i].sujuId]);
+                this.renderDrawUp();
+            }
+
+            removeDrawFile(i) {
+                this._du.splice(i, 1);
+                this.renderDrawUp();
+            }
+
+            /** 리비전 판정 · 중복 건너뛰기용: 대상 품목들의 기존 도면 (한 번 읽은 품목은 다시 안 읽는다) */
+            async loadHave(sujuIds) {
+                const it = this.item();
+                const ids = [...new Set(sujuIds.filter(v => v !== '' && v != null))].filter(id => !this._duHave[id]);
+                for (const id of ids) {
+                    const res = (it && it.suju_id === id)
+                        ? {data: this.drawings}
+                        : await this.get(`${this.DRAW_API}/list`, {sujuId: id});
+                    const m = new Map(), names = new Set(), ext = new Map();
+                    (res.data || []).forEach(d => {
+                        const {no, rev} = this.drawParse(d.file_name);
+                        m.set(no, Math.max(m.get(no) ?? -1, rev ?? -1));
+                        names.add(String(d.file_name || '').toLowerCase());
+                        const k = no + '|' + (rev ?? -1);
+                        ext.set(k, (ext.get(k) || new Set()).add(String(d.ext || '').replace('.', '').toLowerCase()));
+                    });
+                    this._duHave[id] = m;
+                    this._duNames[id] = names;
+                    this._duExt[id] = ext;
+                }
+            }
+
+            /** 이름이 같은 도면이 없는 원본 — 유닛 원본인지 공정 통파일인지 (iljin_drawing.js origKind) */
+            origStatus(r, rows) {
+                if (typeof IljinDrawing === 'undefined' || !IljinDrawing.origKind) return '';
+                const cad = n => /\.(dwg|dxf)$/i.test(n);
+                const nos = new Set();
+                // 이미 올린 PDF·그림 번호 (loadHave 의 번호|리비전 → 형식)
+                (this._duExt[r.sujuId] || new Map()).forEach((exts, k) => {
+                    if ([...exts].some(e => !['dwg', 'dxf'].includes(e))) nos.add(k.slice(0, k.lastIndexOf('|')));
+                });
+                rows.forEach(x => {
+                    if (x.sujuId === r.sujuId && !x.big && !cad(x.file.name)) nos.add(x.no);
+                });
+                const k = IljinDrawing.origKind(r.file.name, [...nos]);
+                if (k.kind === 'part') return '';
+                if (k.kind === 'unit') return '유닛 원본 — 유닛 도면들에서 열림';
+                if (k.kind === 'whole') return '전체 원본(통파일) — 이 품목 도면 전부에서 열림';
+                return '원본 — 짝 도면 없음 (PDF 를 같은 이름으로 올리면 연결)';
+            }
+
+            /** 이미 올린 것 요약 — 품목 모드만. '원본 없는 도면' · '도면 없는 원본' 은 번호를 칩으로 */
+            renderHaveSum(showAll) {
+                const box = this.el('duHaveSum');
+                if (this._duProj) {
+                    box.innerHTML = '<span style="color:#718096">프로젝트 일괄: 파일 이름 앞부분(품목명)으로 품목을 찾아 나눠 올립니다. '
+                        + '못 찾은 파일은 표에서 품목을 고르세요.</span>';
+                    return;
+                }
+                const groups = this.drawGroups();
+                if (!groups.length) {
+                    box.innerHTML = '<span style="color:#718096">아직 올린 도면이 없습니다.</span>';
+                    return;
+                }
+                const cnt = e => this.drawings.filter(d => String(d.ext || '').replace('.', '').toLowerCase() === e).length;
+                const img = this.drawings.filter(d => this.fileRank(d) === 1).length;
+                // 원본은 낱장 · 유닛 · 공정 통파일 어느 것이든 된다 — [원본 열기] 가 실제로 열 수 있는지로 센다
+                const hidden = (typeof IljinDrawing !== 'undefined' && IljinDrawing.hiddenOriginals)
+                    ? IljinDrawing.hiddenOriginals(this.drawings) : {};
+                const origOnly = groups.filter(g => g.ds.every(d => this.isCad(d)));
+                const onlyOrig = origOnly.filter(g => !g.ds.some(d => hidden[d.id]));   // 어느 도면의 짝도 아닌 원본
+                const draws = groups.filter(g => !g.ds.every(d => this.isCad(d)));
+                const kinds = {part: 0, unit: 0, whole: 0};
+                const noOrig = draws.filter(g => {
+                    const os = this.origsOf(g.ds.find(d => !this.isCad(d)));
+                    if (os.length) kinds[os[0].kind]++;
+                    return !os.length;
+                });
+                groups.length = 0;
+                groups.push(...draws);
+                const chips = (gs, k) => {
+                    const lim = showAll === k ? gs.length : 40;
+                    return `<div class="du-chips">${gs.slice(0, lim).map(g => `<span>${this.escHtml(g.no)}</span>`).join('')}`
+                        + (gs.length > lim ? `<a onclick="prodDesign.renderHaveSum('${k}')">외 ${gs.length - lim}개 더 보기</a>` : '') + '</div>';
+                };
+                // 빠진 게 절반 넘으면 '빠진 것' 대신 '있는 것' 을 보여 준다 — 300장 중 280장이 칩으로 깔리지 않게
+                const withOrig = groups.filter(g => !noOrig.includes(g));
+                let origLine;
+                const how = [kinds.part && `이 도면 원본 ${kinds.part}`, kinds.unit && `유닛 원본 ${kinds.unit}`,
+                    kinds.whole && `전체 원본(통파일) ${kinds.whole}`].filter(Boolean).join(' · ');
+                if (!groups.length) origLine = `<div style="margin-top:6px;color:#718096">PDF·그림 도면은 아직 없습니다.</div>`;
+                else if (!noOrig.length) origLine = `<div style="margin-top:6px;color:#2f855a">모든 도면에서 원본을 열 수 있습니다. <span style="color:#718096">(${how})</span></div>`;
+                else if (!withOrig.length) origLine = `<div style="margin-top:6px;color:#718096">원본(DWG·DXF)은 아직 없습니다 — 도면 <b>${groups.length}종</b> 모두 원본 없음.</div>`;
+                else if (noOrig.length <= withOrig.length)
+                    origLine = `<div style="margin-top:8px">원본 없는 도면 <b style="color:#b45309">${noOrig.length}</b> / ${groups.length}${chips(noOrig, 'no')}</div>`;
+                else
+                    origLine = `<div style="margin-top:8px">원본 있는 도면 <b style="color:#2f855a">${withOrig.length}</b> / ${groups.length} <span style="color:#718096">(${how})</span>`
+                        + ` <span style="color:#718096">(나머지 ${noOrig.length}종은 원본 없음)</span>${chips(withOrig, 'with')}</div>`;
+                box.innerHTML = `이미 올림: 도면 <b>${groups.length}종</b> · PDF ${cnt('pdf')} · 그림 ${img}`
+                    + ` · 원본 DWG ${cnt('dwg')} · DXF ${cnt('dxf')}`
+                    + origLine
+                    + (onlyOrig.length ? `<div style="margin-top:8px">짝 도면이 없는 원본 <b>${onlyOrig.length}</b>${chips(onlyOrig, 'only')}</div>` : '');
             }
 
             renderDrawUp() {
@@ -1982,13 +2421,22 @@
                     const have = this._duHave[r.sujuId] || new Map();
                     const old = have.has(r.no) ? have.get(r.no) : null;
                     const t = top.get(r.sujuId + '|' + r.no) ?? -1;
+                    const fx = (r.file.name.split('.').pop() || '').toLowerCase();
+                    const fmt = ['dwg', 'dxf'].includes(fx) ? `원본 ${fx.toUpperCase()}` : fx.toUpperCase();
+                    r.dup = r.sujuId !== '' && (this._duNames[r.sujuId] || new Set()).has(r.file.name.toLowerCase());
+                    const sameRevExt = (this._duExt[r.sujuId] || new Map()).get(r.no + '|' + (r.rev ?? -1));
                     if (r.big) {
-                        st = '50MB 초과 — 올릴 수 없음';
+                        st = '200MB 초과 — 올릴 수 없음';
                         color = '#b3261e';
                     } else if (r.sujuId === '') {
                         st = r.why ? `${r.why} — 품목을 고르세요` : '올리지 않음';
                         color = '#b45309';
-                    } else if (old == null) st = (r.rev ?? -1) < t ? `이력 (최신은 REV${t})` : '새 도면';
+                    } else if (r.dup) {
+                        st = '이미 있음 — 건너뜀';
+                        color = '#718096';
+                    } else if (old != null && r.rev != null && r.rev === old && sameRevExt && !sameRevExt.has(fx)) st = `${fmt} 추가 (같은 REV${old})`;
+                    else if (old == null && ['dwg', 'dxf'].includes(fx) && this.origStatus(r, rows)) st = this.origStatus(r, rows);
+                    else if (old == null) st = (r.rev ?? -1) < t ? `이력 (최신은 REV${t})` : '새 도면';
                     else if (r.rev != null && r.rev === old) st = `같은 REV${old} — 새 파일이 최신`;
                     else if ((r.rev ?? -1) >= t) st = old >= 0 ? `최신으로 교체 (기존 REV${old})` : '최신으로 교체';
                     else {
@@ -1996,8 +2444,9 @@
                         color = '#718096';
                     }
 
+                    if (proj && r.bySel && r.sujuId !== '' && !r.big && !r.dup) st += ' · 이름으로 못 찾아 선택 품목에';
                     const itemCell = !proj ? '' : `<td><select ${r.big ? 'disabled' : ''} style="width:100%;min-width:0"
-                            onchange="prodDesign._du[${i}].sujuId = this.value === '' ? '' : +this.value; prodDesign.renderDrawUp()">
+                            onchange="prodDesign.setDuItem(${i}, this.value)">
                             <option value="" ${r.sujuId === '' ? 'selected' : ''}>올리지 않음</option>
                             ${items.map(x => `<option value="${x.suju_id}" ${x.suju_id === r.sujuId ? 'selected' : ''}>`
                         + `${this.escHtml((x.line_name ? x.line_name + ' ' : '') + x.item_name)}</option>`).join('')}
@@ -2007,12 +2456,21 @@
                         <td>${this.escHtml(r.no)}${r.rev != null ? ` <b style="font-size:11px">REV${r.rev}</b>` : ''}</td>
                         ${itemCell}
                         <td style="color:${color};font-weight:600">${st}</td>
+                        <td><a style="color:#b3261e;cursor:pointer" title="목록에서 빼기" onclick="prodDesign.removeDrawFile(${i})">✕</a></td>
                     </tr>`;
                 }).join('');
 
-                const go = rows.filter(r => !r.big && r.sujuId !== '');
+                const go = rows.filter(r => !r.big && r.sujuId !== '' && !r.dup);
                 const left = rows.filter(r => !r.big && r.sujuId === '').length;
-                this.el('duCount').innerHTML = `파일 <b>${rows.length}개</b>`
+                const dups = rows.filter(r => r.dup).length;
+                this.el('duTable').style.display = rows.length ? '' : 'none';
+                if (!rows.length) {
+                    this.el('duCount').innerHTML = '';
+                    this.el('duApplyBtn').textContent = '올리기';
+                    return;
+                }
+                this.el('duCount').innerHTML = `올릴 파일 <b>${rows.length}개</b>`
+                    + (dups ? ` · <span style="color:#718096">이미 있음 ${dups}개 건너뜀</span>` : '')
                     + (proj ? ` · 품목 <b>${new Set(go.map(r => r.sujuId)).size}개</b>로 나눠 올림` : '')
                     + ` · 도면번호 <b>${new Set(go.map(r => r.sujuId + '|' + r.no)).size}종</b>`
                     + (left ? ` · <b style="color:#b45309">품목 못 찾음 ${left}개</b>` : '');
@@ -2039,18 +2497,25 @@
 
             async uploadDrawings() {
                 if (this._duBusy) return;
-                const go = (this._du || []).filter(r => !r.big && r.sujuId !== '');
+                const go = (this._du || []).filter(r => !r.big && r.sujuId !== '' && !r.dup);
                 if (!go.length) {
-                    Alert.alert('', '올릴 파일이 없습니다.');
+                    Alert.alert('', '올릴 파일이 없습니다. (이미 올린 파일은 건너뜁니다)');
                     return;
                 }
                 this._duBusy = true;
                 const btn = this.el('duApplyBtn');
                 const fail = [];
-                for (let i = 0; i < go.length; i++) {
-                    btn.textContent = `올리는 중 ${i + 1}/${go.length}`;
-                    if (!(await this.uploadOne(go[i].file, go[i].sujuId))) fail.push(go[i].file.name);
-                }
+                // 지그 하나에 수백 개라 3개씩 동시에 올린다 (사내망 · 서버 부담 적당한 선)
+                let next = 0, done = 0;
+                const worker = async () => {
+                    while (next < go.length) {
+                        const r = go[next++];
+                        if (!(await this.uploadOne(r.file, r.sujuId))) fail.push(r.file.name);
+                        done++;
+                        btn.textContent = `올리는 중 ${done}/${go.length}`;
+                    }
+                };
+                await Promise.all([worker(), worker(), worker()]);
                 this._duBusy = false;
 
                 this.closeDrawUp();
@@ -2059,7 +2524,9 @@
                 const nItems = new Set(go.map(r => r.sujuId)).size;
                 Alert.alert('', `도면 ${go.length - fail.length}개를 올렸습니다`
                     + (this._duProj ? ` (품목 ${nItems}개).` : '.')
-                    + (fail.length ? `<br>실패 ${fail.length}개: ${fail.map(n => this.escHtml(n)).join(', ')}` : ''));
+                    + (fail.length ? `<br>실패 ${fail.length}개: ${fail.slice(0, 10).map(n => this.escHtml(n)).join(', ')}`
+                        + (fail.length > 10 ? ` 외 ${fail.length - 10}개` : '')
+                        + '<br>같은 파일들을 다시 고르면 올라간 것은 건너뛰고 실패한 것만 올립니다.' : ''));
             }
 
             viewUrl(id, download) {
@@ -2073,12 +2540,13 @@
                     Alert.alert('', '품목을 먼저 선택하세요.');
                     return;
                 }
-                const groups = this.drawGroups();
+                const groups = this.viewGroups();
                 if (!groups.length) {
-                    Alert.alert('', '이 품목에 올린 도면이 없습니다. [도면 올리기]로 올리세요.');
+                    Alert.alert('', '이 품목에 올린 도면이 없습니다. 왼쪽 [도면 일괄]로 올리세요.');
                     return;
                 }
                 const modal = this.el('drawViewModal');
+                if (this.el('dvQ')) this.el('dvQ').value = '';
                 modal.style.display = 'flex';
                 this.fitDrawView();
                 if (!this._fitBound) {
@@ -2118,16 +2586,27 @@
                 modal.style.height = visible + 'px';
                 const box = modal.querySelector('.modal-box');
                 if (box) box.style.height = (visible - 24) + 'px';
+                if (this._dvMount) setTimeout(() => this._dvMount && this._dvMount.refit(), 0);
             }
 
             closeDrawView() {
+                if (this._dvMount) {
+                    this._dvMount.destroy();
+                    this._dvMount = null;
+                }
                 this.el('drawViewModal').style.display = 'none';
                 this.el('dvPane').innerHTML = '';   // PDF 뷰어를 내린다 (메모리)
             }
 
             /** 왼쪽 목록: 도면번호마다 최신 1줄, 이전 리비전은 그 아래 작게 */
             renderDrawList() {
-                const groups = this.drawGroups();
+                const norm = v => String(v || '').toUpperCase().replace(/[\s\-_.]/g, '');
+                const key = norm(this.el('dvQ') ? this.el('dvQ').value : '');
+                const all = this.viewGroups();
+                const groups = key
+                    ? all.filter(g => g.ds.some(d => norm(d._no).includes(key) || norm(d.file_name).includes(key)))
+                    : all;
+                let latestRev = null;   // 그 도면의 최신 리비전 — 같은 리비전의 다른 형식은 '이전' 이 아니다
                 const line = (d, latest) => `
                     <div style="padding:${latest ? '6px' : '3px 6px 3px 18px'};border-radius:5px;cursor:pointer;
                                 background:${d.id === this._dvId ? '#e8f0fe' : 'transparent'};
@@ -2135,7 +2614,9 @@
                          onclick="prodDesign.showDrawing(${d.id})">
                         <div style="display:flex;justify-content:space-between;gap:6px;align-items:baseline;">
                             <span style="word-break:break-all;">
-                                ${latest ? `<b style="font-size:12.5px">${this.escHtml(d._no)}</b>` : '이전'}
+                                ${latest ? `<b style="font-size:12.5px">${this.escHtml(d._no)}</b>`
+                    : (this.isCad(d) ? `원본 ${this.escHtml(String(d.ext || '').replace('.', '').toUpperCase())}`
+                        : (d._rev === latestRev ? `같은 도면 ${this.escHtml(String(d.ext || '').replace('.', '').toUpperCase())}` : '이전'))}
                                 ${d._rev != null ? `<span style="font-size:11px;font-weight:700;color:${latest ? '#1f4e8c' : 'inherit'}">REV${d._rev}</span>` : ''}
                             </span>
                             <a style="color:#b3261e;cursor:pointer;font-size:11px;flex:none"
@@ -2146,13 +2627,17 @@
 
                 this.el('dvList').innerHTML =
                     `<div style="font-size:12px;color:#4a5568;padding:2px 4px 8px;border-bottom:1px solid #e2e8f0;margin-bottom:6px;">
-                        도면 <b>${groups.length}종</b> · 파일 ${this.drawings.length}개</div>`
-                    + groups.map(g => `<div style="margin-bottom:4px;">
-                        ${line(g.ds[0], true)}${g.ds.slice(1).map(d => line(d, false)).join('')}</div>`).join('');
+                        ${key ? `찾은 도면 <b>${groups.length}종</b> / 전체 ${all.length}종`
+                        : `도면 <b>${groups.length}종</b> · 파일 ${all.reduce((n, g) => n + g.ds.length, 0)}개`}</div>`
+                    + groups.map(g => {
+                        latestRev = g.ds[0]._rev;
+                        return `<div style="margin-bottom:4px;">
+                        ${line(g.ds[0], true)}${g.ds.slice(1).map(d => line(d, false)).join('')}</div>`;
+                    }).join('');
             }
 
             showDrawing(id) {
-                const d = this.drawGroups().flatMap(g => g.ds).find(x => x.id === id);
+                const d = this.viewGroups().flatMap(g => g.ds).find(x => x.id === id);
                 if (!d) return;
                 this._dvId = id;
                 this.el('dvTitle').textContent = `${this.item().item_name} · ${d._no}`
@@ -2160,7 +2645,25 @@
 
                 const ext = (d.ext || '').replace('.', '');
                 const pane = this.el('dvPane');
-                if (ext === 'pdf') {
+                // 원본(DWG/DXF): 이 도면 원본 → 유닛 원본 → 공정 통파일 순 (iljin_drawing.js findOriginals)
+                this._dvOrigs = this.origsOf(d);
+                this._dvNo = d._no;
+                const ob = this.el('dvOrig');
+                const os = this._dvOrigs;
+                ob.style.display = os.length ? '' : 'none';
+                ob.textContent = !os.length ? '' : os.length > 1 ? `원본 열기 (${os.length}개)`
+                    : `원본 열기 · ${os[0].kind === 'part' ? '' : os[0].label + ' '}${os[0].ext}${os[0].rev != null ? ' REV' + os[0].rev : ''}`;
+                ob.title = os.map(o => `${o.label} · ${o.name}`).join('\n');
+                // 키오스크와 같은 확대 보기 (iljin_drawing.js) — 휠 · 두 손가락 · 끌어 이동 · [＋][－][맞춤]
+                if (this._dvMount) {
+                    this._dvMount.destroy();
+                    this._dvMount = null;
+                }
+                const mounted = (typeof IljinDrawing !== 'undefined' && IljinDrawing.mount)
+                    ? IljinDrawing.mount(pane, this.viewUrl(id), ext) : null;
+                if (mounted) {
+                    this._dvMount = mounted;
+                } else if (ext === 'pdf') {
                     pane.innerHTML = `<iframe src="${this.viewUrl(id)}" style="width:100%;height:100%;border:0;background:#fff"></iframe>`;
                 } else if (['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'].includes(ext)) {
                     pane.innerHTML = `<img src="${this.viewUrl(id)}" alt=""
@@ -2171,6 +2674,23 @@
                         <a class="btn" style="margin-top:10px" onclick="prodDesign.downDrawing()">내려받기</a></div>`;
                 }
                 this.renderDrawList();
+            }
+
+            /*
+             * 원본 열기 — PC 의 'iljindwg:' 처리기가 임시 폴더에 받아 도면 뷰어로 연다
+             * (다운로드 폴더에 쌓이지 않게). 처리기 없는 PC 는 안내에서 [내려받기]. iljin_drawing.js 참조.
+             */
+            openOriginal() {
+                const os = this._dvOrigs || [];
+                if (!os.length) return;
+                if (typeof IljinDrawing !== 'undefined' && IljinDrawing.openOriginals) IljinDrawing.openOriginals(os, this._dvNo);
+                else location.href = this.viewUrl(os[0].id, true);
+            }
+
+            /** 이 도면을 [원본 열기] 했을 때 열 원본 후보 */
+            origsOf(d) {
+                return (typeof IljinDrawing !== 'undefined' && IljinDrawing.findOriginals)
+                    ? IljinDrawing.findOriginals(d, this.drawings) : [];
             }
 
             downDrawing() {
@@ -2188,7 +2708,7 @@
                 }
                 await this.loadDrawings();
                 this.renderPart();
-                const groups = this.drawGroups();
+                const groups = this.viewGroups();
                 if (!groups.length) {
                     this.closeDrawView();
                     return;

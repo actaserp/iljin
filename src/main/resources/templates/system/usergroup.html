@@ -1,9 +1,9 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
   <style>
-      .wj-header {
-          text-align: center !important;
-      }
+    .wj-header {
+      text-align: center !important;
+    }
   </style>
 </head>
 <th:block layout:fragment="content">
@@ -314,6 +314,7 @@
 
       //let data = $('#usergroupForm').serialize();
       let data = FormUtil.extractForm($('#usergroupForm'));
+      data.spjangcd = sessionStorage.getItem('spjangcd');   // 저장 API 필수값 (폼에 없음)
 
 
       // 필수입력 check routine
@@ -368,7 +369,7 @@
 
     $(document).ready(function (e) {
 
-      AjaxUtil.fillSelectOptions($('#gmenu'), 'menu_item', '', '');
+      AjaxUtil.fillSelectOptions($('#gmenu'), 'menu_item', '', '', 'used');   // 사용하는 화면만, 가나다 순
 
       $('#btn_search').click(function (ex) {
         searchDataBind();

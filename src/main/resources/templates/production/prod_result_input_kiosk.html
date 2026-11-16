@@ -321,7 +321,7 @@
             <button class="sq-btn sq-defect" id="btnDefect" title="불량 실적 입력 화면 열기">
                 <span class="ic">⚠</span><span class="tx">불량</span>
             </button>
-            <button class="sq-btn" id="btnDraw" title="선택한 공정의 도면 보기" disabled>
+            <button class="sq-btn" id="btnDraw" title="도면 보기 · 도면번호 검색">
                 <span class="ic">📄</span><span class="tx">도면</span>
             </button>
             <button class="sq-btn" id="btnReload" title="목록 새로고침">
@@ -798,7 +798,7 @@
             st.editId = null;   // 탭이 바뀌면 수정 모드 해제
             qTokens = [];
             searchMode = false;
-            st.step = STEPS.findIndex(x => stepValue(x.key) == null && !SKIP_STEPS.includes(x.key));
+            st.step = STEPS.findIndex(x => stepValue(x.key) == null && !skipSteps().includes(x.key));
             if (st.step < 0) st.step = STEPS.length - 1;
             await loadItems();
             await loadTiles();
@@ -1125,13 +1125,23 @@
          *   품목을 고르면 서버가 상위를 역산하므로(headOf) 순서상 문제가 없다.
          *   좁혀 보고 싶으면 단계 탭을 눌러 되돌아가면 된다 — 지우지 않고 건너뛰기만 한다.
          */
-        const SKIP_STEPS = ['proj', 'head'];
+        const SKIP_STEPS_DEFAULT = ['proj', 'head'];
+        /*
+         * ★ 레이저 모형절단은 반대다.
+         *   철판 한 장에서 여러 부품(때로는 여러 프로젝트 것)을 한 번에 잘라내므로
+         *   자르는 시점에 품목(FD10)을 모른다. 대신 '어느 프로젝트 판인지' 는 안다.
+         *   → 프로젝트를 묻고 수주·품목은 건너뛴다. 품목 없이 프로젝트 + 유형으로 등록된다.
+         *   다른 공정으로 늘리려면 여기에 공정명(work_center.Name)만 추가.
+         */
+        const NO_ITEM_OPS = ['레이저 모형절단'];
+        const skipSteps = () => (MODE === 'machining' && NO_ITEM_OPS.includes(CURRENT_OP))
+            ? ['head', 'item'] : SKIP_STEPS_DEFAULT;
 
         function advanceFrom(key) {
             const i = STEPS.findIndex(s => s.key === key);
             let next = i + 1;
             while (next < STEPS.length
-            && (stepValue(STEPS[next].key) != null || SKIP_STEPS.includes(STEPS[next].key))) next++;
+            && (stepValue(STEPS[next].key) != null || skipSteps().includes(STEPS[next].key))) next++;
             st.step = next < STEPS.length ? next : i;
             renderAll();
         }
@@ -1174,7 +1184,7 @@
                 : (derived || '선택하세요');
             pj.classList.toggle('empty', st.proj < 0 && !derived);
             el('#cxItem').textContent = it0 ? (it0.item_name || '') : '';
-            el('#btnDraw').disabled = !it0;
+            el('#btnDraw').disabled = false;   // 공정을 안 골라도 도면번호로 찾을 수 있다
             // 작업 버튼 (작업자+설비+프로젝트+공정 선택 시 활성)
             const wa = el('#workArea');
             // 조립은 설비를 묻지 않는다. 품목만 있으면 시작할 수 있다
@@ -1978,7 +1988,8 @@
         el('#btnDefect').onclick = () => {
             IljinKiosk.openTab('prod_result_defect', '불량 실적', MENU_CODE, {
                 op: CURRENT_OP || '', machine: st.machine || '',
-                worker: st.worker || '', workerId: st.workerId || null
+                worker: st.worker || '', workerId: st.workerId || null,
+                projNo: st.proj >= 0 && PROJECTS[st.proj] ? PROJECTS[st.proj].proj_no : ''
             });
         };
         el('#logBackdrop').onclick = () => toggleLogBig(false);
@@ -2022,15 +2033,26 @@
 
         document.getElementById('btnFull').onclick = toggleFullscreen;
 
-        // 도면 보기 — 공정(품목)을 고른 뒤에만 누를 수 있다
+        /*
+         * 도면 보기.
+         *   공정(품목)을 골랐으면 → 그 공정 도면 (위 검색칸으로 거르기 · [프로젝트 전체] 로 넓히기)
+         *   안 골랐으면          → 도면번호 검색. 프로젝트를 골랐으면 그 프로젝트, 아니면 진행 중 전체.
+         *   검색은 키오스크에 붙은 키보드로 친다 (예: 0103 → FD10-01-03).
+         */
         el('#btnDraw').onclick = () => {
             const it = st.item >= 0 ? ITEMS[st.item] : null;
-            if (!it) { flash('공정을 먼저 고르세요'); return; }
-            IljinDrawing.open({
-                sujuId: it.suju_id,
-                title: (it.proj_no ? it.proj_no + ' · ' : '') + (it.item_name || ''),
-                onEmpty: () => flash('이 공정에 올린 도면이 없습니다')
-            });
+            const pj = st.proj >= 0 ? PROJECTS[st.proj] : null;
+            const projNo = (it && it.proj_no) || (pj && pj.proj_no) || '';
+            if (it) {
+                IljinDrawing.open({
+                    sujuId: it.suju_id,
+                    projNo,
+                    title: (it.proj_no ? it.proj_no + ' · ' : '') + (it.item_name || ''),
+                    onEmpty: () => flash('이 공정에 올린 도면이 없습니다')
+                });
+            } else {
+                IljinDrawing.search({projNo, title: pj ? projLabel(pj) : '전체 프로젝트'});
+            }
         };
         document.addEventListener('fullscreenchange', renderFsBtn);
 
