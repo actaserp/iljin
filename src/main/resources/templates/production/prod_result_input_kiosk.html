@@ -267,6 +267,39 @@
         .mode-tabs button.m-set.on{background:#b06414;border-color:#8a4d10;}
         .flash{position:fixed;left:50%;top:18px;transform:translateX(-50%);background:#1ca36b;color:#fff;font-weight:800;padding:11px 22px;border-radius:30px;font-size:15px;box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.2s;z-index:50;}
         .flash.show{opacity:1;}
+        /* 비가동 — 버튼이 상태를 보여 준다 (서 있으면 빨갛게 + 경과 분) */
+        .sq-btn.sq-stop { color:#b7791f; border-color:#f0d9a8; }
+        .sq-btn.sq-stop:hover { background:#fffaf0; }
+        .sq-btn.sq-stop.on { background:#e53e3e; border-color:#e53e3e; color:#fff; animation: stopPulse 1.6s ease-in-out infinite; }
+        .sq-btn.sq-stop.on .tx { font-size:10.5px; }
+        .sq-btn.sq-check { color:#2563eb; border-color:#bfd3f5; }
+        .sq-btn.sq-check:hover { background:#f0f6ff; }
+        .sq-btn.sq-check.full { color:#16a34a; border-color:#9fdcb4; }
+        .sq-btn.sq-check .ic { font-size:17px; font-weight:800; }
+        @keyframes stopPulse { 50% { background:#c53030; } }
+        .stop-dim { position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:3000; display:none;
+            align-items:center; justify-content:center; }
+        .stop-box { background:#fff; border-radius:14px; width:min(760px,94vw); max-height:90vh; display:flex;
+            flex-direction:column; box-shadow:0 18px 50px rgba(0,0,0,.3); }
+        .stop-head { padding:18px 22px; border-bottom:1px solid #e6eaf1; font-size:20px; font-weight:800; color:#1f2a44; }
+        .stop-head small { font-size:14px; font-weight:600; color:#6b7280; margin-left:8px; }
+        .stop-body { padding:18px 22px; overflow:auto; }
+        .stop-causes { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; }
+        .stop-cause { min-height:64px; border:2px solid #d7dde7; border-radius:10px; background:#fff; font-size:17px;
+            font-weight:700; color:#1f2a44; cursor:pointer; padding:6px 10px; }
+        .stop-cause.plan { color:#4a5568; border-style:dashed; }
+        .stop-cause.on { border-color:#e53e3e; background:#fff5f5; color:#c53030; }
+        .stop-memo { width:100%; height:48px; margin-top:14px; border:1px solid #cfd6e2; border-radius:8px;
+            padding:0 12px; font-size:16px; }
+        .stop-now { text-align:center; padding:10px 0 4px; }
+        .stop-now .c { font-size:30px; font-weight:800; color:#c53030; }
+        .stop-now .t { font-size:17px; color:#4a5568; margin-top:6px; }
+        .stop-foot { display:flex; gap:10px; justify-content:flex-end; padding:14px 22px; border-top:1px solid #e6eaf1; }
+        .stop-foot button { height:58px; padding:0 26px; border:0; border-radius:10px; font-size:18px; font-weight:800; cursor:pointer; }
+        .stop-foot .go { background:#e53e3e; color:#fff; }
+        .stop-foot .go:disabled { opacity:.45; cursor:default; }
+        .stop-foot .run { background:#2e9e5b; color:#fff; min-width:220px; }
+        .stop-foot .x { background:#e2e8f0; color:#1f2a44; }
     </style>
 </head>
 <th:block layout:fragment="content">
@@ -321,6 +354,14 @@
             <button class="sq-btn sq-defect" id="btnDefect" title="불량 실적 입력 화면 열기">
                 <span class="ic">⚠</span><span class="tx">불량</span>
             </button>
+            <!-- 설비 비가동 — 고장·자재 대기 등으로 설비가 서면 사유를 남긴다. 서 있는 동안 빨갛게 -->
+            <button class="sq-btn sq-stop" id="btnStop" title="설비 비가동 시작 · 재가동" style="display:none">
+                <span class="ic">⏸</span><span class="tx">비가동</span>
+            </button>
+            <!-- 조립 체크리스트 (인수인계 · 배선/I/O · 시운전 준비) — 조립 탭에서 품목을 고르면 보인다 -->
+            <button class="sq-btn sq-check" id="btnCheck" title="조립 체크리스트" style="display:none">
+                <span class="ic" id="chkCnt">0/0</span><span class="tx">체크</span>
+            </button>
             <button class="sq-btn" id="btnDraw" title="도면 보기 · 도면번호 검색">
                 <span class="ic">📄</span><span class="tx">도면</span>
             </button>
@@ -361,6 +402,7 @@
             </div>
 
             <div class="log-backdrop" id="logBackdrop"></div>
+            <div class="stop-dim" id="stopDim"><div class="stop-box" id="stopBox"></div></div>
 
             <!-- 우: 공정 선택 단계엔 검색 키패드, 그 외엔 수량 키패드 -->
             <div class="entry-col">
@@ -443,6 +485,7 @@
 
 <th:block layout:fragment="scripts">
     <script th:src="@{/js/iljin_drawing.js}"></script>
+    <script th:src="@{/js/iljin_checklist.js}"></script>
     <script th:src="@{/js/iljin_kiosk.js}"></script>
     <script type="text/javascript" th:inline="none">
         // 주의: 전역 $ (jQuery) 를 덮으면 common.js 의 AjaxUtil 이 깨진다.
@@ -2039,6 +2082,137 @@
          *   안 골랐으면          → 도면번호 검색. 프로젝트를 골랐으면 그 프로젝트, 아니면 진행 중 전체.
          *   검색은 키오스크에 붙은 키보드로 친다 (예: 0103 → FD10-01-03).
          */
+        /*
+         * 설비 비가동 — 기존 equ_run(RunState='X') + stop_cause(비가동 유형) 에 남긴다 (/api/production/equ_stop).
+         *   [비가동] → 사유 타일 고르고 [비가동 시작] → 버튼이 빨갛게 '비가동 n분'
+         *   다시 누르면 [재가동] → 끝난 시각이 찍힌다. 기존 '설비 비가동 이력' 화면에 그대로 나온다.
+         *   설비가 없는 공정(조립·검사)은 버튼을 숨긴다.
+         */
+        const STOP_API = '/api/production/equ_stop';
+        const stopState = {machine: null, cur: null, causes: null, pick: null};
+
+        function stopRefreshBtn() {
+            const b = el('#btnStop');
+            // 설비가 있는 가공 탭에서만. 조립(유닛·공정) 탭은 설비를 안 쓴다
+            const has = EQUIPMENTS.length > 0 && !isAsm();
+            b.style.display = has ? '' : 'none';
+            const on = !!stopState.cur;
+            b.classList.toggle('on', on);
+            b.querySelector('.tx').textContent = on ? '비가동 ' + Math.max(0, +stopState.cur.minutes || 0) + '분' : '비가동';
+        }
+
+        async function stopLoad() {
+            stopState.machine = st.machine || null;
+            if (!stopState.machine) { stopState.cur = null; stopRefreshBtn(); return; }
+            const r = await getJSON(STOP_API + '/current', {equipment: stopState.machine, spjangcd: SPJANGCD});
+            if (stopState.machine !== (st.machine || null)) return;   // 그사이 설비가 바뀜
+            stopState.cur = r && r.success ? (r.data || null) : null;
+            stopRefreshBtn();
+        }
+
+        function stopClose() { el('#stopDim').style.display = 'none'; }
+
+        async function stopOpen() {
+            if (!st.machine) { flash('설비를 먼저 고르세요'); return; }
+            await stopLoad();
+            const box = el('#stopBox');
+            const mname = (EQUIPMENTS.find(e => e.code === st.machine) || {}).name || st.machine;
+            if (stopState.cur) {
+                const c = stopState.cur;
+                box.innerHTML = `<div class="stop-head">비가동 중<small>${esc(mname)}</small></div>
+                    <div class="stop-body"><div class="stop-now">
+                        <div class="c">${esc(c.cause || '사유 없음')}</div>
+                        <div class="t">${esc(c.started || '')} 부터 · ${Math.max(0, +c.minutes || 0)}분째</div>
+                        ${c.description ? `<div class="t">${esc(c.description)}</div>` : ''}
+                    </div></div>
+                    <div class="stop-foot"><button class="x" data-x>닫기</button><button class="run" data-run>재가동</button></div>`;
+                box.querySelector('[data-run]').onclick = async () => {
+                    const r = await postJSON(STOP_API + '/end', {id: c.id});
+                    if (!r.success) { Alert.alert('', r.message || '처리에 실패했습니다.'); return; }
+                    stopClose(); flash('재가동 — 비가동 ' + Math.max(0, +c.minutes || 0) + '분 기록');
+                    stopLoad();
+                };
+            } else {
+                if (!stopState.causes) {
+                    const r = await getJSON(STOP_API + '/causes', {});
+                    stopState.causes = (r && r.data) || [];
+                }
+                stopState.pick = null;
+                const cs = stopState.causes;
+                box.innerHTML = `<div class="stop-head">비가동 사유<small>${esc(mname)}</small></div>
+                    <div class="stop-body">
+                        ${cs.length ? `<div class="stop-causes">${cs.map(c =>
+                        `<button class="stop-cause ${c.plan_yn === 'Y' ? 'plan' : ''}" data-c="${c.id}">${esc(c.name)}</button>`).join('')}</div>`
+                    : '<div style="color:#6b7280">비가동 유형이 없습니다. 기준정보 &gt; 비가동 유형에서 먼저 등록하세요.</div>'}
+                        <input class="stop-memo" id="stopMemo" placeholder="메모 (선택) — 예: 스핀들 알람, 자재 대기">
+                    </div>
+                    <div class="stop-foot"><button class="x" data-x>닫기</button><button class="go" data-go disabled>비가동 시작</button></div>`;
+                const go = box.querySelector('[data-go]');
+                box.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
+                    box.querySelectorAll('[data-c]').forEach(x => x.classList.remove('on'));
+                    b.classList.add('on'); stopState.pick = +b.dataset.c; go.disabled = false;
+                });
+                go.onclick = async () => {
+                    if (!stopState.pick) return;
+                    go.disabled = true;
+                    const r = await postJSON(STOP_API + '/start', {
+                        equipment: st.machine, stopCauseId: stopState.pick, spjangcd: SPJANGCD,
+                        worker: st.worker || '', description: (el('#stopMemo').value || '').trim()
+                    });
+                    if (!r.success) { go.disabled = false; Alert.alert('', r.message || '처리에 실패했습니다.'); return; }
+                    stopState.cur = r.data || null; stopRefreshBtn(); stopClose(); flash('비가동 시작');
+                };
+            }
+            box.querySelector('[data-x]').onclick = stopClose;
+            el('#stopDim').style.display = 'flex';
+        }
+
+        el('#btnStop').onclick = stopOpen;
+        el('#stopDim').onclick = e => { if (e.target.id === 'stopDim') stopClose(); };
+        // 설비가 바뀌면 그 설비 상태로, 1분마다 경과 분 갱신 (설비 목록은 비동기로 들어오므로 짧게 살핀다)
+        setInterval(() => { if ((st.machine || null) !== stopState.machine) stopLoad(); else stopRefreshBtn(); }, 1500);
+        setInterval(() => { if (stopState.machine) stopLoad(); }, 60000);
+
+        /* ===== 조립 체크리스트 =====
+         * 조립(유닛·공정) 탭에서 품목을 고르면 [체크] 버튼이 보인다. n/m 을 버튼에 바로 보여준다.
+         * 체크한 사람은 고른 작업자 이름으로 남는다 (키오스크는 공용 계정).
+         */
+        const chk = {sujuId: null, done: 0, total: 0};
+        const chkItem = () => (isAsm() && st.item >= 0 && ITEMS[st.item]) ? ITEMS[st.item] : null;
+        function chkRender() {
+            const b = el('#btnCheck'), it = chkItem();
+            b.style.display = it ? '' : 'none';
+            el('#chkCnt').textContent = `${chk.done}/${chk.total}`;
+            b.classList.toggle('full', chk.total > 0 && chk.done >= chk.total);
+        }
+        async function chkLoad() {
+            const it = chkItem();
+            chk.sujuId = it ? it.suju_id : null;
+            chk.done = chk.total = 0;
+            chkRender();
+            if (!chk.sujuId || !window.IljinChecklist) return;
+            const id = chk.sujuId, m = await IljinChecklist.summary([id]);
+            if (chk.sujuId !== id) return;
+            const c = m[id] || {done: 0, total: 0};
+            chk.done = c.done; chk.total = c.total;
+            chkRender();
+        }
+        el('#btnCheck').onclick = () => {
+            const it = chkItem();
+            if (!it) return;
+            if (!st.worker) flash('작업자를 먼저 고르면 체크한 사람이 남습니다');
+            IljinChecklist.open({
+                sujuId: it.suju_id, title: it.item_name,
+                worker: st.worker || '', workerId: st.workerId || null,
+                onChange: (d, t) => { if (chk.sujuId === it.suju_id) { chk.done = d; chk.total = t; chkRender(); } }
+            });
+        };
+        // 탭 · 품목이 바뀌면 다시 읽는다
+        setInterval(() => {
+            const it = chkItem(), id = it ? it.suju_id : null;
+            if (id !== chk.sujuId) chkLoad();
+        }, 1000);
+
         el('#btnDraw').onclick = () => {
             const it = st.item >= 0 ? ITEMS[st.item] : null;
             const pj = st.proj >= 0 ? PROJECTS[st.proj] : null;

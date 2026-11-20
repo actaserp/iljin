@@ -1991,6 +1991,11 @@
                             isReadOnly: false
                         },
                         {
+                            // 보관 위치(랙·칸). 지난번 넣은 값이 기본으로 나온다. 외작(지그)은 쓰지 않는다
+                            binding: 'StoreLoc', header: '보관 위치', width: 100, align: 'center',
+                            isReadOnly: false, visible: !isOutsource
+                        },
+                        {
                             binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
                             editor: new wijmo.input.InputNumber(document.createElement('div'), {
                                 format: 'n0', // 정수 형식
@@ -2652,9 +2657,9 @@
                         rows: [
                             ['품목코드', item.MaterialCode || ''],
                             ['수량', qty],
-                            ['입고일', inDate],
-                            ['비고', item.Description || '']
-                        ]
+                            ['입고일', inDate]
+                            // 비고는 70×50 라벨에 다 안 들어가 '…' 로 잘려서 뺐다. 보관 위치는 있을 때만 찍는다
+                        ].concat(item.StoreHouseLoc ? [ ['위치', item.StoreHouseLoc] ] : [])   // 대괄호 두 개를 붙여 쓰면 Thymeleaf 인라인 식으로 읽혀 화면이 안 뜬다 — 띄어 쓴다
                     };
                 });
                 try {

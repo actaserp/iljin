@@ -1088,6 +1088,19 @@ public class MaterialInoutController {
 				Material m = materialRepository.getMaterialById(matPk);
 				String testYn = m.getInTestYN() != null ? m.getInTestYN() : "";
 
+				// 보관 위치(랙·칸). 입고 화면에서 넣으면 품목의 '창고 내 위치'를 바꾼다
+				//  재고 현황 · 입고 라벨에 이 값이 나온다
+				Object locObj = item.get("StoreLoc");
+				if (locObj != null) {
+					String loc = locObj.toString().trim();
+					String cur = m.getStoreHouseLoc() == null ? "" : m.getStoreHouseLoc().trim();
+					if (!loc.isEmpty() && !loc.equals(cur)) {
+						m.setStoreHouseLoc(loc);
+						m.set_audit(user);
+						materialRepository.save(m);
+					}
+				}
+
 				if ("Y".equals(testYn)) {
 					mi.setPotentialInputQty((float) qty);
 					mi.setState("waiting");

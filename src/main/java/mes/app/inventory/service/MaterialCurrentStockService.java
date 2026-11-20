@@ -14,17 +14,17 @@ import mes.domain.services.SqlRunner;
 public class MaterialCurrentStockService {
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	// 재고 현황 조회 
 	public List<Map<String, Object>> getMaterialCurrentStockList(String mat_type, Integer mat_grp_pk, String mat_name, Integer store_house_id, String spjangcd) {
-		
-		MapSqlParameterSource paramMap = new MapSqlParameterSource();  
+
+		MapSqlParameterSource paramMap = new MapSqlParameterSource();
 		paramMap.addValue("mat_type", mat_type);
 		paramMap.addValue("mat_grp_pk", mat_grp_pk);
 		paramMap.addValue("mat_name", mat_name);
 		paramMap.addValue("store_house_id", store_house_id);
 		paramMap.addValue("spjangcd", spjangcd);
-		
+
 		String sql = """
 			select m.id, fn_code_name('mat_type', mg."MaterialType") as mat_type_name
             , mg."Name" as mat_grp_name, m."Code" as mat_code, m."Name" as mat_name
@@ -37,6 +37,7 @@ public class MaterialCurrentStockService {
             , m."ReservationStock" as reserve_stock
             , m."CurrentStock" as cur_stock
             , sh."Name" as house_name, mh."CurrentStock" as house_stock
+            , m."StoreHouseLoc" as house_loc
             , count(*) over (partition by m.id) as house_count
             , count(ml.id) as lot_count
             , coalesce(m."SafetyStock",0) as safety_stock
@@ -55,13 +56,25 @@ public class MaterialCurrentStockService {
 		if (mat_grp_pk != null) sql +=" and mg.\"id\" = :mat_grp_pk ";
 		if (StringUtils.isEmpty(mat_name)==false) sql +=" and (m.\"Name\" like concat('%%',:mat_name,'%%') or m.\"Code\" like concat('%%',:mat_name,'%%') ) ";
 		if (store_house_id != null) sql +=" and mh.\"StoreHouse_id\" =:store_house_id ";
-		
+
 		sql += " group by m.id,mg.\"MaterialType\" ,mg.\"Name\" ,u.\"Name\" ,sh.\"Name\" , mh.\"CurrentStock\", m.\"SafetyStock\", m.\"LotUseYN\"  ";
-		
+
 		sql += " order by mg.\"MaterialType\", mg.\"Name\", m.\"Code\", m.\"Name\", m.id, sh.\"Name\" ";
-		
+
 		List<Map<String, Object>> items = this.sqlRunner.getRows(sql, paramMap);
-		
+
 		return items;
+	}
+
+	// 자재 위치(창고 내 위치: 랙·칸) 저장 — 품목정보의 '창고 내 위치'와 같은 칸
+	public int saveLocation(Integer materialId, String loc, Integer userId) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("id", materialId);
+		p.addValue("loc", loc == null || loc.isBlank() ? null : loc.trim());
+		p.addValue("userId", userId);
+		return this.sqlRunner.execute("""
+			update material set "StoreHouseLoc" = :loc, "_modified" = now(), "_modifier_id" = :userId
+			where id = :id
+			""", p);
 	}
 }

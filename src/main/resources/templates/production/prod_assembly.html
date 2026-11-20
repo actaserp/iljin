@@ -231,6 +231,7 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+    <script th:src="@{/js/iljin_checklist.js}"></script>
     <script type="text/javascript">
 
         /**
@@ -436,6 +437,41 @@
                 this.el('btnConsume').onclick = () => this.openConsume();
             }
 
+            /* ===== 조립 체크리스트 =====
+             * 항목은 전 품목 공통, 체크는 품목(지그)별. 누가 · 언제 체크했는지 남긴다.
+             * 화면: iljin_checklist.js (키오스크와 같이 쓴다)
+             */
+            async loadCheck(it) {
+                const bar = this.el('checkBar');
+                if (!bar || !it || !it.suju_id || !window.IljinChecklist) return;
+                const m = await IljinChecklist.summary([it.suju_id]);
+                const c = m[it.suju_id] || {done: 0, total: 0};
+                this.renderCheck(it, c.done, c.total);
+            }
+
+            renderCheck(it, done, total) {
+                const bar = this.el('checkBar');
+                if (!bar) return;
+                const full = total > 0 && done >= total;
+                bar.innerHTML = `
+                    <div class="consume-bar">
+                        <a class="btn" id="btnCheck">체크리스트 ${done}/${total}</a>
+                        ${full ? '<b style="color:#16a34a">완료</b>'
+                    : total ? `<b class="lack">남음 ${total - done}건</b>` : ''}
+                    </div>`;
+                this.el('btnCheck').onclick = () => {
+                    const w = this.worker();
+                    IljinChecklist.open({
+                        sujuId: it.suju_id, title: it.item_name,
+                        worker: w ? w.name : '', workerId: w ? w.id : null,
+                        onChange: (d, t) => {
+                            const cur = this.item();
+                            if (cur && cur.suju_id === it.suju_id) this.renderCheck(it, d, t);
+                        }
+                    });
+                };
+            }
+
             openConsume() {
                 const rows = this.consumeRows || [];
                 this.el('consumeBody').innerHTML = `
@@ -570,7 +606,11 @@
                     <p class="hint">${run
                     ? '진행중 — <b>완료</b>를 누르면 입력한 수량만큼 완제품이 생성됩니다.'
                     : '대기 — <b>시작</b>을 누르면 조립을 시작합니다.'}</p>
-                    <div id="consumeBar"></div>`;
+                    <div id="consumeBar"></div>
+                    <div id="checkBar"></div>`;
+
+                // 조립 체크리스트 (인수인계 · 배선/I/O · 시운전 준비) — 유닛·공정 둘 다
+                this.loadCheck(it);
 
                 // 투입 예정 자재는 공정 조립에서만 뺀다
                 if (this.stage === 'set') this.loadConsume(it.suju_id);

@@ -1,5 +1,5 @@
 /**
- * 일진 라벨 출력 (Zebra ZD421T · 유포 100×50mm)
+ * 일진 라벨 출력 (Zebra ZD421T · 70×50mm)
  *
  * 입고 라벨(수불전표등록)과 지그 라벨(검사 공정)이 같은 양식·같은 크기를 쓴다.
  * 프린터가 1대라 롤을 갈아 끼우지 않게 하려는 것.
@@ -19,13 +19,13 @@
  *
  * [인쇄]  숨은 iframe 으로 인쇄한다. window.open 은 비동기 콜백(저장 후 확인창 등)
  *   안에서 부르면 팝업 차단에 걸린다.
- *   용지 크기는 @page 로 100×50mm 를 지정하지만, Zebra 드라이버의 용지 크기도
- *   100×50mm 로 맞춰 두어야 한 장씩 정확히 끊긴다 (드라이버 설정이 우선하는 브라우저가 있다).
+ *   용지 크기는 @page 로 70×50mm 를 지정하지만, Zebra 드라이버의 용지 크기도
+ *   70×50mm 로 맞춰 두어야 한 장씩 정확히 끊긴다 (드라이버 설정이 우선하는 브라우저가 있다).
  */
 (function (global) {
     'use strict';
 
-    var W = 100, H = 50;   // mm
+    var W = 70, H = 50;   // mm  (2026-11 라벨 70×50 으로 변경. 이전 100×50)
 
     function esc(s) {
         return String(s == null ? '' : s)
@@ -42,7 +42,7 @@
         box.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
         document.body.appendChild(box);
         try {
-            /* 인쇄 해상도(203dpi)에서 28mm ≈ 224dot. 넉넉히 그려서 축소한다.
+            /* 인쇄 해상도(203dpi)에서 22mm ≈ 176dot. 넉넉히 그려서 축소한다. 30mm 는 라벨 세로의 절반을 넘어 너무 컸다 (LOT 30자 → 29칸, 칸당 0.76mm 로 PDA 스캔 충분).
                오류 보정은 M — 철판에 붙어 긁혀도 읽히되, 코드가 너무 촘촘해지지 않게 */
             new QRCode(box, {
                 text: String(text), width: 256, height: 256,
@@ -62,7 +62,7 @@
        길고, 잘리면 라벨의 핵심 정보가 사라진다. 긴 이름은 두 줄까지 감는다 */
     function titleSize(t) {
         var n = String(t || '').length;
-        return n <= 10 ? 't-l' : (n <= 18 ? 't-m' : 't-s');
+        return n <= 7 ? 't-l' : (n <= 13 ? 't-m' : 't-s');
     }
 
     function labelHtml(l) {
@@ -92,27 +92,27 @@
         + '* { box-sizing: border-box; margin: 0; padding: 0; }'
         + 'html, body { width: ' + W + 'mm; background: #fff; color: #000;'
         + '  font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", sans-serif; }'
-        + '.lb { width: ' + W + 'mm; height: ' + H + 'mm; padding: 2.5mm 3mm 2mm;'
+        + '.lb { width: ' + W + 'mm; height: ' + H + 'mm; padding: 2.5mm 2.5mm 2mm;'
         + '  display: flex; flex-direction: column; overflow: hidden;'
         + '  page-break-after: always; break-after: page; }'
         + '.lb:last-child { page-break-after: auto; break-after: auto; }'
-        + '.top { flex: 1; display: flex; gap: 3mm; min-height: 0; }'
-        + '.qr { width: 30mm; height: 30mm; flex: none; image-rendering: pixelated; }'
+        + '.top { flex: 1; display: flex; gap: 2.5mm; min-height: 0; }'
+        + '.qr { width: 24mm; height: 24mm; flex: none; image-rendering: pixelated; }'
         + '.info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1.2mm; }'
         + '.ttl { font-weight: 800; line-height: 1.15; overflow: hidden; word-break: break-all;'
         + '  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }'
-        + '.t-l { font-size: 6mm; } .t-m { font-size: 4.6mm; } .t-s { font-size: 3.8mm; }'
+        + '.t-l { font-size: 6mm; } .t-m { font-size: 4.6mm; } .t-s { font-size: 3.7mm; }'
         + '.sub { font-size: 3.4mm; font-weight: 700; }'
         + 'table { border-collapse: collapse; width: 100%; table-layout: fixed; }'
-        + 'th, td { font-size: 3mm; line-height: 1.35; text-align: left; vertical-align: top;'
+        + 'th, td { font-size: 3.1mm; line-height: 1.35; text-align: left; vertical-align: top;'
         + '  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }'
         + 'th { width: 13mm; font-weight: 600; color: #333; }'
         + 'td { font-weight: 700; }'
         + '.bot { display: flex; justify-content: space-between; align-items: flex-end;'
         + '  border-top: 0.3mm solid #000; padding-top: 1mm; margin-top: 1mm; }'
-        + '.code { font-family: Consolas, "Courier New", monospace; font-size: 3mm; font-weight: 700;'
+        + '.code { font-family: Consolas, "Courier New", monospace; font-size: 2.6mm; font-weight: 700;'
         + '  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }'
-        + '.seq { font-size: 3.6mm; font-weight: 800; margin-left: 2mm; }';
+        + '.seq { font-size: 3.2mm; font-weight: 800; margin-left: 2mm; }';
 
     /** 인쇄할 문서 전체 HTML. 미리보기·점검용으로도 쓴다 */
     function build(labels) {

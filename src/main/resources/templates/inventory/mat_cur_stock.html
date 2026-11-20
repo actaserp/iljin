@@ -118,7 +118,7 @@
                     autoGenerateColumns: false,
                     frozenColumns: 0, // 열 고정
                     headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    selectionMode: wijmo.grid.SelectionMode.None, // 다중 선택 불가
+                    selectionMode: wijmo.grid.SelectionMode.Cell, // 위치 칸 편집을 위해 셀 선택 (다중 선택 불가)
                     allowSorting: true, // 정렬 가능
                     formatItem: (sender, e) => {
                         if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
@@ -162,9 +162,12 @@
                             header: '총재고',
                             width: 100,
                             align: 'right',
-                            format: 'n0'
+                            format: 'n0',
+                            isReadOnly: true
                         },
                         {binding: 'house_name', header: '창고', width: 120, align: 'center', isReadOnly: true},
+                        // 자재 위치(랙·칸). 칸을 눌러 바로 고친다 — 품목정보의 '창고 내 위치'와 같은 값
+                        {binding: 'house_loc', header: '위치', width: 110, align: 'center', isReadOnly: false},
                         {
                             binding: 'house_stock',
                             header: '창고재고',
@@ -208,6 +211,21 @@
                             }
                         }
                     }
+                });
+                // 위치 칸을 고치면 바로 저장. 같은 품목의 다른 창고 행에도 같은 값을 보여준다
+                this.grid.cellEditEnded.addHandler((s, e) => {
+                    if (s.columns[e.col].binding !== 'house_loc') return;
+                    const item = s.rows[e.row].dataItem;
+                    if (!item) return;
+                    AjaxUtil.postJsonData(this.url + '/save_loc', {id: item.id, loc: item.house_loc || ''},
+                        res => {
+                            if (res && res.success) {
+                                s.itemsSource.items.forEach(r => { if (r.id === item.id) r.house_loc = item.house_loc; });
+                                s.invalidate();
+                            } else {
+                                Alert.alert('', (res && res.message) || '위치를 저장하지 못했습니다.');
+                            }
+                        });
                 });
                 new FlexGridContextMenu(this.grid);
                 this.grid.downloadFileName = '재고 현황 내역';

@@ -947,6 +947,7 @@ public class MaterialInoutService {
           , m.id as "Material_id"
           , m."Code" as product_code
           , m."Name" as product_name
+          , m."StoreHouseLoc" as "StoreLoc"   -- 보관 위치 (입고 때 넣는다. 지난번 값을 기본으로)
           , u."Name" as unit
           , b."Standard" as standard
           , b."SujuQty" as "SujuQty"

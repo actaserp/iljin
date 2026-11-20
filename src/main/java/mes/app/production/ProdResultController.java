@@ -284,6 +284,32 @@ public class ProdResultController {
 	}
 
 	// =================================================================
+	// 표준시간 (공정 × 유형별 1개당 분) — 가공 실적 조회의 [표준시간] 에서 고친다
+	// =================================================================
+
+	@GetMapping("/std_time_list")
+	public AjaxResult stdTimeList(@RequestParam("spjangcd") String spjangcd) {
+		AjaxResult result = new AjaxResult();
+		result.success = true;
+		result.data = prodResultService.getStdTimes(spjangcd);
+		return result;
+	}
+
+	@PostMapping("/std_time_save")
+	@SuppressWarnings("unchecked")
+	public AjaxResult stdTimeSave(@RequestBody Map<String, Object> payload, Authentication auth) {
+		User user = (User) auth.getPrincipal();
+		AjaxResult result = new AjaxResult();
+		Object raw = payload.get("rows");
+		List<Map<String, Object>> rows = (raw instanceof List<?>)
+				? (List<Map<String, Object>>) raw : new ArrayList<>();
+		prodResultService.saveStdTimes(str(payload.get("spjangcd")), rows, user);
+		result.success = true;
+		result.message = "저장되었습니다.";
+		return result;
+	}
+
+	// =================================================================
 	// 불량 실적
 	//
 	//   가공하다 못 쓰게 만든 것. 재작업으로 살릴 수 있으면 불량이 아니다.

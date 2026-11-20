@@ -66,6 +66,7 @@ public class LotService {
             , m."MaterialGroup_id" 
             , m."Unit_id" 
             , m."ValidDays" 
+            , m."StoreHouseLoc"   -- 보관 위치 (라벨에 찍는다)
             , u."Name" as "UnitName"
             , ml."InputQty"
             , m."Thickness"

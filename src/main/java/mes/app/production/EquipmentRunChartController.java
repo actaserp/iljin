@@ -27,27 +27,36 @@ import mes.domain.services.SqlRunner;
 @RestController
 @RequestMapping("/api/production/equipment_run_chart")
 public class EquipmentRunChartController {
-	
+
 	@Autowired
 	SqlRunner sqlRunner;
-	
+
 	@Autowired
 	EquipmentRunChartService equipmentRunChartService;
-	
+
 	@Autowired
 	EquRunRepository equRunRepository;
 
 	// 차트 searchMainData
 	@GetMapping("/read")
 	public AjaxResult getEquipmentRunChart(
-			@RequestParam(value="date_from", required=false) String date_from, 
-    		@RequestParam(value="date_to", required=false) String date_to,
-    		@RequestParam(value="id", required=false) Integer id,
-    		@RequestParam(value="runType", required=false) String runType,
+			@RequestParam(value="date_from", required=false) String date_from,
+			@RequestParam(value="date_to", required=false) String date_to,
+			@RequestParam(value="id", required=false) Integer id,
+			@RequestParam(value="runType", required=false) String runType,
 			@RequestParam String spjangcd) {
 
 		List<Map<String, Object>> items = this.equipmentRunChartService.getEquipmentRunChart(date_from, date_to, id, runType, spjangcd);
 		List<Map<String, Object>> result = new ArrayList<>();
+
+		// 키오스크 [비가동] 으로 넣은 기록 (RunState='X'). 가동 구간이 아니므로 아래 가동/틈 계산에서 빼고
+		// 사유 · 시간과 함께 '비가동' 행으로 따로 붙인다
+		List<Map<String, Object>> stopItems = items.stream()
+				.filter(item -> item.get("Name") != null && "X".equals(item.get("RunState")))
+				.collect(Collectors.toList());
+		items = items.stream()
+				.filter(item -> !"X".equals(item.get("RunState")))
+				.collect(Collectors.toList());
 
 		Map<String, List<Map<String, Object>>> GroupByNameItems = items.stream()
 				.filter(item -> item.get("Name") != null)
@@ -110,24 +119,40 @@ public class EquipmentRunChartController {
 			}
 		}
 
+		for (Map<String, Object> s : stopItems) {
+			Timestamp sd = (Timestamp) s.get("StartDate");
+			Timestamp ed = (Timestamp) s.get("EndDate");
+			s.put("RunState", "stop");
+			s.put("Runtime", "");
+			// 재가동 전이면 지금까지 (JVM 시각 기준 — 저장도 JVM 시각으로 한다)
+			long endMs = ed != null ? ed.getTime() : System.currentTimeMillis();
+			if (sd != null) s.put("GapTime", Math.max(0, (endMs - sd.getTime()) / 60000));
+			if (ed == null) { s.put("end_date", "비가동 중"); s.put("EndTime", ""); }
+			result.add(s);
+		}
+		// 설비 → 시작 순
+		result.sort(Comparator
+				.comparing((Map<String, Object> m) -> String.valueOf(m.get("Name")))
+				.thenComparing(m -> String.valueOf(m.get("start_date")) + " " + String.valueOf(m.get("StartTime"))));
+
 		AjaxResult result2 = new AjaxResult();
-        result2.data = result;
+		result2.data = result;
 		return result2;
 	}
-	
+
 	/*// 차트 fillData
 	@GetMapping("/readData")
 	public AjaxResult getEquipmentRunChart(
     		@RequestParam(value="id", required=false) Integer id,
     		@RequestParam(value="runType", required=false) String runType,
 			HttpServletRequest request) {
-		
-		List<Map<String, Object>> items = this.equipmentRunChartService.getEquipmentRunChart(null, null, id, runType);      
+
+		List<Map<String, Object>> items = this.equipmentRunChartService.getEquipmentRunChart(null, null, id, runType);
         AjaxResult result = new AjaxResult();
-        result.data = items;        
+        result.data = items;
 		return result;
 	}*/
-	
+
 	// saveData
 	@PostMapping("/addData")
 	public AjaxResult addDataEquipmentRunChart (
@@ -143,14 +168,14 @@ public class EquipmentRunChartController {
 			@RequestParam(value="StopCause_id", required=false) Integer StopCause_id,
 			HttpServletRequest request,
 			Authentication auth) {
-		
+
 		AjaxResult result = new AjaxResult();
 
 		User user = (User)auth.getPrincipal();
-		
+
 		Timestamp startDate = Timestamp.valueOf(start_date + ' ' + StartTime + ":59");
 		Timestamp endDate = Timestamp.valueOf(end_date + ' ' + EndTime + ":59");
-		
+
 		EquRun er = null;
 
 		List<Map<String, Object>> overlappinged = equipmentRunChartService.OverlappingTimeQuery(startDate, endDate, Equipment_id, spjangcd);//현재 겹치는 시간은 안됨. 설비가 겹치는 시간대로 가동되는건 말이 안되기 때문
@@ -176,7 +201,7 @@ public class EquipmentRunChartController {
 		} else {
 			er = this.equRunRepository.getEquRunById(id);
 		}
-		
+
 		er.setEquipmentId(Equipment_id);
 		er.setStartDate(startDate);
 		er.setEndDate(endDate);
@@ -187,18 +212,18 @@ public class EquipmentRunChartController {
 		er.setSpjangcd(spjangcd);
 
 		this.equRunRepository.save(er);
-		
+
 		result.success = true;
 		result.message = "저장하였습니다.";
 		result.data = er.getId();
 	    return result;*/
 	}
-	
+
 	// delDataBind
 	@PostMapping("/delData")
 	public AjaxResult deleteEquipmentRunChart(
 			@RequestParam("id") Integer id) {
-		
+
 		this.equRunRepository.deleteById(id);
 		AjaxResult result = new AjaxResult();
 		return result;

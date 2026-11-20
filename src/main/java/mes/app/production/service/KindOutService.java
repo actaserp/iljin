@@ -252,15 +252,32 @@ public class KindOutService {
 		return id;
 	}
 
-	/** 같은 프로젝트·같은 업체로 이미 만든 발주 헤더 (발주 한 장에 유형 여러 줄) */
+	/**
+	 * 같은 프로젝트·같은 업체로 이미 만든 발주 헤더 중 '아직 손대지 않은 것' (발주 한 장에 유형 여러 줄).
+	 *   손댄 헤더 = 입고가 하나라도 들어왔거나, 업체에 발주서 메일을 보냈거나, 취소된 것.
+	 *   그런 헤더에 나중 발주를 붙이면 발주일이 첫 발주일로 남고, 끝난 발주가 다시 '부분입고'로 열리며,
+	 *   업체가 받은 발주서와 내용이 달라진다 → 그때는 새 헤더(그날 발주일)를 만든다.
+	 */
 	private Integer findHead(String projNo, Integer compId) {
 		try {
 			return sqlRunner.queryForObject("""
-                SELECT b."BaljuHead_id"
+                SELECT h.id
                 FROM iljin_kind_out k
                 JOIN balju b ON b.id = k.balju_id
-                WHERE k.proj_no = :projNo AND b."Company_id" = :compId AND b."BaljuHead_id" IS NOT NULL
-                ORDER BY b."BaljuHead_id" LIMIT 1
+                JOIN balju_head h ON h.id = b."BaljuHead_id"
+                WHERE k.proj_no = :projNo AND b."Company_id" = :compId
+                  AND COALESCE(h."State", 'draft') <> 'canceled'
+                  -- 입고가 들어온 발주가 하나도 없고
+                  AND NOT EXISTS (
+                      SELECT 1 FROM balju b2
+                      JOIN mat_inout mi ON mi."SourceTableName" = 'balju' AND mi."SourceDataPk" = b2.id
+                                       AND mi."InOut" = 'in' AND COALESCE(mi."_status", 'a') = 'a'
+                      WHERE b2."BaljuHead_id" = h.id)
+                  -- 발주서 메일도 안 보낸 헤더
+                  AND NOT EXISTS (
+                      SELECT 1 FROM balju_mail m
+                      WHERE m.bh_id = h.id AND COALESCE(m."SendState", 'success') = 'success')
+                ORDER BY h.id DESC LIMIT 1
                 """, new MapSqlParameterSource().addValue("projNo", projNo).addValue("compId", compId),
 					(rs, n) -> rs.getInt(1));
 		} catch (Exception e) {

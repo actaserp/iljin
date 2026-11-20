@@ -517,10 +517,16 @@ public class ProdResultService {
                  , COALESCE(r."DefectQty", 0) AS defect_qty
                  , r."DefectType"             AS defect_type
                  , TO_CHAR(r."_created", 'MM-DD HH24:MI') AS reg_time
+                 , r."WorkMin"                AS work_min
+                 , st.std_min                 AS std_min_ea
+                 , st.std_min * COALESCE(r."GoodQty", 0) AS std_min
             FROM iljin_prod_result r
             LEFT JOIN suju s      ON s.id = r."Suju_id"
             LEFT JOIN suju_head sh ON sh.id = r."SujuHead_id"
             LEFT JOIN tb_da003 d   ON d.projno = r."Project_id" AND d.spjangcd = r.spjangcd
+            LEFT JOIN iljin_std_time st ON st.spjangcd = r.spjangcd
+                                      AND st.operation = r."Operation"
+                                      AND st.kind = COALESCE(r."Kind", 'etc')
             WHERE r.spjangcd = :spjangcd
               AND (CAST(:dateFrom AS date) IS NULL OR r."ProdDate" >= CAST(:dateFrom AS date))
               AND (CAST(:dateTo   AS date) IS NULL OR r."ProdDate" <= CAST(:dateTo   AS date))
@@ -560,7 +566,14 @@ public class ProdResultService {
                  , COALESCE(r."Kind", 'etc') AS kind
                  , SUM(COALESCE(r."GoodQty", 0)) AS qty
                  , COUNT(*)                  AS cnt
+                 -- 달성률은 작업 시간과 표준시간이 둘 다 있는 실적만으로 낸다
+                 , SUM(CASE WHEN r."WorkMin" > 0 AND st.std_min > 0 THEN r."WorkMin" END) AS work_min
+                 , SUM(CASE WHEN r."WorkMin" > 0 AND st.std_min > 0
+                            THEN st.std_min * COALESCE(r."GoodQty", 0) END)               AS std_min
             FROM iljin_prod_result r
+            LEFT JOIN iljin_std_time st ON st.spjangcd = r.spjangcd
+                                      AND st.operation = r."Operation"
+                                      AND st.kind = COALESCE(r."Kind", 'etc')
             WHERE r.spjangcd = :spjangcd
               AND (CAST(:dateFrom AS date) IS NULL OR r."ProdDate" >= CAST(:dateFrom AS date))
               AND (CAST(:dateTo   AS date) IS NULL OR r."ProdDate" <= CAST(:dateTo   AS date))
@@ -885,15 +898,20 @@ public class ProdResultService {
 			p.addValue("workerId", toInt(w.get("worker_id")));
 			p.addValue("goodQty", goodQty);
 			p.addValue("userId", user == null ? null : user.getId());
+			// 표준시간 대비 실적을 내려고 작업 시간을 남긴다 (시작 ~ 종료, 분)
+			p.addValue("startTime", w.get("start_time"), java.sql.Types.TIMESTAMP);
 
 			sqlRunner.execute("""
                 INSERT INTO iljin_prod_result (
                      spjangcd, "ProdDate", "Project_id", "SujuHead_id", "Suju_id", "Kind"
                    , "Operation", "Equipment", "Worker", "Worker_id", "GoodQty"
+                   , "StartTime", "WorkMin"
                    , "_created", "_creater_id"
                 ) VALUES (
                      :spjangcd, CURRENT_DATE, :projNo, :sujuHeadId, :sujuId, :kind
                    , :operation, :equipment, :worker, :workerId, :goodQty
+                   , :startTime
+                   , ROUND(CAST(EXTRACT(EPOCH FROM (now() - CAST(:startTime AS timestamp))) / 60.0 AS numeric), 1)
                    , now(), :userId
                 )
                 """, p);
@@ -902,6 +920,54 @@ public class ProdResultService {
 		MapSqlParameterSource d = new MapSqlParameterSource();
 		d.addValue("id", id);
 		sqlRunner.execute("DELETE FROM iljin_prod_working WHERE id = :id", d);
+	}
+
+	// =================================================================
+	// 표준시간 — 공정 × 유형별 1개당 표준 작업시간(분)
+	//
+	//   일진은 품목이 매번 다르다(지그 1대 1품). 품목마다 표준시간을 두면 아무도 못 채운다.
+	//   그래서 공정(레이저·머시닝…) × 유형(CLAMP·PLATE…) 단위로 1개당 분을 둔다.
+	//   가공 실적 조회에서 작업시간(키오스크 시작~종료)과 비교해 달성률을 낸다.
+	// =================================================================
+	public List<Map<String, Object>> getStdTimes(String spjangcd) {
+		MapSqlParameterSource p = new MapSqlParameterSource();
+		p.addValue("spjangcd", spjangcd);
+		return sqlRunner.getRows("""
+            SELECT operation, kind, std_min
+            FROM iljin_std_time
+            WHERE spjangcd = :spjangcd
+            ORDER BY operation, kind
+            """, p);
+	}
+
+	/** 화면의 표 전체를 받는다. 빈 칸(0·null)은 지운다 */
+	@Transactional
+	public void saveStdTimes(String spjangcd, List<Map<String, Object>> rows, User user) {
+		for (Map<String, Object> r : rows) {
+			String op = str(r.get("operation")), kind = str(r.get("kind"));
+			if (op.isEmpty() || kind.isEmpty()) continue;
+			Double min = null;
+			try { min = Double.valueOf(str(r.get("std_min"))); } catch (Exception ignore) { }
+			MapSqlParameterSource p = new MapSqlParameterSource();
+			p.addValue("spjangcd", spjangcd);
+			p.addValue("operation", op);
+			p.addValue("kind", kind);
+			p.addValue("stdMin", min);
+			p.addValue("userId", user == null ? null : user.getId());
+			if (min == null || min <= 0) {
+				sqlRunner.execute("""
+                    DELETE FROM iljin_std_time
+                    WHERE spjangcd = :spjangcd AND operation = :operation AND kind = :kind
+                    """, p);
+			} else {
+				sqlRunner.execute("""
+                    INSERT INTO iljin_std_time (spjangcd, operation, kind, std_min, _modified, _modifier_id)
+                    VALUES (:spjangcd, :operation, :kind, :stdMin, now(), :userId)
+                    ON CONFLICT (spjangcd, operation, kind)
+                    DO UPDATE SET std_min = EXCLUDED.std_min, _modified = now(), _modifier_id = EXCLUDED._modifier_id
+                    """, p);
+			}
+		}
 	}
 
 	/** 설비 코드로 가공공정 결정 (실적의 공정은 화면이 아니라 설비가 정한다) */

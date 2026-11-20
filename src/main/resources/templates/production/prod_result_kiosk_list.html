@@ -65,6 +65,13 @@
         .sum-card .op { font-size:12px; color:#5b6b86; font-weight:700; }
         .sum-card .v { font-size:18px; font-weight:800; color:#1f4e8c; margin-top:1px; }
         .sum-card .kk { font-size:11px; color:#8b95a7; margin-top:3px; line-height:1.5; }
+        .sum-card .rate { font-size:11.5px; color:#445; margin-top:2px; font-weight:700; }
+        .rate-ok { color:#16a34a; } .rate-low { color:#c2410c; }
+        .std-tbl { border-collapse:collapse; width:100%; }
+        .std-tbl th, .std-tbl td { border:1px solid #d7dde7; padding:5px 8px; font-size:12.5px; text-align:center; }
+        .std-tbl th { background:#eef2f8; color:#445; position:sticky; top:0; }
+        .std-tbl td.op { text-align:left; font-weight:700; background:#f8fafc; white-space:nowrap; }
+        .std-tbl input { width:70px; text-align:right; padding:4px 6px; border:1px solid #cfd6e2; border-radius:4px; }
         .sum-note { font-size:11.5px; color:#8b95a7; padding:0 13px 10px; line-height:1.6; }
     </style>
 </head>
@@ -107,6 +114,9 @@
                         <dl><dt>&nbsp;</dt>
                             <dd><a class="btn btn-search"
                                    onclick="prodResultKioskList.search()">검색</a></dd></dl>
+                        <!-- 공정 × 유형별 1개당 표준시간(분). 실적의 작업시간과 비교해 달성률을 낸다 -->
+                        <dl><dt>&nbsp;</dt>
+                            <dd><a class="btn" onclick="prodResultKioskList.openStd()">표준시간</a></dd></dl>
                     </div>
                 </div>
                 <div class="sum-row" id="sumRow"></div>
@@ -121,29 +131,55 @@
                 <div class="container-fluid">
                     <table class="work-table">
                         <colgroup>
-                            <col style="width:9%">   <!-- 생산일 -->
-                            <col style="width:13%">  <!-- 공정 -->
-                            <col style="width:9%">   <!-- 설비 -->
-                            <col style="width:7%">   <!-- 작업자 -->
-                            <col style="width:14%">  <!-- 프로젝트 -->
-                            <col style="width:10%">  <!-- 수주 -->
+                            <col style="width:8%">   <!-- 생산일 -->
+                            <col style="width:10%">  <!-- 공정 -->
+                            <col style="width:8%">   <!-- 설비 -->
+                            <col style="width:6%">   <!-- 작업자 -->
+                            <col style="width:12%">  <!-- 프로젝트 -->
+                            <col style="width:9%">   <!-- 수주 -->
                             <col style="width:8%">   <!-- 품목 -->
-                            <col style="width:8%">   <!-- 유형 -->
-                            <col style="width:7%">   <!-- 수량 -->
-                            <col style="width:7%">   <!-- 불량 -->
-                            <col style="width:8%">   <!-- 관리 -->
+                            <col style="width:7%">   <!-- 유형 -->
+                            <col style="width:5%">   <!-- 수량 -->
+                            <col style="width:5%">   <!-- 불량 -->
+                            <col style="width:5%">   <!-- 작업(분) -->
+                            <col style="width:5%">   <!-- 표준(분) -->
+                            <col style="width:5%">   <!-- 달성률 -->
+                            <col style="width:7%">   <!-- 관리 -->
                         </colgroup>
                         <thead>
                         <tr>
                             <th>생산일</th><th>공정</th><th>설비</th><th>작업자</th>
                             <th>프로젝트</th><th>수주</th><th>품목</th><th>유형</th>
-                            <th>수량</th><th>불량</th><th>관리</th>
+                            <th>수량</th><th>불량</th>
+                            <th title="키오스크 시작 ~ 종료">작업(분)</th>
+                            <th title="1개당 표준시간 × 수량">표준(분)</th>
+                            <th title="표준 ÷ 작업">달성률</th><th>관리</th>
                         </tr>
                         </thead>
                         <tbody id="listBody"></tbody>
                     </table>
                 </div>
             </section>
+        </div>
+
+        <!-- 표준시간 — 공정 × 유형별 1개당 분 -->
+        <div id="stdModal"
+             style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1000;
+                    align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:8px;width:860px;max-width:95vw;max-height:88vh;
+                        display:flex;flex-direction:column;box-shadow:0 10px 30px rgba(0,0,0,.2);">
+                <div class="section-top" style="border-radius:8px 8px 0 0;padding:16px 22px;">
+                    <div class="search-wrap" style="margin-bottom:0"><h3>표준시간 (1개당 분)</h3></div>
+                </div>
+                <div style="padding:6px 22px 0;font-size:12px;color:#8b95a7">
+                    공정 · 유형별로 1개 가공에 걸리는 표준 시간(분)을 넣습니다. 빈 칸은 달성률을 계산하지 않습니다.
+                </div>
+                <div style="padding:12px 22px;overflow:auto;flex:1 1 auto" id="stdBody"></div>
+                <div style="padding:14px 22px;border-top:1px solid #e9edf3;text-align:right;">
+                    <a class="btn btn-search" id="stdOk">저장</a>
+                    <a class="btn" id="stdCancel">닫기</a>
+                </div>
+            </div>
         </div>
 
         <!-- 수량 수정. 브라우저 prompt() 는 화면 톤과 어긋나 모달로 바꿨다 -->
@@ -202,6 +238,8 @@
             async init() {
                 this.week();                     // 기본은 최근 7일
                 this.bindQtyModal();
+                this.el('stdOk').onclick = () => this.saveStd();
+                this.el('stdCancel').onclick = () => this.closeStd();
                 await this.loadFilters();
                 await this.search();
             }
@@ -233,6 +271,8 @@
                     v: p.proj_no, t: `${p.proj_no} ${p.proj_name || ''}`.trim()
                 })));
                 this.fill('fOperation', (op.data || []).map(o => ({v: o.operation, t: o.operation})));
+                this.operations = (op.data || []).map(o => o.operation);
+                this.kinds = [...new Set((kd.data || []).map(k => k.canon).concat(['etc']))];   // 유형 목록에 etc 가 이미 있을 수 있다
 
                 this.equipments = eq.data || [];
                 this.fillEquipments(null);
@@ -319,8 +359,10 @@
                 const byOp = {};
                 sum.forEach(s => {
                     const o = s.operation || '(미지정)';
-                    (byOp[o] = byOp[o] || {qty: 0, kinds: []});
+                    (byOp[o] = byOp[o] || {qty: 0, kinds: [], work: 0, std: 0});
                     byOp[o].qty += (+s.qty || 0);
+                    byOp[o].work += (+s.work_min || 0);
+                    byOp[o].std += (+s.std_min || 0);
                     byOp[o].kinds.push(`${s.kind} ${this.nf(s.qty)}`);
                 });
                 box.innerHTML = Object.keys(byOp).sort().map(o => `
@@ -328,6 +370,10 @@
                         <div class="op">${this.escHtml(o)}</div>
                         <div class="v">${this.nf(byOp[o].qty)}</div>
                         <div class="kk">${byOp[o].kinds.map(k => this.escHtml(k)).join(' · ')}</div>
+                        ${byOp[o].work > 0
+                    ? `<div class="rate">달성률 ${this.rateHtml(byOp[o].std, byOp[o].work)}
+                               <span class="mut" style="font-weight:400">(표준 ${this.nf1(byOp[o].std)} / 작업 ${this.nf1(byOp[o].work)}분)</span></div>`
+                    : ''}
                     </div>`).join('');
             }
 
@@ -337,7 +383,7 @@
 
                 const body = this.el('listBody');
                 if (!this.rows.length) {
-                    body.innerHTML = '<tr><td colspan="11" class="empty">조회 결과가 없습니다.</td></tr>';
+                    body.innerHTML = '<tr><td colspan="14" class="empty">조회 결과가 없습니다.</td></tr>';
                     return;
                 }
 
@@ -357,6 +403,10 @@
                         <td class="r qty">${this.nf(r.good_qty)}</td>
                         <td class="r" style="color:#c2410c;font-weight:700">${
                     r.defect_qty ? this.nf(r.defect_qty) : '<span class="mut">-</span>'}</td>
+                        <td class="r">${r.work_min != null ? this.nf1(r.work_min) : '<span class="mut">-</span>'}</td>
+                        <td class="r">${r.std_min != null ? this.nf1(r.std_min) : '<span class="mut">-</span>'}</td>
+                        <td class="r">${r.work_min > 0 && r.std_min > 0
+                    ? this.rateHtml(r.std_min, r.work_min) : '<span class="mut">-</span>'}</td>
                         <td class="act"><a class="btn" data-u="${i}">수정</a><a class="btn" data-i="${i}">삭제</a></td>
                     </tr>`).join('');
 
@@ -433,6 +483,60 @@
                     return;
                 }
                 await this.search();
+            }
+
+            // ===== 표준시간 =====
+
+            async openStd() {
+                const res = await this.get(`${this.API}/std_time_list`, {spjangcd: this.spjangcd});
+                const map = {};
+                (res.data || []).forEach(r => {
+                    map[r.operation + '|' + r.kind] = r.std_min;
+                });
+                const ops = this.operations || [], kinds = this.kinds || [];
+                if (!ops.length) {
+                    this.el('stdBody').innerHTML = '<p class="empty">가공 공정이 없습니다.</p>';
+                } else {
+                    this.el('stdBody').innerHTML = `
+                        <table class="std-tbl">
+                            <thead><tr><th>공정</th>${kinds.map(k =>
+                        `<th>${this.escHtml(k === 'etc' ? '기타' : k)}</th>`).join('')}</tr></thead>
+                            <tbody>${ops.map(o => `<tr><td class="op">${this.escHtml(o)}</td>${kinds.map(k => {
+                        const v = map[o + '|' + k];
+                        return `<td><input type="number" min="0" step="0.1" data-op="${this.esc(o)}"
+                                            data-kind="${this.esc(k)}" value="${v != null ? +v : ''}"></td>`;
+                    }).join('')}</tr>`).join('')}</tbody>
+                        </table>`;
+                }
+                this.el('stdModal').style.display = 'flex';
+            }
+
+            closeStd() {
+                this.el('stdModal').style.display = 'none';
+            }
+
+            async saveStd() {
+                const rows = [...this.el('stdBody').querySelectorAll('input[data-op]')].map(i => ({
+                    operation: i.dataset.op, kind: i.dataset.kind, std_min: i.value
+                }));
+                const res = await this.post(`${this.API}/std_time_save`, {spjangcd: this.spjangcd, rows});
+                if (!res.success) {
+                    Alert.alert('', res.message || '저장에 실패했습니다.');
+                    return;
+                }
+                Notify.success('저장했습니다.');
+                this.closeStd();
+                await this.search();
+            }
+
+            /* 달성률 = 표준 ÷ 작업. 100% 이상이면 표준보다 빨리 했다 */
+            rateHtml(std, work) {
+                const r = Math.round((+std || 0) * 100 / (+work || 1));
+                return `<b class="${r >= 100 ? 'rate-ok' : 'rate-low'}">${r}%</b>`;
+            }
+
+            nf1(n) {
+                return Number(n || 0).toLocaleString(undefined, {maximumFractionDigits: 1});
             }
 
             // ===== helper =====
