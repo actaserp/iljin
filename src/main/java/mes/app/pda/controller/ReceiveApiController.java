@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -86,6 +87,56 @@ public class ReceiveApiController {
 
         AjaxResult result = new AjaxResult();
         result.data = items;
+
+        return result;
+    }
+
+    /**
+     * 발주서 QR 스캔 입고 조회.
+     *
+     * e메일 발주서에 박힌 QR 은 발주번호 문자열 한 개다(balju_order.html 에서 메일 보낼 때 만든다).
+     * 앱이 그 값을 보내오면 그 발주서의 미입고 품목을 한 번에 내려준다 —
+     * 품목이 많은 발주(최대 29건)를 손으로 골라 수량 넣는 일을 없애는 것이 목적이다.
+     *
+     * 조회기간과 발주/외작 구분은 적용하지 않는다. QR 은 발주서 한 장을 지목하는 것이어서
+     * 화면의 조회조건과 어긋나도 그 발주서를 불러와야 한다.
+     *
+     * 입고 저장은 기존 /save_balju 를 그대로 쓴다 — 저장 경로를 따로 두면
+     * 검사여부(mat_inout_inspect)와 LOT 자동부여가 갈린다.
+     */
+    @GetMapping("/read_by_jumun")
+    public AjaxResult getBaljuListByJumun(@RequestParam("jumun_number") String jumunNumber,
+                                          @RequestParam(value = "spjangcd", required = false) String spjangcd) {
+
+        AjaxResult result = new AjaxResult();
+
+        String jumun = (jumunNumber == null) ? "" : jumunNumber.trim();
+        if (jumun.isEmpty()) {
+            result.success = false;
+            result.message = "발주번호를 읽지 못했습니다.";
+            return result;
+        }
+
+        String site = (spjangcd == null || spjangcd.isBlank()) ? "ZZ" : spjangcd.trim();
+
+        Map<String, Object> head = this.receiveApiService.getBaljuJumunSummary(jumun, site);
+        if (head == null || head.isEmpty()) {
+            result.success = false;
+            result.message = "등록되지 않은 발주번호입니다.\n(" + jumun + ")";
+            return result;
+        }
+
+        List<Map<String, Object>> items = this.receiveApiService.getPdaBaljuByJumun(jumun, site);
+        if (items == null || items.isEmpty()) {
+            result.success = false;
+            result.message = "이미 전량 입고된 발주서입니다.\n(" + jumun + ")";
+            return result;
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("head", head);
+        data.put("items", items);
+        result.data = data;
 
         return result;
     }
