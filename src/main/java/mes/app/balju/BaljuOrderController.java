@@ -718,11 +718,12 @@ public class BaljuOrderController {
   }
 
   // ── 발주서 QR 위치 (0-based, 템플릿에 맞게 조정) ──
-  //   기본값: G9 ~ H12 영역 (col1/row1 = 좌상단 셀, col2/row2 = 우하단 "다음" 셀)
-  private static final int QR_COL1 = 6;   // G
-  private static final int QR_ROW1 = 8;   // 9행
-  private static final int QR_COL2 = 8;   // I 직전까지 = G~H
-  private static final int QR_ROW2 = 12;  // 13행 직전까지 = 9~12행
+  //   좌상단 셀만 정하고 크기는 mm 로 고정한다.
+  //   예전처럼 셀 영역(G9:H12)에 맞춰 늘리면 열 너비·행 높이 비율대로
+  //   가로로 늘어나 정사각형이 깨지고, PDA 가 못 읽을 수 있었다.
+  private static final int QR_COL1 = 6;      // G
+  private static final int QR_ROW1 = 1;      // 2행 (G2)
+  private static final double QR_MM = 16.0;  // 한 변 길이 (mm). 2~4행 안에 들어가는 크기
   private static final int QR_MAX_BYTES = 200 * 1024;  // QR 256px PNG 는 수 KB. 이보다 크면 이상한 값
 
   /**
@@ -745,11 +746,14 @@ public class BaljuOrderController {
     ClientAnchor anchor = helper.createClientAnchor();
     anchor.setCol1(QR_COL1);
     anchor.setRow1(QR_ROW1);
-    anchor.setCol2(QR_COL2);
-    anchor.setRow2(QR_ROW2);
     anchor.setAnchorType(ClientAnchor.AnchorType.MOVE_DONT_RESIZE);
 
-    sheet.createDrawingPatriarch().createPicture(anchor, pictureIdx);
+    Picture pict = sheet.createDrawingPatriarch().createPicture(anchor, pictureIdx);
+    // 원본 크기로 놓은 뒤, 가로·세로 같은 비율로 줄여 정사각형을 지킨다.
+    //   POI 는 이미지를 96dpi 로 본다 → 1px = 25.4/96 mm
+    pict.resize();
+    double nativeMm = pict.getImageDimension().getWidth() * 25.4 / 96.0;
+    if (nativeMm > 0) pict.resize(QR_MM / nativeMm);
   }
 
   public static void setCell(Sheet sheet, int rowIdx, int colIdx, String value) {
