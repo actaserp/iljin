@@ -100,7 +100,7 @@
             this.grid = null;
             this.selectedItem = null;
             this.callback = null;
-            this.viewData = new wijmo.collections.CollectionView();
+            this.viewData = [];
             this.modalContainer = new PopupDraggable('설비 선택');
             this.$cboEquipmentGroup = null;
             this.$keyword = null;
@@ -155,25 +155,17 @@
                 ]
             };*/
 
-            this.grid = new wijmo.grid.FlexGrid('#equipment-search-grid', {
-                selectionMode: wijmo.grid.SelectionMode.Row,
-                headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                autoGenerateColumns: false,
-                showMarquee: true,
-                isReadOnly: true,
-                formatItem: (sender, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                    }
-                },
+            this.grid = new EditTable('#equipment-search-grid', {
+                readOnly: true,
                 columns: [
-                    { binding: 'EquipmentTypeName', header: '설비구분', width: 120, align: 'left'  },
-                    { binding: 'group_name', header: '설비그룹', width: 150, align: 'left'},
-                    { binding: 'Code', header: '설비코드', width: 200, align: 'left'},
-                    { binding: 'Name', header: '설비명', width: '*', align: 'left'},
+                    { key: 'EquipmentTypeName', header: '설비구분', width: 120, align: 'left'  },
+                    { key: 'group_name', header: '설비그룹', width: 150, align: 'left'},
+                    { key: 'Code', header: '설비코드', width: 200, align: 'left'},
+                    { key: 'Name', header: '설비명', width: '1*', align: 'left'},
                 ],
-                itemsSource: this.viewData, // 데이터를 설정할 배열
+                 // 데이터를 설정할 배열
             });
+            this.grid.setData(this.viewData);
 
             /*this.grid = new ax5.ui.grid(config);*/
             this.$btnEquipmentSearch = $content.find('#btnEquipmentSearch');
@@ -188,12 +180,12 @@
             });
 
             this.$btnEquipmentSelect.click(function (e) {
-                let sel = _this.grid.selection;
+                let sel = {row: _this.grid.getPageRows().indexOf(_this.grid.current()), col: -1};
                 if (!sel || sel.row < 0) {
                     return false;
                 }
 
-                let item = _this.grid.rows[sel.row].dataItem;
+                let item = _this.grid.getPageRows()[sel.row];
                 _this.selectData(item);
             });
 
@@ -236,7 +228,7 @@
                         totalElements: recordsTotal,
                     }
                 });*/
-                _this.viewData.sourceCollection = result.data;
+                _this.grid.setData(result.data);
             }
 
             //검색버튼을 누르고 초기화한다

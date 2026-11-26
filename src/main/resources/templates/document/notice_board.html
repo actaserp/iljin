@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -242,11 +237,10 @@
         var viewdata;
 
         let columns = [
-            {binding: 'id', header: '번호', width: 200, align: 'center'},
-            {binding: 'title', header: '제목', width: 200, align: 'center'},
-            {binding: 'write_date_time', header: '작성일', width: 250, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'}
-        ];
+            {key: 'id', header: '번호', width: 200, align: 'center'},
+            {key: 'title', header: '제목', width: 200, align: 'center'},
+            {key: 'write_date_time', header: '작성일', width: 250, align: 'center'},
+            ];
 
         function edit() {
             nhn.husky.EZCreator.createInIFrame({
@@ -305,18 +299,14 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
 
         }
 
@@ -368,8 +358,6 @@
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
@@ -377,15 +365,10 @@
                 return;
             }
 
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
         //모달
@@ -592,8 +575,8 @@
             //수정버튼
             $("#btnUpdate").click(function (e) {
                 /*let items = page.grid.getList("selected");*/
-                let selectedRow = theGrid.selection.row;
-                let selectedItem = theGrid.rows[selectedRow]?.dataItem; // 선택된 행이 없는 경우 undefined 방지
+                let selectedRow = theGrid.getPageRows().indexOf(theGrid.current());
+                let selectedItem = theGrid.getPageRows()[selectedRow]; // 선택된 행이 없는 경우 undefined 방지
 
                 if (selectedItem) {  // 객체 존재 여부 확인
                     let id = selectedItem.id;  // 배열이 아니라 객체이므로 selectedItem[0]이 아니라 selectedItem.id 사용
@@ -618,9 +601,9 @@
 
             //삭제버튼
             $("#btnDel").click(function (e) {
-                let selectedRow = theGrid.selection.row;
+                let selectedRow = theGrid.getPageRows().indexOf(theGrid.current());
                 if (selectedRow >= 0) {
-                    let selectedItem = theGrid.rows[selectedRow].dataItem;
+                    let selectedItem = theGrid.getPageRows()[selectedRow];
                     let id = selectedItem.id;
                     $('#srchFileId').val('');
                     deleteData(id);

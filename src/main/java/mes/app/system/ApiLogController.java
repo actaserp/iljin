@@ -42,23 +42,29 @@ public class ApiLogController {
         param.addValue("endpoint" , "%" + keyword + "%");
 
 
+        // api_log_entry 는 호출 한 건씩 쌓인다 (occurrence_time, method, api_address, duration_second).
+        // 예전 조회는 없는 집계 칸(endpoint · avg_call_cnt · log_timestamp)을 찾아 늘 DB 오류 → 빈 화면이었음.
+        // 화면 칸에 맞춰 주소별로 집계한다 (2026-11-26).
         String sql = """
-                    select * from api_log_entry
-                    where "log_timestamp" between :st and :en
+                    select concat(method, ' ', api_address) as endpoint
+                         , round(cast(avg(duration_second) * 1000 as numeric), 1) as avg_response_time_ms
+                         , round(cast(max(duration_second) * 1000 as numeric), 1) as max_response_time_ms
+                         , round(cast(min(duration_second) * 1000 as numeric), 1) as min_response_time_ms
+                         , round(cast(count(*) as numeric) / greatest(count(distinct cast(occurrence_time as date)), 1), 1) as avg_call_cnt
+                         , count(*) as call_cnt
+                    from api_log_entry
+                    where occurrence_time between :st and :en
                 """;
-
         if(!keyword.isEmpty())
-
         {
             sql += """
-                and endpoint like :endpoint
+                and api_address like :endpoint
                 """;
         }
-
         sql += """
+                group by method, api_address
                 order by avg_call_cnt desc
                 """;
-
         AjaxResult result = new AjaxResult();
 
         result.data = sqlRunner.getRows(sql, param);

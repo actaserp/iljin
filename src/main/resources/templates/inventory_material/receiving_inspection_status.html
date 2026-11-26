@@ -82,48 +82,26 @@
       }
 
       init() {
-        this.grid = new wijmo.grid.FlexGrid('#inspection-status-grid', {
-          autoGenerateColumns: false,
-          selectionMode: wijmo.grid.SelectionMode.Row,
-          headersVisibility: wijmo.grid.HeadersVisibility.All,
-          isReadOnly: true,
-          showMarquee: true,
-          formatItem: (sender, e) => {
-            if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-              e.cell.textContent = (e.row + 1).toString();
-            }
-            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-              e.cell.style.textAlign = 'center';
-            }
-          },
+        this.grid = new EditTable('#inspection-status-grid', {
+          readOnly: true,
+          rowNumbers: true,
           columns: [
-            {binding: 'judge_code',        header: '판정',       width: 75,  align: 'center'},
-            {binding: 'test_date',         header: '검사일',     width: 100, align: 'center'},
-            {binding: 'checker_name',      header: '검사자',     width: 90,  align: 'center'},
-            {binding: 'company_name',      header: '거래처',     width: 130, align: 'left'},
-            {binding: 'balju_date',        header: '발주일',     width: 100, align: 'center'},
-            {binding: 'material_type',     header: '품목유형',   width: 80,  align: 'center'},
-            {binding: 'material_code',     header: '품목코드',   width: 110, align: 'center'},
-            {binding: 'material_name',     header: '품목명',     width: '*', align: 'left'},
-            {binding: 'unit_name',         header: '단위',       width: 50,  align: 'center'},
-            {binding: 'InputQty',          header: '입고량',     width: 85,  align: 'right', format: 'n0'},
-            {binding: 'InoutDate',         header: '입고일',     width: 100, align: 'center'},
-            {binding: 'store_house_name',  header: '창고',       width: 90,  align: 'center'},
-            {binding: 'test_remark',       header: '조치내용',   width: 150, align: 'left'}
+            {key: 'judge_code',        header: '판정',       width: 75,  align: 'center', cellClass: r => !r.judge_code ? '' : (r.judge_code === '부적합' ? 'et-red' : 'et-green')},
+            {key: 'test_date',         header: '검사일',     width: 100, align: 'center'},
+            {key: 'checker_name',      header: '검사자',     width: 90,  align: 'center'},
+            {key: 'company_name',      header: '거래처',     width: 130, align: 'left'},
+            {key: 'balju_date',        header: '발주일',     width: 100, align: 'center'},
+            {key: 'material_type',     header: '품목유형',   width: 80,  align: 'center'},
+            {key: 'material_code',     header: '품목코드',   width: 110, align: 'center'},
+            {key: 'material_name',     header: '품목명',     width: '1*', align: 'left'},
+            {key: 'unit_name',         header: '단위',       width: 50,  align: 'center'},
+            {key: 'InputQty',          header: '입고량',     width: 85,  align: 'right', format: 'n0'},
+            {key: 'InoutDate',         header: '입고일',     width: 100, align: 'center'},
+            {key: 'store_house_name',  header: '창고',       width: 90,  align: 'center'},
+            {key: 'test_remark',       header: '조치내용',   width: 150, align: 'left'}
           ],
-          itemsSource: new wijmo.collections.CollectionView([]),
-          itemFormatter: (panel, row, col, cell) => {
-            if (panel.cellType === wijmo.grid.CellType.Cell) {
-              const item = panel.rows[row].dataItem;
-              const column = panel.columns[col];
-              if (column.binding === 'judge_code' && item.judge_code) {
-                cell.classList.add(item.judge_code === '부적합' ? 'redText' : 'greenText');
-              }
-            }
-          }
         });
-        new FlexGridContextMenu(this.grid);
-        this.grid.downloadFileName = '수입검사현황';
+        this.grid.opts.fileName = '수입검사현황';
       }
 
       searchDataBind() {
@@ -137,7 +115,7 @@
         };
         let result = AjaxUtil.getSyncData(this.url + '/read_inspection_history', data);
         if (result && result.data != null) {
-          this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+          this.grid.setData(result.data);
         }
       }
     }

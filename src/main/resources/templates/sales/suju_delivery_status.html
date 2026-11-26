@@ -70,53 +70,30 @@
       constructor() {
         this.url = '/api/sales/suju_delivery_status';
         this.grid = null;
-        this.viewData = new wijmo.collections.CollectionView();
+        this.viewData = [];
         this.init();
       }
 
       init() {
         let _this = this;
-        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-          selectionMode: wijmo.grid.SelectionMode.Row,
-          headersVisibility: wijmo.grid.HeadersVisibility.Column,
-          allowSorting: wijmo.grid.AllowSorting.MultiColumn,
-          allowMerging: wijmo.grid.AllowMerging.Cells,  //셀 병합
-          autoGenerateColumns: false,
-          showMarquee: true,
-          isReadOnly: true,
-          formatItem: (sender, e) => {
-            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-              e.cell.style.textAlign = 'center';
-            }
-          },
+        this.grid = new EditTable('#theGrid', {
+            //셀 병합
+          readOnly: true,
           columns: [
-            { binding: 'id', header: 'id', visible: false, allowSorting: false},
-            { binding: 'DeliveryDate', header: '출고예정일', width: 120, align: 'center' },
-            { binding: 'JumunDate', header: '수주일', width: 120, align: 'center' },
-            { binding: 'com_name', header: '업체', width: 150 , allowMerging: false },
-            { binding: 'mat_name', header: '품목', width: 180, allowSorting: false },
-            { binding: 'SujuQty', header: '수주량', width: 100, align: 'right', format: 'n0' },
-            { binding: 'ship_oty', header: '출고 수량', width: 100, align: 'right', format: 'n0' },
-            { binding: 'SujuQty3', header: '미출고 수량', width: 120, align: 'right', format: 'n0' },
-            { binding: 'devdate', header: '출고일', width: 120, align: 'center' },
-          ],
-          itemsSource: this.viewData,
+            { key: 'id', header: 'id', visible: false, sortable: false},
+            { key: 'DeliveryDate', header: '출고예정일', width: 120, align: 'center' },
+            { key: 'JumunDate', header: '수주일', width: 120, align: 'center' },
+            { key: 'com_name', header: '업체', width: 150 , },
+            { key: 'mat_name', header: '품목', width: 180, sortable: false },
+            { key: 'SujuQty', header: '수주량', width: 100, align: 'right', format: 'n0' },
+            { key: 'ship_oty', header: '출고 수량', width: 100, align: 'right', format: 'n0' },
+            { key: 'SujuQty3', header: '미출고 수량', width: 120, align: 'right', format: 'n0' },
+            { key: 'devdate', header: '출고일', width: 120, align: 'center' },
+          ]
         });
-        this.grid.itemFormatter = function (panel, row, col, cell) {
-          if (panel.cellType === wijmo.grid.CellType.Cell) {
-            let colName = panel.columns[col].binding;
-            if (['com_name', 'CustomerBarcode'].includes(colName)) {
-              cell.style.textAlign = 'center';          // 수평 가운데
-              cell.style.verticalAlign = 'middle';      // 수직 가운데
-              cell.style.display = 'flex';              // flex로 정렬
-              cell.style.alignItems = 'center';         // 수직 정렬
-              cell.style.justifyContent = 'center';     // 수평 정렬
-            }
-          }
-        };
+        this.grid.setData(this.viewData);
 
-        new FlexGridContextMenu(this.grid);
-        this.grid.downloadFileName = '수주별납품현황';
+        this.grid.opts.fileName = '수주별납품현황';
 
         $('#txtCompany').on('keypress', function (e) {
           if (e.keyCode === 13) {
@@ -142,7 +119,7 @@
 
         let fnsuccess = function (result) {
           if (result != null) {
-            _this.viewData.sourceCollection = result.data;
+            _this.grid.setData(result.data);
           }
         };
         AjaxUtil.getAsyncData(url, data, fnsuccess);

@@ -333,7 +333,7 @@
     <th:block th:replace="/common/columns_setting :: columns_setting"></th:block>
     <script type="text/javascript">
 
-        let isInitialLoad = true; // 초기 상태 플래그
+        let isInitialLoad = false; // EditTable 은 selectFirst:false 라 처음 자료를 넣을 때 선택 이벤트가 없음 → 첫 클릭을 버리지 않게 false
 
 
         class StopCausePage {
@@ -344,7 +344,7 @@
                 this.$btnAddNew = $('#btnAddNew');
                 this.$btnEdit = $('#btnSave');
                 //this.$btnDel = $('#btnDel');
-                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData = [];
                 this.init();
 
 
@@ -352,41 +352,27 @@
 
             init() {
                 let _this = this;
-                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
+                this.grid = new EditTable('#theGrid', {
+                    selectFirst: false,   // 자료를 넣어도 첫 행을 고르지 않음 (위즈모 loadedRows → select(-1) 대신)
+                    readOnly: true,
                     columns: [
-                        {binding: 'equipment_group_name', header: '설비그룹', width: 100, align: 'left'},
-                        {binding: 'equipment_code', header: '설비코드', width: 100, align: 'center'},
-                        {binding: 'equipment_name', header: '설비명', width: 120, align: 'left'},
-                        {binding: 'data_date', header: '등록일', width: 100, align: 'center'},
-                        {binding: 'maint_type', header: '구분', width: 100, align: 'center'},
-                        {binding: 'fail_start_date', header: '고장시작일', width: 100, align: 'center'},
-                        {binding: 'fail_end_date', header: '고장종료일', width: 100, align: 'center'},
-                        {binding: 'fail_description', header: '고장내역', width: 120, align: 'left'},
-                        {binding: 'maint_start_date', header: '정비시작일', width: 100, align: 'center'},
-                        {binding: 'maint_end_date', header: '정비종료일', width: 100, align: 'center'},
-                        {binding: 'description', header: '정비내역', width: 100, align: 'left'},
-                        {binding: 'maint_cost', header: '비용', width: 100, align: 'right'},
+                        {key: 'equipment_group_name', header: '설비그룹', width: 100, align: 'left'},
+                        {key: 'equipment_code', header: '설비코드', width: 100, align: 'center'},
+                        {key: 'equipment_name', header: '설비명', width: 120, align: 'left'},
+                        {key: 'data_date', header: '등록일', width: 100, align: 'center'},
+                        {key: 'maint_type', header: '구분', width: 100, align: 'center'},
+                        {key: 'fail_start_date', header: '고장시작일', width: 100, align: 'center'},
+                        {key: 'fail_end_date', header: '고장종료일', width: 100, align: 'center'},
+                        {key: 'fail_description', header: '고장내역', width: 120, align: 'left'},
+                        {key: 'maint_start_date', header: '정비시작일', width: 100, align: 'center'},
+                        {key: 'maint_end_date', header: '정비종료일', width: 100, align: 'center'},
+                        {key: 'description', header: '정비내역', width: 100, align: 'left'},
+                        {key: 'maint_cost', header: '비용', width: 100, align: 'right'},
 
-                    ],
-                    itemsSource: this.viewData,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                    ]
                 });
+                this.grid.setData(this.viewData);
 
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.grid.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
 
                 this.grid.selectionChanged.addHandler((s, e) => {
                     if (isInitialLoad) {
@@ -394,9 +380,9 @@
                         return;
                     }
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
 
                         _this.showDetail(selectedRowData.id);
 
@@ -405,8 +391,7 @@
 
                     }
                 });
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '설비정비내역';
+                this.grid.opts.fileName = '설비정비내역';
 
                 AjaxUtil.fillSelectOptions($('#cboEquipment'), 'equipment', 'all', false);
                 AjaxUtil.fillSelectOptions($('#equipment_id'), 'equipment', 'choose', false);
@@ -518,11 +503,11 @@
 
                 if (result.data != null) {
 
-                    isInitialLoad = true;
+                    // isInitialLoad = true;   EditTable 은 자료를 넣을 때 선택 이벤트가 없어서, 켜 두면 검색 뒤 첫 클릭이 버려짐 (2026-11-24)
                     $('#editForm')[0].reset();
 
                     console.log(result.data);
-                    _this.viewData.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                 }
             }
 

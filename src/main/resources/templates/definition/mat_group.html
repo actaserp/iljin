@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -251,10 +246,10 @@
 
 
         let columns = [
-            {binding: 'id', header: '번호', width: 100, align: 'center'},
-            {binding: 'material_type', header: '품목구분', width: 200, align: 'center'},
-            {binding: 'material_group_code', header: '품목그룹코드', width: 300, align: 'center'},
-            {binding: 'material_group_name', header: '품목그룹명', width: '*', align: 'center'}
+            {key: 'id', header: '번호', width: 100, align: 'center'},
+            {key: 'material_type', header: '품목구분', width: 200, align: 'center'},
+            {key: 'material_group_code', header: '품목그룹코드', width: 300, align: 'center'},
+            {key: 'material_group_name', header: '품목그룹명', width: '1*', align: 'center'}
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -281,15 +276,13 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
             theGrid.hostElement.addEventListener('dblclick', function (e) {
                 let selectedItem = theGrid.selectedItems[0];
@@ -310,8 +303,6 @@
                 setButtonState();
             });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
 
         }
 
@@ -386,18 +377,11 @@
                 material_group_name: item.material_group_name
             }));
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
-            columns.forEach(colDef => {
-                let col = new wijmo.grid.Column(colDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(formattedData);
+            viewdata = formattedData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
 
         }
 
@@ -519,11 +503,11 @@
 
             // 중분류 등록 버튼 클릭
             $('#btnUserCode').click(function (e) {
-                let grid = wijmo.Control.getControl('#theGrid'); // 메인 그리드
-                let selection = grid.selection;
+                let grid = EditTable.getControl('#theGrid'); // 메인 그리드
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1};
 
                 if (selection.row > -1) {
-                    let item = grid.rows[selection.row].dataItem;
+                    let item = grid.getPageRows()[selection.row];
 
                     if (!item || !item.id) {
                         Alert.alert('', "품목그룹(대분류)을 먼저 선택해주십시오.");
@@ -547,17 +531,14 @@
                     });
 
                     // ✅ 그리드 생성
-                    let userCodeGrid = new wijmo.grid.FlexGrid('#userCode-grid', {
-                        autoGenerateColumns: false,
-                        isReadOnly: true,
-                        selectionMode: wijmo.grid.SelectionMode.Row,
-                        headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                    let userCodeGrid = new EditTable('#userCode-grid', {
+                        readOnly: true,
                         columns: [
-                            { binding: 'id', header: '번호', width: 80, align: 'center', visible: false },
-                            { binding: 'code', header: '중분류코드', width: 200, align: 'center' },
-                            { binding: 'value', header: '중분류명', width: '*', align: 'center' },
-                            { binding: 'description', header: '설명', width: '*', align: 'center' },
-                            // { binding: 'description', header: '설명', width: '*', align: 'center' }
+                            { key: 'id', header: '번호', width: 80, align: 'center', visible: false },
+                            { key: 'code', header: '중분류코드', width: 200, align: 'center' },
+                            { key: 'value', header: '중분류명', width: '1*', align: 'center' },
+                            { key: 'description', header: '설명', width: '1*', align: 'center' },
+                            // { key: 'description', header: '설명', width: '1*', align: 'center' }
                         ]
                     });
 
@@ -565,8 +546,8 @@
                     userCodeGrid.hostElement.addEventListener('dblclick', function (e) {
                         let ht = userCodeGrid.hitTest(e);
 
-                        if (ht.cellType === wijmo.grid.CellType.Cell) {
-                            let selectedItem = userCodeGrid.rows[ht.row].dataItem;
+                        if (ht.cellType === 'cell') {
+                            let selectedItem = userCodeGrid.getPageRows()[ht.row];
 
                             if (selectedItem) {
                                 $content.find('#midCode').val(selectedItem.code);          // 중분류 코드
@@ -587,7 +568,7 @@
 
                         AjaxUtil.getAsyncData(url, data, function (res) {
                             if (res.success) {
-                                userCodeGrid.itemsSource = res.data || [];
+                                userCodeGrid.setData(res.data || []);
                             } else {
                                 Alert.alert('오류', res.message || '중분류 데이터를 불러오지 못했습니다.');
                             }
@@ -626,7 +607,7 @@
 
                     // ✅ 삭제 버튼 이벤트
                     $content.find('#btnDelete').off('click').on('click', function () {
-                        let selected = userCodeGrid.collectionView.currentItem;
+                        let selected = userCodeGrid.current();
                         if (!selected) {
                             Alert.alert('', '삭제할 중분류를 선택해주세요.');
                             return;

@@ -286,65 +286,36 @@
      this.grid = null;
      this.$btnDetail = $('#btnDetail');
      this.spjangcd = $('#spjangcdHidden');
-     this.viewData = new wijmo.collections.CollectionView();
+     this.viewData = [];
      this.init();
     }
 
     init() {
      let _this = this;
 
-     this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-      selectionMode: wijmo.grid.SelectionMode.Row,
-      headersVisibility: wijmo.grid.HeadersVisibility.Column,
-      autoGenerateColumns: false,
-      showMarquee: true,
-      isReadOnly: true,
-      allowSorting: true,
-      formatItem: (sender, e) => {
-       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-        e.cell.style.textAlign = 'center';
-       }
-      },
+     this.grid = new EditTable('#theGrid', {
+      readOnly: true,
       columns: [
-       {binding: 'mail_id', header: 'mail_id', width: 100, visible: false},
-       {binding: 'bh_id', header: 'bh_id', width: 100, visible: false},
-       {binding: 'SendDate', header: '발송일시', width: 150, align: 'center'},
-       {binding: 'JumunNumber', header: '발주번호', width: 140, align: 'center'},
-       {binding: 'CompanyName', header: '구매처', width: 200},
-       {binding: 'MailTitle', header: '제목', width: 280},
-       {binding: 'Recipients', header: '받는사람', width: 220},
-       {binding: 'ReplyTo', header: '회신주소', width: 180},
-       {binding: 'JumunDate', header: '발주일', width: 110, align: 'center'},
-       {binding: 'DueDate', header: '납기예정일', width: 110, align: 'center'},
-       {binding: 'BaljuTotalPrice', header: '발주액', width: 110, align: 'right', format: 'n0'},
-       {binding: 'SendUserName', header: '발송자', width: 90, align: 'center'},
-       {binding: 'SendStateName', header: '발송상태', width: 90, align: 'center'},
-       {binding: 'has_file', header: '첨부', width: 60, align: 'center'},
-       {binding: 'ErrorMessage', header: '실패사유', width: 220}
+       {key: 'mail_id', header: 'mail_id', width: 100, visible: false},
+       {key: 'bh_id', header: 'bh_id', width: 100, visible: false},
+       {key: 'SendDate', header: '발송일시', width: 150, align: 'center'},
+       {key: 'JumunNumber', header: '발주번호', width: 140, align: 'center'},
+       {key: 'CompanyName', header: '구매처', width: 200},
+       {key: 'MailTitle', header: '제목', width: 280},
+       {key: 'Recipients', header: '받는사람', width: 220},
+       {key: 'ReplyTo', header: '회신주소', width: 180},
+       {key: 'JumunDate', header: '발주일', width: 110, align: 'center'},
+       {key: 'DueDate', header: '납기예정일', width: 110, align: 'center'},
+       {key: 'BaljuTotalPrice', header: '발주액', width: 110, align: 'right', format: 'n0'},
+       {key: 'SendUserName', header: '발송자', width: 90, align: 'center'},
+       {key: 'SendStateName', header: '발송상태', width: 90, align: 'center', cellClass: r => r.SendState === 'fail' ? 'et-bad' : ''},
+       {key: 'has_file', header: '첨부', width: 60, align: 'center', format: v => v ? 'O' : ''},
+       {key: 'ErrorMessage', header: '실패사유', width: 220, cellClass: r => r.SendState === 'fail' ? 'et-bad' : ''}
       ],
-      itemsSource: this.viewData,
-      itemFormatter: (panel, row, col, cell) => {
-       if (panel.cellType === wijmo.grid.CellType.Cell) {
-        const item = panel.rows[row].dataItem;
-        const column = panel.columns[col];
-        if (!item) return;
-
-        // 발송 실패 건 강조
-        if ((column.binding === 'SendStateName' || column.binding === 'ErrorMessage')
-         && item.SendState === 'fail') {
-         cell.classList.add('grid-cell-red');
-        }
-
-        // 첨부 유무 (1/0 을 그대로 보이지 않게)
-        if (column.binding === 'has_file') {
-         cell.textContent = item.has_file ? 'O' : '';
-        }
-       }
-      }
      });
+     this.grid.setData(this.viewData);
 
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = 'e메일 발주서 발송내역';
+     this.grid.opts.fileName = 'e메일 발주서 발송내역';
 
      // 더블클릭 시 상세 열기
      this.grid.hostElement.addEventListener('dblclick', function (e) {
@@ -404,7 +375,7 @@
 
      let fnsuccess = function (result) {
       if (result != null) {
-       _this.viewData.sourceCollection = result.data;
+       _this.grid.setData(result.data);
       }
      };
 

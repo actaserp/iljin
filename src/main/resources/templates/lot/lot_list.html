@@ -278,8 +278,8 @@
                 this.selectedLotId = null;
                 this.loading = true;
 
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
 
 
                 this.baseUrl = '/api/inventory/lot';
@@ -290,43 +290,29 @@
             init() {
 
                 let _this = this;
-                this.grid1 = new wijmo.grid.FlexGrid('#lotProdGrid', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: true,
+                this.grid1 = new EditTable('#lotProdGrid', {
+                    selectFirst: false,
+                     // 행 단위 선택
+                    readOnly: true,
                     columns: [
 
-                        {binding: 'prod_date', header: '일시', width: 120, align: 'center'},
-                        {binding: 'lot_num', header: 'LOT번호', width: 150, align: 'center'},
-                        {binding: 'mat_type', header: '품목구분', width: 100, align: 'left'},
-                        {binding: 'mat_group', header: '품목그룹', width: 120, align: 'left'},
-                        {binding: 'mat_code', header: '품목코드', width: 120, align: 'left'},
-                        {binding: 'mat_name', header: '품목명', width: 150, align: 'left'},
-                        {binding: 'input_qty', header: '초기량', width: 100, align: 'right'},
-                        {binding: 'out_qty', header: '출고량', width: 100, align: 'right'},
-                        {binding: 'current_stock', header: '재고량', width: 100, align: 'right'},
-                        {binding: 'reg_history', header: '등록내역', width: 250, align: 'left'},
-                        {binding: 'description', header: '비고', width: 300, align: 'left'},
+                        {key: 'prod_date', header: '일시', width: 120, align: 'center'},
+                        {key: 'lot_num', header: 'LOT번호', width: 150, align: 'center'},
+                        {key: 'mat_type', header: '품목구분', width: 100, align: 'left'},
+                        {key: 'mat_group', header: '품목그룹', width: 120, align: 'left'},
+                        {key: 'mat_code', header: '품목코드', width: 120, align: 'left'},
+                        {key: 'mat_name', header: '품목명', width: 150, align: 'left'},
+                        {key: 'input_qty', header: '초기량', width: 100, align: 'right'},
+                        {key: 'out_qty', header: '출고량', width: 100, align: 'right'},
+                        {key: 'current_stock', header: '재고량', width: 100, align: 'right'},
+                        {key: 'reg_history', header: '등록내역', width: 250, align: 'left'},
+                        {key: 'description', header: '비고', width: 300, align: 'left'},
 
-                    ],
-                    itemsSource: this.viewData,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                    ]
 
                 });
+                this.grid1.setData(this.viewData);
                 //맨 앞에 헤더부분 없애기
-                this.grid1.rowHeaders.columns.splice(0, 1);
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.grid1.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid1.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
                 // 선택 변경 이벤트
                 this.grid1.selectionChanged.addHandler((s, e) => {
 
@@ -335,9 +321,9 @@
                     }
 
                     // 유효한 행이 선택되었는지 확인
-                    let selectedRowIndex = this.grid1.selection.row;
+                    let selectedRowIndex = this.grid1.getPageRows().indexOf(this.grid1.current());
                     if (selectedRowIndex >= 0) {
-                        let selectedRowData = this.grid1.rows[selectedRowIndex].dataItem;
+                        let selectedRowData = this.grid1.getPageRows()[selectedRowIndex];
 
                         // TODO: 비즈니스 로직
                         _this.selectedLotId = selectedRowData.id;
@@ -349,65 +335,49 @@
                 this.grid1.hostElement.addEventListener('dblclick', function (e) {
                     const ht = _this.grid1.hitTest(e);
 
-                    if (ht.cellType === wijmo.grid.CellType.Cell) {
-                        const item = _this.grid1.rows[ht.row].dataItem;
+                    if (ht.cellType === 'cell') {
+                        const item = _this.grid1.getPageRows()[ht.row];
                         _this.showPopup('prod', item);  // ← 여기에서 this 대신 item 직접 넘김
                     }
                 });
                 //this.loading = false;
-                new FlexGridContextMenu(this.grid1);
-                this.grid1.downloadFileName = 'LOT 목록';
+                this.grid1.opts.fileName = 'LOT 목록';
 
 
                 ////////////////////////////////////////////////////
 
-                this.grid2 = new wijmo.grid.FlexGrid('#lotConGrid', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: false,
+                this.grid2 = new EditTable('#lotConGrid', {
+                     // 행 단위 선택
+                    readOnly: false,
                     columns: [
-                        {binding: 'consumed_date', header: '일시', width: 120, align: 'center',},
-                        {binding: 'consumed_qty', header: '소비량', width: 100, align: 'right'},
-                        {binding: 'consumed_history', header: '소비내역', width: 200, align: 'left',},
-                        {binding: 'description', header: '비고', width: 300, align: 'left',},
+                        {key: 'consumed_date', header: '일시', width: 120, align: 'center',},
+                        {key: 'consumed_qty', header: '소비량', width: 100, align: 'right'},
+                        {key: 'consumed_history', header: '소비내역', width: 200, align: 'left',},
+                        {key: 'description', header: '비고', width: 300, align: 'left',},
                     ],
-                    itemsSource: this.viewData2,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                            const column = s.columns[e.col];
-                            if (column.binding === 'unit_price') {
-                                e.cell.style.color = 'rgb(85, 103, 255)'; // 텍스트 색상 설정
-                                e.cell.style.fontWeight = 'bold'; // 텍스트 굵게
-                            }
-                        }
-                    },
 
                 });
+                this.grid2.setData(this.viewData2);
                 //맨 앞에 헤더부분 없애기
-                this.grid2.rowHeaders.columns.splice(0, 1);
                 // 데이터 로드 후 초기 선택 상태 해제
 
                 this.grid2.selectionChanged.addHandler((s, e) => {
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
 
                     }
                 });
                 this.grid2.hostElement.addEventListener('dblclick', function (e) {
                     const ht = this.grid2.hitTest(e);
 
-                    if (ht.cellType === wijmo.grid.CellType.Cell) {
-                        const item = this.grid2.rows[ht.row].dataItem;
+                    if (ht.cellType === 'cell') {
+                        const item = this.grid2.getPageRows()[ht.row];
                         _this.showPopup('prod', item);  // ← 여기에서 this 대신 item 직접 넘김
                     }
                 });
-                new FlexGridContextMenu(this.grid2);
-                this.grid2.downloadFileName = 'LOT 소비내역';
+                this.grid2.opts.fileName = 'LOT 소비내역';
 
 
                 AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type'); // 품목구분
@@ -437,11 +407,11 @@
 
                 let result = AjaxUtil.getSyncData(this.baseUrl + '/read', param);
                 if (result) {
-                    this.viewData.sourceCollection = result.data;
+                    this.grid1.setData(result.data);
                 }
 
                 this.selectedLotId = null;
-                this.viewData2.sourceCollection = [];
+                this.grid2.setData([]);
             }
 
             // 소비내역 조회
@@ -453,7 +423,7 @@
 
                 let result = AjaxUtil.getSyncData(this.baseUrl + '/consumed_list', param);
                 if (result) {
-                    this.viewData2.sourceCollection = result.data;
+                    this.grid2.setData(result.data);
                 }
             }
 

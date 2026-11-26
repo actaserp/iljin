@@ -508,10 +508,10 @@
             constructor() {
                 this.gridBom = null;
                 this.gridBomComp = null;
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
-                this.viewData3 = new wijmo.collections.CollectionView();
-                this.viewData4 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
+                this.viewData3 = [];
+                this.viewData4 = [];
                 this.init();
             }
 
@@ -569,8 +569,7 @@
                                 if (this.item.current_flag == 'error')
                                     return 'back_error';
                                 //return 'background-white';
-                            }
-                        },
+                            }},
                         {key: 'OutputAmount', label: '기준수량', width: 110, align: 'right'},
                         {key: 'unit', label: '단위', width: 110, align: 'center'},
                         {key: 'Version', label: 'Ver.', width: 110, align: 'center'},
@@ -582,89 +581,57 @@
                 };*/
 
                 //메인 그리드
-                this.grid = new wijmo.grid.FlexGrid('#bom-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                            let item = sender.rows[e.row].dataItem; // 현재 행의 데이터 가져오기
-                            if (e.col === sender.columns.indexOf(sender.columns.getColumn('Name'))) {
-                                if (item.current_flag === 'current') {
-                                    e.cell.classList.add('back_current');
-                                } else if (item.current_flag === 'past') {
-                                    e.cell.classList.add('back_past');
-                                } else if (item.current_flag === 'future') {
-                                    e.cell.classList.add('back_future');
-                                } else if (item.current_flag === 'error') {
-                                    e.cell.classList.add('back_error');
-                                }
-                            }
-                        }
-                    },
+                this.grid = new EditTable('#bom-grid', {
+                    readOnly: true,
                     columns: [
-                        // {binding: 'id', header: '번호', width: 70, align: 'center'},
-                        {binding: 'mat_group_name', header: '품목그룹', width: 85, align: 'left'},
-                        {binding: 'Name', header: 'BOM명', width: 300, align: 'left'},
-                        {binding: 'mat_code', header: '(반)제품코드', width: 110, align: 'left'},
-                        // {binding: 'mat_name', header: '(반)제품명', width: 300, align: 'left'},
-                        {binding: 'bom_type_name', header: 'BOM종류', width: 110, align: 'center'},
-                        {binding: 'OutputAmount', header: '기준수량', width: 80, align: 'right'},
-                        {binding: 'unit', header: '단위', width: 100, align: 'center'},
-                        {binding: 'Version', header: 'Ver.', width: 60, align: 'center'},
-                        {binding: 'StartDate', header: '적용시작일', width: 130, align: 'center'},
-                        {binding: 'EndDate', header: '적용종료일', width: 130, align: 'center'},
-                        {binding: 'mat_type', header: '품목구분', width: 85, align: 'center'},
+                        // {key: 'id', header: '번호', width: 70, align: 'center'},
+                        {key: 'mat_group_name', header: '품목그룹', width: 85, align: 'left'},
+                        {key: 'Name', header: 'BOM명', width: 300, align: 'left', cellClass: r => ({current: 'back_current', past: 'back_past', future: 'back_future', error: 'back_error'})[r.current_flag] || ''},
+                        {key: 'mat_code', header: '(반)제품코드', width: 110, align: 'left'},
+                        // {key: 'mat_name', header: '(반)제품명', width: 300, align: 'left'},
+                        {key: 'bom_type_name', header: 'BOM종류', width: 110, align: 'center'},
+                        {key: 'OutputAmount', header: '기준수량', width: 80, align: 'right'},
+                        {key: 'unit', header: '단위', width: 100, align: 'center'},
+                        {key: 'Version', header: 'Ver.', width: 60, align: 'center'},
+                        {key: 'StartDate', header: '적용시작일', width: 130, align: 'center'},
+                        {key: 'EndDate', header: '적용종료일', width: 130, align: 'center'},
+                        {key: 'mat_type', header: '품목구분', width: 85, align: 'center'},
                     ],
-                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                     // 데이터를 설정할 배열
                 });
+                this.grid.setData(this.viewData);
 
                 this.grid.hostElement.addEventListener('dblclick', (e) => {
                     let hitTest = this.grid.hitTest(e);
-                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                    if (hitTest.cellType === 'cell') {
                         let row = hitTest.row;
-                        let selectedItem = this.grid.rows[row].dataItem;
+                        let selectedItem = this.grid.getPageRows()[row];
                         _this.showBomCompList(selectedItem.id)
                         _this.showBomCompTreeList(selectedItem.id)
                         /* _this.showBomCompTreeList(selectedItem.id)*/
                     }
                 });
 
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = 'BOM';
+                this.grid.opts.fileName = 'BOM';
 
 
                 // 1레벨 그리드
-                this.grid2 = new wijmo.grid.FlexGrid('#bomcomp-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: false, // 편집 가능하도록 변경
-                    allowSorting: true, // 정렬 비활성화 (선택 사항)
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                this.grid2 = new EditTable('#bomcomp-grid', {
+                    readOnly: false, // 편집 가능하도록 변경
+                     // 정렬 비활성화 (선택 사항)
                     columns: [
-                        {binding: 'mat_name', header: '품목명', width: 350, align: 'left'},
-                        {binding: 'Amount', header: '필요수량', width: 70, align: 'right'},
-                        {binding: 'Description', header: '비고', width: 300, align: 'left'},
-                        // {binding: 'mat_code', header: '품목코드', width: 150, align: 'center'},
-                        {binding: 'unit', header: '단위', width: 100, align: 'center'},
-                        // {binding: 'mat_type', header: '품목구분', width: 120, align: 'center'},
+                        {key: 'mat_name', header: '품목명', width: 350, align: 'left'},
+                        {key: 'Amount', header: '필요수량', width: 70, align: 'right'},
+                        {key: 'Description', header: '비고', width: 300, align: 'left'},
+                        // {key: 'mat_code', header: '품목코드', width: 150, align: 'center'},
+                        {key: 'unit', header: '단위', width: 100, align: 'center'},
+                        // {key: 'mat_type', header: '품목구분', width: 120, align: 'center'},
                     ],
-                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                     // 데이터를 설정할 배열
                 });
+                this.grid2.setData(this.viewData2);
 
-                new FlexGridContextMenu(this.grid2);
-                this.grid2.downloadFileName = '1레벨';
+                this.grid2.opts.fileName = '1레벨';
 
 
                 /*let configBomTree = {
@@ -696,15 +663,15 @@
                         statusDisplay: true,
                     },
                     columns: [
-                        {binding: 'mat_type', header: '품목구분', width: 120, align: 'center'},
-                        {binding: 'mat_code', header: '품목코드', width: 150, align: 'center'},
-                        {binding: 'lvl', header: '레벨', width: 100, align: 'right'},
-                        {binding: 'mat_name', header: '품목명', width: 350, align: 'left', treeControl: true},
-                        {binding: 'bom_ratio', header: '투입비(최종생산품기준)', width: 80, align: 'right'},
-                        {binding: 'bom_qty', header: '필요량(중간생산품기준)', width: 80, align: 'right'},
-                        {binding: 'unit', header: '단위', width: 100, align: 'center'},
+                        {key: 'mat_type', header: '품목구분', width: 120, align: 'center'},
+                        {key: 'mat_code', header: '품목코드', width: 150, align: 'center'},
+                        {key: 'lvl', header: '레벨', width: 100, align: 'right'},
+                        {key: 'mat_name', header: '품목명', width: 350, align: 'left', treeControl: true},
+                        {key: 'bom_ratio', header: '투입비(최종생산품기준)', width: 80, align: 'right'},
+                        {key: 'bom_qty', header: '필요량(중간생산품기준)', width: 80, align: 'right'},
+                        {key: 'unit', header: '단위', width: 100, align: 'center'},
                         {
-                            binding: 'Description', header: '비고', width: 300, align: 'left',
+                            key: 'Description', header: '비고', width: 300, align: 'left',
                             editor: {type: 'textarea'}
                         },
                     ],
@@ -728,51 +695,33 @@
                 };
 */
                 // 전체레벨 그리드
-                this.grid3 = new wijmo.grid.FlexGrid('#bomtree-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: false,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                            let item = sender.rows[e.row].dataItem; // 현재 행의 데이터 아이템
-                            if (item && item.children && item.children.length > 0) {
-                                // 부모(그룹) 행 배경색
-                                e.cell.style.backgroundColor = '#f0fcf7';
-                            } else {
-                                // 자식(일반) 행 배경색
-                                e.cell.style.backgroundColor = '#ffffff';
-                            }
-                        }
-                    },
+                this.grid3 = new EditTable('#bomtree-grid', {
+                    readOnly: false,
+                    rowClass: r => r.children && r.children.length ? 'et-soft' : '',   // 부모(묶음) 행 연한 초록 (위즈모 formatItem 대신)
                     columns: [
-                        {binding: 'mat_type', header: '품목구분', width: 90, align: 'center'},
-                        {binding: 'mat_code', header: '품목코드', width: 150, align: 'center'},
-                        {binding: 'lvl', header: '레벨', width: 50, align: 'right'},
-                        {binding: 'mat_name', header: '품목명', width: 300, align: 'left'},
-                        {binding: 'bom_ratio', header: '투입비(최종생산품기준)', width: 200, align: 'right'},
-                        {binding: 'bom_qty', header: '필요량(중간생산품기준)', width: 200, align: 'right'},
-                        {binding: 'unit', header: '단위', width: 100, align: 'center'},
+                        {key: 'mat_type', header: '품목구분', width: 90, align: 'center'},
+                        {key: 'mat_code', header: '품목코드', width: 150, align: 'center'},
+                        {key: 'lvl', header: '레벨', width: 50, align: 'right'},
+                        {key: 'mat_name', header: '품목명', width: 300, align: 'left'},
+                        {key: 'bom_ratio', header: '투입비(최종생산품기준)', width: 200, align: 'right'},
+                        {key: 'bom_qty', header: '필요량(중간생산품기준)', width: 200, align: 'right'},
+                        {key: 'unit', header: '단위', width: 100, align: 'center'},
                         {
-                            binding: 'Description',
+                            key: 'Description',
                             header: '비고',
-                            width: '*',
+                            width: '1*',
                             align: 'left',
-                            isReadOnly: true, // 편집 가능
+                            readOnly: true, // 편집 가능
                             multiLine: true // 여러 줄 입력 허용
                         },
                     ],
                     childItemsPath: 'children', // 트리 계층 구조 설정
-                    itemsSource: this.viewData3, // 데이터를 설정할 배열
+                     // 데이터를 설정할 배열
                 });
+                this.grid3.setData(this.viewData3);
 
 
-                new FlexGridContextMenu(this.grid3);
-                this.grid3.downloadFileName = '전체레벨';
+                this.grid3.opts.fileName = '전체레벨';
 
 
                 AjaxUtil.fillSelectOptions($('#cboMaterialType'), 'system_code', 'all', false, 'mat_type');
@@ -813,33 +762,23 @@
 
                 this.viewData4 = Array.isArray(this.viewData4) ? this.viewData4 : [];
 
-                this.grid4 = new wijmo.grid.FlexGrid('#material-search-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                this.grid4 = new EditTable('#material-search-grid', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'MaterialTypeName', header: '품목구분', width: 100, align: 'left'},
-                        {binding: 'group_name', header: '품목그룹', width: 150, align: 'left'},
-                        {binding: 'Code', header: '품목코드', width: 150, align: 'center'},
-                        {binding: 'Name', header: '품목명', width: 200, align: 'left'},
-                        {binding: '', header: '', width: '*', align: 'left'}
-                    ],
-                    itemsSource: this.viewData4
+                        {key: 'MaterialTypeName', header: '품목구분', width: 100, align: 'left'},
+                        {key: 'group_name', header: '품목그룹', width: 150, align: 'left'},
+                        {key: 'Code', header: '품목코드', width: 150, align: 'center'},
+                        {key: 'Name', header: '품목명', width: 200, align: 'left'},
+                        ]
                 });
+                this.grid4.setData(this.viewData4);
 
 
                 this.grid4.hostElement.addEventListener('dblclick', (e) => {
                     let hitTest = this.grid4.hitTest(e);
-                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                    if (hitTest.cellType === 'cell') {
                         let row = hitTest.row;
-                        let selectedItem = this.grid4.rows[row].dataItem;
+                        let selectedItem = this.grid4.getPageRows()[row];
                         $Material_id.val(selectedItem.id);
                         $MaterialName.val(selectedItem.Name);
                         $BomName.val(selectedItem.Name);
@@ -887,7 +826,7 @@
                     let fncallback = function (result) {
                         if (result.success) {
                             let recordsTotal = result.data.length;
-                            $matSearchGrid.itemsSource = result.data || [];
+                            $matSearchGrid.setData(result.data || []);
                         }
                     };
 
@@ -898,7 +837,7 @@
                 // 새로고침 버튼 이벤트
                 let $btnTest = $content.find('#btnTest');
                 $btnTest.click(function () {
-                    $matSearchGrid.collectionView.refresh();
+                    $matSearchGrid.refresh();
                 });
             }
 
@@ -925,32 +864,22 @@
                 let target = $content.find('#material-search-grid');
                 this.viewData4 = Array.isArray(this.viewData4) ? this.viewData4 : [];
 
-                this.grid4 = new wijmo.grid.FlexGrid('#material-search-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: false,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                this.grid4 = new EditTable('#material-search-grid', {
+                    readOnly: false,
                     columns: [
-                        {binding: 'MaterialTypeName', header: '품목구분', width: 100, align: 'left'},
-                        {binding: 'group_name', header: '품목그룹', width: 150, align: 'left'},
-                        {binding: 'Code', header: '품목코드', width: 150, align: 'center'},
-                        {binding: 'Name', header: '품목명', width: 200, align: 'left'},
-                        {binding: '', header: '', width: '*', align: 'left'}
-                    ],
-                    itemsSource: this.viewData4
+                        {key: 'MaterialTypeName', header: '품목구분', width: 100, align: 'left'},
+                        {key: 'group_name', header: '품목그룹', width: 150, align: 'left'},
+                        {key: 'Code', header: '품목코드', width: 150, align: 'center'},
+                        {key: 'Name', header: '품목명', width: 200, align: 'left'},
+                        ]
                 });
+                this.grid4.setData(this.viewData4);
 
                 this.grid4.hostElement.addEventListener('dblclick', (e) => {
                     let hitTest = this.grid4.hitTest(e);
-                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                    if (hitTest.cellType === 'cell') {
                         let row = hitTest.row;
-                        let selectedItem = this.grid4.rows[row].dataItem;
+                        let selectedItem = this.grid4.getPageRows()[row];
                         $Material_id.val(selectedItem.id);
                         $MaterialName.val(selectedItem.Name);
                     }
@@ -999,12 +928,12 @@
                         statusDisplay: true,
                     },
                     columns: [
-                        {binding: 'MaterialTypeName', header: '품목구분', width: 100, align: 'left', sortable: false},
-                        {binding: 'group_name', header: '품목그룹', width: 100, align: 'left', sortable: false},
-                        {binding: 'Code', header: '품목코드', width: 100, align: 'center', sortable: false},
-                        {binding: 'Name', header: '품목명', width: 200, align: 'left', sortable: false},
+                        {key: 'MaterialTypeName', header: '품목구분', width: 100, align: 'left', sortable: false},
+                        {key: 'group_name', header: '품목그룹', width: 100, align: 'left', sortable: false},
+                        {key: 'Code', header: '품목코드', width: 100, align: 'center', sortable: false},
+                        {key: 'Name', header: '품목명', width: 200, align: 'left', sortable: false},
 
-                        //{ binding: 'Description', header: '설명', width: 250, align: 'center', sortable: false },
+                        //{ key: 'Description', header: '설명', width: 250, align: 'center', sortable: false },
                     ]
                 };
                 $matSearchGrid = new ax5.ui.grid(config);*/
@@ -1039,7 +968,7 @@
                     let fncallback = function (result) {
                         if (result.success) {
                             let recordsTotal = result.data.length;
-                            $matSearchGrid.itemsSource = result.data || [];
+                            $matSearchGrid.setData(result.data || []);
                         }
                     };
 
@@ -1123,7 +1052,7 @@
                         let count = result.data.length;
 
                         // 데이터 초기화
-                        _this.grid2.itemsSource = new wijmo.collections.CollectionView(result.data);
+                        _this.grid2.setData(result.data);
 
                         // 복사할 텍스트 생성
                         let text = result.data.map(item =>
@@ -1183,12 +1112,12 @@
                     try {
                         if (!Array.isArray(result.data) || result.data.length === 0) {
                             Alert.alert('', '조회된 전체레벨 데이터가 없습니다.');
-                            _this.grid3.itemsSource = new wijmo.collections.CollectionView([]); // 빈 배열 설정
+                            _this.grid3.setData([]); // 빈 배열 설정
                             return;
                         }
 
                         let treeData = this.buildTree(result.data);
-                        _this.grid3.itemsSource = new wijmo.collections.CollectionView(treeData);
+                        _this.grid3.setData(treeData);
 
                     } catch (ex) {
                         Alert.alert('에러가 발생했습니다: ' + ex.message);
@@ -1241,7 +1170,7 @@
 
                 let result = AjaxUtil.getSyncData(url, data);
                 if (result.success) {
-                    _this.viewData.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
 
                 }
             }//searchBomList
@@ -1268,10 +1197,10 @@
                     return;
                 }
 
-                let selectedRowIndex = this.grid.selection.row;
+                let selectedRowIndex = this.grid.getPageRows().indexOf(this.grid.current());
                 let selectedId = null;
                 if (selectedRowIndex >= 0) {
-                    let selectedItem = this.grid.rows[selectedRowIndex].dataItem;
+                    let selectedItem = this.grid.getPageRows()[selectedRowIndex];
                     selectedId = selectedItem.id;
                 }
 
@@ -1281,18 +1210,16 @@
                         _this.searchBomList();
                         setTimeout(() => {
                             let targetIndex = -1;
-                            for (let i = 0; i < _this.grid.rows.length; i++) { // ← 반드시 _this!
-                                if (_this.grid.rows[i].dataItem.id === selectedId) {
+                            for (let i = 0; i < _this.grid.getPageRows().length; i++) { // ← 반드시 _this!
+                                if (_this.grid.getPageRows()[i].id === selectedId) {
                                     targetIndex = i;
                                     break;
                                 }
                             }
                             if (targetIndex >= 0) {
-                                _this.grid.select(targetIndex, 0);
-                                _this.grid.scrollIntoView(targetIndex, 0);
-                            } else if (_this.grid.rows.length > 0) {
-                                _this.grid.select(0, 0);
-                                _this.grid.scrollIntoView(0, 0);
+                                _this.grid.select(_this.grid.getPageRows()[targetIndex]);
+                            } else if (_this.grid.getPageRows().length > 0) {
+                                _this.grid.select(_this.grid.getPageRows()[0]);
                             }
                         }, 0);
                     } else {
@@ -1314,10 +1241,10 @@
                     return;
                 }
 
-                let selectedRowIndex = this.grid2.selection.row;
+                let selectedRowIndex = this.grid2.getPageRows().indexOf(this.grid2.current());
                 let selectedId = null;
                 if (selectedRowIndex >= 0) {
-                    let selectedItem = this.grid2.rows[selectedRowIndex].dataItem;
+                    let selectedItem = this.grid2.getPageRows()[selectedRowIndex];
                     selectedId = selectedItem.id;
                 }
 
@@ -1330,31 +1257,29 @@
                     }
 
 
-                    let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
-                    let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                    let grid = EditTable.getControl('#bom-grid'); // 그리드 객체 가져오기
+                    let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                     /*let items = page.gridBom.getList("selected");*/
 
                     if (selection.row > -1) { // 선택된 행이 있을 경우
-                        let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                        let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
 
                         if (item) {
                             let id = item.id; // ID 값 가져오기
                             _this.showBomCompList(id);
                             setTimeout(() => {
                                 let targetIndex = -1;
-                                for (let i = 0; i < _this.grid2.rows.length; i++) { // ← 반드시 _this!
-                                    if (_this.grid2.rows[i].dataItem.id === selectedId) {
+                                for (let i = 0; i < _this.grid2.getPageRows().length; i++) { // ← 반드시 _this!
+                                    if (_this.grid2.getPageRows()[i].id === selectedId) {
                                         targetIndex = i;
                                         break;
                                     }
                                 }
                                 if (targetIndex >= 0) {
-                                    _this.grid2.select(targetIndex, 0);
-                                    _this.grid2.scrollIntoView(targetIndex, 0);
-                                } else if (_this.grid2.rows.length > 0) {
-                                    _this.grid2.select(0, 0);
-                                    _this.grid2.scrollIntoView(0, 0);
+                                    _this.grid2.select(_this.grid2.getPageRows()[targetIndex]);
+                                } else if (_this.grid2.getPageRows().length > 0) {
+                                    _this.grid2.select(_this.grid2.getPageRows()[0]);
                                 }
                             }, 0);
                         }
@@ -1408,11 +1333,11 @@
                     if (res.success) {
                         Alert.alert('', '삭제되었습니다');
 
-                        let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
-                        let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                        let grid = EditTable.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+                        let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                         if (selection.row > -1) { // 선택된 행이 있을 경우
-                            let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                            let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
 
                             if (item) {
                                 let id = item.id; // ID 값 가져오기
@@ -1489,15 +1414,15 @@
 
             saveBomCompOrder() {
                 let _this = this;
-                let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+                let grid = EditTable.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
 
-                if (!grid || !grid.itemsSource) {
+                if (!grid) {
                     console.error("saveBomCompOrder함수에서 gridBomComp 또는 itemsSource가 존재하지 않습니다.");
                     return;
                 }
 
                 let items = [];
-                $.each(grid.itemsSource, function (idx, item) {
+                $.each(grid.getData(), function (idx, item) {   // 지금 순서대로
                     if (item && item.id) {
                         items.push({id: item.id});
                     }
@@ -1620,11 +1545,11 @@
 
             $('#btnBomReplicate').click(function () {
                 /*  let items = page.gridBom.getList("selected");*/
-                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
-                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                let grid = EditTable.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                 if (selection.row > -1) { // 선택된 행이 있을 경우
-                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                    let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
 
                     if (item) {
                         let id = item.id; // ID 값 가져오기
@@ -1654,11 +1579,11 @@
 
             $('#btnBomRevision').click(function () {
                 /*let items = page.gridBom.getList("selected");*/
-                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
-                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                let grid = EditTable.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                 if (selection.row > -1) { // 선택된 행이 있을 경우
-                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                    let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
 
                     if (item) {
                         let id = item.id; // ID 값 가져오기
@@ -1685,11 +1610,11 @@
             });
 
             $('#btnBomCompNew').click(function (e) {
-                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
-                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                let grid = EditTable.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                 if (selection.row > -1) { // 선택된 행이 있을 경우
-                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                    let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
 
                     if (item) {
                         let id = item.id; // ID 값 가져오기
@@ -1725,8 +1650,8 @@
 
             $('#btnBomCompEdit').click(function (e) {
                 /*let items = page.gridBomComp.getList("selected");*/
-                let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
-                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                let grid = EditTable.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                 if (selection.length == 0) {
                     Alert.alert('', '선택된 품목이 없습니다');
@@ -1740,7 +1665,7 @@
                 //}
 
                 if (selection.row > -1) { // 선택된 행이 있을 경우
-                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                    let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
                     let url = '/api/definition/bom/material_detail';
 
                     if (item) {
@@ -1775,8 +1700,8 @@
 
             $('#btnBomCompDelete').click(function (e) {
                 /*let items = page.gridBomComp.getList("selected");*/
-                let grid = wijmo.Control.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
-                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                let grid = EditTable.getControl('#bomcomp-grid'); // 그리드 객체 가져오기
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                 if (selection.length == 0) {
                     Alert.alert('', '선택된 품목이 없습니다');
@@ -1784,7 +1709,7 @@
                 }
 
                 if (selection.row > -1) { // 선택된 행이 있을 경우
-                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                    let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
 
                     if (item) {
                         let id = item.id; // ID 값 가져오기
@@ -1809,11 +1734,11 @@
 
 
             $('#btnBomEdit').click(function (e) {
-                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
-                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                let grid = EditTable.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                 if (selection.row > -1) { // 선택된 행이 있을 경우
-                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                    let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
 
                     if (item) {
                         let id = item.id; // ID 값 가져오기
@@ -1833,13 +1758,13 @@
 
 
             $('#btnBomDelete').click(function (e) {
-                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
-                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                let grid = EditTable.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                 /*let items = page.gridBom.getList("selected");*/
 
                 if (selection.row > -1) { // 선택된 행이 있을 경우
-                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                    let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
 
                     if (item) {
                         let id = item.id; // ID 값 가져오기
@@ -1857,8 +1782,8 @@
             });
 
             $('#btnSaveBomText').click(function (e) {
-                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
-                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                let grid = EditTable.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                 if (selection.length == 0) {
                     Alert.alert('제품이 선택되지 않았습니다.');
@@ -1866,7 +1791,7 @@
                 }
 
                 if (selection.row > -1) { // 선택된 행이 있을 경우
-                    let item = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                    let item = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
 
                     if (item) {
                         let id = item.id; // ID 값 가져오기
@@ -1887,14 +1812,14 @@
 
             /*let items = page.gridBom.getList("selected");*/
             $('#btnBomTreeView').click(function (e) {
-                let grid = wijmo.Control.getControl('#bom-grid'); // 그리드 객체 가져오기
-                let selection = grid.selection; // 현재 선택된 셀의 정보 가져오기
+                let grid = EditTable.getControl('#bom-grid'); // 그리드 객체 가져오기
+                let selection = {row: grid.getPageRows().indexOf(grid.current()), col: -1}; // 현재 선택된 셀의 정보 가져오기
 
                 if (selection.row < 0) { // 선택된 행이 없는 경우
                     return;
                 }
 
-                let selectedItem = grid.rows[selection.row].dataItem; // 선택된 행의 데이터 가져오기
+                let selectedItem = grid.getPageRows()[selection.row]; // 선택된 행의 데이터 가져오기
                 if (!selectedItem || !selectedItem.id) { // id가 없을 경우 방어 코드
                     Alert.alert('', '선택된 데이터에 BOM ID가 없습니다.');
                     return;

@@ -131,45 +131,32 @@
 
         init() {
             let _this = this;
-            this.grid = new wijmo.grid.FlexGrid('#material-grid', {
-                autoGenerateColumns: false,
-                selectionMode: wijmo.grid.SelectionMode.Row,
-                headersVisibility: wijmo.grid.HeadersVisibility.All,
-                isReadOnly: true,
+            this.grid = new EditTable('#material-grid', {
+                readOnly: true,
                 frozenColumns: 0,
-                itemsSource: new wijmo.collections.CollectionView([]),
-                formatItem: (s, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-                        // 헤더에 순번
-                        e.cell.textContent = (e.row + 1).toString();
-                    }
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                    }
-                },
+                rowNumbers: true,
                 columns: [
-                    {binding: 'house_name', header: '창고명', width: 100, align: 'left'},
-                    {binding: 'mat_type_name', header: '품목유형', width: 100, align: 'center'},
-                    {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center'},
-                    {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
-                    {binding: 'manage_level', header: '관리등급', width: 50, align: 'center'},
-                    {binding: 'mat_name', header: '품목명', width: 200, align: 'left'},
-                    {binding: 'unit_name', header: '단위', width: 80, align: 'center'},
-                    {binding: 'account_stock', header: '장부재고', width: 100, align: 'right' },
-                    {binding: 'real_stock', header: '실재고', width: 100, align: 'right' },
-                    {binding: 'gap', header: '차이', width: 100, align: 'right' },
-                    {binding: 'unit_price', header: '단가', width: 100, align: 'right' },
-                    {binding: 'gap_price', header: '차이금액', width: 100, align: 'right' },
-                    {binding: 'description', header: '비고', width: 250, align: 'left'},
-                    {binding: 'state', header: '상태', width: 80, align: 'center'},
-                    {binding: 'taker_name', header: '실사자', width: 100, align: 'center'},
-                    {binding: 'take_date_time', header: '실사일시', width: 150, align: 'center'},
-                    {binding: 'confirmer_name', header: '확인자', width: 100, align: 'center'},
-                    {binding: 'confirm_date_time', header: '확인일시', width: 150, align: 'center'}
+                    {key: 'house_name', header: '창고명', width: 100, align: 'left'},
+                    {key: 'mat_type_name', header: '품목유형', width: 100, align: 'center'},
+                    {key: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center'},
+                    {key: 'mat_code', header: '품목코드', width: 100, align: 'center'},
+                    {key: 'manage_level', header: '관리등급', width: 50, align: 'center'},
+                    {key: 'mat_name', header: '품목명', width: 200, align: 'left'},
+                    {key: 'unit_name', header: '단위', width: 80, align: 'center'},
+                    {key: 'account_stock', header: '장부재고', width: 100, align: 'right' },
+                    {key: 'real_stock', header: '실재고', width: 100, align: 'right' },
+                    {key: 'gap', header: '차이', width: 100, align: 'right' },
+                    {key: 'unit_price', header: '단가', width: 100, align: 'right' },
+                    {key: 'gap_price', header: '차이금액', width: 100, align: 'right' },
+                    {key: 'description', header: '비고', width: 250, align: 'left'},
+                    {key: 'state', header: '상태', width: 80, align: 'center'},
+                    {key: 'taker_name', header: '실사자', width: 100, align: 'center'},
+                    {key: 'take_date_time', header: '실사일시', width: 150, align: 'center'},
+                    {key: 'confirmer_name', header: '확인자', width: 100, align: 'center'},
+                    {key: 'confirm_date_time', header: '확인일시', width: 150, align: 'center'}
                 ]
             });
-            new FlexGridContextMenu(this.grid);
-            this.grid.downloadFileName = '재고 조정 이력';
+            this.grid.opts.fileName = '재고 조정 이력';
         }
 
         searchMainData() {
@@ -185,7 +172,7 @@
             };
             let result = AjaxUtil.getSyncData(gUrl + '/read', data);
             if (result.data != null) {
-                _this.grid.itemsSource.sourceCollection = result.data;
+                _this.grid.setData(result.data);
             }
         }
     }

@@ -176,57 +176,30 @@
       }
 
       init() {
-        this.grid = new wijmo.grid.FlexGrid('#inspection-grid', {
-          autoGenerateColumns: false,
-          selectionMode: wijmo.grid.SelectionMode.Row,
-          headersVisibility: wijmo.grid.HeadersVisibility.All,
-          isReadOnly: true,
-          showMarquee: true,
-          formatItem: (sender, e) => {
-            if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-              e.cell.textContent = (e.row + 1).toString();
-            }
-            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-              e.cell.style.textAlign = 'center';
-            }
-          },
+        this.grid = new EditTable('#inspection-grid', {
+          readOnly: true,
+          rowNumbers: true,
           columns: [
-            {binding: 'test_state',        header: '검사상태',   width: 90,  align: 'center'},
-            {binding: 'judge_code',        header: '판정',       width: 75,  align: 'center'},
-            {binding: 'company_name',      header: '거래처',     width: 130, align: 'left'},
-            {binding: 'balju_date',        header: '발주일',     width: 100, align: 'center'},
-            {binding: 'due_date',          header: '납기예정일', width: 100, align: 'center'},
-            {binding: 'material_type',     header: '품목유형',   width: 80,  align: 'center'},
-            {binding: 'material_code',     header: '품목코드',   width: 110, align: 'center'},
-            {binding: 'material_name',     header: '품목명',     width: '*', align: 'left'},
-            {binding: 'unit_name',         header: '단위',       width: 50,  align: 'center'},
-            {binding: 'balju_qty',         header: '발주수량',   width: 85,  align: 'right', format: 'n0'},
-            {binding: 'remain_qty',        header: '미입고수량', width: 85,  align: 'right', format: 'n0'},
-            {binding: 'InoutDate',         header: '입고일',     width: 100, align: 'center'},
-            {binding: 'potentialInputQty', header: '가입고량',   width: 85,  align: 'right', format: 'n0'},
-            {binding: 'InputQty',          header: '입고량',     width: 85,  align: 'right', format: 'n0'},
-            {binding: 'store_house_name',  header: '창고',       width: 90,  align: 'center'},
-            {binding: 'inout_state',       header: '입고상태',   width: 85,  align: 'center'},
-            {binding: 'test_date',         header: '검사일',     width: 100, align: 'center'}
+            {key: 'test_state',        header: '검사상태',   width: 90,  align: 'center', cellClass: r => r.test_state === '검사완료' ? 'et-green' : r.test_state === '검사대기' ? 'et-red' : ''},
+            {key: 'judge_code',        header: '판정',       width: 75,  align: 'center', cellClass: r => !r.judge_code ? '' : (r.judge_code === '부적합' ? 'et-red' : 'et-green')},
+            {key: 'company_name',      header: '거래처',     width: 130, align: 'left'},
+            {key: 'balju_date',        header: '발주일',     width: 100, align: 'center'},
+            {key: 'due_date',          header: '납기예정일', width: 100, align: 'center'},
+            {key: 'material_type',     header: '품목유형',   width: 80,  align: 'center'},
+            {key: 'material_code',     header: '품목코드',   width: 110, align: 'center'},
+            {key: 'material_name',     header: '품목명',     width: '1*', align: 'left'},
+            {key: 'unit_name',         header: '단위',       width: 50,  align: 'center'},
+            {key: 'balju_qty',         header: '발주수량',   width: 85,  align: 'right', format: 'n0'},
+            {key: 'remain_qty',        header: '미입고수량', width: 85,  align: 'right', format: 'n0'},
+            {key: 'InoutDate',         header: '입고일',     width: 100, align: 'center'},
+            {key: 'potentialInputQty', header: '가입고량',   width: 85,  align: 'right', format: 'n0'},
+            {key: 'InputQty',          header: '입고량',     width: 85,  align: 'right', format: 'n0'},
+            {key: 'store_house_name',  header: '창고',       width: 90,  align: 'center'},
+            {key: 'inout_state',       header: '입고상태',   width: 85,  align: 'center'},
+            {key: 'test_date',         header: '검사일',     width: 100, align: 'center'}
           ],
-          itemsSource: new wijmo.collections.CollectionView([]),
-          itemFormatter: (panel, row, col, cell) => {
-            if (panel.cellType === wijmo.grid.CellType.Cell) {
-              const item = panel.rows[row].dataItem;
-              const column = panel.columns[col];
-              if (column.binding === 'test_state') {
-                if (item.test_state === '검사완료') cell.classList.add('greenText');
-                else if (item.test_state === '검사대기') cell.classList.add('redText');
-                // 미입고는 기본색 유지
-              }
-              if (column.binding === 'judge_code' && item.judge_code) {
-                cell.classList.add(item.judge_code === '부적합' ? 'redText' : 'greenText');
-              }
-            }
-          }
         });
-        new FlexGridContextMenu(this.grid);
-        this.grid.downloadFileName = '수입검사 목록';
+        this.grid.opts.fileName = '수입검사 목록';
 
         this.grid.hostElement.addEventListener('dblclick', () => this.showInputTestPopup());
         document.getElementById('btnInspect').addEventListener('click', () => this.showInputTestPopup());
@@ -245,7 +218,7 @@
         };
         let result = AjaxUtil.getSyncData(this.url + '/read_receiving_inspection', data);
         if (result && result.data != null) {
-          _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+          _this.grid.setData(result.data);
         }
       }
 
@@ -273,38 +246,25 @@
         modalContainer.open({width: 1000, height: 670, $content});
 
         // 검사항목 그리드
-        this.matTestGrid = new wijmo.grid.FlexGrid('#mat-input-test-grid', {
-          autoGenerateColumns: false,
-          selectionMode: wijmo.grid.SelectionMode.Row,
-          headersVisibility: wijmo.grid.HeadersVisibility.Column,
-          formatItem: (sender, e) => {
-            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-              e.cell.style.textAlign = 'center';
-              if (sender.columns[e.col].binding === 'result1') e.cell.style.color = '#5567ff';
-            }
-          },
+        this.matTestGrid = new EditTable('#mat-input-test-grid', {
           columns: [
-            {binding: 'name',    header: '검사항목',   width: 200, align: 'left',   isReadOnly: true},
-            {binding: 'result1', header: '결과값(입력)', width: '*', align: 'center', isReadOnly: false}
-          ],
-          itemsSource: new wijmo.collections.CollectionView([]),
+            {key: 'name',    header: '검사항목',   width: 200, align: 'left',   readOnly: true},
+            {key: 'result1', header: '결과값(입력)', width: '1*', align: 'center', readOnly: r => r.resultType === 'S'}
+          ]
         });
 
         // O/X 토글 (resultType='S' 인 셀 클릭 시)
-        this.matTestGrid.addEventListener(this.matTestGrid.hostElement, 'click', (e) => {
+        this.matTestGrid.hostElement.addEventListener('click', (e) => {
           const ht = this.matTestGrid.hitTest(e);
-          if (ht.cellType !== wijmo.grid.CellType.Cell) return;
+          if (ht.cellType !== 'cell') return;
           const col = this.matTestGrid.columns[ht.col];
-          const gItem = this.matTestGrid.rows[ht.row]?.dataItem;
-          if (gItem && col.binding === 'result1' && gItem.resultType === 'S') {
-            col.isReadOnly = true;
+          const gItem = this.matTestGrid.getPageRows()[ht.row];
+          if (gItem && col.key === 'result1' && gItem.resultType === 'S') {
             gItem.result1 = gItem.result1 === 'O' ? 'X' : 'O';
-            this.matTestGrid.collectionView.refresh();
+            this.matTestGrid.refresh();
           } else {
-            col.isReadOnly = false;
           }
         });
-        new FlexGridContextMenu(this.matTestGrid);
 
         // 폼 필드 참조
         let $cboTestMaster = $content.find('#cboTestMaster');
@@ -337,8 +297,8 @@
             if (!result || !result.data) return;
             const d = result.data;
 
-            _this.matTestGrid.itemsSource.sourceCollection = d.mioList || [];
-            _this.matTestGrid.collectionView.refresh();
+            _this.matTestGrid.setData(d.mioList || []);
+            _this.matTestGrid.refresh();
 
             if (d.testDate)      $TestDate.val(d.testDate);
             if (d.CheckName)     $TestName.val(d.CheckName);
@@ -360,15 +320,15 @@
 
         // 전체적합 버튼
         $content.find('#btnAllItem').click(function () {
-          _this.matTestGrid.itemsSource.sourceCollection.forEach(function (it) {
+          _this.matTestGrid.getData().forEach(function (it) {
             if (it.resultType === 'S') it.result1 = 'O';
           });
-          _this.matTestGrid.collectionView.refresh();
+          _this.matTestGrid.refresh();
         });
 
         // 저장 버튼
         $content.find('#btnTestSave').click(function () {
-          let testItems = _this.matTestGrid.itemsSource.sourceCollection;
+          let testItems = _this.matTestGrid.getData();
           if (testItems.length === 0) {
             Alert.alert('검사저장', '저장할 검사항목이 없습니다.'); return;
           }

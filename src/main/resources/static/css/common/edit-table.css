@@ -1,0 +1,270 @@
+/* ============================================================
+ * edit-table.css — 공통 편집 표 (위즈모 FlexGrid 대체)
+ * 모든 규칙은 .et 안에서만 적용 → 화면별 CSS · 전역 CSS 와 겹치지 않는다.
+ * 전역 CSS 가 input/select/체크/라디오에 입히는 모양(가상요소, 배경그림, 폭 제한)은 여기서 끊는다.
+ * 색은 ms-page.css 변수를 쓰고, 없으면 기본값.
+ * ============================================================ */
+.et {
+    --et-ink:   #000;                        /* 글자 : 검정 (2026-11-20) */
+    --et-label: #222;                         /* 글자는 모두 진한 색 (2026-11-23) — 예전 #45566A */
+    --et-mute:  #555;                         /* 흐린 글자도 진하게 — 예전 #8A99A8 */
+    --et-rule:  var(--ms-rule,  #CBD3DB);
+    --et-band:  var(--ms-band,  #EDF1F4);
+    --et-value: var(--ms-value, #24466F);
+    --et-edit:  var(--ms-edit,  #1F5FBF);
+    position: relative; flex: 1 1 auto; min-height: 140px; overflow: auto;
+    border: 1px solid var(--et-rule); background: #fff;
+    font-size: var(--et-fs, 13px); color: var(--et-ink); outline: none;   /* --et-fs : 계정별 글자 크기 */
+}
+.et table.et-t { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; margin: 0;
+    border: 0 !important; background: transparent !important; font: inherit !important; color: inherit; }   /* 전역 table{border-top · font-size · font-family · background} 끊기 */
+.et table.et-t th, .et table.et-t td { font-family: inherit; font-size: inherit; }
+
+/* 머리글 : 스크롤해도 위에 고정 */
+.et th {
+    position: sticky; top: 0; z-index: 2; background: var(--et-band); color: var(--et-ink);
+    font-weight: 700; height: var(--et-head-h, 34px); padding: 0 8px; box-sizing: border-box;
+    border: 0; border-bottom: 1px solid var(--et-rule); border-right: 1px solid var(--et-rule);
+    text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: none;
+}
+
+/* 칸 너비 손잡이 : 머리글 오른쪽 끝 */
+.et th .et-rz { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize; z-index: 3; }
+.et th .et-rz:hover, .et.et-resizing th .et-rz:active { background: rgba(36, 70, 111, .25); }
+.et.et-resizing, .et.et-resizing * { cursor: col-resize !important; user-select: none !important; }
+.et th.et-edit { color: var(--et-ink); }                  /* 고칠 수 있는 칸 머리글 : 예전 파란 글자 → 진한 색 (2026-11-23) */
+.et th.et-sortable { cursor: pointer; }
+.et th.et-sortable:hover { background: #E2E8EE; }
+.et th .et-sort { margin-left: 3px; font-size: 10px; color: var(--et-value); }
+
+.et td {
+    height: var(--et-row-h, 34px); padding: 0; box-sizing: border-box; vertical-align: middle;
+    border: 0; border-bottom: 1px solid rgba(27, 36, 48, .12); border-right: 1px solid rgba(27, 36, 48, .12);   /* 반투명 : 어떤 행 바탕에서도 칸 경계가 보인다 */
+    background: #fff; background-clip: padding-box; overflow: hidden;
+}
+.et th:last-child, .et td:last-child { border-right: 0; }
+.et td.et-ro { padding: 0 8px; color: var(--et-ink); white-space: nowrap; text-overflow: ellipsis; }
+.et td.et-wrap { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 1.35; padding: 6px 8px; }
+.et .et-l { text-align: left; } .et .et-c { text-align: center; } .et .et-r { text-align: right; }
+
+/* 줄무늬 : 짝수 행 옅은 회색 (2026-11-20). :where 로 우선순위를 낮춰 아래 행 상태 색이 먼저 보인다 */
+.et tbody tr:where(:nth-child(even)) td { background: #F5F6F8; }
+
+/* 행 상태 */
+.et tbody tr { cursor: pointer; }
+.et tr.et-dirty td { background: #FFF8E6; }
+.et tr.et-new td   { background: #EEF6EE; }
+.et tr.et-new td.et-ro { font-style: italic; }
+.et tr.et-sel td   { background: #DCE8F5; }
+.et tr.et-dirty td:first-child:not(.et-rowchk):not(.et-no)::after { content: ' ●'; color: #8A5A00; font-size: 9px; }
+.et .et-empty td { text-align: center; color: var(--et-mute); padding: 24px 0; height: auto; cursor: default; background: #fff; }
+
+/* ── 글자 · 숫자 입력 ── */
+.et td input.et-in {
+    display: block; width: 100% !important; max-width: none !important; min-width: 0 !important;
+    height: calc(var(--et-row-h, 34px) - 1px) !important; margin: 0 !important; padding: 0 8px !important; box-sizing: border-box;
+    border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+    background: transparent !important; background-image: none !important;
+    font: inherit; font-size: var(--et-fs, 13px); color: var(--et-ink);
+}
+.et td input.et-in:focus { outline: 2px solid var(--et-value); outline-offset: -2px; background: #fff !important; }
+
+/* ── 선택(콤보) : 전역 화살표 그림을 끊고 브라우저 기본 화살표, 칸 안에 가둔다 ── */
+.et td select.et-sel {
+    display: block; width: 100% !important; max-width: 100% !important; min-width: 0 !important;
+    height: calc(var(--et-row-h, 34px) - 1px) !important; margin: 0 !important; padding: 0 4px !important; box-sizing: border-box;
+    border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+    background-color: transparent !important; background-image: none !important;
+    -webkit-appearance: menulist !important; -moz-appearance: menulist !important; appearance: auto !important;
+    font: inherit; font-size: var(--et-fs, 13px); color: var(--et-ink);
+}
+.et td select.et-sel:focus { outline: 2px solid var(--et-value); outline-offset: -2px; background-color: #fff !important; }
+
+/* ── 체크 · 라디오 : 네이티브 모양 (bank_account .ba-type 방식), 전역 가상요소 제거 ── */
+.et input.et-native {
+    -webkit-appearance: auto !important; -moz-appearance: auto !important; appearance: auto !important;
+    display: inline-block !important; flex: 0 0 16px !important;
+    width: 16px !important; height: 16px !important; min-width: 16px !important; max-width: 16px !important; min-height: 16px !important;
+    margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important;
+    background: none !important; box-shadow: none !important; accent-color: var(--et-value);
+    vertical-align: middle !important; position: static !important; opacity: 1 !important; float: none !important;
+}
+.et input.et-native::before, .et input.et-native::after { content: none !important; display: none !important; }
+.et input.et-native:disabled { cursor: default; }
+.et td.et-chk { text-align: center; }
+.et td.et-radio { padding: 0 10px; white-space: nowrap; }
+.et td.et-radio label {
+    display: inline-flex !important; align-items: center; gap: 5px; margin: 0 14px 0 0 !important; padding: 0 !important;
+    cursor: pointer; font-weight: 400; font-size: var(--et-fs, 13px); color: var(--et-ink); position: static !important;
+}
+.et td.et-radio label::before, .et td.et-radio label::after { content: none !important; display: none !important; }
+
+/* 셀 병합 : 이어지는 칸은 글자를 숨기고, 위 칸의 아래 괘선을 지운다 */
+.et td.et-mgc { color: transparent !important; }
+.et td.et-mgn { border-bottom-color: transparent; }
+.et tr.et-sel td.et-mgc, .et tr.et-dirty td.et-mgc { color: transparent !important; }
+
+/* 합계 줄 : 아래에 고정 */
+.et tfoot td {
+    position: sticky; bottom: 0; z-index: 2; height: 34px; padding: 0 8px; box-sizing: border-box;
+    background: var(--et-band); color: var(--et-ink); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border: 0; border-top: 1px solid var(--et-rule); border-right: 1px solid var(--et-rule);
+}
+.et tfoot td:last-child { border-right: 0; }
+
+/* 오른쪽 클릭 메뉴 (body 에 붙는다) */
+.et-menu {
+    position: fixed; z-index: 10000; min-width: 170px; padding: 4px 0; box-sizing: border-box;
+    background: #fff; border: 1px solid var(--ms-rule, #CBD3DB); box-shadow: 0 4px 14px rgba(27, 36, 48, .18);
+    font-size: 13px; color: #111; text-align: left; line-height: 1.4;
+}
+.et-menu .et-menu-item { padding: 6px 14px; cursor: pointer; white-space: nowrap; }
+.et-menu .et-menu-item:hover { background: var(--ms-band, #EDF1F4); color: var(--ms-value, #24466F); }
+.et-menu .et-menu-sep { height: 1px; margin: 4px 0; background: var(--ms-rule, #CBD3DB); }
+
+/* 아래 건수 줄 */
+.et-foot { flex: 0 0 auto; display: flex; justify-content: space-between; gap: 12px; padding: 6px 2px 0;
+           font-size: 12.5px; color: #222; }
+.et-foot .et-legend { color: #555; }
+.et-foot .et-legend i { color: #3d7a3d; }
+
+/* ── 페이징 ── */
+.et-pager { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; position: relative;
+            gap: 12px; padding: 8px 2px 0; font-size: 12.5px; color: #222; }
+.et-pager .et-pg { display: flex; gap: 4px; align-items: center; }
+.et-pager .et-pg button {
+    min-width: 30px !important; width: auto !important; height: 28px !important; margin: 0 !important; padding: 0 8px !important;
+    border: 1px solid var(--ms-rule, #CBD3DB) !important; border-radius: 2px !important; box-shadow: none !important;
+    background: #fff !important; background-image: none !important; color: #111 !important;
+    font: inherit; font-size: 12.5px !important; font-weight: 600 !important; line-height: 1 !important; cursor: pointer;
+}
+.et-pager .et-pg button:hover:not(:disabled) { border-color: var(--ms-value, #24466F) !important; }
+.et-pager .et-pg button.on { background: var(--ms-value, #24466F) !important; border-color: var(--ms-value, #24466F) !important; color: #fff !important; }
+.et-pager .et-pg button:disabled { opacity: .4; cursor: default; }
+.et-pager .et-pg-r { position: absolute; right: 2px; display: flex; align-items: center; gap: 8px; }
+.et-pager select.et-ps {
+    width: 90px !important; min-width: 0 !important; max-width: none !important; height: 28px !important; padding: 0 4px !important; margin: 0 !important;
+    border: 1px solid var(--ms-rule, #CBD3DB) !important; border-radius: 2px !important; background-color: #fff !important;
+    background-image: none !important; -webkit-appearance: menulist !important; appearance: auto !important; font-size: 12.5px !important;
+}
+
+/* ── v1.2 : 행 체크 · 행 번호 · 그룹 · 칸 꾸미기 · 날짜 ── */
+.et th.et-chk { cursor: default; }
+.et td.et-rowchk { text-align: center; }
+.et td.et-no { color: var(--et-mute); font-size: calc(var(--et-fs, 13px) - 1px); }
+.et tr.et-checked td { background: #F1F6FC; }
+.et tr.et-checked.et-sel td { background: #DCE8F5; }
+
+.et tr.et-grp td {
+    height: 30px; padding: 0 10px; background: #F4F6F8; color: #1f4e8c; font-weight: 700; cursor: pointer;
+    border-bottom: 1px solid var(--et-rule); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.et tr.et-grp:hover td { background: #EAF0F6; }
+.et tr.et-grp .et-grp-t { display: inline-block; width: 12px; color: var(--et-mute); }
+.et tr.et-grp .et-grp-n { color: var(--et-mute); font-weight: 400; }
+/* 트리 (childItemsPath) : 들여쓰기 + ▾ ▸ */
+.et td .et-tree-i { display: inline-block; height: 1px; }
+.et td .et-tree-t { display: inline-block; width: 16px; color: var(--et-mute); cursor: pointer; user-select: none; text-align: center; }
+.et td .et-tree-t.et-tree-leaf { cursor: default; }
+.et tr.et-grp.et-red td { color: #c0392b; }
+
+/* cellClass 로 쓰는 기본 꾸밈 */
+.et tr td.et-hl, .et tr.et-sel td.et-hl, .et tr.et-checked td.et-hl { background: #ffd800; }
+.et tr td.et-hl input.et-in { color: #000; }
+.et td.et-red, .et tr.et-red td, .et tr.et-red td input.et-in { color: #c0392b; }
+.et td.et-mute, .et tr.et-mute td { color: #555; }
+.et td.et-bold, .et tr.et-bold td { font-weight: 700; }
+
+.et td input.et-date { padding: 0 4px !important; font-variant-numeric: tabular-nums; }
+
+/* ── v1.3 : 버튼 칸 · 꾸밈 추가 ── */
+.et td.et-btncell { padding: 0 6px; text-align: center; }
+.et td.et-btncell button.et-btn {
+    width: 100% !important; height: min(25px, calc(var(--et-row-h, 34px) - 3px)) !important;   /* 행 높이 20 에서도 칸 안에 */ margin: 0 !important; padding: 0 6px !important; min-width: 0 !important;
+    border: 1px solid var(--et-rule) !important; border-radius: 3px !important; background: #fff !important; background-image: none !important;
+    color: var(--et-ink) !important; font: inherit; font-size: calc(var(--et-fs, 13px) - .5px) !important; font-weight: 600 !important; line-height: 1 !important;
+    box-shadow: none !important; cursor: pointer;
+}
+.et td.et-btncell button.et-btn:hover { border-color: var(--et-value) !important; color: var(--et-value) !important; }
+.et td.et-blue, .et tr.et-blue td { color: #1F5F8B; }
+.et td.et-orange, .et tr.et-orange td { color: #d9822b; }
+.et td.et-green, .et tr.et-green td { color: #1e8e4e; }
+.et tr td.et-bad { background: #f8d2cb; }          /* 옅은 빨강 바탕 (재고 부족 등) */
+/* 바탕색 (cellClass / rowClass) : et-good 옅은 초록 · et-soft 아주 옅은 초록 (트리 부모 행 등) */
+.et td.et-good, .et tr.et-good td { background: #d4edda; }
+.et tr.et-soft td { background: #f0fcf7; }
+.et tr.et-gray td { background: #F3F4F6; }
+
+/* ───────── 표 설정 (v1.7) : 머리글 오른쪽 위 ⚙ + 모달 ───────── */
+.et .et-cfg-dock { position: sticky; top: 0; left: 0; height: 0; z-index: 6; flex: 0 0 auto; align-self: flex-start; }
+.et-cfg-bar { position: relative; width: 0; height: 0; margin: 0; padding: 0; border: 0; flex: 0 0 0; align-self: flex-start; overflow: visible; z-index: 5; }
+.et-cfg-btn {
+    position: absolute; width: 24px; height: 22px; padding: 0 !important; margin: 0 !important; box-sizing: border-box;
+    border: 1px solid var(--ms-rule, #CBD3DB) !important; border-radius: 4px !important; background: #fff !important; color: #222 !important;
+    font-size: 14px !important; line-height: 20px !important; text-align: center; cursor: pointer; box-shadow: none !important; min-width: 0 !important;
+}
+.et-cfg-btn:hover { color: var(--ms-value, #24466F) !important; border-color: var(--ms-value, #24466F) !important; background: #F3F6F9 !important; }
+/* 바깥 자리가 막혔을 때 : 머리글 안 오른쪽 위 */
+.et-cfg-btn.et-cfg-in { top: calc((var(--et-head-h, 34px) - 22px) / 2); right: 3px; opacity: .6; }
+.et:hover .et-cfg-btn.et-cfg-in, .et-cfg-btn.et-cfg-in:hover { opacity: 1; }
+
+.et-cfg-ov { position: fixed; inset: 0; z-index: 10050; background: rgba(20, 28, 38, .35); display: flex; align-items: center; justify-content: center; }
+.et-cfg {
+    width: 640px; max-width: calc(100vw - 32px); max-height: calc(100vh - 48px); display: flex; flex-direction: column;
+    background: #fff; border: 1px solid var(--ms-rule, #CBD3DB); border-radius: 6px; box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
+    font-size: 13px; color: #000; text-align: left;
+}
+.et-cfg-hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--ms-rule, #CBD3DB); background: var(--ms-band, #EDF1F4); border-radius: 6px 6px 0 0; }
+.et-cfg-hd b { font-size: 14px; }
+.et-cfg-x { border: 0 !important; background: none !important; font-size: 16px; cursor: pointer; color: #222; padding: 0 4px; }
+.et-cfg-bd { padding: 10px 14px; overflow: hidden; display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.et-cfg-opts { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px dashed var(--ms-rule, #CBD3DB); }
+.et-cfg-opts label { display: inline-flex; align-items: center; gap: 5px; margin: 0; font-weight: 400; white-space: nowrap; }
+.et-cfg-opts input[type=number] { width: 58px; }
+.et-cfg-opts + .et-cfg-opts { padding-top: 0; }
+.et-cfg-mine { padding: 2px 8px; border-radius: 10px; background: #E8EEF6; color: #24466F; font-size: 11.5px; font-weight: 700; }
+.et-cfg-tw { overflow: auto; flex: 1 1 auto; min-height: 120px; border: 1px solid var(--ms-rule, #CBD3DB); }
+.et-cfg-t { width: 100%; border-collapse: collapse; margin: 0; border: 0 !important; }
+.et-cfg-t th { position: sticky; top: 0; z-index: 1; background: var(--ms-band, #EDF1F4); font-weight: 700; height: 30px; padding: 0 6px; text-align: center; border-bottom: 1px solid var(--ms-rule, #CBD3DB); }
+.et-cfg-t td { height: 32px; padding: 0 6px; border-bottom: 1px solid #E6EAEE; text-align: center; background: #fff; white-space: nowrap; }
+.et-cfg-t td.et-cfg-nm { text-align: left; width: 100%; white-space: nowrap; }
+.et-cfg-t td.et-cfg-h { cursor: grab; color: #A9B4BF; letter-spacing: -4px; width: 18px; user-select: none; }
+.et-cfg-t tr.et-cfg-drag td { background: #DCE8F5; }
+.et-cfg-t tr.et-cfg-lock td { color: #777; }
+.et-cfg-t [data-mv] { width: 22px; height: 22px; padding: 0; margin: 0 1px; border: 1px solid var(--ms-rule, #CBD3DB); background: #fff; border-radius: 3px; font-size: 9px; line-height: 20px; cursor: pointer; color: #222; }
+.et-cfg-t [data-mv]:hover { border-color: var(--ms-value, #24466F); color: var(--ms-value, #24466F); }
+.et-cfg-t input[type=number] { width: 64px; }
+.et-cfg-fix { color: #555; font-size: 12px; }
+.et-cfg-note { color: #555; font-size: 12px; padding-top: 6px; }
+.et-cfg-ft { display: flex; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--ms-rule, #CBD3DB); }
+.et-cfg-ft span { flex: 1; }
+.et-cfg-ft button { height: 30px; padding: 0 14px; border: 1px solid var(--ms-rule, #CBD3DB); border-radius: 4px; background: #fff; cursor: pointer; font-size: 13px; color: #000; }
+.et-cfg-ft button.et-cfg-ok { background: var(--ms-value, #24466F); border-color: var(--ms-value, #24466F); color: #fff; }
+/* 전역 CSS 가 입력칸에 입히는 모양 끊기 (표 안과 같은 방법) */
+.et-cfg input[type=number], .et-cfg input[type=text], .et-cfg select {
+    height: 26px !important; padding: 0 4px !important; margin: 0 !important; border: 1px solid var(--ms-rule, #CBD3DB) !important; border-radius: 3px !important;
+    background: #fff !important; background-image: none !important; font-size: 12.5px !important; color: #000 !important; box-shadow: none !important; min-width: 0 !important; max-width: none !important;
+}
+.et-cfg select { -webkit-appearance: menulist !important; -moz-appearance: menulist !important; appearance: auto !important; width: auto !important; }
+.et-cfg input[type=checkbox] {
+    -webkit-appearance: auto !important; -moz-appearance: auto !important; appearance: auto !important; position: static !important;
+    opacity: 1 !important; width: 15px !important; height: 15px !important; min-width: 15px !important; margin: 0 !important; padding: 0 !important;
+    display: inline-block !important; visibility: visible !important; border: 0 !important; background: none !important; box-shadow: none !important;
+    accent-color: var(--ms-value, #24466F); vertical-align: middle !important; float: none !important;
+}
+.et-cfg label::before, .et-cfg label::after { content: none !important; display: none !important; }
+.et-cfg input[type=checkbox]::before, .et-cfg input[type=checkbox]::after { content: none !important; display: none !important; }
+.et-cfg select[data-f=align] { width: 78px !important; }
+
+/* ── v1.8 : 표 설정 서버 저장 · 권한 (2026-11-24) ── */
+.et-cfg.et-cfg-su { width: 860px; }
+.et-cfg-hd b { margin-right: auto; }
+.et-cfg-badge { margin: 0 8px; padding: 2px 8px; border-radius: 10px; background: #24466F; color: #fff; font-size: 11px; font-weight: 700; }
+.et-cfg input[type=text] { width: 100% !important; text-align: left; }
+.et-cfg-t td.et-cfg-nm { min-width: 140px; }
+.et-cfg-t td input[data-f=key] { width: 130px !important; font-family: Consolas, monospace; font-size: 12px !important; }
+.et-cfg select[data-f=fmt] { width: 104px !important; }
+.et-cfg-t tr.et-cfg-del td { background: #FBEDED; }
+.et-cfg-t tr.et-cfg-del td input, .et-cfg-t tr.et-cfg-del td select { text-decoration: line-through; color: #a33 !important; }
+.et-cfg-t .et-cfg-delbtn { width: 22px; height: 22px; padding: 0; border: 1px solid var(--ms-rule, #CBD3DB); border-radius: 3px; background: #fff; color: #a33; cursor: pointer; font-size: 11px; line-height: 20px; }
+.et-cfg-t tr.et-cfg-del .et-cfg-delbtn { background: #a33; color: #fff; border-color: #a33; }

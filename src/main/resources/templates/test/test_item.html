@@ -246,46 +246,33 @@
                 this.grid2 = null;
                 this.res_grid = null;
                 this.url = '/api/test/test_item';
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
                 this.init();
             }
 
             init() {
                 let _this = this;
 
-                this.grid = new wijmo.grid.FlexGrid('#test-item-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                this.grid = new EditTable('#test-item-grid', {
+                    selectFirst: false,
+                    readOnly: true,
                     columns: [
-                        {binding: 'test_method_name', header: '검사방법', width: 150, align: 'left'},
-                        {binding: 'item_type', header: '구분', width: 150, align: 'left'},
-                        {binding: 'item_code', header: '코드', width: 150, align: 'left'},
-                        {binding: 'item_name', header: '검사항목명', width: 150, align: 'left'},
-                        {binding: 'item_eng_name', header: '영문명', width: 200, align: 'left'},
-                        {binding: 'item_res_type', header: '결과값유형', width: 150, align: 'left'},
-                        {binding: 'unit_name', header: '단위', width: 150, align: 'center'},
-                        {binding: 'item_round_digit', header: '소수점자리수', width: 150, align: 'right'}
+                        {key: 'test_method_name', header: '검사방법', width: 150, align: 'left'},
+                        {key: 'item_type', header: '구분', width: 150, align: 'left'},
+                        {key: 'item_code', header: '코드', width: 150, align: 'left'},
+                        {key: 'item_name', header: '검사항목명', width: 150, align: 'left'},
+                        {key: 'item_eng_name', header: '영문명', width: 200, align: 'left'},
+                        {key: 'item_res_type', header: '결과값유형', width: 150, align: 'left'},
+                        {key: 'unit_name', header: '단위', width: 150, align: 'center'},
+                        {key: 'item_round_digit', header: '소수점자리수', width: 150, align: 'right'}
                     ],
-                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                     // 데이터를 설정할 배열
                 });
+                this.grid.setData(this.viewData);
 
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.grid.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
 
-                let isInitialLoad = true; // 초기 상태 플래그
+                let isInitialLoad = false;   // EditTable 은 자료를 넣을 때 선택 이벤트가 없어서 첫 클릭을 버리지 않게 false // 초기 상태 플래그
 
                 this.grid.selectionChanged.addHandler((s, e) => {
                     if (isInitialLoad) {
@@ -293,9 +280,9 @@
                         return;
                     }
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
                         let id = selectedRowData.id; // 품목 ID 가져오기
 
                         _this.showDetailItem(id);
@@ -306,8 +293,7 @@
                     }
                 });
 
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '검사항목';
+                this.grid.opts.fileName = '검사항목';
 
 
                 /*let config = {
@@ -350,24 +336,11 @@
 */
                 /* this.grid = new ax5.ui.grid(config);*/
 
-                this.grid2 = new wijmo.grid.FlexGrid('#res-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: false,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                        let headerText = e.cell.textContent.trim();
-                        if (headerText === '결과코드' || headerText === '결과명') {
-                            e.cell.style.color = 'blue';
-                        }
-                    },
+                this.grid2 = new EditTable('#res-grid', {
+                    readOnly: false,
                     columns: [
                         {
-                            binding: 'test_item_id',
+                            key: 'test_item_id',
                             header: '검사항목id',
                             width: 150,
                             align: 'center',
@@ -375,37 +348,34 @@
                             /*editor: {type: "number"}*/
                         },
                         {
-                            binding: 'result_code',
+                            key: 'result_code',
                             header: '결과코드',
                             width: 150,
                             align: 'left',
                             /*editor: {type: "number"}*/
                         },
                         {
-                            binding: 'result_name',
+                            key: 'result_name',
                             header: '결과명',
                             width: 150,
                             align: 'left',
                             /*editor: {type: "text"}*/
                         },
                         {
-                            binding: 'pass_yn',
+                            key: 'pass_yn',
                             header: '합격테이터',
                             width: 200,
                             align: 'center',
                             /*editor: {type: "checkbox", config: {height: 17, trueValue: "Y", falseValue: "N"}}*/
-                            dataMap: new wijmo.grid.DataMap([
-                                {key: 'Y', value: 'Y'},   // 체크 표시
-                                {key: 'N', value: 'N'}   // 빈 값
-                            ], 'key', 'value'),
-                            isReadOnly: false,
+                            type: 'select', options: [{v: 'Y', n: 'Y'}, {v: 'N', n: 'N'}],
+                            readOnly: false,
                         }
                     ],
-                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                     // 데이터를 설정할 배열
                 });
+                this.grid2.setData(this.viewData2);
 
-                new FlexGridContextMenu(this.grid2);
-                this.grid2.downloadFileName = '선택형결과';
+                this.grid2.opts.fileName = '선택형결과';
 
                 /*let res_config = {
                     target: $('[data-ax5grid="res-grid"]'),
@@ -492,8 +462,8 @@
 
                 let result = AjaxUtil.getSyncData(url, param);
                 if (result != null) {
-                    _this.viewData.sourceCollection = result.data;
-                    _this.viewData2.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
+                    _this.grid2.setData(result.data);
                 }
 
                 $('#testItemForm')[0].reset();
@@ -570,7 +540,7 @@
                             totalElements: count,
                         }
                     });*/
-                    _this.viewData2.sourceCollection = result.data;
+                    _this.grid2.setData(result.data);
                 }
 
                 page.setButtonState();
@@ -581,8 +551,8 @@
             saveRes() {
                 let _this = this;
 
-                let res_grid = wijmo.Control.getControl('#res-grid');
-                let dataSource = res_grid.itemsSource.sourceCollection;
+                let res_grid = EditTable.getControl('#res-grid');
+                let dataSource = res_grid.getData();
 
                 // 'modified' 상태인 항목 필터링 (isModified가 true인 항목)
                 let modifiedItems = dataSource.filter(item => item.isModified === true);
@@ -615,10 +585,10 @@
                 let _this = this;
                 /*let id = _this.res_grid.getList("selected")[0].id;*/
 
-                let res_grid = wijmo.Control.getControl('#res-grid');
-                let selectedRow = res_grid.selection.row;
+                let res_grid = EditTable.getControl('#res-grid');
+                let selectedRow = res_grid.getPageRows().indexOf(res_grid.current());
 
-                let selectedItem = res_grid.rows[selectedRow].dataItem;
+                let selectedItem = res_grid.getPageRows()[selectedRow];
                 let id = selectedItem.id;
 
                 let test_item_id = $('#detail_box').find('#id').val();
@@ -667,9 +637,9 @@
                     }
                 });
 
-                if (page.grid2 && page.grid2.collectionView) {
-                    page.grid2.collectionView.sourceCollection.length = 0;  // 기존 CollectionView 유지하면서 데이터만 비움
-                    page.grid2.collectionView.refresh();  // 갱신
+                if (page.grid2 && page.grid2.getData()) {
+                    page.grid2.getData().length = 0;  // 기존 CollectionView 유지하면서 데이터만 비움
+                    page.grid2.refresh();  // 갱신
                 } else {
                     console.log("grid2가 아직 생성되지 않았습니다.");
                 }
@@ -720,9 +690,9 @@
 
             // 선택형결과 > 추가
             $('#btnAddRow').click(function (e) {
-                let res_grid = wijmo.Control.getControl('#res-grid');
+                let res_grid = EditTable.getControl('#res-grid');
 
-                if (!res_grid || !(res_grid instanceof wijmo.grid.FlexGrid)) {
+                if (!res_grid || !(res_grid instanceof EditTable)) {
                     console.error("res_grid가 초기화되지 않았습니다.");
                     return;
                 }
@@ -736,14 +706,7 @@
                     }
 
 
-                    let view = res_grid.collectionView;
-                    view.beginUpdate();
-                    let newItem = view.addNew();
-                    newItem.test_item_id = test_item_id;
-                    view.commitNew();
-                    view.endUpdate();
-
-                    res_grid.refresh();
+                    res_grid.addRow({test_item_id: test_item_id});
 
                 } else {
                     Alert.alert('', '선택형 결과값만 입력하실 수 있습니다.');
@@ -753,11 +716,11 @@
 
             // 선택형결과 > 저장
             $('#btnSaveRow').click(function (e) {
-                let res_grid = wijmo.Control.getControl('#res-grid');
-                let selectedRow = res_grid.selection.row;
+                let res_grid = EditTable.getControl('#res-grid');
+                let selectedRow = res_grid.getPageRows().indexOf(res_grid.current());
 
                 // 선택한 행의 데이터 가져오기 (단일 객체)
-                let selectedItem = res_grid.rows[selectedRow].dataItem;
+                let selectedItem = res_grid.getPageRows()[selectedRow];
 
                 if (!selectedItem.result_code) {
                     Alert.alert('', '결과코드를 입력해주세요');
@@ -783,11 +746,11 @@
             // 선택형결과 > 삭제
             $('#btnDelRow').click(function (e) {
 
-                let res_grid = wijmo.Control.getControl('#res-grid');
-                let selectedRow = res_grid.selection.row;
+                let res_grid = EditTable.getControl('#res-grid');
+                let selectedRow = res_grid.getPageRows().indexOf(res_grid.current());
 
                 // 선택한 행의 데이터 가져오기 (단일 객체)
-                let selectedItem = res_grid.rows[selectedRow].dataItem;
+                let selectedItem = res_grid.getPageRows()[selectedRow];
 
                 /*  if (page.res_grid.getList("selected").length < 1) {
                       Alert.alert('', '삭제할 그리드를 선택하세요.');

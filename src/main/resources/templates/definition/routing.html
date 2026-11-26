@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 <th:block layout:fragment="content">
     <div class="layout-contents">
@@ -189,31 +184,29 @@
         var viewdata2;
 
         let columns = [
-            {binding: 'id', header: 'id', width: 150, align: 'left', visible: false},
-            {binding: 'routing_name', header: '라우팅명', width: 250, align: 'left'},
-            {binding: 'storeHouse_id', header: '창고id', width: 100, visible: false},
-            {binding: 'storeHouse_nm', header: '창고', width: 150, align: 'left'},
-            {binding: 'description', header: '비고', width: '*', align: 'left'}
+            {key: 'id', header: 'id', width: 150, align: 'left', visible: false},
+            {key: 'routing_name', header: '라우팅명', width: 250, align: 'left'},
+            {key: 'storeHouse_id', header: '창고id', width: 100, visible: false},
+            {key: 'storeHouse_nm', header: '창고', width: 150, align: 'left'},
+            {key: 'description', header: '비고', width: '1*', align: 'left'}
         ];
 
         let columns2 = [
-            {binding: 'ProcessOrder', header: '순서', width: 200, align: 'center'},
-            {binding: 'ProcessCode', header: '공정코드', width: 150, align: 'left'},
-            {binding: 'ProcessName', header: '공정명', width: 200, align: 'left'}
+            {key: 'ProcessOrder', header: '순서', width: 200, align: 'center'},
+            {key: 'ProcessCode', header: '공정코드', width: 150, align: 'left'},
+            {key: 'ProcessName', header: '공정명', width: 200, align: 'left'}
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
 
         function init() {
-            viewdata = new wijmo.collections.CollectionView([]);
+            viewdata = [];
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
             theGrid.hostElement.addEventListener('dblclick', function (e) {
                 let selectedItem = theGrid.selectedItems[0];
@@ -249,8 +242,6 @@
                 $('#btnDelProcess').prop('disabled', false);
             });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
             // showProcessList();
             searchMainData();
         }
@@ -270,7 +261,7 @@
                 success: function (result) {
                     if (result.success) {
                         console.log('result', result.data);
-                        viewdata.sourceCollection = result.data;
+                        theGrid.setData(result.data);
 
                     } else {
                         console.log("Error occurred");
@@ -348,21 +339,15 @@
             })
 
             // 기존 그리드 초기화
-            if (theGrid2) {
-                theGrid2.dispose();  // 기존 그리드를 제거합니다.
-            }
 
-            viewdata2 = new wijmo.collections.CollectionView(data2);
+            viewdata2 = data2;
 
-            theGrid2 = new wijmo.grid.FlexGrid('#routing-process-grid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            if (!theGrid2) theGrid2 = new EditTable('#routing-process-grid', {
                 columns: columns2,
-                isReadOnly: true,
-                itemsSource: viewdata2
+                readOnly: true
             });
+            theGrid2.setData(viewdata2);
 
-            theGrid2.rowHeaders.columns.splice(0, 1);
 
         }
 
@@ -430,7 +415,7 @@
         function saveIndex() {
 
             let items = [];
-            $.each(theGrid2.itemsSource.items, function (idx, item) {
+            $.each(theGrid2.getData(), function (idx, item) {
                 items.push({id: item.id});
             });
 
@@ -439,8 +424,9 @@
             let fnsuccess = function (result) {
                 if (result.success) {
                     Notify.success('저장했습니다.');
-                    console.log('theGrid.itemsSource.items', theGrid.itemsSource.items[0].id);
-                    showProcessList(theGrid.itemsSource.items[0].id);
+                    // 고른 라우팅의 공정 목록을 다시 (예전에는 늘 첫 번째 라우팅 것을 불러왔음, 2026-11-24)
+                    const cur = theGrid.current() || theGrid.getData()[0];
+                    if (cur) showProcessList(cur.id);
                 }
             };
 
@@ -555,15 +541,15 @@
             });
 
             $('#btnUp').click(function (e) {
-                GridUtil.changeOrder('U', theGrid2);
+                (theGrid2.current() ? (theGrid2.moveRow(theGrid2.current(), -1) || Alert.alert('', '첫번째 Row가 선택되었습니다.')) : Alert.alert('', '순서를 변경할 Row 를 선택하세요.'));
             });
 
             $('#btnDown').click(function (e) {
-                GridUtil.changeOrder('D', theGrid2);
+                (theGrid2.current() ? (theGrid2.moveRow(theGrid2.current(), 1) || Alert.alert('', '마지막 Row가 선택되었습니다.')) : Alert.alert('', '순서를 변경할 Row 를 선택하세요.'));
             });
 
             $('#btnIndexSave').click(function (e) {
-                let length = theGrid2.itemsSource.items.length;
+                let length = theGrid2.getData().length;
                 if (length === 0 || length === 1) {
                     return;
                 }

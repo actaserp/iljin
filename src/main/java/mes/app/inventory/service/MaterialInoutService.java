@@ -123,7 +123,7 @@ public class MaterialInoutService {
 				""";
 
 		if (StringUtils.isEmpty(housePk)==false) sql +=" and sh.id = cast(:housePk as Integer) ";
-		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = any(string_to_array(:matType, ',')) ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
 		if ("Y".equals(inTestYn)) sql +=" and m.\"InTestYN\" = 'Y' ";
@@ -229,13 +229,14 @@ public class MaterialInoutService {
                     where 1 = 1
                     and m."Useyn" = '0'
                     AND mi."InOut" IN ('in', 'return')
+                    and coalesce(mi."InputType", '') <> 'carry_in'   -- 반입은 반입전표에서 (2026-11-25)
                     --and sh."HouseType" = 'material'
                     and mi."InoutDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
                     and mi.spjangcd = :spjangcd
 				""";
 
 		if (StringUtils.isEmpty(housePk)==false) sql +=" and sh.id = cast(:housePk as Integer) ";
-		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = any(string_to_array(:matType, ',')) ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
 
@@ -310,13 +311,13 @@ public class MaterialInoutService {
                     where 1 = 1
                     and m."Useyn" = '0'
                     AND mi."InOut" IN ('out', 'recall')
-                    and mi."OutputType" != 'disposal_out'
+                    and coalesce(mi."OutputType", '') not in ('disposal_out', 'carry_out')   -- 폐기 · 반출은 각자 화면에서 (2026-11-25)
                     and mi."InoutDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
                     and mi.spjangcd = :spjangcd
 				""";
 
 		if (StringUtils.isEmpty(housePk)==false) sql +=" and sh.id = cast(:housePk as Integer) ";
-		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = any(string_to_array(:matType, ',')) ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
 
@@ -398,7 +399,7 @@ public class MaterialInoutService {
 				""";
 
 		if (StringUtils.isEmpty(housePk)==false) sql +=" and sh.id = cast(:housePk as Integer) ";
-		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matType)==false) sql +=" and mg.\"MaterialType\" = any(string_to_array(:matType, ',')) ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql +=" and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false) sql +=" and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
 
@@ -410,7 +411,7 @@ public class MaterialInoutService {
 	}
 
 	/**
-	 * 제품 반입전표 - 수동 등록 반품만 조회 (InOut='return', SourceTableName IS NULL)
+	 * 제품 반입전표 - 반입(InOut='in', InputType='carry_in')만 조회
 	 */
 	public List<Map<String, Object>> getProductReceiptSlipList(
 			String srchStartDt, String srchEndDt, String housePk,
@@ -429,7 +430,7 @@ public class MaterialInoutService {
 			select mi.id as mio_pk
 			     , to_char(mi."InoutDate", 'yyyy-mm-dd') as "InoutDate"
 			     , to_char(mi."InoutTime", 'hh24:mi') as "InoutTime"
-			     , fn_code_name('return_type', mi."InputType") as inout_type
+			     , fn_code_name('input_type', mi."InputType") as inout_type
 			     , sh."Name" as store_house_name
 			     , fn_code_name('mat_type', mg."MaterialType") as material_type
 			     , m."Code" as material_code
@@ -446,14 +447,14 @@ public class MaterialInoutService {
 			left join mat_in_house mih on mih."Material_id" = m.id and mih."StoreHouse_id" = mi."StoreHouse_id"
 			where 1 = 1
 			  and m."Useyn" = '0'
-			  and mi."InOut" = 'return'
-			  and mi."SourceTableName" is null
+			  and mi."InOut" = 'in'
+			  and mi."InputType" = 'carry_in'   -- 반입 구분 (예전 : 반품(return) 중 수동 등록 → 발주반품 등과 섞임)
 			  and mi."InoutDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
 			  and mi.spjangcd = :spjangcd
 			""";
 
 		if (StringUtils.isEmpty(housePk)==false)  sql += " and sh.id = cast(:housePk as Integer) ";
-		if (StringUtils.isEmpty(matType)==false)   sql += " and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matType)==false)   sql += " and mg.\"MaterialType\" = any(string_to_array(:matType, ',')) ";
 		if (StringUtils.isEmpty(matGrpPk)==false)  sql += " and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false)   sql += " and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
 
@@ -463,7 +464,7 @@ public class MaterialInoutService {
 	}
 
 	/**
-	 * 반출전표 - 수동 등록 반출만 조회 (SourceTableName is null)
+	 * 반출전표 - 반출(InOut='out', OutputType='carry_out')만 조회
 	 * 출하/생산 자동 차감분 제외
 	 */
 	public List<Map<String, Object>> getOutboundSlipList(
@@ -501,13 +502,13 @@ public class MaterialInoutService {
 			where 1 = 1
 			  and m."Useyn" = '0'
 			  and mi."InOut" = 'out'
-			  and mi."SourceTableName" is null
+			  and mi."OutputType" = 'carry_out'   -- 반출 구분 (예전 : 수동 출고 전체 → 자재 불출과 섞임)
 			  and mi."InoutDate" between cast(:srchStartDt as date) and cast(:srchEndDt as date)
 			  and mi.spjangcd = :spjangcd
 			""";
 
 		if (StringUtils.isEmpty(housePk)==false)  sql += " and sh.id = cast(:housePk as Integer) ";
-		if (StringUtils.isEmpty(matType)==false)   sql += " and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matType)==false)   sql += " and mg.\"MaterialType\" = any(string_to_array(:matType, ',')) ";
 		if (StringUtils.isEmpty(matGrpPk)==false)  sql += " and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false)   sql += " and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
 
@@ -560,7 +561,7 @@ public class MaterialInoutService {
 			  and m."spjangcd" = :spjangcd
 			""";
 
-		if (StringUtils.isEmpty(matType)==false)  sql += " and mg.\"MaterialType\" = :matType ";
+		if (StringUtils.isEmpty(matType)==false)  sql += " and mg.\"MaterialType\" = any(string_to_array(:matType, ',')) ";
 		if (StringUtils.isEmpty(matGrpPk)==false) sql += " and m.\"MaterialGroup_id\" = cast(:matGrpPk as Integer) ";
 		if (StringUtils.isEmpty(housePk)==false)  sql += " and mh.\"StoreHouse_id\" = cast(:housePk as Integer) ";
 		if (StringUtils.isEmpty(keyword)==false)  sql += " and upper(m.\"Name\") like concat('%%',upper(:keyword),'%%') ";
@@ -688,7 +689,7 @@ public class MaterialInoutService {
 			left join mat_inout mi on mi."SourceDataPk" = b.id
 			    and mi."SourceTableName" = 'balju'
 			    and mi."InOut" = 'in'
-			    and coalesce(mi."_status", 'a') = 'a'
+			    and coalesce(mi."_status", 'a') in ('a', 't')   -- 't' = 가입고(검사대기). 예전엔 'a' 만 붙여 검사할 건이 '미입고' 로만 보였음
 			left join store_house sh on sh.id = mi."StoreHouse_id"
 			left join test_result tr on tr."SourceDataPk" = mi.id and tr."SourceTableName" = 'mat_inout'
 			left join test_item_result tir on tr.id = tir."TestResult_id"

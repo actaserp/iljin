@@ -146,30 +146,25 @@
 
         var page = {
             grid: null,
-            viewData: new wijmo.collections.CollectionView(),
+            viewData: [],
 
             init: function () {
                 var _this = this;
 
-                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    isReadOnly: true,
-                    showMarquee: true,
+                this.grid = new EditTable('#theGrid', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'comp_code', header: '업체코드', width: 100, align: 'center'},
-                        {binding: 'name', header: '업체명', width: '*', align: 'left'},
-                        {binding: 'company_type_name', header: '업체구분', width: 90, align: 'center'},
-                        {binding: 'our_manager', header: '자사담당자', width: 110, align: 'center'}
-                    ],
-                    itemsSource: this.viewData
+                        {key: 'comp_code', header: '업체코드', width: 100, align: 'center'},
+                        {key: 'name', header: '업체명', width: '1*', align: 'left'},
+                        {key: 'company_type_name', header: '업체구분', width: 90, align: 'center'},
+                        {key: 'our_manager', header: '자사담당자', width: 110, align: 'center'}
+                    ]
                 });
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '거래처별 담당자';
+                this.grid.setData(this.viewData);
+                this.grid.opts.fileName = '거래처별 담당자';
 
                 this.grid.selectionChanged.addHandler(function (s) {
-                    var item = s.collectionView.currentItem;
+                    var item = s.current();
                     if (item) _this.bind(item);
                 });
             },
@@ -183,7 +178,7 @@
                     spjangcd: sessionStorage.getItem('spjangcd')
                 };
                 var res = AjaxUtil.getSyncData('/api/definition/company/read', data);
-                if (res != null) _this.viewData.sourceCollection = res.data;
+                if (res != null) _this.grid.setData(res.data);
                 _this.clear();
             },
 
@@ -262,23 +257,19 @@
                         async: false,
                         success: function (res) {
                             var data2 = res.data || [];
-                            if (theGrid4) theGrid4.itemsSource = new wijmo.collections.CollectionView(data2);
+                            if (theGrid4) theGrid4.setData(data2);
                         }
                     });
                 }
 
-                theGrid4 = new wijmo.grid.FlexGrid('#person-grid', {
-                    autoGenerateColumns: false,
-                    isReadOnly: true,
+                theGrid4 = new EditTable('#person-grid', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'id', header: '사번', width: 100, align: 'center'},
-                        {binding: 'name', header: '이름', width: 150, align: 'center'},
-                        {binding: 'dept_name', header: '부서', width: 150, align: 'center'},
-                        {binding: '', header: '', width: '*'}
-                    ],
-                    itemsSource: null
+                        {key: 'id', header: '사번', width: 100, align: 'center'},
+                        {key: 'name', header: '이름', width: 150, align: 'center'},
+                        {key: 'dept_name', header: '부서', width: 150, align: 'center'},
+                        ]
                 });
-                theGrid4.rowHeaders.columns.splice(0, 1);
                 fetchPersonList();
 
                 $content.find('#btnSubjectSearch').click(fetchPersonList);
@@ -286,7 +277,7 @@
                     if (e.keyCode === 13) fetchPersonList();
                 });
                 theGrid4.selectionChanged.addHandler(function (s) {
-                    selectedItem = s.collectionView.currentItem;
+                    selectedItem = s.current();
                 });
                 $content.find('#btnAccountSave').click(function () {
                     if (selectedItem) {

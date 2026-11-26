@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 <th:block layout:fragment="content">
     <div class="layout-contents">
@@ -250,28 +245,28 @@
         var viewdata3;
 
         let columns = [
-            { binding: 'id', header: '번호', width: 80, align: 'center',visible:false },
-            {binding: 'process_type', header: '공정구분', width: 150, align: 'left'},
-            {binding: 'process_code', header: '공정코드', width: 150, align: 'left'},
-            {binding: 'process_name', header: '공정명', width: 200, align: 'left'},
-            {binding: 'factory_name', header: '공장', width: 150, align: 'left'},
-            {binding: 'description', header: '설명', width: 150, align: 'left', visible: false},
-            {binding: '', header: '', width: "*", align: 'left'},
+            { key: 'id', header: '번호', width: 80, align: 'center',visible:false },
+            {key: 'process_type', header: '공정구분', width: 150, align: 'left'},
+            {key: 'process_code', header: '공정코드', width: 150, align: 'left'},
+            {key: 'process_name', header: '공정명', width: 200, align: 'left'},
+            {key: 'factory_name', header: '공장', width: 150, align: 'left'},
+            {key: 'description', header: '설명', width: 150, align: 'left', visible: false},
+            
         ];
 
         let columns2 = [
-            {binding: 'id', header: '번호', width: 80, align: 'right', visible:false},
-            {binding: 'defect_type_id', header: '부적합유형번호', width: 150, align: 'center'},
-            {binding: 'defect_type_code', header: '부적합유형코드', width: 150, align: 'center'},
-            {binding: 'defect_type_name', header: '부적합유형명', width: 200, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'},
+            {key: 'id', header: '번호', width: 80, align: 'right', visible:false},
+            {key: 'defect_type_id', header: '부적합유형번호', width: 150, align: 'center'},
+            {key: 'defect_type_code', header: '부적합유형코드', width: 150, align: 'center'},
+            {key: 'defect_type_name', header: '부적합유형명', width: 200, align: 'center'},
+            
         ];
 
         let columns3 = [
-            {binding: 'id', header: '번호', width: 150, align: 'left', visible:false},
-            {binding: 'stop_cause_id', header: '비가동유형번호', width: 150, align: 'center'},
-            {binding: 'stop_cause_name', header: '비가동유형명', width: 200, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'},
+            {key: 'id', header: '번호', width: 150, align: 'left', visible:false},
+            {key: 'stop_cause_id', header: '비가동유형번호', width: 150, align: 'center'},
+            {key: 'stop_cause_name', header: '비가동유형명', width: 200, align: 'center'},
+            
         ]
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -296,25 +291,24 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
             theGrid.hostElement.addEventListener('dblclick', function (e) {
                 let selectedItem = theGrid.selectedItems[0];
                 /*console.log(selectedItem);*/
 
-                document.getElementById('id').value = selectedItem.id;
-                document.getElementById('process_type').value = selectedItem.process_type;
-                document.getElementById('process_code').value = selectedItem.process_code;
-                document.getElementById('process_name').value = selectedItem.process_name;
-                document.getElementById('description').value = selectedItem.description;
+                if (!selectedItem) return;
+                document.getElementById('id').value = selectedItem.id ?? '';
+                document.getElementById('process_type').value = selectedItem.process_type ?? '';
+                document.getElementById('process_code').value = selectedItem.process_code ?? '';
+                document.getElementById('process_name').value = selectedItem.process_name ?? '';
+                document.getElementById('description').value = selectedItem.description ?? '';
 
 
                 function setSelectValue(selectId, valueToMatch) {
@@ -333,8 +327,6 @@
                 showProcStopCause(selectedItem.id);
             });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
             showProcDefectType();
             showProcStopCause();
         }
@@ -413,21 +405,14 @@
                 return;
             }
 
-            let menulogData = data.map(item => ({
-                id: item.id,
-                process_type:item.process_type,
-                process_code: item.process_code,
-                process_name:item.process_name,
-                factory_name:item.factory_name
-            }));
+            // 서버가 준 칸을 모두 유지 (예전엔 description 등을 빼서, 더블클릭하면 설명에 'undefined' 가 들어가 저장됐음)
+            let menulogData = data.map(item => ({...item}));
 
             if (typeof theGrid === 'undefined' || typeof viewdata === 'undefined') {
                 console.error('theGrid 또는 viewdata가 정의되지 않았습니다.');
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
@@ -435,15 +420,10 @@
                 return;
             }
 
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
         // 공정 정보 저장
@@ -521,7 +501,8 @@
             let id = idx;
             /*console.log('id값 확인',id);*/
 
-            $.ajax({
+            // 공정을 고르기 전(화면 처음 열 때)에는 빈 표만 만든다 (예전엔 proc_pk 없이 불러 서버 경고)
+            if (id) $.ajax({
                 url: '/api/definition/process/proc_defect_type_list',
                 type: 'GET',
                 data: {
@@ -539,21 +520,15 @@
             })
 
             // 기존 그리드 초기화
-            if (theGrid2) {
-                theGrid2.dispose();  // 기존 그리드를 제거합니다.
-            }
 
-            viewdata2 = new wijmo.collections.CollectionView(data2);
+            viewdata2 = data2;
 
-            theGrid2 = new wijmo.grid.FlexGrid('#proc_defect_type_grid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            if (!theGrid2) theGrid2 = new EditTable('#proc_defect_type_grid', {
                 columns: columns2,
-                isReadOnly: true,
-                itemsSource: viewdata2
+                readOnly: true
             });
+            theGrid2.setData(viewdata2);
 
-            theGrid2.rowHeaders.columns.splice(0, 1);
         }
 
 
@@ -564,11 +539,11 @@
             let already = false;
 
             // 현재 FlexGrid의 데이터 가져오기
-            let items = theGrid2.itemsSource;
+            let items = theGrid2.getView();
 
             // CollectionView인 경우 배열로 변환
-            if (items instanceof wijmo.collections.CollectionView) {
-                items = items.items;
+            if (false /* 위즈모 CollectionView 아님 */) {
+                items = theGrid3.getView();
             }
 
             if (!Array.isArray(items)) {
@@ -597,7 +572,7 @@
             items.push(row);
 
             // FlexGrid 업데이트
-            theGrid2.itemsSource = new wijmo.collections.CollectionView(items);
+            theGrid2.setData(items);
         }
 
 
@@ -607,7 +582,7 @@
             let url = '/api/definition/process';
 
             // Wijmo FlexGrid에서 데이터 가져오기
-            let grid_data = JSON.stringify(theGrid2.collectionView.items);
+            let grid_data = JSON.stringify(theGrid2.getPlain(theGrid2.getView()));
 
             let param = {
                 'proc_pk': $('#id').val(),
@@ -617,7 +592,7 @@
             let fnSuccess = function (result) {
                 if (result.success) {
                     Alert.alert('', '저장되었습니다');
-                    showProcDefectType(); // 저장 후 데이터 갱신
+                    showProcDefectType($('#id').val()); // 저장 후 지금 공정 목록 다시 (예전엔 번호 없이 불러 비었음)
                 } else {
                     Alert.alert('저장 실패', result.message);
                     console.error('저장 실패:', result.message);
@@ -636,7 +611,8 @@
             let id = idx;
             /*console.log('id값 확인',id);*/
 
-            $.ajax({
+            // 공정을 고르기 전(화면 처음 열 때)에는 빈 표만 만든다 (예전엔 proc_pk 없이 불러 서버 경고)
+            if (id) $.ajax({
                 url: '/api/definition/process/proc_stop_cause_list',
                 type: 'GET',
                 data: {
@@ -654,21 +630,15 @@
             })
 
             // 기존 그리드 초기화
-            if (theGrid3) {
-                theGrid3.dispose();  // 기존 그리드를 제거합니다.
-            }
 
-            viewdata3 = new wijmo.collections.CollectionView(data2);
+            viewdata3 = data2;
 
-            theGrid3 = new wijmo.grid.FlexGrid('#proc_stop_cause_grid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            if (!theGrid3) theGrid3 = new EditTable('#proc_stop_cause_grid', {
                 columns: columns3,
-                isReadOnly: true,
-                itemsSource: viewdata3
+                readOnly: true
             });
+            theGrid3.setData(viewdata3);
 
-            theGrid3.rowHeaders.columns.splice(0, 1);
         }
 
 
@@ -678,11 +648,11 @@
             let already = false;
 
             // 현재 FlexGrid의 데이터 가져오기
-            let items = theGrid3.itemsSource;
+            let items = theGrid3.getView();
 
             // CollectionView인 경우 배열로 변환
-            if (items instanceof wijmo.collections.CollectionView) {
-                items = items.items;
+            if (false /* 위즈모 CollectionView 아님 */) {
+                items = theGrid3.getView();
             }
 
             if (!Array.isArray(items)) {
@@ -710,7 +680,7 @@
             items.push(row);
 
             // FlexGrid 업데이트
-            theGrid3.itemsSource = new wijmo.collections.CollectionView(items);
+            theGrid3.setData(items);
 
             /* theGrid3.getList().forEach(function (row) {
                  if (row.stop_cause_id == stop_cause_pk)
@@ -738,7 +708,7 @@
             let url = '/api/definition/process';
 
             // Wijmo FlexGrid에서 데이터 가져오기
-            let grid_data = JSON.stringify(theGrid3.collectionView.items);
+            let grid_data = JSON.stringify(theGrid3.getPlain(theGrid3.getView()));
 
             let param = {
                 proc_pk: $('#id').val(),
@@ -748,7 +718,7 @@
             let fnSuccess = function (result) {
                 if (result.success) {
                     Alert.alert('', '저장되었습니다');
-                    showProcStopCause(); // 저장 후 데이터 갱신
+                    showProcStopCause($('#id').val()); // 저장 후 지금 공정 목록 다시 (예전엔 번호 없이 불러 비었음)
                 } else {
                     Alert.alert('저장 실패', result.message);
                     console.error('저장 실패:', result.message);
@@ -967,11 +937,11 @@
             });
 
             $('#btnDelDefectType').click(function (e) {
-                let selectedRow = theGrid2.selection.row; // 현재 선택된 행의 인덱스
+                let selectedRow = theGrid2.getPageRows().indexOf(theGrid2.current()); // 현재 선택된 행의 인덱스
 
                 if (selectedRow >= 0) { // 선택된 행이 있는지 확인
                     // 데이터 소스 가져오기
-                    let viewdata2 = theGrid2.itemsSource;
+                    let viewdata2 = theGrid2.getView();
 
                     // 행 제거
                     viewdata2.removeAt(selectedRow);
@@ -1003,11 +973,11 @@
 
             $('#btnDelStopCause').click(function (e) {
                 // 선택된 행 가져오기
-                let selectedRow = theGrid3.selection.row; // 현재 선택된 행의 인덱스
+                let selectedRow = theGrid3.getPageRows().indexOf(theGrid3.current()); // 현재 선택된 행의 인덱스
 
                 if (selectedRow >= 0) { // 선택된 행이 있는지 확인
                     // 데이터 소스 가져오기
-                    let viewdata3 = theGrid3.itemsSource;
+                    let viewdata3 = theGrid3.getView();
 
                     // 행 제거
                     viewdata3.removeAt(selectedRow);

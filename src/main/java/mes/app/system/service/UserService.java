@@ -126,7 +126,7 @@ public class UserService {
 	            from user_group ug 
 	            left join rela_data rd on rd."DataPk2" = ug.id 
 	            and "RelationName" = 'auth_user-user_group' 
-	            and rd."DataPk1" = :id
+	            and rd."DataPk1" = cast(:id as integer)
 	            where coalesce(ug."Code",'') <> 'dev'
         		""";
         

@@ -82,68 +82,32 @@
     class ProductionMonthPage {
         constructor() {
             this.grid = null;
-            this.viewData = new wijmo.collections.CollectionView();
+            this.viewData = [];
             this.init();
         }
 
         init() {
             let _this = this;
 
-            this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                selectionMode: wijmo.grid.SelectionMode.Row,
-                headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                allowSorting: wijmo.grid.AllowSorting.MultiColumn,
-                allowMerging: wijmo.grid.AllowMerging.Cells,
-                autoGenerateColumns: false,
-                showMarquee: true,
-                isReadOnly: true,
+            this.grid = new EditTable('#theGrid', {
+                readOnly: true,
                 frozenColumns: 4,
 
-                formatItem: (s, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                        return;
-                    }
-
-                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                        const item = s.rows[e.row]?.dataItem;
-                        if (!item) return;
-
-                        // ✅ 먼저 기본값 초기화 (재활용 방지)
-                        e.cell.style.fontWeight = '';
-                        e.cell.style.backgroundColor = '';
-                        e.cell.style.borderTop = '';
-                        e.cell.style.color = '';
-
-                        // ✅ null 수주일자 깔끔히 처리
-                        if (!item.jumundate && !item.is_footer && s.columns[e.col].binding === 'jumundate') {
-                            e.cell.textContent = '';
-                        }
-
-                        // ✅ 푸터 스타일 (월 합계 행)
-                        if (item.is_footer) {
-                            e.cell.style.fontWeight = 'bold';
-                            e.cell.style.backgroundColor = '#e5e5e5';
-                            e.cell.style.borderTop = '2px solid #999';
-                            e.cell.style.color = '#004080';
-                        }
-                    }
-                },
+                rowClass: r => r.is_footer ? 'et-bold et-blue et-gray' : '',   // 월 합계 행 굵게 · 회색 바탕 (위즈모 formatItem 대신)
 
                 columns: [
-                    { binding: 'jumundate', header: '수주일자', width: 120, align: 'center' },
-                    { binding: 'jumun_number', header: '수주번호', width: 150, align: 'center'},
-                    { binding: 'company_name', header: '거래처명', width: '*', align: 'left' },
-                    { binding: 'material_summary', header: '제품명', width: '*', align: 'left' },
-                    { binding: 'total_suju_qty', header: '수주수량', width: 100, align: 'right', format: 'n0' },
-                    { binding: 'total_shipped_qty', header: '출하수량', width: 100, align: 'right', format: 'n0' },
-                    { binding: 'shipdate', header: '출하일자', width: 130, align: 'center' },
-                    { binding: 'avg_wday', header: '평균납기일수', width: 100, align: 'center', format: 'n1' },
-                ],
+                    { key: 'jumundate', header: '수주일자', width: 120, align: 'center' },
+                    { key: 'jumun_number', header: '수주번호', width: 150, align: 'center'},
+                    { key: 'company_name', header: '거래처명', width: '1*', align: 'left' },
+                    { key: 'material_summary', header: '제품명', width: '1*', align: 'left' },
+                    { key: 'total_suju_qty', header: '수주수량', width: 100, align: 'right', format: 'n0' },
+                    { key: 'total_shipped_qty', header: '출하수량', width: 100, align: 'right', format: 'n0' },
+                    { key: 'shipdate', header: '출하일자', width: 130, align: 'center' },
+                    { key: 'avg_wday', header: '평균납기일수', width: 100, align: 'center', format: 'n1' },
+                ]
             });
 
-            new FlexGridContextMenu(this.grid);
-            this.grid.downloadFileName = '납기 단축 지표';
+            this.grid.opts.fileName = '납기 단축 지표';
         }
 
 
@@ -160,7 +124,7 @@
             const result = AjaxUtil.getSyncData(url, data);
             console.log("result data : ", result.data);
             if (result) {
-                this.grid.itemsSource = result.data;
+                this.grid.setData(result.data);
             }
         }
 
@@ -194,7 +158,7 @@
     //             return super.getMergedRange(panel, row, col, clip);
     //         }
     //
-    //         const colName = panel.columns[col].binding;
+    //         const colName = panel.columns[col].key;
     //         if (colName === 'standard1' || colName === 'unit_name') {
     //             const matNameCol = panel.columns.getColumn('mat_name').index;
     //             const val = panel.getCellData(row, col, false);

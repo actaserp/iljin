@@ -50,7 +50,7 @@
         PopTaxComponent.currentInstance = this;
 
         this.grid = null;
-        this.viewData = new wijmo.collections.CollectionView();
+        this.viewData = [];
         this.selectedItem = null;
         this.callback = null;
         this.modalContainer = new PopupDraggable('업체 선택');
@@ -70,12 +70,12 @@
           if (result && result.data) {
             console.log('result.data : ', result.data);
             const list = result.data;
-            _this.viewData.sourceCollection = list;
+            _this.grid.setData(list);
 
             setTimeout(() => {
-              if (_this.grid && _this.grid.rows.length > 0) {
-                _this.grid.select(0, 0);
-                _this.grid.focus();
+              if (_this.grid && _this.grid.getPageRows().length > 0) {
+                _this.grid.select(_this.grid.getPageRows()[0]);
+                _this.grid.el.focus();
               }
             }, 100);
           }
@@ -101,22 +101,19 @@
 
         setTimeout(() => {
           const el = document.getElementById('theGrid2');
-          const existingGrid = wijmo.Control.getControl(el);
+          const existingGrid = EditTable.getControl(el);
           if (existingGrid) existingGrid.dispose();
 
-          this.grid = new wijmo.grid.FlexGrid('#theGrid2', {
-            selectionMode: wijmo.grid.SelectionMode.Row,
-            autoGenerateColumns: false,
-            showMarquee: true,
-            isReadOnly: true,
+          this.grid = new EditTable('#theGrid2', {
+            readOnly: true,
             columns: [
-              {binding: 'taxcd', header: '세무서코드', width: 100, align: 'center'},
-              {binding: 'taxnm', header: '세무서명', width: 150, align: 'left'},
-              {binding: 'taxjiyuk', header: '관할구역', width: '*', align: 'left'},
-              {binding: 'taxtelnum', header: '전화번호', width: 150, align: 'center'}
-            ],
-            itemsSource: this.viewData,
+              {key: 'taxcd', header: '세무서코드', width: 100, align: 'center'},
+              {key: 'taxnm', header: '세무서명', width: 150, align: 'left'},
+              {key: 'taxjiyuk', header: '관할구역', width: '1*', align: 'left'},
+              {key: 'taxtelnum', header: '전화번호', width: 150, align: 'center'}
+            ]
           });
+          this.grid.setData(this.viewData);
 
           this.$btnCompSearch = $content.find('#btnCompSearch');
           this.$taxcd = $content.find('#taxcd');

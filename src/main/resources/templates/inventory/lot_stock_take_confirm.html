@@ -79,66 +79,34 @@
 
         init() {
             let _this = this;
-            this.grid = new wijmo.grid.FlexGrid('#inventory-adjustment-grid', {
-                autoGenerateColumns: false,
-                allowSorting: false,
-                selectionMode: wijmo.grid.SelectionMode.ListBox,
-                headersVisibility: wijmo.grid.HeadersVisibility.All,
+            this.grid = new EditTable('#inventory-adjustment-grid', {
+                rowCheck: true,
+                sortable: false,
                 frozenColumns: 0,
-                isReadOnly: true,
-                itemsSource: new wijmo.collections.CollectionView([]),
-                formatItem: (s, e) => {
-
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                    }
-
-                    if (e.panel.cellType === wijmo.grid.CellType.Cell && s.columns[e.col].binding === 'confirm') {
-                        e.cell.textContent = '';
-                        if (userinfo.can_write()) {
-                            const button = document.createElement('button');
-                            button.className = 'btn-default';
-                            button.style.width = '100%';
-                            button.style.height = '25px';
-                            button.textContent = '확인';
-                            button.onclick = () => {
-                                _this.saveData(_this.grid.selectedItems[0]);
-                            };
-                            e.cell.appendChild(button);
-                        } else {
-                            e.cell.textContent = '권한없음';
-                        }
-                    }
-                },
+                readOnly: true,
                 columns: [
-                    { binding: 'mat_type', header: '품목유형', width: 100, align: 'center' },
-                    { binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center' },
-                    { binding: 'mat_code', header: '품목코드', width: 100, align: 'center'  },
-                    { binding: 'mat_name', header: '품목명', width: 200, align: 'left'  },
-                    { binding: 'unit_name', header: '단위', width: 80, align: 'center'  },
-                    { binding: 'LotNumber', header: 'LOT', width: 150, align: 'center' },
-                    { binding: 'store_house_name', header: '창고명', width: 100, align: 'center'  },
-                    { binding: 'state', header: '상태', width: 70, align: 'center' },
-                    { binding: 'account_stock', header: '장부재고량', width: 100, align: 'right'   },
-                    { binding: 'real_stock', header: '실재고량', width: 100, align: 'right'   },
-                    { binding: 'gap', header: '차이', width: 100, align: 'right'   },
-                    { binding: 'unit_price', header: '단가', width: 100, align: 'right'   },
-                    { binding: 'gap_money', header: '차이금액', width: 100, align: 'right'   },
-                    { binding: 'take_date_time', header: '실사일시', width: 150, align: 'center'  },
-                    { binding: 'description', header: '비고', width: 150, align: 'left' },
-                    { binding: 'confirm', header: '확인', width: 80, align: 'center'  },
+                    { key: 'mat_type', header: '품목유형', width: 100, align: 'center' },
+                    { key: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center' },
+                    { key: 'mat_code', header: '품목코드', width: 100, align: 'center'  },
+                    { key: 'mat_name', header: '품목명', width: 200, align: 'left'  },
+                    { key: 'unit_name', header: '단위', width: 80, align: 'center'  },
+                    { key: 'LotNumber', header: 'LOT', width: 150, align: 'center' },
+                    { key: 'store_house_name', header: '창고명', width: 100, align: 'center'  },
+                    { key: 'state', header: '상태', width: 70, align: 'center' },
+                    { key: 'account_stock', header: '장부재고량', width: 100, align: 'right'   },
+                    { key: 'real_stock', header: '실재고량', width: 100, align: 'right'   },
+                    { key: 'gap', header: '차이', width: 100, align: 'right'   },
+                    { key: 'unit_price', header: '단가', width: 100, align: 'right'   },
+                    { key: 'gap_money', header: '차이금액', width: 100, align: 'right'   },
+                    { key: 'take_date_time', header: '실사일시', width: 150, align: 'center'  },
+                    { key: 'description', header: '비고', width: 150, align: 'left' },
+                    { key: 'confirm', header: '확인', width: 80, align: 'center', type: 'button', buttonText: () => userinfo.can_write() ? '확인' : null, noButtonText: '권한없음', onClick: (row) => { _this.saveData(row); }},
                 ]
             });
 
 
-            let selector = new wijmo.grid.selector.Selector(this.grid, {
-                itemChecked: function () {
 
-                }
-            })
-
-            new FlexGridContextMenu(this.grid);
-            this.grid.downloadFileName = 'LOT 재고 조정 확인 목록';
+            this.grid.opts.fileName = 'LOT 재고 조정 확인 목록';
 
             AjaxUtil.fillSelectOptions($('#cboStoreHouse'), 'store_house', 'all', false);
         }
@@ -153,7 +121,7 @@
 
             let fnsuccess = function(result){
                 if (result.success) {
-                    _this.grid.itemsSource.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                 }
                 _this.grid.refresh();
             };
@@ -162,7 +130,7 @@
         }
 
         chkSelect() {
-            if (this.grid.selectedItems.length > 0) {
+            if ((this.grid.getChecked().length ? this.grid.getChecked() : this.grid.selectedItems).length > 0) {
                 return true;
             } else {
                 Alert.alert('', '확인할 품목을 선택하세요.');
@@ -179,7 +147,7 @@
                 }
                 else { // 좌측 상단 버튼 클릭시
                     let list = [];
-                    let temp = _this.grid.selectedItems;
+                    let temp = (_this.grid.getChecked().length ? _this.grid.getChecked() : _this.grid.selectedItems);
                     temp.forEach(function (item) {
                         let data = {
                             'id': item.id,

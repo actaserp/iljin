@@ -186,54 +186,33 @@
      this.$btnAddNew = $('#btnAddNew');
      this.$btnEdit   = $('#btnEdit');
      this.spjangcd   = $('#spjangcdHidden');
-     this.viewData   = new wijmo.collections.CollectionView([]);
+     this.viewData   = [];
      this.init();
     }
 
     init() {
      let _this = this;
-     this.grid = new wijmo.grid.FlexGrid('#stock-take-grid', {
-      autoGenerateColumns: false,
-      allowSorting: true,
+     this.grid = new EditTable('#stock-take-grid', {
       frozenColumns: 5,
-      selectionMode: wijmo.grid.SelectionMode.Row,
-      isReadOnly: true,
-      headersVisibility: wijmo.grid.HeadersVisibility.All,
-      itemsSource: this.viewData,
-      formatItem: (s, e) => {
-       if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-        e.cell.textContent = (e.row + 1).toString();
-       }
-       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-        e.cell.style.textAlign = 'center';
-       }
-       if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-        const col = s.columns[e.col];
-        const item = e.panel.rows[e.row].dataItem;
-        if (col.binding === 'last_take_date') {
-         e.cell.textContent = item.state === 'taked'
-          ? `${item.last_take_date} 확인대기`
-          : item.last_take_date || '';
-        }
-       }
-      },
+      readOnly: true,
+      rowNumbers: true,
       columns: [
-       { binding: 'id',            header: '품목번호', width: 100, align: 'right',  isReadOnly: true },
-       { binding: 'mat_type',      header: '품목유형', width: 100, align: 'center', isReadOnly: true },
-       { binding: 'mat_grp_name',  header: '품목그룹', width: 150, align: 'center', isReadOnly: true },
-       { binding: 'mat_code',      header: '품목코드', width: 100, align: 'center', isReadOnly: true },
-       { binding: 'mat_name',      header: '품목명',   width: 200, align: 'left',   isReadOnly: true },
-       { binding: 'manage_level',  header: '관리등급', width: 100, align: 'center', isReadOnly: true },
-       { binding: 'unit_name',     header: '단위',     width: 100, align: 'center', isReadOnly: true },
-       { binding: 'account_stock', header: '장부재고', width: 100, align: 'right',  isReadOnly: true },
-       { binding: 'real_stock',    header: '실사재고', width: 100, align: 'right',  isReadOnly: true },
-       { binding: 'gap',           header: '차이',     width: 80,  align: 'right',  isReadOnly: true },
-       { binding: 'gap_description', header: '차이설명', width: 200, align: 'left', isReadOnly: true },
-       { binding: 'last_take_date',header: '최종실사일', width: 200, align: 'center', isReadOnly: true }
+       { key: 'id',            header: '품목번호', width: 100, align: 'right',  readOnly: true },
+       { key: 'mat_type',      header: '품목유형', width: 100, align: 'center', readOnly: true },
+       { key: 'mat_grp_name',  header: '품목그룹', width: 150, align: 'center', readOnly: true },
+       { key: 'mat_code',      header: '품목코드', width: 100, align: 'center', readOnly: true },
+       { key: 'mat_name',      header: '품목명',   width: 200, align: 'left',   readOnly: true },
+       { key: 'manage_level',  header: '관리등급', width: 100, align: 'center', readOnly: true },
+       { key: 'unit_name',     header: '단위',     width: 100, align: 'center', readOnly: true },
+       { key: 'account_stock', header: '장부재고', width: 100, align: 'right',  readOnly: true },
+       { key: 'real_stock',    header: '실사재고', width: 100, align: 'right',  readOnly: true },
+       { key: 'gap',           header: '차이',     width: 80,  align: 'right',  readOnly: true },
+       { key: 'gap_description', header: '차이설명', width: 200, align: 'left', readOnly: true },
+       { key: 'last_take_date',header: '최종실사일', width: 200, align: 'center', readOnly: true, format: (v, r) => r.state === 'taked' ? `${v} 확인대기` : (v || '')}
       ]
      });
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = '실사전표 목록';
+     this.grid.setData(this.viewData);
+     this.grid.opts.fileName = '실사전표 목록';
 
      // 더블클릭 → 수정
      this.grid.hostElement.addEventListener('dblclick', function () {
@@ -426,7 +405,7 @@
      };
      let result = AjaxUtil.getSyncData(gUrl + '/read', data);
      if (result.data) {
-      _this.viewData.sourceCollection = result.data;
+      _this.grid.setData(result.data);
      }
     }
    }

@@ -258,115 +258,48 @@
 
             init() {
                 let _this = this;
-                this.grid = new wijmo.grid.FlexGrid('#material-grid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    allowSorting: true,
-                    isReadOnly: true,
-                    itemsSource: new wijmo.collections.CollectionView([]),
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                this.grid = new EditTable('#material-grid', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'mat_type', header: '품목유형', width: 100, align: 'center'},
-                        {binding: 'mat_grp', header: '품목그룹', width: 130, align: 'center'},
-                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
-                        {binding: 'mat_name', header: '품목명', width: 450, align: 'left'},
-                        {binding: 'cur_stock', header: '총재고', width: 100, align: 'right', format: 'n0'},
-                        {binding: 'unit_name', header: '단위', width: 100, align: 'center'}
+                        {key: 'mat_type', header: '품목유형', width: 100, align: 'center'},
+                        {key: 'mat_grp', header: '품목그룹', width: 130, align: 'center'},
+                        {key: 'mat_code', header: '품목코드', width: 100, align: 'center'},
+                        {key: 'mat_name', header: '품목명', width: 450, align: 'left'},
+                        {key: 'cur_stock', header: '총재고', width: 100, align: 'right', format: 'n0'},
+                        {key: 'unit_name', header: '단위', width: 100, align: 'center'}
                     ],
-                    selectionChanged: (s, e) => {
+                    onSelect: (_row, s) => {
                         const selectedItem = s.selectedItems[0];
                         if (selectedItem) {
                             _this.showMatLotList(selectedItem.mat_id);
                         }
                     }
                 });
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '품목 정보';
+                this.grid.opts.fileName = '품목 정보';
 
-                this.grid2 = new wijmo.grid.FlexGrid('#mat-lot-grid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    allowSorting: true,
-                    isReadOnly: false,
-                    itemsSource: new wijmo.collections.CollectionView([]),
-                    formatItem: (s, e) => {
-                        // 헤더 스타일 적용
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
-                            && s.columns[e.col].binding === 'real_stock'
-                            || s.columns[e.col].binding === 'gap_description') {
-                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
-                        }
-
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                            const col = s.columns[e.col];
-                            const item = e.panel.rows[e.row].dataItem;
-
-                            if (col.binding === 'btn_save') {
-                                e.cell.textContent = ''; // 기존 내용 제거
-                                // 저장 버튼 추가
-                                const button = document.createElement('button');
-                                button.className = 'btn-default grid_save_button';
-                                button.style.width = '100%';
-                                button.style.height = '25px';
-                                button.textContent = '저장';
-
-                                // 버튼 클릭 이벤트 처리
-                                button.onclick = () => {
-                                    let selectedItem = _this.grid2.selectedItems[0];
-                                    console.log('selectedItem', selectedItem);
-
-                                    if (selectedItem.gap === '' || selectedItem.gap == null) {
-                                        Alert.alert('LOT재고조정', '차이가 입력되어야 합니다.');
-                                        return;
-                                    }
-                                    Alert.confirm('LOT재고조정', '저장하시겠습니까?', () => {
-                                        this.saveLotAdjust(selectedItem); // 저장 로직 호출
-                                    });
-                                };
-
-                                e.cell.appendChild(button);
-                            }
-                            // 'last_take_date' 컬럼 처리
-                            if (col.binding === 'last_take_date') {
-                                e.cell.textContent =
-                                    item.state === 'taked'
-                                        ? `${item.last_take_date} 확인대기`
-                                        : item.last_take_date || ''; // 값이 없을 경우 빈칸 처리
-                            }
-                        }
-                    },
-                    cellEditEnded: (s, e) => { // cellEditEnding -> cellEditEnded
-                        const column = s.columns[e.col];
-                        const item = s.rows[e.row].dataItem;
-
-                        if (column.binding === 'real_stock') {
-                            if (item.real_stock != null && item.CurrentStock != null) {
-                                item.gap = item.real_stock - item.CurrentStock;
-                            }
+                this.grid2 = new EditTable('#mat-lot-grid', {
+                    readOnly: false,
+                    onChange: (item, key, v, s) => {   // 위즈모 cellEditEnded 대신 : 실사재고를 고치면 차이 다시 계산
+                        if (key === 'real_stock' && item.real_stock != null && item.CurrentStock != null) {
+                            item.gap = item.real_stock - item.CurrentStock;
+                            s.refreshCell(item, 'gap');
                         }
                     },
                     columns: [
-                        {binding: 'storehouse_name', header: '창고', width: 120, align: 'left', isReadOnly: true},
-                        {binding: 'LotNumber', header: 'Lot', width: 170, align: 'center', isReadOnly: true},
-                        {binding: 'CurrentStock', header: '재고', width: 100, align: 'right', isReadOnly: true},
-                        {binding: 'real_stock', header: '실사재고', width: 100, align: 'right', isReadOnly: false},
-                        {binding: 'gap', header: '차이', width: 80, align: 'right', isReadOnly: true},
-                        {binding: 'gap_description', header: '차이설명', width: 200, align: 'left', isReadOnly: false},
-                        {binding: 'btn_save', header: '저장', width: 80, align: 'center', isReadOnly: true},
-                        {binding: 'last_take_date', header: '최종실사일', width: 200, align: 'center', isReadOnly: true}
+                        {key: 'storehouse_name', header: '창고', width: 120, align: 'left', readOnly: true},
+                        {key: 'LotNumber', header: 'Lot', width: 170, align: 'center', readOnly: true},
+                        {key: 'CurrentStock', header: '재고', width: 100, align: 'right', readOnly: true},
+                        {key: 'real_stock', header: '실사재고', width: 100, align: 'right', readOnly: false, type: 'number'},
+                        {key: 'gap', header: '차이', width: 80, align: 'right', readOnly: true},
+                        {key: 'gap_description', header: '차이설명', width: 200, align: 'left', readOnly: false},
+                        {key: 'btn_save', header: '저장', width: 80, align: 'center', readOnly: true, type: 'button', buttonText: '저장', onClick: (selectedItem) => {   // 위즈모 formatItem 으로 그리던 저장 버튼
+                            if (selectedItem.gap === '' || selectedItem.gap == null) { Alert.alert('LOT재고조정', '차이가 입력되어야 합니다.'); return; }
+                            Alert.confirm('LOT재고조정', '저장하시겠습니까?', () => { _this.saveLotAdjust(selectedItem); });
+                        }},
+                        {key: 'last_take_date', header: '최종실사일', width: 200, align: 'center', readOnly: true, format: (v, r) => r.state === 'taked' ? `${v} 확인대기` : (v || '')}
                     ]
                 });
-                new FlexGridContextMenu(this.grid2);
-                this.grid2.downloadFileName = 'LOT 정보';
+                this.grid2.opts.fileName = 'LOT 정보';
             }
 
             showAddLot() {
@@ -514,45 +447,15 @@
                 AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', false, '');
                 FormUtil.BindDataForm(item, $('#stockForm'));
 
-                this.searchLotGrid = new wijmo.grid.FlexGrid('#search-lot-grid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    itemsSource: new wijmo.collections.CollectionView([]),
-                    formatItem: (s, e) => {
-
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-
-                        // 이동량 열 헤더 스타일 적용
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
-                            && s.columns[e.col].binding === 'real_stock'
-                            || s.columns[e.col].binding === 'gap_description') {
-                            e.cell.style.color = '#5567ff'; // 글자 색깔 변경
-                        }
-
-                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                            const col = s.columns[e.col];
-                            const item = e.panel.rows[e.row].dataItem;
-
-                            // 'last_take_date' 컬럼 처리
-                            if (col.binding === 'last_take_date') {
-                                e.cell.textContent =
-                                    item.state === 'taked'
-                                        ? `${item.last_take_date} 확인대기`
-                                        : item.last_take_date || ''; // 값이 없을 경우 빈칸 처리
-                            }
-                        }
-                    },
+                this.searchLotGrid = new EditTable('#search-lot-grid', {
                     columns: [
-                        {binding: 'storehouse_name', header: '창고', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'LotNumber', header: 'Lot', width: 150, align: 'center', isReadOnly: true},
-                        {binding: 'CurrentStock', header: '재고', width: 50, align: 'center', isReadOnly: true},
-                        {binding: 'real_stock', header: '실사재고', width: 100, align: 'right', isReadOnly: false},
-                        {binding: 'gap', header: '차이', width: 70, align: 'right', isReadOnly: true},
-                        {binding: 'gap_description', header: '차이설명', width: 200, align: 'left', isReadOnly: false},
-                        {binding: 'last_take_date', header: '최종실사일', width: 200, align: 'center', isReadOnly: true}
+                        {key: 'storehouse_name', header: '창고', width: 100, align: 'center', readOnly: true},
+                        {key: 'LotNumber', header: 'Lot', width: 150, align: 'center', readOnly: true},
+                        {key: 'CurrentStock', header: '재고', width: 50, align: 'center', readOnly: true},
+                        {key: 'real_stock', header: '실사재고', width: 100, align: 'right', readOnly: false, type: 'number'},
+                        {key: 'gap', header: '차이', width: 70, align: 'right', readOnly: true},
+                        {key: 'gap_description', header: '차이설명', width: 200, align: 'left', readOnly: false},
+                        {key: 'last_take_date', header: '최종실사일', width: 200, align: 'center', readOnly: true, format: (v, r) => r.state === 'taked' ? `${v} 확인대기` : (v || '')}
                     ]
                 });
 
@@ -568,9 +471,9 @@
 
                 // Lot 상세검색 팝업
                 $content.find('#btnPopSaveLotAdjust').click(function () {
-                    let items = _this.searchLotGrid.selectedItems[0];
+                    let items = _this.searchLotGrid.selectedItems;   // 예전 selectedItems[0] 에서 다시 [0] 을 꺼내 늘 오류였음
                     let item = items[0];
-                    if (items.length === 0) {
+                    if (!item) {
                         Alert.alert('', '저장할 품목이 없습니다.');
                         return;
                     }
@@ -604,7 +507,7 @@
                 let url = this.baseUrl + "/search_lot";
                 let result = AjaxUtil.getSyncData(url, data);
                 if (result.success) {
-                    _this.searchLotGrid.itemsSource.sourceCollection = result.data;
+                    _this.searchLotGrid.setData(result.data);
                 }
             }
 
@@ -620,9 +523,9 @@
                 let url = this.baseUrl + "/read"
                 let result = AjaxUtil.getSyncData(url, data);
                 if (result.success) {
-                    _this.grid.itemsSource.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                 }
-                _this.grid2.itemsSource.sourceCollection = [];
+                _this.grid2.setData([]);
             }
 
             showMatLotList(mat_id) {
@@ -636,7 +539,7 @@
                 let url = this.baseUrl + "/mat_lot_list";
                 let result = AjaxUtil.getSyncData(url, data)
                 if (result.success) {
-                    _this.grid2.itemsSource.sourceCollection = result.data;
+                    _this.grid2.setData(result.data);
                 }
             }
 

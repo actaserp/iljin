@@ -90,7 +90,8 @@ public class UserController {
 	// 사용자 그룹 조회
 	@GetMapping("/user_grp_list")
 	public AjaxResult getUserGrpList(
-			@RequestParam(value="id") Integer id,
+			// 새 사용자(아직 id 없음)일 때는 그룹 목록만 체크 없이 (예전엔 화면을 열 때마다 500)
+			@RequestParam(value="id", required=false) Integer id,
 			HttpServletRequest request) {
 		
 		List<Map<String, Object>> items = this.userService.getUserGrpList(id);

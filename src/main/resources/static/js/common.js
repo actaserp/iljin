@@ -646,7 +646,7 @@ let FormUtil = {
                             $frmCtl.val(value);
                         }
                     } else {
-                        $frmCtl.val(value.replace('&amp;', '&'));
+                        $frmCtl.val(value == null ? '' : String(value).replace('&amp;', '&'));   // undefined · 숫자 아닌 값도 (예전엔 오류로 팝업이 안 뜸)
                     }
                 }
             } else if (tagName == 'SPAN') {
@@ -699,7 +699,7 @@ let FormUtil = {
                             $frmCtl.val(value);
                         }
                     } else {
-                        $frmCtl.val(value.replace('&amp;', '&'));
+                        $frmCtl.val(value == null ? '' : String(value).replace('&amp;', '&'));   // undefined · 숫자 아닌 값도 (예전엔 오류로 팝업이 안 뜸)
                     }
                 }
             } else if (tagName == 'SPAN') {
@@ -822,7 +822,7 @@ let FormUtil = {
                             $frmCtl.val(value);
                         }
                     } else {
-                        $frmCtl.val(value.replace('&amp;', '&'));
+                        $frmCtl.val(value == null ? '' : String(value).replace('&amp;', '&'));   // undefined · 숫자 아닌 값도 (예전엔 오류로 팝업이 안 뜸)
                     }
                 }
             } else if (tagName == 'SPAN') {
@@ -967,7 +967,7 @@ let FormUtil = {
                             $frmCtl.val(value);
                         }
                     } else {
-                        $frmCtl.val(value.replace('&amp;', '&'));
+                        $frmCtl.val(value == null ? '' : String(value).replace('&amp;', '&'));   // undefined · 숫자 아닌 값도 (예전엔 오류로 팝업이 안 뜸)
                     }
                 }
             } else if (tagName === 'SPAN') {

@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -152,11 +147,10 @@
         var viewdata;
 
         let columns = [
-            {binding: 'equipment_type', header: '설비구분', width: 200, align: 'center'},
-            {binding: 'equipment_group_code', header: '설비그룹코드', width: 200, align: 'center'},
-            {binding: 'equipment_group_name', header: '설비그룹명', width: 250, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'}
-        ];
+            {key: 'equipment_type', header: '설비구분', width: 200, align: 'center'},
+            {key: 'equipment_group_code', header: '설비그룹코드', width: 200, align: 'center'},
+            {key: 'equipment_group_name', header: '설비그룹명', width: 250, align: 'center'},
+            ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
 
@@ -180,15 +174,13 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
 
             theGrid.hostElement.addEventListener('dblclick', function (e) {
@@ -212,8 +204,6 @@
                 setButtonState();
             });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
 
         }
 
@@ -270,6 +260,7 @@
 
 
             let menulogData = data.map(item => ({
+                id: item.id,   // 검색 뒤에도 id 가 있어야 수정 · 삭제가 됨 (2026-11-24)
                 equipment_type: item.equipment_type,
                 equipment_group_code: item.equipment_group_code,
                 equipment_group_name: item.equipment_group_name
@@ -280,8 +271,6 @@
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
@@ -289,15 +278,10 @@
                 return;
             }
 
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
         function saveEquipmentGroup() {

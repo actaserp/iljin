@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -153,10 +148,10 @@
 
 
         let columns = [
-            {binding: 'id', header: 'id', width: 100, align: 'left', visible: false},
-            {binding: 'defect_type_code', header: '코드', width: 130, align: 'center'},
-            {binding: 'defect_type_name', header: '부적합유형명', width: 200, align: 'center'},
-            {binding: 'description', header: '비고', width: 500, align: 'center'}
+            {key: 'id', header: 'id', width: 100, align: 'left', visible: false},
+            {key: 'defect_type_code', header: '코드', width: 130, align: 'center'},
+            {key: 'defect_type_name', header: '부적합유형명', width: 200, align: 'center'},
+            {key: 'description', header: '비고', width: 500, align: 'center'}
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -181,15 +176,13 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
             theGrid.hostElement.addEventListener('click', function (e) {
                 let selectedItem = theGrid.selectedItems[0];
@@ -202,7 +195,6 @@
                 setButtonState();
             });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
 
         }
 
@@ -273,8 +265,6 @@
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
@@ -282,15 +272,10 @@
                 return;
             }
 
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
 

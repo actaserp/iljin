@@ -302,9 +302,9 @@
 
                 this.head_id = 0;
                 this.ship_state = '';
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
-                this.viewData3 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
+                this.viewData3 = [];
 
 
                 this.$LoadSujuList = $('#LoadSujuList');
@@ -314,47 +314,39 @@
 
             init() {
                 let _this = this;
-                this.grid1 = new wijmo.grid.FlexGrid('#theGrid', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: false,
-                    columns: [
-                        {binding: 'company_id', header: '판매처번호', width: '*', align: 'right', visible: false},
-                        {binding: 'company_name', header: '판매처', width: '*', align: 'left', isReadOnly: true},
-                        {binding: 'ship_date', header: '출고일', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'tot_order_qty', header: '총지시량', width: '*', align: 'right', isReadOnly: true},
-                        {binding: 'tot_ship_qty', header: '총출고량', width: '*', align: 'right', isReadOnly: true},
-                        {binding: 'state_name', header: '상태', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'description', header: '비고', width: '*', align: 'left', isReadOnly: true},
-                    ],
-                    itemsSource: this.viewData,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
+                this.grid1 = new EditTable('#theGrid', {
+                    selectFirst: false,
+                    rowCheck: true,
+                    onCheck: (e, ctx) => {
+                        SelectItem = this.grid1.getChecked().map(d => ({dataItem: d, _data: d, isSelected: true}));
+
                     },
+                     // 행 단위 선택
+                    readOnly: false,
+                    columns: [
+                        {key: 'company_id', header: '판매처번호', width: '1*', align: 'right', visible: false},
+                        {key: 'company_name', header: '판매처', width: '1*', align: 'left', readOnly: true},
+                        {key: 'ship_date', header: '출고일', width: '1*', align: 'center', readOnly: true},
+                        {key: 'tot_order_qty', header: '총지시량', width: '1*', align: 'right', readOnly: true},
+                        {key: 'tot_ship_qty', header: '총출고량', width: '1*', align: 'right', readOnly: true},
+                        {key: 'state_name', header: '상태', width: '1*', align: 'center', readOnly: true},
+                        {key: 'description', header: '비고', width: '1*', align: 'left', readOnly: true},
+                    ]
 
                 });
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.grid1.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid1.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
-                let isInitialLoad = true; // 초기 상태 플래그
+                this.grid1.setData(this.viewData);
+                let isInitialLoad = false;   // EditTable 은 자료를 넣을 때 선택 이벤트가 없어서 첫 클릭을 버리지 않게 false // 초기 상태 플래그
 
                 this.grid1.selectionChanged.addHandler((s, e) => {
                     if (isInitialLoad) {
                         isInitialLoad = false; // 초기 로드 이후 플래그 해제
-                        this.grid1.select(-1, -1); // 선택 상태 해제
+                        this.grid1.select(null); // 선택 상태 해제
                         return;
                     }
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
 
 
                         _this.head_id = selectedRowData.id;
@@ -363,65 +355,43 @@
 
                     }
                 });
-                new FlexGridContextMenu(this.grid1);
-                this.grid1.downloadFileName = '출고지시';
-                let selector = new wijmo.grid.selector.Selector(this.grid1, {
-                    itemChecked: (e, ctx) => {
-                        SelectItem = this.grid1.rows.filter(r => r.isSelected);
-
-                    }
-                });
+                this.grid1.opts.fileName = '출고지시';
 
 
-                this.grid2 = new wijmo.grid.FlexGrid('#theGrid2', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowDelete: true,
-                    isReadOnly: true,
+                this.grid2 = new EditTable('#theGrid2', {
+                    selectFirst: false,
+                    readOnly: true,
                     columns: [
-                        {binding: 'ship_pk', header: 'pk', width: '*', align: 'left', visible: false},
-                        {binding: 'mat_grp_name', header: '제품그룹', width: '*', align: 'left'},
-                        {binding: 'mat_code', header: '제품코드', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'mat_name', header: '제품명', width: '*', align: 'left', isReadOnly: true},
-                        {binding: 'unit_name', header: '단위', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'order_qty', header: '지시량', width: '*', align: 'right', isReadOnly: true},
-                        {binding: 'ship_qty', header: '출고량', width: '*', align: 'right', isReadOnly: true},
-                        {binding: 'description', header: '비고', width: '*', align: 'left', isReadOnly: true},
+                        {key: 'ship_pk', header: 'pk', width: '1*', align: 'left', visible: false},
+                        {key: 'mat_grp_name', header: '제품그룹', width: '1*', align: 'left'},
+                        {key: 'mat_code', header: '제품코드', width: '1*', align: 'center', readOnly: true},
+                        {key: 'mat_name', header: '제품명', width: '1*', align: 'left', readOnly: true},
+                        {key: 'unit_name', header: '단위', width: '1*', align: 'center', readOnly: true},
+                        {key: 'order_qty', header: '지시량', width: '1*', align: 'right', readOnly: true},
+                        {key: 'ship_qty', header: '출고량', width: '1*', align: 'right', readOnly: true},
+                        {key: 'description', header: '비고', width: '1*', align: 'left', readOnly: true},
                         {
-                            binding: 'src_table_name',
+                            key: 'src_table_name',
                             header: '소스',
-                            width: '*',
+                            width: '1*',
                             align: 'left',
-                            isReadOnly: true,
+                            readOnly: true,
                             visible: false
                         },
                         {
-                            binding: 'src_data_pk',
+                            key: 'src_data_pk',
                             header: '소스pk',
-                            width: '*',
+                            width: '1*',
                             align: 'left',
-                            isReadOnly: true,
+                            readOnly: true,
                             visible: false
                         },
 
-                    ],
-                    itemsSource: this.viewData2,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                    ]
 
                 });
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.grid2.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid2.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
-                let isInitialLoad2 = true; // 초기 상태 플래그
+                this.grid2.setData(this.viewData2);
+                let isInitialLoad2 = false;   // EditTable 은 자료를 넣을 때 선택 이벤트가 없어서 첫 클릭을 버리지 않게 false // 초기 상태 플래그
 
                 this.grid2.selectionChanged.addHandler((s, e) => {
                     if (isInitialLoad2) {
@@ -429,16 +399,15 @@
                         return;
                     }
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
 
 //                        page.updateIndex = this.dindex;
 
                     }
                 });
-                new FlexGridContextMenu(this.grid2);
-                this.grid2.downloadFileName = '출고';
+                this.grid2.opts.fileName = '출고';
 
 
                 this.$LoadSujuList.click(function () {
@@ -482,97 +451,67 @@
                     //AjaxUtil.fillSelectOptions($('#cboMaterial2'), 'material', 'all', '', mat_grp_pk);
                 });
 
-                this.suju_grid = new wijmo.grid.FlexGrid('#suju_grid', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: false,
+                this.suju_grid = new EditTable('#suju_grid', {
+                    selectFirst: false,   // 자료를 넣어도 첫 행을 고르지 않음 (위즈모 loadedRows 의 선택 해제 대신)
+                    rowCheck: true,
+                    onCheck: (e, ctx) => {
+                        SelectItem_sujuGrid = this.suju_grid.getChecked().map(d => ({dataItem: d, _data: d, isSelected: true}));
+
+                    },
+                     // 행 단위 선택
+                    readOnly: false,
                     columns: [
                         {
-                            binding: 'suju_pk',
+                            key: 'suju_pk',
                             header: '수주번호',
-                            width: '*',
+                            width: '1*',
                             align: 'center',
-                            isReadOnly: true,
+                            readOnly: true,
                             visible: false
                         },
-                        {binding: 'JumunNumber', header: '수주번호', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'JumunDate', header: '수주일', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'DueDate', header: '납기일', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'CompanyName', header: '판매처', width: '*', align: 'left', isReadOnly: true},
-                        {binding: 'mat_grp', header: '제품그룹', width: '*', align: 'left', isReadOnly: true},
-                        {binding: 'mat_code', header: '제품코드', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'mat_name', header: '제품명', width: '*', align: 'left', isReadOnly: true},
-                        {binding: 'unit_name', header: '단위', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'suju_qty', header: '수주량', width: '*', align: 'right', isReadOnly: true},
-                        {binding: 'cur_stock', header: '현재고', width: '*', align: 'right', isReadOnly: true},
-                        {binding: 'order_qty', header: '지시량', width: '*', align: 'right', isReadOnly: true},
-                        //{ binding: 'order_input_qty', header: '추가지시량', width: '*', align: 'right', isReadOnly: false },
+                        {key: 'JumunNumber', header: '수주번호', width: '1*', align: 'center', readOnly: true},
+                        {key: 'JumunDate', header: '수주일', width: '1*', align: 'center', readOnly: true},
+                        {key: 'DueDate', header: '납기일', width: '1*', align: 'center', readOnly: true},
+                        {key: 'CompanyName', header: '판매처', width: '1*', align: 'left', readOnly: true},
+                        {key: 'mat_grp', header: '제품그룹', width: '1*', align: 'left', readOnly: true},
+                        {key: 'mat_code', header: '제품코드', width: '1*', align: 'center', readOnly: true},
+                        {key: 'mat_name', header: '제품명', width: '1*', align: 'left', readOnly: true},
+                        {key: 'unit_name', header: '단위', width: '1*', align: 'center', readOnly: true},
+                        {key: 'suju_qty', header: '수주량', width: '1*', align: 'right', readOnly: true},
+                        {key: 'cur_stock', header: '현재고', width: '1*', align: 'right', readOnly: true},
+                        {key: 'order_qty', header: '지시량', width: '1*', align: 'right', readOnly: true},
+                        //{ key: 'order_input_qty', header: '추가지시량', width: '1*', align: 'right', readOnly: false},
                         {
-                            binding: 'order_input_qty',
+                            key: 'order_input_qty',
                             header: '추가지시량',
-                            width: '*',
+                            width: '1*',
                             align: 'right',
-                            isReadOnly: false, // 편집 가능
-                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
-                                format: 'n2', // 정수 형식
-                                min: 0,       // 최소값 설정
-                                max: 99999,   // 최대값 설정
-                                step: 0.1       // 증가/감소 단위
-                            })
-                        },
-                        {binding: 'shipment_qty', header: '출고량', width: '*', align: 'right', isReadOnly: true},
-                        {binding: 'remark', header: '비고', width: '*', align: 'left', isReadOnly: true}
+                            readOnly: false, // 편집 가능
+                            type: 'number', cellClass: 'et-hl'},
+                        {key: 'shipment_qty', header: '출고량', width: '1*', align: 'right', readOnly: true},
+                        {key: 'remark', header: '비고', width: '1*', align: 'left', readOnly: true}
                     ],
-                    itemsSource: this.viewData3,
-                    formatItem: (s, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                            let col = s.columns[e.col];
-                            if (col.binding === 'order_input_qty') {
-                                e.cell.style.backgroundColor = '#ffd800'; // 배경색 노란색으로 설정
-                                e.cell.style.color = 'black';           // 글자색 설정 (가독성 고려)
-                            }
-                        }
-                    },
 
                 });
+                this.suju_grid.setData(this.viewData3);
                 // 데이터 로드 후 초기 선택 상태 해제
-                this.suju_grid.beginningEdit.addHandler((s, e) => {
+                this.suju_grid.opts.onBeginEdit = (_item, _key, s) => {
+                    const e = {row: s.getPageRows().indexOf(_item), col: s.columns.findIndex(c => c.key === _key)};   // 위즈모 beginningEdit 의 e
                     let col = s.columns[e.col]; // 현재 편집 중인 컬럼
                     let row = e.row;            // 현재 편집 중인 행
 
                     // 편집 중인 컬럼이 'order_input_qty'인 경우
-                    if (col.binding === 'order_input_qty') {
+                    if (col.key === 'order_input_qty') {
                         // suju_qty 열의 값을 가져옴
-                        let sujuQtyValue = s.getCellData(row, s.columns.getColumn('suju_qty').index, false);
+                        let sujuQtyValue = s.getPageRows()[row]['suju_qty'];
 
                         // 현재 편집 중인 셀에 suju_qty 값을 설정
-                        s.setCellData(row, col.index, sujuQtyValue);
+                        s.setValue(s.getPageRows()[row], col.key, sujuQtyValue);
                     }
-                });
+                };
 
-                this.suju_grid.loadedRows.addHandler(() => {
 
-                    let isInitialLoad = true;
-
-                    this.suju_grid.selectionChanged.addHandler((s, e) => {
-                        if (isInitialLoad) {
-                            isInitialLoad = false; // 초기 로드 이후 플래그 해제
-                            this.suju_grid.select(-1, -1); // 선택 상태 해제
-                            return;
-                        }
-                    })
-                })
-
-                new FlexGridContextMenu(this.suju_grid);
-                this.suju_grid.downloadFileName = '수주리스트';
-                let selector = new wijmo.grid.selector.Selector(this.suju_grid, {
-                    itemChecked: (e, ctx) => {
-                        SelectItem_sujuGrid = this.suju_grid.rows.filter(r => r.isSelected);
-
-                    }
-                });
+                this.suju_grid.opts.fileName = '수주리스트';
 
                 _this.searchMain_SujuList();
 
@@ -710,8 +649,8 @@
                         return i;
                 }
 
-                /*for(let i = 0; i < this.suju_grid.collectionView.items.length; i++){
-                    if(mat_pk == this.suju_grid.collectionView.items[i].mat_id)
+                /*for(let i = 0; i < this.suju_grid.getView().length; i++){
+                    if(mat_pk == this.suju_grid.getView()[i].mat_id)
                         return i;
                 }
                 */
@@ -729,10 +668,10 @@
 
                 let result = AjaxUtil.getSyncData(gUrl + "/order_list", data);
                 if (result.data != null) {
-                    this.viewData.sourceCollection = result.data;
+                    this.grid1.setData(result.data);
                 }
 
-                this.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+                this.grid2.setData([]);
                 return;
 
             }
@@ -744,7 +683,7 @@
                     return;
                 }
 
-                this.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+                this.grid2.setData([]);
 
                 let data = {};
                 data['action'] = 'shipment_item_list';
@@ -757,9 +696,7 @@
             }
 
             addNewRow(new_data) {
-                let cv = this.grid2.collectionView;
-
-
+                let rows = [];
                 new_data.forEach(item => {
                     let newRow = {
                         ship_pk: item['ship_pk'],
@@ -773,8 +710,9 @@
                         src_table_name: item['src_table_name'],
                         src_data_pk: item['src_data_pk']
                     };
-                    cv.addNew(newRow);
+                    rows.push(newRow);
                 });
+                this.grid2.setData(rows);   // 조회 자료는 setData 로 한 번에 (addRow 는 "새 행" 표시 · 기울임 + 이전 자료에 이어 붙음)
 
             }
 
@@ -791,7 +729,7 @@
                 let head_id = page.head_id;
                 data = {
                     'head_id': head_id,
-                    'Q': JSON.stringify(page.grid2.collectionView.items)
+                    'Q': JSON.stringify(page.grid2.getPlain(page.grid2.getView()))
                 }
 
                 let fnSuccess = function (res) {
@@ -816,7 +754,7 @@
                 let result = AjaxUtil.getSyncData("/api/shipment/shipment_order/suju_list", data);
 
                 if (result.data != null) {
-                    this.viewData3.sourceCollection = result.data;
+                    this.suju_grid.setData(result.data);
                 }
 
                 return;

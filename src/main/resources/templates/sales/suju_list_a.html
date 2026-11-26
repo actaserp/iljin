@@ -629,7 +629,7 @@
         this.grid = null;
         this.$btnEdit = $('#btnEdit');
         this.$btnAddNew = $('#btnAddNew');
-        this.viewData = new wijmo.collections.CollectionView();
+        this.viewData = [];
         this.init();
 
       }
@@ -644,65 +644,32 @@
 
       init() {
         let _this = this;
-        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-          selectionMode: wijmo.grid.SelectionMode.Row,
-          headersVisibility: wijmo.grid.HeadersVisibility.Column,
-          autoGenerateColumns: false,
-          showMarquee: true,
-          isReadOnly: true,
-          formatItem: (sender, e) => {
-            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-              e.cell.style.textAlign = 'center';
-            }
-          },
+        this.grid = new EditTable('#theGrid', {
+          readOnly: true,
           columns: [
-            {binding: 'CompanyName', header: '판매처', width: 190, align: 'left'},
-            {binding: 'JumunDate', header: '수주일', width: 120, align: 'center'},
-            {binding: 'JumunNumber', header: '수주 번호', width: 150, align: 'center', visible: false},
-            {binding: 'product_name', header: '제품명', width: 400},
-            {binding: 'TotalPrice', header: '총액', width: 120, align: 'right', format: 'n0'},
-            {binding: 'DueDate', header: '납기일', width: 120, align: 'center'},
-            {binding: 'StateName', header: '작업상태', width: 100, align: 'center'},
-            {binding: 'ShipmentStateName', header: '출하상태', width: 100, align: 'center'},
-            {binding: 'SujuTypeName', header: '수주구분', width: 100, align: 'center'},
+            {key: 'CompanyName', header: '판매처', width: 190, align: 'left'},
+            {key: 'JumunDate', header: '수주일', width: 120, align: 'center'},
+            {key: 'JumunNumber', header: '수주 번호', width: 150, align: 'center', visible: false},
+            {key: 'product_name', header: '제품명', width: 400},
+            {key: 'TotalPrice', header: '총액', width: 120, align: 'right', format: 'n0'},
+            {key: 'DueDate', header: '납기일', width: 120, align: 'center'},
+            {key: 'StateName', header: '작업상태', width: 100, align: 'center'},
+            {key: 'ShipmentStateName', header: '출하상태', width: 100, align: 'center'},
+            {key: 'SujuTypeName', header: '수주구분', width: 100, align: 'center'},
             {
-              binding: 'suju_action',
+              key: 'suju_action',
               header: '견적확정',
               width: 80,
               align: 'center',
-              isReadOnly: true
-            },
-            {binding: 'Description', header: '비고', width: '*'}
+              readOnly: true, type: 'button', buttonText: r => userinfo.can_write() && String(r.SujuTypeName ?? '').trim() === '견적' ? '확정' : null, onClick: (item, s) => { _this.selectedIndex = s.getPageRows().indexOf(item); handleOrderClick(_this.selectedIndex, item); }   /* 위즈모 formatItem 으로 그리던 '확정' 버튼 (견적인 줄만) */},
+            {key: 'Description', header: '비고', width: '1*'}
           ],
-          itemsSource: this.viewData, // 데이터를 설정할 배열
+           // 데이터를 설정할 배열
         });
+        this.grid.setData(this.viewData);
 
-        new FlexGridContextMenu(this.grid);
-        this.grid.downloadFileName = '수주 내역';
+        this.grid.opts.fileName = '수주 내역';
 
-        _this.grid.formatItem.addHandler(function (s, e) {
-          if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-            let col = s.columns[e.col];
-
-            if (col.binding === 'suju_action' && userinfo.can_write()) {
-              const item = s.rows[e.row]?.dataItem;
-              e.cell.innerHTML = '';
-              if (String(item?.SujuTypeName ?? '').trim() === '견적') {
-                const btn = document.createElement('button');
-                btn.className = 'btn-default';
-                btn.style.width = '100%';
-                btn.style.height = '25px';
-                btn.innerText = '확정';
-                btn.onclick = function () {
-                  _this.selectedIndex = s.rows.findIndex(r => r.dataItem === item);
-                  handleOrderClick(_this.selectedIndex, item);
-                };
-                e.cell.appendChild(btn);
-              }
-            }
-
-          }
-        });
 
         function handleOrderClick(rowIndex, selectedItem) {
 
@@ -2683,7 +2650,7 @@
 
         let fnsuccess = function (result) {
           if (result != null) {
-            _this.viewData.sourceCollection = result.data;
+            _this.grid.setData(result.data);
 
             if (window.selectedGridId) {
               GridUtil.selectRowById(_this.grid, window.selectedGridId);

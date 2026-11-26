@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-  <style>
-      .wj-header {
-          text-align: center !important;
-      }
-  </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -168,12 +163,12 @@
     var viewdata;
 
     let columns = [
-      {binding: 'row_num', header: 'No', width: 140, align: 'center'},
-      {binding: 'type', header: '구분', width: 140, align: 'center'},
-      {binding: 'source', header: '에러위치', width: 220, align: 'center'},
-      {binding: 'message', header: '설명', width: 300, align: 'center'},
-      {binding: 'created', header: '생성일', width: 260, align: 'center'},
-      {binding: '', header: '', width: "*", align: 'center'},
+      {key: 'row_num', header: 'No', width: 140, align: 'center'},
+      {key: 'type', header: '구분', width: 140, align: 'center'},
+      {key: 'source', header: '에러위치', width: 220, align: 'center'},
+      {key: 'message', header: '설명', width: 300, align: 'center'},
+      {key: 'created', header: '생성일', width: 260, align: 'center'},
+      
     ];
 
 
@@ -219,15 +214,13 @@
           console.log('Grid initialized with empty data.');
       }*/
 
-      viewdata = new wijmo.collections.CollectionView(data2);
+      viewdata = data2;
       // 데이터 그리드에 바인딩
-      theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-        autoGenerateColumns: false,
-        showMarquee: true,
+      theGrid = new EditTable('#theGrid', {
         columns: columns,
-        isReadOnly: true,
-        itemsSource: viewdata
+        readOnly: true
       });
+      theGrid.setData(viewdata);
 
       theGrid.hostElement.addEventListener('dblclick', function (e) {
         let selectedItem = theGrid.selectedItems[0];
@@ -238,9 +231,7 @@
         document.getElementById('created').value = selectedItem.created;
       });
 
-      theGrid.rowHeaders.columns.splice(0, 1);  //맨 앞에 헤더부분 없애기
 
-      /*new FlexGridContextMenu(theGrid);*/
     }
 
     $('#btnSearch').click(searchData);
@@ -290,18 +281,11 @@
         created: item.created
       }));
 
-      theGrid.columns.clear();
-      theGrid.autoGenerateColumns = false;
 
-      columns.forEach(colDef => {
-        let col = new wijmo.grid.Column(colDef);
-        theGrid.columns.push(col);
-      });
 
-      viewdata = new wijmo.collections.CollectionView(formattedData);
+      viewdata = formattedData;
 
-      theGrid.itemsSource = viewdata;
-      theGrid.refresh();
+      theGrid.setData(viewdata);
     }
 
     // let gridContainer = $('#theGridContainer');

@@ -151,42 +151,29 @@
                 this.grid = null;
                 this.grid2 = null;
                 this.test_item_grid = null;
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
                 this.init();
             }
 
             init() {
                 let _this = this;
 
-                this.grid = new wijmo.grid.FlexGrid('#process-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                this.grid = new EditTable('#process-grid', {
+                    selectFirst: false,
+                    readOnly: true,
                     columns: [
-                        {binding: 'id', header: '번호', width: 150, align: 'left'},
-                        {binding: 'test_method_code', header: '검사방법코드', width: 150, align: 'left'},
-                        {binding: 'test_method_name', header: '검사방법명', width: 200, align: 'left'},
-                        {binding: 'equip_group_name', header: '설비그룹', width: 150, align: 'left'},
-                        {binding: '', header: '', width: "*", align: 'left'},
+                        {key: 'id', header: '번호', width: 150, align: 'left'},
+                        {key: 'test_method_code', header: '검사방법코드', width: 150, align: 'left'},
+                        {key: 'test_method_name', header: '검사방법명', width: 200, align: 'left'},
+                        {key: 'equip_group_name', header: '설비그룹', width: 150, align: 'left'},
                     ],
-                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                     // 데이터를 설정할 배열
                 });
+                this.grid.setData(this.viewData);
 
-                this.grid.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
 
-                let isInitialLoad = true; // 초기 상태 플래그
+                let isInitialLoad = false;   // EditTable 은 자료를 넣을 때 선택 이벤트가 없어서 첫 클릭을 버리지 않게 false // 초기 상태 플래그
 
                 this.grid.selectionChanged.addHandler((s, e) => {
                     if (isInitialLoad) {
@@ -194,9 +181,9 @@
                         return;
                     }
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
                         let id = selectedRowData.id; // 품목 ID 가져오기
 
                         _this.showDetail(id);
@@ -209,9 +196,9 @@
 
                 this.grid.hostElement.addEventListener('dblclick', (e) => {
                     let hitTest = this.grid.hitTest(e);
-                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                    if (hitTest.cellType === 'cell') {
                         let row = hitTest.row;
-                        let selectedItem = this.grid.rows[row].dataItem;
+                        let selectedItem = this.grid.getPageRows()[row];
                         _this.showDetail(selectedItem.id);
                         _this.showTestItem();
 
@@ -219,8 +206,7 @@
                 });
 
 
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '검사방법 정보';
+                this.grid.opts.fileName = '검사방법 정보';
 
                 /*let config = {
                     target: $('[data-ax5grid="process-grid"]'),
@@ -259,29 +245,19 @@
                 this.grid_config = config;*/
 
 
-                this.grid2 = new wijmo.grid.FlexGrid('#test_item_grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                this.grid2 = new EditTable('#test_item_grid', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'id', header: '번호', width: 80, align: 'right', visible:false},
-                        {binding: 'test_item_code', header: '검사항목코드', width: 150, align: 'left'},
-                        {binding: 'test_item_name', header: '검사항목명', width: 150, align: 'left'},
-                        {binding: '', header: '', width: "*", align: 'right'},
+                        {key: 'id', header: '번호', width: 80, align: 'right', visible:false},
+                        {key: 'test_item_code', header: '검사항목코드', width: 150, align: 'left'},
+                        {key: 'test_item_name', header: '검사항목명', width: 150, align: 'left'},
 
                     ],
-                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                     // 데이터를 설정할 배열
                 });
+                this.grid2.setData(this.viewData2);
 
-                new FlexGridContextMenu(this.grid2);
-                this.grid2.downloadFileName = '검사항목 지정';
+                this.grid2.opts.fileName = '검사항목 지정';
 
                 /*let test_item_config = {
                     target: $('[data-ax5grid="test_item_grid"]'),
@@ -340,7 +316,7 @@
 
                 let result = AjaxUtil.getSyncData(url, param);
                 if (result != null) {
-                    _this.viewData.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                 }
 
                 $('#testMethodForm')[0].reset();
@@ -429,7 +405,7 @@
                             totalElements: count,
                         }
                     });*/
-                    _this.viewData2.sourceCollection = result.data;
+                    _this.grid2.setData(result.data);
                 }
             }
 
@@ -517,9 +493,9 @@
                 });
 
 
-                if (page.grid2 && page.grid2.collectionView) {
-                    page.grid2.collectionView.sourceCollection.length = 0;  // 기존 CollectionView 유지하면서 데이터만 비움
-                    page.grid2.collectionView.refresh();  // 갱신
+                if (page.grid2 && page.grid2.getData()) {
+                    page.grid2.getData().length = 0;  // 기존 CollectionView 유지하면서 데이터만 비움
+                    page.grid2.refresh();  // 갱신
                 } else {
                     console.log("grid2가 아직 생성되지 않았습니다.");
                 }

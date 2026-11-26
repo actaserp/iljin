@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-  <style>
-      .wj-header {
-          text-align: center !important;
-      }
-  </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -168,11 +163,11 @@
     var viewdata;
 
     let columns = [
-      {binding: 'table_name', header: '테이블', width: 180, align: 'center'},
-      {binding: 'table_code', header: '코드', width: 150, align: 'center'},
-      {binding: 'val_type', header: '값유형', width: 160, align: 'center'},
-      {binding: 'description', header: '설명', width: '*', align: 'center'},
-      /*{binding: '', header: '', width: "*", align: 'center'}*/
+      {key: 'table_name', header: '테이블', width: 180, align: 'center'},
+      {key: 'table_code', header: '코드', width: 150, align: 'center'},
+      {key: 'val_type', header: '값유형', width: 160, align: 'center'},
+      {key: 'description', header: '설명', width: '1*', align: 'center'},
+      /**/
     ];
 
     document.readyState === 'complete' ? init() : window.onload = init;
@@ -197,15 +192,13 @@
         }
       })
 
-      viewdata = new wijmo.collections.CollectionView(data2);
+      viewdata = data2;
 
-      theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-        autoGenerateColumns: false,
-        showMarquee: true,
+      theGrid = new EditTable('#theGrid', {
         columns: columns,
-        isReadOnly: true,
-        itemsSource: viewdata
+        readOnly: true
       });
+      theGrid.setData(viewdata);
 
 
       theGrid.hostElement.addEventListener('click', function (e) {
@@ -248,8 +241,6 @@
       });
 
 
-      theGrid.rowHeaders.columns.splice(0, 1);
-      /*  new FlexGridContextMenu(theGrid);*/
 
     }
 
@@ -294,6 +285,7 @@
 
 
       let menulogData = data.map(item => ({
+        id: item.id,   // 검색 뒤에도 id 가 있어야 수정 · 삭제가 됨 (2026-11-24)
         table_name: item.table_name,
         table_code: item.table_code,
         description: item.description,
@@ -306,8 +298,6 @@
         return;
       }
 
-      theGrid.columns.clear();
-      theGrid.autoGenerateColumns = false;
 
       // columns 배열이 정의되어 있는지 확인
       if (typeof columns === 'undefined' || !Array.isArray(columns)) {
@@ -315,15 +305,10 @@
         return;
       }
 
-      columns.forEach(columnDef => {
-        var col = new wijmo.grid.Column(columnDef);
-        theGrid.columns.push(col);
-      });
 
-      viewdata = new wijmo.collections.CollectionView(menulogData);
+      viewdata = menulogData;
 
-      theGrid.itemsSource = viewdata;
-      theGrid.refresh();
+      theGrid.setData(viewdata);
     }
 
     //저장

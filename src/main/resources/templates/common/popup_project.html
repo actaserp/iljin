@@ -68,7 +68,7 @@
 
                 this.ele = ele;
                 this.grid = null;
-                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData = [];
                 this.selectedItem = null;
                 this.callback = null;
                 this.modalContainer = new PopupDraggable('프로젝트 선택');
@@ -89,21 +89,20 @@
 
                 let result = AjaxUtil.getSyncData(url, data);
                 if (result) {
-                    _this.viewData.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                     setTimeout(() => {
-                        if (_this.grid && _this.grid.rows.length > 0) {
-                            _this.grid.select(0, 0); // 첫 번째 행, 첫 번째 열 선택
-                            _this.grid.focus(); // 그리드에 포커스
+                        if (_this.grid && _this.grid.getPageRows().length > 0) {
+                            _this.grid.select(_this.grid.getPageRows()[0]); // 첫 번째 행, 첫 번째 열 선택
+                            _this.grid.el.focus(); // 그리드에 포커스
                         }
                     }, 0);
                     setTimeout(() => {
-                        if (_this.grid.rows.length > 0) {
-                            let colIndex = _this.grid.columns.findIndex(col => col.binding === 'accountNumber');
+                        if (_this.grid.getPageRows().length > 0) {
+                            let colIndex = _this.grid.columns.findIndex(col => col.key === 'accountNumber');
 
                             if (colIndex > -1) {
-                                _this.grid.select(0, colIndex);
-                                _this.grid.selection = new wijmo.grid.CellRange(0, colIndex);
-                                _this.grid.focus();
+                                _this.grid.select(_this.grid.getPageRows()[0]);   // 첫 행 (EditTable 은 행 단위 선택)
+                                _this.grid.el.focus();
                             }
                         }
                     }, 100);
@@ -134,24 +133,18 @@
 
                 $('#srchName').val(_this.ele);
 
-                this.grid = new wijmo.grid.FlexGrid('#search-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
-                    keyActionEnter: wijmo.grid.KeyAction.None,
+                this.grid = new EditTable('#search-grid', {
+                    readOnly: true,
                     columns: [
-                        { binding: 'projno', header: '프로젝트 번호', width: 120, align: 'center' },
-                        { binding: 'projnm', header: '프로젝트 명칭', width: '*', align: 'left' },
-                        { binding: 'actnm', header: '현장명', width: 120, align: 'left' },
-                        { binding: 'stdate', header: '시작일자', width: 120, align: 'center' },
-                        { binding: 'eddate', header: '종료일자', width: 120, align: 'center' }
-                    ],
-                    itemsSource: this.viewData,
+                        { key: 'projno', header: '프로젝트 번호', width: 120, align: 'center' },
+                        { key: 'projnm', header: '프로젝트 명칭', width: '1*', align: 'left' },
+                        { key: 'actnm', header: '현장명', width: 120, align: 'left' },
+                        { key: 'stdate', header: '시작일자', width: 120, align: 'center' },
+                        { key: 'eddate', header: '종료일자', width: 120, align: 'center' }
+                    ]
                 });
-                this.grid.rowHeaders.columns.splice(0, 1);
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '프로젝트';
+                this.grid.setData(this.viewData);
+                this.grid.opts.fileName = '프로젝트';
 
                 this.$btnSearch = $content.find('#btnSearch');
                 this.$srchCode = $content.find('#srchCode');
@@ -164,7 +157,7 @@
                 });
 
                 if(result){
-                    _this.viewData.sourceCollection = result;
+                    _this.grid.setData(result);
                 }else{
                     _this.searchDataBind();
                 }
@@ -186,7 +179,7 @@
 
                 //새로고침
                 // $('#btnTest').click(function (e) {
-                //     _this.grid.collectionView.refresh(); // Wijmo 그리드 새로고침
+                //     _this.grid.refresh(); // Wijmo 그리드 새로고침
                 // });
 
                 this.grid.hostElement.addEventListener('dblclick', function (e) {

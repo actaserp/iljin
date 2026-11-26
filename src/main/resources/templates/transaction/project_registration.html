@@ -677,7 +677,7 @@
      this.$Newbtn = $('#Newbtn'); //신규등록
      this.$btnSave = $('#btnSave'); //저장
      this.$btnDelete = $('#btnDelete'); //삭제
-     this.viewData = new wijmo.collections.CollectionView();
+     this.viewData = [];
      this.spjangcd = $('#spjangcdHidden');
      this.url = '/api/transaction/projectRegistration';
      this.MIN_STAGE_ROWS = 3;   // ✅ 기본으로 보여줄 빈 행 수
@@ -686,31 +686,22 @@
 
     init() {
      let _this = this;
-     this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-      autoGenerateColumns: false,
-      selectionMode: wijmo.grid.SelectionMode.Row,
-      headersVisibility: wijmo.grid.HeadersVisibility.Column,
-      isReadOnly: true,
-      showMarquee: true,
-      formatItem: (sender, e) => {
-       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-        e.cell.style.textAlign = 'center';
-       }
-      },
+     this.grid = new EditTable('#theGrid', {
+      readOnly: true,
       columns: [
-       {binding: 'projno', header: '번호', width: 130},
-       {binding: 'projnm', header: '프로젝트명', width: 200},
-       {binding: 'balcltnm', header: '거래처명', width: '*'}
+       {key: 'projno', header: '번호', width: 130},
+       {key: 'projnm', header: '프로젝트명', width: 200},
+       {key: 'balcltnm', header: '거래처명', width: '1*'}
       ],
-      itemsSource: this.viewData, // 데이터를 설정할 배열
+       // 데이터를 설정할 배열
      });
+     this.grid.setData(this.viewData);
 
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = '프로젝트등록';
+     this.grid.opts.fileName = '프로젝트등록';
 
      this.grid.hostElement.addEventListener('dblclick', (e) => {
       const ht = this.grid.hitTest(e);
-      if (ht.cellType === wijmo.grid.CellType.Cell) {
+      if (ht.cellType === 'cell') {
        const selectedItem = this.grid.selectedItems[0];
 
        $('#projno').val(selectedItem.projno);
@@ -1280,8 +1271,8 @@
      }
      let fnsuccess = function (result) {
       if (result != null) {
-       _this.viewData = new wijmo.collections.CollectionView(result.data);
-       _this.grid.itemsSource = _this.viewData;
+       _this.viewData = result.data;
+       _this.grid.setData(_this.viewData);
       }
      };
 

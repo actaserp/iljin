@@ -203,43 +203,9 @@
 
 <th:block layout:fragment="scripts">
   <script type="text/javascript">
-   let gUrl = "/api/quality/instrument";   // ★ 실제 CRUD 엔드포인트 (연결 시 사용)
+   let gUrl = "/api/quality/instrument";
 
-   // ===================== 목업 데이터 =====================
-   // 업로드하신 표의 3차원 측정기 데이터를 첫 행에 반영
-   let MOCK_DATA = [
-    {
-     inst_id: 1, code: 'INST-001', name: '3차원 측정기', model: 'CMM-700',
-     manage_no: 'QC-3D-01', auto_level: 'semi', auto_level_name: '반자동',
-     scope: 'all', scope_name: '전체', cert_auto: 'X',
-     calib_cycle: 12, state: 'use', state_name: '사용', dept: '품질보증팀',
-     inspect_items: '치수값/합불 DB화, 성적서 표준, 부적합 조치(재가공/재검정) 이력',
-     function_desc: '자동 합격 판정 및 품질 이력',
-     db_items: '측정값, 공차, 합불, 성적서, 조치 이력',
-     description: ''
-    },
-    {
-     inst_id: 2, code: 'INST-002', name: '버니어 캘리퍼스', model: 'CD-15CPX',
-     manage_no: 'QC-CAL-05', auto_level: 'manual', auto_level_name: '수동',
-     scope: 'part', scope_name: '부분', cert_auto: 'X',
-     calib_cycle: 6, state: 'use', state_name: '사용', dept: '가공1팀',
-     inspect_items: '외경/내경/깊이 측정',
-     function_desc: '수기 측정값 기록',
-     db_items: '측정값, 합불',
-     description: ''
-    },
-    {
-     inst_id: 3, code: 'INST-003', name: '표면조도 측정기', model: 'SJ-210',
-     manage_no: 'QC-RA-02', auto_level: 'auto', auto_level_name: '자동',
-     scope: 'all', scope_name: '전체', cert_auto: 'O',
-     calib_cycle: 12, state: 'calib', state_name: '검정중', dept: '품질보증팀',
-     inspect_items: '표면조도(Ra/Rz) DB화, 성적서 자동생성',
-     function_desc: '자동 판정 및 성적서 자동발행',
-     db_items: '측정값, 공차, 합불, 성적서',
-     description: '검정 의뢰중(2026-08)'
-    }
-   ];
-   let MOCK_SEQ = 4;
+   // 예전엔 화면 안 목업 자료로만 움직였음 → instrument 테이블 API 로 (2026-11-25)
 
    const AUTO_MAP  = { manual:'수동', semi:'반자동', auto:'자동' };
    const SCOPE_MAP = { all:'전체', part:'부분' };
@@ -251,46 +217,36 @@
      this.$btnAddNew = $('#btnAddNew');
      this.$btnEdit   = $('#btnEdit');
      this.spjangcd   = $('#spjangcdHidden');
-     this.viewData   = new wijmo.collections.CollectionView([]);
+     this.viewData   = [];
      this.init();
     }
 
     init() {
      let _this = this;
-     this.grid = new wijmo.grid.FlexGrid('#instrument-grid', {
-      autoGenerateColumns: false,
-      allowSorting: true,
+     this.grid = new EditTable('#instrument-grid', {
       frozenColumns: 3,
-      selectionMode: wijmo.grid.SelectionMode.Row,
-      headersVisibility: wijmo.grid.HeadersVisibility.All,
-      isReadOnly: true,
-      itemsSource: this.viewData,
-      formatItem: (s, e) => {
-       if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-        e.cell.textContent = (e.row + 1).toString();
-       }
-       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-        e.cell.style.textAlign = 'center';
-       }
-      },
+      readOnly: true,
+      rowNumbers: true,
       columns: [
-       { binding: 'code',           header: '계측기코드', width: 110, align: 'center' },
-       { binding: 'name',           header: '계측기명',   width: 150 },
-       { binding: 'model',          header: '규격/모델',  width: 120, align: 'center' },
-       { binding: 'manage_no',      header: '관리번호',   width: 110, align: 'center' },
-       { binding: 'auto_level_name',header: '자동화수준', width: 90,  align: 'center' },
-       { binding: 'scope_name',     header: '적용범위',   width: 80,  align: 'center' },
-       { binding: 'cert_auto',      header: '성적서자동', width: 90,  align: 'center' },
-       { binding: 'calib_cycle',    header: '교정주기(월)', width: 100, align: 'right', format: 'n0' },
-       { binding: 'inspect_items',  header: '관리/검사항목', width: 300 },
-       { binding: 'function_desc',  header: '기능',       width: 220 },
-       { binding: 'db_items',       header: '검사 DB',    width: 240 },
-       { binding: 'dept',           header: '사용부서',   width: 110, align: 'center' },
-       { binding: 'state_name',     header: '상태',       width: 80,  align: 'center' }
+       { key: 'code',           header: '계측기코드', width: 110, align: 'center' },
+       { key: 'name',           header: '계측기명',   width: 150 },
+       { key: 'model',          header: '규격/모델',  width: 120, align: 'center' },
+       { key: 'manage_no',      header: '관리번호',   width: 110, align: 'center' },
+       { key: 'auto_level_name',header: '자동화수준', width: 90,  align: 'center' },
+       { key: 'scope_name',     header: '적용범위',   width: 80,  align: 'center' },
+       { key: 'cert_auto',      header: '성적서자동', width: 90,  align: 'center' },
+       { key: 'calib_cycle',    header: '교정주기(월)', width: 100, align: 'right', format: 'n0' },
+       { key: 'inspect_items',  header: '관리/검사항목', width: 300 },
+       { key: 'function_desc',  header: '기능',       width: 220 },
+       { key: 'db_items',       header: '검사 DB',    width: 240 },
+       { key: 'dept',           header: '사용부서',   width: 110, align: 'center' },
+       { key: 'state_name',     header: '상태',       width: 80,  align: 'center', cellClass: r => r.state === 'scrap' ? 'et-mute' : r.state === 'calib' ? 'et-orange' : '' },
+       { key: 'last_calib_date',header: '최근교정일', width: 100, align: 'center' },
+       { key: 'next_calib_date',header: '다음교정일', width: 100, align: 'center', cellClass: r => r.next_calib_date && r.next_calib_date < CommonUtil.getYYYYMMDD() ? 'et-red' : '' }
       ]
      });
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = '계측기 기준정보';
+     this.grid.setData(this.viewData);
+     this.grid.opts.fileName = '계측기 기준정보';
 
      this.grid.hostElement.addEventListener('dblclick', function () {
       if (_this.grid.selectedItems.length === 0) return false;
@@ -321,11 +277,11 @@
       if (items.length === 0) { Alert.alert('', '삭제할 계측기를 선택해주세요.'); return; }
       let target = items[0];
       Alert.confirm('', '삭제하시겠습니까?', function () {
-       // ── 실제 API 연결 시 ──
-       // AjaxUtil.postAsyncData(gUrl + '/delete', { id: target.inst_id }, ...)
-       MOCK_DATA = MOCK_DATA.filter(x => x.inst_id !== target.inst_id);
-       Notify.success('삭제되었습니다.');
-       _this.searchMainData();
+       AjaxUtil.postAsyncData(gUrl + '/delete', { id: target.inst_id }, function (res) {
+        if (res && res.success === false) { Alert.alert('', res.message || '삭제하지 못했습니다.'); return; }
+        Notify.success('삭제되었습니다.');
+        _this.searchMainData();
+       });
       });
      });
 
@@ -379,18 +335,14 @@
       };
 
       Alert.confirm('', '저장하시겠습니까?', function () {
-       // ── 실제 API 연결 시 ──
-       // AjaxUtil.postSyncData(gUrl + '/save', record) 등으로 교체
-       if (record.inst_id) {
-        let idx = MOCK_DATA.findIndex(x => x.inst_id === record.inst_id);
-        if (idx > -1) MOCK_DATA[idx] = record;
-       } else {
-        record.inst_id = MOCK_SEQ++;
-        MOCK_DATA.push(record);
-       }
-       Notify.success('저장되었습니다.');
-       _this.searchMainData();
-       modalContainer.close();
+       record.inst_id = record.inst_id || '';
+       record.spjangcd = $content.find('#spjangcdHidden').val() || sessionStorage.getItem('spjangcd');
+       AjaxUtil.postAsyncData(gUrl + '/save', record, function (res) {
+        if (res && res.success === false) { Alert.alert('', res.message || '저장하지 못했습니다.'); return; }
+        Notify.success('저장되었습니다.');
+        _this.searchMainData();
+        modalContainer.close();
+       });
       });
      };
 
@@ -400,24 +352,18 @@
      });
     } // showInstrumentForm
 
-    // ===================== 조회 (목업 필터) =====================
+    // ===================== 조회 =====================
     searchMainData() {
      let _this = this;
      let autoLevel = $('#cboAutoLevel').val();
      let state     = $('#cboState').val();
      let keyword   = ($('#txtKeyword').val() || '').trim();
 
-     // ── 실제 API 연결 시 ──
-     // AjaxUtil.getAsyncData(gUrl + '/read', {...}, function(result){ _this.viewData.sourceCollection = result.data; });
-
-     let rows = MOCK_DATA.filter(x => {
-      if (autoLevel && x.auto_level !== autoLevel) return false;
-      if (state && x.state !== state) return false;
-      if (keyword && !(x.name.includes(keyword) || x.code.includes(keyword))) return false;
-      return true;
-     }).map(x => Object.assign({}, x));
-
-     _this.viewData.sourceCollection = rows;
+     let result = AjaxUtil.getSyncData(gUrl + '/read', {
+      auto_level: autoLevel, state: state, keyword: keyword,
+      spjangcd: sessionStorage.getItem('spjangcd')
+     });
+     _this.grid.setData(result && Array.isArray(result.data) ? result.data : []);
     }
    }
 

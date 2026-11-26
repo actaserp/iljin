@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>수입검사기준서</title>
     <style>
-        .wj-header { text-align: center !important; }
 
         /* 검사항목 그리드 셀 입력 공통 */
         .insp-input {
@@ -254,9 +253,9 @@
         var itemSeq = 0; // 검사항목 행 번호 시퀀스
 
         let columns = [
-            {binding: 'id',        header: '번호',    width: 60,  align: 'center'},
-            {binding: 'item_name', header: '품목명',   width: '*', align: 'left'},
-            {binding: 'supplier',  header: '협력사',   width: 140, align: 'center'},
+            {key: 'id',        header: '번호',    width: 60,  align: 'center'},
+            {key: 'item_name', header: '품목명',   width: '1*', align: 'left'},
+            {key: 'supplier',  header: '협력사',   width: 140, align: 'center'},
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -278,15 +277,13 @@
                 }
             });
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
             theGrid.hostElement.addEventListener('dblclick', function() {
                 let selectedItem = theGrid.selectedItems[0];
@@ -295,7 +292,6 @@
                 setButtonState();
             });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
 
             renderInspItems([]); // 빈 행 1개로 시작
             setButtonState();
@@ -353,9 +349,8 @@
                 },
                 success: function(result) {
                     if (result.success) {
-                        viewdata = new wijmo.collections.CollectionView(result.data);
-                        theGrid.itemsSource = viewdata;
-                        theGrid.refresh();
+                        viewdata = result.data;
+                        theGrid.setData(viewdata);
                     } else {
                         console.log('Error occurred');
                     }

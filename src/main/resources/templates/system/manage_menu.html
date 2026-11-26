@@ -1,7 +1,6 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
     <style>
-        .wj-header { text-align: center !important; }
         .tab-bar { display: flex; gap: 4px; margin-bottom: 12px; }
         .tab-btn {
             padding: 6px 20px; border: 1px solid #ccc; border-radius: 4px 4px 0 0;
@@ -183,6 +182,10 @@
 </th:block>
 
 <th:block layout:fragment="scripts">
+<script th:inline="javascript">
+    // 같은 화면을 메뉴 코드별로 나눠 씀 (사업계획서 시스템관리 : 모듈등록 · 메뉴등록 · 화면등록, 2026-11-25)
+    var __guiCode = /*[[${gui_code}]]*/ '';
+</script>
 <script>
 /* ───── 탭 전환 ───── */
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -206,6 +209,18 @@ var gridFront, gridFolder, gridItem;
 var frontFolders = [];  // 캐시
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 모듈등록 = Front Folder 탭만, 화면등록 = Menu Item 탭만 (메뉴등록은 세 탭 모두)
+    const MODE = {
+        wm_module_manage: {tab: 'tab-front', title: '모듈등록'},
+        wm_screen_manage: {tab: 'tab-item',  title: '화면등록'}
+    }[__guiCode];
+    if (MODE) {
+        document.querySelectorAll('.tab-btn').forEach(b => { if (b.dataset.tab !== MODE.tab) b.style.display = 'none'; });
+        document.querySelector('.tab-btn[data-tab="' + MODE.tab + '"]').click();
+        document.querySelector('.page-title-wrap h2').textContent = MODE.title;
+        const navi = document.querySelectorAll('.page-navi li');
+        if (navi.length) navi[navi.length - 1].textContent = MODE.title;
+    }
     initGrids();
     loadFrontFolders();
     loadFolders();
@@ -216,23 +231,17 @@ document.addEventListener('DOMContentLoaded', () => {
    ① Front Folder 그리드
 ══════════════════════════════════════════ */
 function initGrids() {
-    gridFront = new wijmo.grid.FlexGrid('#gridFront', {
-        selectionMode: wijmo.grid.SelectionMode.Row,
-        isReadOnly: true,
-        autoGenerateColumns: false,
-        headersVisibility: wijmo.grid.HeadersVisibility.Column,
-        formatItem: centerHeader,
+    gridFront = new EditTable('#gridFront', {
+        readOnly: true,
         columns: [
-            {binding:'id',          header:'ID',       width:60,  align:'center'},
-            {binding:'folder_name', header:'폴더명',    width:'*', align:'left'},
-            {binding:'icon_css',    header:'아이콘CSS', width:130, align:'left'},
-            {binding:'dom_id',      header:'DOM ID',   width:130, align:'left'},
-            {binding:'_order',      header:'순서',      width:70,  align:'center'},
-            {binding:'use_yn',      header:'사용',      width:60,  align:'center'},
-        ],
-        itemsSource: new wijmo.collections.CollectionView([])
+            {key:'id',          header:'ID',       width:60,  align:'center'},
+            {key:'folder_name', header:'폴더명',    width:'1*', align:'left'},
+            {key:'icon_css',    header:'아이콘CSS', width:130, align:'left'},
+            {key:'dom_id',      header:'DOM ID',   width:130, align:'left'},
+            {key:'_order',      header:'순서',      width:70,  align:'center'},
+            {key:'use_yn',      header:'사용',      width:60,  align:'center'},
+        ]
     });
-    new FlexGridContextMenu(gridFront);
 
     gridFront.hostElement.addEventListener('dblclick', () => {
         let item = getSelectedItem(gridFront);
@@ -258,22 +267,16 @@ function initGrids() {
     $('#btnFrontSave').on('click', saveFrontFolder);
 
     /* ── Folder 그리드 ── */
-    gridFolder = new wijmo.grid.FlexGrid('#gridFolder', {
-        selectionMode: wijmo.grid.SelectionMode.Row,
-        isReadOnly: true,
-        autoGenerateColumns: false,
-        headersVisibility: wijmo.grid.HeadersVisibility.Column,
-        formatItem: centerHeader,
+    gridFolder = new EditTable('#gridFolder', {
+        readOnly: true,
         columns: [
-            {binding:'id',            header:'ID',          width:60,  align:'center'},
-            {binding:'FolderName',      header:'폴더명',       width:'*', align:'left'},
-            {binding:'FrontFolderName', header:'Front Folder', width:160, align:'left'},
-            {binding:'IconCSS',       header:'아이콘CSS',    width:120, align:'left'},
-            {binding:'_order',        header:'순서',         width:70,  align:'center'},
-        ],
-        itemsSource: new wijmo.collections.CollectionView([])
+            {key:'id',            header:'ID',          width:60,  align:'center'},
+            {key:'FolderName',      header:'폴더명',       width:'1*', align:'left'},
+            {key:'FrontFolderName', header:'Front Folder', width:160, align:'left'},
+            {key:'IconCSS',       header:'아이콘CSS',    width:120, align:'left'},
+            {key:'_order',        header:'순서',         width:70,  align:'center'},
+        ]
     });
-    new FlexGridContextMenu(gridFolder);
 
     gridFolder.hostElement.addEventListener('dblclick', () => {
         let item = getSelectedItem(gridFolder);
@@ -299,24 +302,18 @@ function initGrids() {
     $('#btnFolderSave').on('click', saveFolder);
 
     /* ── Menu Item 그리드 ── */
-    gridItem = new wijmo.grid.FlexGrid('#gridItem', {
-        selectionMode: wijmo.grid.SelectionMode.Row,
-        isReadOnly: true,
-        autoGenerateColumns: false,
-        headersVisibility: wijmo.grid.HeadersVisibility.Column,
-        formatItem: centerHeader,
+    gridItem = new EditTable('#gridItem', {
+        readOnly: true,
         columns: [
-            {binding:'MenuCode',     header:'MenuCode',  width:160, align:'left'},
-            {binding:'MenuName',     header:'메뉴명',     width:180, align:'left'},
-            {binding:'template',     header:'Template',  width:'*', align:'left'},
-            {binding:'FolderName',   header:'Folder',    width:150, align:'left'},
-            {binding:'IconCSS',      header:'아이콘CSS',  width:110, align:'left'},
-            {binding:'_order',       header:'순서',       width:70,  align:'center'},
-            {binding:'Url',          header:'URL',       width:180, align:'left'},
-        ],
-        itemsSource: new wijmo.collections.CollectionView([])
+            {key:'MenuCode',     header:'MenuCode',  width:160, align:'left'},
+            {key:'MenuName',     header:'메뉴명',     width:180, align:'left'},
+            {key:'template',     header:'Template',  width:'1*', align:'left'},
+            {key:'FolderName',   header:'Folder',    width:150, align:'left'},
+            {key:'IconCSS',      header:'아이콘CSS',  width:110, align:'left'},
+            {key:'_order',       header:'순서',       width:70,  align:'center'},
+            {key:'Url',          header:'URL',       width:180, align:'left'},
+        ]
     });
-    new FlexGridContextMenu(gridItem);
 
     gridItem.hostElement.addEventListener('dblclick', () => {
         let item = getSelectedItem(gridItem);
@@ -343,14 +340,10 @@ function initGrids() {
     $('#btnItemSave').on('click', saveMenuItem);
 }
 
-function centerHeader(s, e) {
-    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader)
-        e.cell.style.textAlign = 'center';
-}
 
 function getSelectedItem(grid) {
-    let sel = grid.selection;
-    return sel.row >= 0 ? grid.rows[sel.row].dataItem : null;
+    let sel = {row: grid.getPageRows().indexOf(grid.current()), col: -1};
+    return sel.row >= 0 ? grid.getPageRows()[sel.row] : null;
 }
 
 /* ══════════════════════════════════════════
@@ -360,7 +353,7 @@ function loadFrontFolders() {
     $.get('/api/system/menu_setup/front_folder_read', res => {
         if (!res.success) return;
         frontFolders = res.data || [];
-        gridFront.itemsSource.sourceCollection = frontFolders;
+        gridFront.setData(frontFolders);
         gridFront.refresh();
 
         // Front Folder 선택박스 갱신
@@ -375,7 +368,7 @@ function loadFolders() {
         if (!res.success) return;
         let rows = res.data || [];
 
-        gridFolder.itemsSource.sourceCollection = rows;
+        gridFolder.setData(rows);
         gridFolder.refresh();
 
         // Folder 선택박스 갱신 (Item 탭 + 모달)
@@ -408,7 +401,7 @@ function loadAllMenuItems(folderId) {
     if (folderId) {
         $.get(url, {folder_id: folderId}, res => {
             if (res.success) {
-                gridItem.itemsSource.sourceCollection = res.data || [];
+                gridItem.setData(res.data || []);
                 gridItem.refresh();
             }
         });
@@ -416,7 +409,7 @@ function loadAllMenuItems(folderId) {
         // folder_id 없이 전체 → gui_use_list 활용
         $.get('/api/system/menu_setup/gui_use_list', res => {
             if (res.success) {
-                gridItem.itemsSource.sourceCollection = res.data || [];
+                gridItem.setData(res.data || []);
                 gridItem.refresh();
             }
         });

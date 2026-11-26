@@ -96,7 +96,7 @@
                 this.$keyword = keyword;
                 this.companyType = opt.companyType || '';   // '' → 서버 기본값(매출처)
                 this.grid = null;
-                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData = [];
                 this.selectedItem = null;
                 this.callback = null;
                 this.modalContainer = new PopupDraggable(opt.title || '업체 선택');
@@ -122,22 +122,21 @@
 
                 let result = AjaxUtil.getSyncData(url, data);
                 if (result) {
-                    _this.viewData.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                     // 첫 번째 행으로 포커스 이동
                     setTimeout(() => {
-                        if (_this.grid && _this.grid.rows.length > 0) {
-                            _this.grid.select(0, 0); // 첫 번째 행, 첫 번째 열 선택
-                            _this.grid.focus(); // 그리드에 포커스
+                        if (_this.grid && _this.grid.getPageRows().length > 0) {
+                            _this.grid.select(_this.grid.getPageRows()[0]); // 첫 번째 행, 첫 번째 열 선택
+                            _this.grid.el.focus(); // 그리드에 포커스
                         }
                     }, 0);
                     setTimeout(() => {
-                        if (_this.grid.rows.length > 0) {
-                            let colIndex = _this.grid.columns.findIndex(col => col.binding === 'accountNumber');
+                        if (_this.grid.getPageRows().length > 0) {
+                            let colIndex = _this.grid.columns.findIndex(col => col.key === 'accountNumber');
 
                             if (colIndex > -1) {
-                                _this.grid.select(0, colIndex);
-                                _this.grid.selection = new wijmo.grid.CellRange(0, colIndex);
-                                _this.grid.focus();
+                                _this.grid.select(_this.grid.getPageRows()[0]);   // 첫 행 (EditTable 은 행 단위 선택)
+                                _this.grid.el.focus();
                             }
                         }
                     }, 100);
@@ -174,28 +173,22 @@
                         return;
                     }
 
-                    const existingGrid = wijmo.Control.getControl(el);
+                    const existingGrid = EditTable.getControl(el);
                     if (existingGrid) {
                         existingGrid.dispose();
                     }
 
-                    this.grid = new wijmo.grid.FlexGrid('#theGrid2', {
-                        selectionMode: wijmo.grid.SelectionMode.Row,
-                        autoGenerateColumns: false,
-                        showMarquee: true,
-                        isReadOnly: true,
-                        keyActionEnter: wijmo.grid.KeyAction.None,
+                    this.grid = new EditTable('#theGrid2', {
+                        readOnly: true,
                         columns: [
-                            {binding: 'compcode', header: '업체코드', width: 120, align: 'center'},
-                            {binding: 'compname', header: '업체명', width: '*', align: 'left'},
-                            {binding: 'business_number', header: '사업자번호', width: 150, align: 'left'},
-                            {binding: 'tel_number', header: '연락처', width: 200, align: 'left'}
-                        ],
-                        itemsSource: this.viewData,
+                            {key: 'compcode', header: '업체코드', width: 120, align: 'center'},
+                            {key: 'compname', header: '업체명', width: '1*', align: 'left'},
+                            {key: 'business_number', header: '사업자번호', width: 150, align: 'left'},
+                            {key: 'tel_number', header: '연락처', width: 200, align: 'left'}
+                        ]
                     });
-                    this.grid.rowHeaders.columns.splice(0, 1);
-                    new FlexGridContextMenu(this.grid);
-                    this.grid.downloadFileName = '거래처 내역';
+                    this.grid.setData(this.viewData);
+                    this.grid.opts.fileName = '거래처 내역';
 
 
                     if (this.$keyword) {
@@ -234,7 +227,7 @@
 
                     //새로고침
                     // $('#btnTest').click(function (e) {
-                    //     _this.grid.collectionView.refresh(); // Wijmo 그리드 새로고침
+                    //     _this.grid.refresh(); // Wijmo 그리드 새로고침
                     // });
 
                     this.grid.hostElement.addEventListener('dblclick', function (e) {

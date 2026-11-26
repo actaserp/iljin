@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -243,14 +238,13 @@
         var viewdata;
 
         let columns = [
-            {binding: 'id', header: 'id', width: 150, align: 'center', visible:false},
-            {binding: 'form_name', header: '문서종류', width: 150, align: 'center'},
-            {binding: 'doc_name', header: '문서명', width: 200, align: 'center'},
-            {binding: 'content', header: '내용', width: 450, align: 'center'},
-            {binding: 'doc_date', header: '작성일', width: 200, align: 'center'},
-            {binding: 'files', header: '파일', width: 150, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'}
-        ];
+            {key: 'id', header: 'id', width: 150, align: 'center', visible:false},
+            {key: 'form_name', header: '문서종류', width: 150, align: 'center'},
+            {key: 'doc_name', header: '문서명', width: 200, align: 'center'},
+            {key: 'content', header: '내용', width: 450, align: 'center'},
+            {key: 'doc_date', header: '작성일', width: 200, align: 'center'},
+            {key: 'files', header: '파일', width: 150, align: 'center', render: (v, r) => (r.files || []).map(file => `<a href="javascript:gridFileDownload('${file.attach_name}', ${file.file_id}, '${file.file_name}')" title="${file.file_name}">&nbsp;<i class="far fa-file" aria-hidden="true"></i>&nbsp;</a>`).join(' ')},
+            ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
 
@@ -276,30 +270,16 @@
                 }
             });
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
             // 파일 컬럼 렌더링
-            theGrid.formatItem.addHandler(function (s, e) {
-                if (e.panel.cellType === wijmo.grid.CellType.Cell && e.col === 5) { // 파일 컬럼 인덱스
-                    let files = s.rows[e.row].dataItem.files;
-                    if (files) {
-                        let links = files.map(file =>
-                            `<a href="javascript:gridFileDownload('${file.attach_name}', ${file.file_id}, '${file.file_name}')" title="${file.file_name}">&nbsp;<i class="far fa-file" aria-hidden="true"></i>&nbsp;</a>`
-                        ).join(' ');
-                        e.cell.innerHTML = links;
-                    }
-                }
-            });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
         }
 
         function searchMainData() {
@@ -350,8 +330,6 @@
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
@@ -359,15 +337,10 @@
                 return;
             }
 
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
         //버튼 활성화
@@ -549,11 +522,11 @@
             // 수정버튼
             $('#btnEdit').click(function (e) {
                 // 현재 선택된 행 가져오기
-                let selectedRow = theGrid.selection.row;
+                let selectedRow = theGrid.getPageRows().indexOf(theGrid.current());
 
                 if (selectedRow >= 0) {
                     // 선택된 행의 데이터 가져오기
-                    let selectedItem = theGrid.rows[selectedRow].dataItem;
+                    let selectedItem = theGrid.getPageRows()[selectedRow];
                     let id = selectedItem.id;
 
                     let url = '/api/support/document/detail';
@@ -569,12 +542,12 @@
 
             // 삭제버튼
             $('#btnDel').click(function (e) {
-                let selectedRow = theGrid.selection.row;
+                let selectedRow = theGrid.getPageRows().indexOf(theGrid.current());
                 console.log("선택된 행:", selectedRow);
 
                 if (selectedRow >= 0) {
                     // 선택된 행의 데이터 가져오기
-                    let selectedItem = theGrid.rows[selectedRow].dataItem;
+                    let selectedItem = theGrid.getPageRows()[selectedRow];
                     console.log("선택된 데이터:", selectedItem);
 
                     if (selectedItem && selectedItem.id) {

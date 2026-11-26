@@ -18,6 +18,7 @@
     <link rel="stylesheet" th:href="@{/css/sf21_all_5.css}">
     <link rel="stylesheet" th:href="@{/css/sf21_frame.css}">
     <link rel="stylesheet" th:href="@{/css/import.css}">
+    <link rel="stylesheet" th:href="@{/css/common/edit-table.css}"><!-- 공통 표 EditTable (위즈모 FlexGrid 대체, 2026-11-24) -->
 
     <!-- 외부 CDN (그대로 둠) -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/fullcalendar/5.10.2/main.min.css" rel="stylesheet">
@@ -192,6 +193,9 @@
 <script th:src="@{/js/yuscript.js}"></script>
 <script th:src="@{/js/ax5commUtil.js}"></script>
 <script th:src="@{/js/grid.js}"></script>
+<!-- 공통 표 EditTable : 순서 중요 — edit-table.js → edit-table-custom.js → 화면 스크립트 (2026-11-24) -->
+<script th:src="@{/js/common/edit-table.js}"></script>
+<script th:src="@{/js/common/edit-table-custom.js}"></script>
 
 
 <th:block layout:fragment="content"></th:block>

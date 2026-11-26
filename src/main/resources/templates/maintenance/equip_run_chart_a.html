@@ -349,7 +349,7 @@
                 this.chart = null;
                 this.options = null;
 
-                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData = [];
                 this.init();
 
 
@@ -424,104 +424,32 @@
                 this.chart.render();
 
 
-                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                    selectionMode: wijmo.grid.SelectionMode.Cell,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    allowMerging: wijmo.grid.AllowMerging.All,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
+                this.grid = new EditTable('#theGrid', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'id', header: '설비', width: '*', align : 'center', visible: false},
-                        {binding: 'Equipment_id', header: '설비아이디', width: '*', align : 'center', visible: false},
-                        {binding: 'Name', header: '설비', width: '*', align : 'center', allowMerging: true},
-                        {binding: 'RunState', header: '상태', width: '*', align: 'center'},
-                        {binding: 'start_date', header: '시작일자', width: '*', align: 'center'},
-                        {binding: 'StartTime', header: '시작시간', width: '*', align: 'center'},
-                        {binding: 'end_date', header: '종료일자', width: '*', align: 'center'},
-                        {binding: 'EndTime', header: '종료시간', width: '*', align: 'center'},
-                        {binding: 'Runtime', header: '가동시간(분)', width: '*', align: 'center'},
-                        {binding: 'GapTime', header: '비가동시간(분)', width: '*', align: 'center'},
-                        {binding: 'StopCauseName', header: '비가동유형', width: '*', align: 'left'},
-                        {binding: 'Description', header: '비고', width: '*', align: 'center'},
-                        //{ binding: 'code', header: '거래처코드', width: 120, align: 'center' },
+                        {key: 'id', header: '설비', width: '1*', align : 'center', visible: false},
+                        {key: 'Equipment_id', header: '설비아이디', width: '1*', align : 'center', visible: false},
+                        {key: 'Name', header: '설비', width: '1*', align : 'center', merge: true},
+                        {key: 'RunState', header: '상태', width: '1*', align: 'center'},
+                        {key: 'start_date', header: '시작일자', width: '1*', align: 'center'},
+                        {key: 'StartTime', header: '시작시간', width: '1*', align: 'center'},
+                        {key: 'end_date', header: '종료일자', width: '1*', align: 'center'},
+                        {key: 'EndTime', header: '종료시간', width: '1*', align: 'center'},
+                        {key: 'Runtime', header: '가동시간(분)', width: '1*', align: 'center'},
+                        {key: 'GapTime', header: '비가동시간(분)', width: '1*', align: 'center'},
+                        {key: 'StopCauseName', header: '비가동유형', width: '1*', align: 'left'},
+                        {key: 'Description', header: '비고', width: '1*', align: 'center'},
+                        //{ key: 'code', header: '거래처코드', width: 120, align: 'center' },
 
                     ],
-                    itemsSource: this.viewData,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType !== wijmo.grid.CellType.Cell) return;
-
-                        const col = s.columns[e.col];
-                        const item = s.rows[e.row].dataItem;
-
-                        // ✅ code 컬럼은 버튼 처리
-                        /*if (col.binding === 'code') {
-
-                            e.cell.textContent = ''; // 초기화
-                            e.cell.style.backgroundColor = 'white'; // 항상 흰 배경 유지
-
-                            if (item.RunState === 'run') {
-                                const wrapper = document.createElement('div');
-                                wrapper.className = 'wijmo-cltcd-div';
-                                wrapper.dataset.row = e.row;
-
-                                const btn = document.createElement('button');
-                                btn.textContent = '비가동 추가';
-                                btn.className = 'btn-code-action';
-                                btn.style.display = 'block';
-                                btn.style.width = '100%';
-
-                                wrapper.appendChild(btn);
-                                e.cell.appendChild(wrapper);
-                            } else {
-                                const wrapper = document.createElement('div');
-                                wrapper.className = 'wijmo-cltcd-div';
-                                wrapper.dataset.row = e.row;
-
-                                const btn = document.createElement('button');
-                                btn.textContent = '가동 추가';
-                                btn.className = 'btn-code-action-white';
-                                btn.style.display = 'block';
-                                btn.style.width = '100%';
-
-                                wrapper.appendChild(btn);
-                                e.cell.appendChild(wrapper);
-                            }
-                            return; // 💡 여기서 끝
-                        }*/
-
-                        // ✅ 그 외 셀은 초기화 + 상태색 + 병합 중앙정렬
-
-                        e.cell.style.backgroundColor = '';
-                        e.cell.innerHTML = e.cell.textContent;
-
-                        if (item && item.RunState === 'stop') {
-                            e.cell.style.backgroundColor = '#e0e0e0';
-                        }
-
-                        const rng = s.getMergedRange(e.panel, e.row, e.col);
-                        const isMergedCell = rng && (rng.rowSpan > 1 || rng.colSpan > 1);
-
-                        if (isMergedCell) {
-                            const text = e.cell.textContent;
-                            e.cell.innerHTML = '';
-                            const inner = document.createElement('div');
-                            inner.style.display = 'flex';
-                            inner.style.alignItems = 'center';
-                            inner.style.justifyContent = 'center';
-                            inner.style.height = '100%';
-                            inner.style.width = '100%';
-                            inner.textContent = text;
-                            e.cell.appendChild(inner);
-                        }
-                    }
+                    rowClass: r => r.RunState === 'stop' ? 'et-gray' : '',   // 비가동(stop) 행 회색 (위즈모 formatItem 대신. 병합 칸 가운데는 merge 칸이 이미 가운데)
                 });
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '가동/비가동차트';
+                this.grid.setData(this.viewData);
+                this.grid.opts.fileName = '가동/비가동차트';
 
                 /*this.grid.formatItem.addHandler(function (s, e) {
                     if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                        const item = s.rows[e.row].dataItem;
+                        const item = s.getPageRows()[e.row];
 
                         //  1. 항상 스타일 초기화
                         e.cell.style.backgroundColor = '';
@@ -557,8 +485,8 @@
                     const $container = $button.closest('.wijmo-cltcd-div');
                     const rowIndex = $container.data('row');
 
-                    const grid = wijmo.Control.getControl('#theGrid');
-                    const item = grid.rows[rowIndex].dataItem;
+                    const grid = EditTable.getControl('#theGrid');
+                    const item = grid.getPageRows()[rowIndex];
 
                     if ($button.hasClass('btn-code-action-white')) {
                         //console.log('zz', _this.grid.selectedItems);
@@ -603,12 +531,12 @@
                 /* ★ 응답이 없거나 실패해도 화면이 멈추지 않게 한다.
                    result 가 undefined 면 아래에서 통째로 예외가 나 그리드까지 비어 버린다. */
                 if (!result || !result.data) {
-                    _this.viewData.sourceCollection = [];
+                    _this.grid.setData([]);
                     _this.grid.invalidate();
                     return;
                 }
                 if (result.data) {
-                    _this.viewData.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                     _this.grid.invalidate();
                     // xaxis 변경. 공백 대신 T 를 써야 브라우저를 안 탄다
                     this.chart.updateOptions({

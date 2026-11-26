@@ -115,119 +115,45 @@
 
         init() {
             let _this = this;
-            this.grid = new wijmo.grid.FlexGrid('#inventory-adjustment-grid', {
-                autoGenerateColumns: false,
-                allowSorting: true,
+            this.grid = new EditTable('#inventory-adjustment-grid', {
                 frozenColumns: 5,
-                selectionMode: wijmo.grid.SelectionMode.Row,
-                isReadOnly: false,
-                headersVisibility: wijmo.grid.HeadersVisibility.All,
-                itemsSource: new wijmo.collections.CollectionView([]),
-                formatItem: (s, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-                        // 헤더에 순번
-                        e.cell.textContent = (e.row + 1).toString();
-                    }
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                    }
-
-                    // 헤더가 'button' 컬럼이면 빈칸 처리
-                    if (s.columns[e.col].binding === 'button') {
-                        e.cell.textContent = ''; // 빈칸 처리
-                    }
-
-                    // 이동량 열 헤더 스타일 적용
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader
-                        && s.columns[e.col].binding === 'real_stock'
-                        || s.columns[e.col].binding === 'gap_description') {
-                        e.cell.style.color = '#5567ff'; // 글자 색깔 변경
-                    }
-
-                    if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                        const col = s.columns[e.col];
-                        const item = e.panel.rows[e.row].dataItem;
-
-                        if (col.binding === 'button') {
-                            e.cell.textContent = ''; // 기존 내용 제거
-                            if (userinfo.can_write()) {
-                                const button = document.createElement('button');
-                                button.className = 'btn-default y_write_auth';
-                                button.textContent = '저장';
-                                button.style.width = '100%';
-                                button.style.height = '25px';
-                                button.onclick = () => {
-                                    const house_pk = item.house_pk;
-                                    const mat_pk = item.id;
-                                    const account_stock = item.account_stock;
-                                    const real_stock = item.real_stock;
-                                    const gap = item.gap;
-                                    const description = item.gap_description;
-
-                                    if (gap === undefined) {
-                                        Alert.alert('', '차이가 입력되어야 합니다.');
-                                        return;
-                                    }
-
-                                    const url = gUrl + '/save';
-                                    const param = {
-                                        house_pk,
-                                        mat_pk,
-                                        account_stock,
-                                        real_stock,
-                                        gap,
-                                        description
-                                    };
-
-                                    const result = AjaxUtil.postSyncData(url, param);
-                                    if (result.data?.id) {
-                                        Alert.alert('', '저장했습니다.');
-                                        item.last_take_date = result.data.takeTime;
-                                        s.invalidate(); // 그리드 다시 그리기
-                                    }
-                                };
-                                e.cell.appendChild(button); // 버튼 추가
-                            } else {
-                                e.cell.textContent = '권한없음';
-                            }
-                        }
-                        // 'last_take_date' 컬럼 처리
-                        if (col.binding === 'last_take_date') {
-                            e.cell.textContent =
-                                item.state === 'taked'
-                                    ? `${item.last_take_date} 확인대기`
-                                    : item.last_take_date || ''; // 값이 없을 경우 빈칸 처리
-                        }
-                    }
-                },
-                cellEditEnded: (s, e) => { // cellEditEnding -> cellEditEnded
+                readOnly: false,
+                rowNumbers: true,
+                onEditEnd: (_item, _key, _v, s) => {
+                    const e = {row: s.getPageRows().indexOf(_item), col: s.columns.findIndex(c => c.key === _key)};   // 위즈모 cellEditEnded 의 e
+                    (() => { // cellEditEnding -> cellEditEnded
                     const column = s.columns[e.col];
-                    const item = s.rows[e.row].dataItem;
+                    const item = s.getPageRows()[e.row];
 
-                    if (column.binding === 'real_stock') {
+                    if (column.key === 'real_stock') {
                         if (item.real_stock != null && item.account_stock != null) {
                             item.gap = item.real_stock - item.account_stock;
                         }
                     }
+                    })();
+                    s.refreshRow(_item);   // 고친 뒤 계산한 값이 보이게 (위즈모는 편집 끝에 그 행을 다시 그렸음)
                 },
                 columns: [
-                    { binding: 'id', header: '품목번호', width: 100, align: 'right', isReadOnly: true },
-                    { binding: 'mat_type', header: '품목유형', width: 100, align: 'center', isReadOnly: true },
-                    { binding: 'mat_grp_name', header: '품목그룹', width: 150, align: 'center', isReadOnly: true },
-                    { binding: 'mat_code', header: '품목코드', width: 100, align: 'center', isReadOnly: true },
-                    { binding: 'mat_name', header: '품목명', width: 200, align: 'left', isReadOnly: true },
-                    { binding: 'manage_level', header: '관리등급', width: 100, align: 'center', isReadOnly: true },
-                    { binding: 'unit_name', header: '단위', width: 100, align: 'center', isReadOnly: true },
-                    { binding: 'account_stock', header: '장부재고', width: 100, align: 'right', isReadOnly: true },
-                    { binding: 'real_stock', header: '실사재고', width: 100, align: 'right', isReadOnly: false, },
-                    { binding: 'gap', header: '차이', width: 80, align: 'right', isReadOnly: true },
-                    { binding: 'gap_description', header: '차이설명', width: 200, align: 'left', isReadOnly: false },
-                    { binding: 'button', header: '', width: 80, align: 'center', isReadOnly: true },
-                    { binding: 'last_take_date', header: '최종실사일', width: 200, align: 'center', isReadOnly: true }
+                    { key: 'id', header: '품목번호', width: 100, align: 'right', readOnly: true },
+                    { key: 'mat_type', header: '품목유형', width: 100, align: 'center', readOnly: true },
+                    { key: 'mat_grp_name', header: '품목그룹', width: 150, align: 'center', readOnly: true },
+                    { key: 'mat_code', header: '품목코드', width: 100, align: 'center', readOnly: true },
+                    { key: 'mat_name', header: '품목명', width: 200, align: 'left', readOnly: true },
+                    { key: 'manage_level', header: '관리등급', width: 100, align: 'center', readOnly: true },
+                    { key: 'unit_name', header: '단위', width: 100, align: 'center', readOnly: true },
+                    { key: 'account_stock', header: '장부재고', width: 100, align: 'right', readOnly: true },
+                    { key: 'real_stock', header: '실사재고', width: 100, align: 'right', readOnly: false, type: 'number', },
+                    { key: 'gap', header: '차이', width: 80, align: 'right', readOnly: true },
+                    { key: 'gap_description', header: '차이설명', width: 200, align: 'left', readOnly: false },
+                    { key: 'button', header: '', width: 80, align: 'center', readOnly: true, type: 'button', buttonText: () => userinfo.can_write() ? '저장' : null, noButtonText: '권한없음', onClick: (item, s) => {   // 위즈모 formatItem 으로 그리던 저장 버튼
+                        if (item.gap === undefined) { Alert.alert('', '차이가 입력되어야 합니다.'); return; }
+                        const result = AjaxUtil.postSyncData(gUrl + '/save', {house_pk: item.house_pk, mat_pk: item.id, account_stock: item.account_stock, real_stock: item.real_stock, gap: item.gap, description: item.gap_description});
+                        if (result.data?.id) { Alert.alert('', '저장했습니다.'); item.last_take_date = result.data.takeTime; s.refreshRow(item); }
+                    }},
+                    { key: 'last_take_date', header: '최종실사일', width: 200, align: 'center', readOnly: true, format: (v, r) => r.state === 'taked' ? `${v} 확인대기` : (v || '')}
                 ]
             });
-            new FlexGridContextMenu(this.grid);
-            this.grid.downloadFileName = '재고 조정 목록';
+            this.grid.opts.fileName = '재고 조정 목록';
         }
 
         searchMainData() {
@@ -241,7 +167,7 @@
             };
             let result = AjaxUtil.getSyncData(gUrl + '/read', data);
             if (result.data) {
-                _this.grid.itemsSource.sourceCollection = result.data;
+                _this.grid.setData(result.data);
             }
         }
     }

@@ -185,13 +185,7 @@
             padding: 5px;
         }
 
-        .wj-align-left {
-            text-align: left !important;
-        }
 
-        .wj-colheaders .wj-cell {
-            text-align: center !important;
-        }
     </style>
 
 </head>
@@ -1124,75 +1118,41 @@
             init() {
                 const _this = this;
 
-                this.grid = new wijmo.grid.FlexGrid('#material-storehouse-grid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.All,
-                    isReadOnly: true,
-                    showMarquee: true,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-                            // 헤더에 순번
-                            e.cell.textContent = (e.row + 1).toString();
-                        }
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 가운데 정렬
-                        }
-                    },
+                this.grid = new EditTable('#material-storehouse-grid', {
+                    rowCheck: true,
+                    readOnly: true,
+                    rowNumbers: true,
                     columns: [
-                        // {binding: 'mio_pk', header: '입고번호', width: 80, align: 'center'},
-                        {binding: 'store_house_name', header: '창고', width: 80, align: 'center'},
-                        {binding: 'inout', header: '입출', width: 60, align: 'center'},
-                        {binding: 'material_type', header: '품목유형', width: 80, align: 'center'},
-                        {binding: 'material_code', header: '품목코드', width: 100, align: 'center'},
-                        {binding: 'material_name', header: '품목명', width: 170, align: 'left'},
-                        {binding: 'unit_name', header: '단위', width: 50, align: 'center'},
-                        {binding: 'InoutDate', header: '입출일', width: 100, align: 'center'},
-                        {binding: 'InoutTime', header: '시간', width: 60, align: 'center'},
-                        {binding: 'potentialInputQty', header: '가입고량', width: 80, align: 'right', format: 'n0'},
-                        {binding: 'InputQty', header: '입고량', width: 80, align: 'right', format: 'n0'},
-                        // {binding: 'OutputQty', header: '출고량', width: 80, align: 'right', format: 'n0'},
-                        {binding: 'HouseStock', header: '창고재고', width: 80, align: 'right', format: 'n0'},
-                        {binding: 'lot_count', header: '로트개수', width: 80, align: 'center'},
-                        {binding: 'CurrentStock', header: '전체재고', width: 80, align: 'right', format: 'n0'},
-                        {binding: 'Description', header: '비고', width: 150, align: 'left'},
-                        {binding: 'inout_state', header: '입고 상태', width: 100, align: 'center'},
-                        // {binding: 'state_name', header: '입고검사 결재', width: 100, align: 'center'},
-                        {binding: 'judge_code', header: '입고검사 판정', width: 100, align: 'center'},
-                        {binding: 'lot_use', header: '로트관리유무', width: 100, align: 'center'},
-                        {binding: 'inout_type', header: '구분', width: 100, align: 'center'},
-                        // {binding: 'SafetyStock', header: '안전재고', width: 100, align: 'right', format: 'n0'}
-                    ],
-                    itemsSource: new wijmo.collections.CollectionView([]),
-                    itemFormatter: (panel, row, col, cell) => {
-                        if (panel.cellType === wijmo.grid.CellType.Cell) {
-                            const item = panel.rows[row].dataItem;
-                            const column = panel.columns[col];
-
-                            // 창고재고 조건부 스타일링
-                            if (column.binding === 'HouseStock' && item.HouseStock < 0) {
-                                cell.classList.add('redText');
-                            }
-
-                            // 전체재고 조건부 스타일링
-                            if (column.binding === 'CurrentStock' && item.CurrentStock < item.SafetyStock) {
-                                cell.classList.add('redText');
-                            }
-
-                            if (column.binding === 'mio_pk') {
-                                cell.textContent = item.mio_pk?.toString(); // 콤마 제거해서 그대로 출력
-                            }
-                        }
-                    }
+                        // {key: 'mio_pk', header: '입고번호', width: 80, align: 'center', format: v => v == null ? '' : String(v)},
+                        {key: 'store_house_name', header: '창고', width: 80, align: 'center'},
+                        {key: 'inout', header: '입출', width: 60, align: 'center'},
+                        {key: 'material_type', header: '품목유형', width: 80, align: 'center'},
+                        {key: 'material_code', header: '품목코드', width: 100, align: 'center'},
+                        {key: 'material_name', header: '품목명', width: 170, align: 'left'},
+                        {key: 'unit_name', header: '단위', width: 50, align: 'center'},
+                        {key: 'InoutDate', header: '입출일', width: 100, align: 'center'},
+                        {key: 'InoutTime', header: '시간', width: 60, align: 'center'},
+                        {key: 'potentialInputQty', header: '가입고량', width: 80, align: 'right', format: 'n0'},
+                        {key: 'InputQty', header: '입고량', width: 80, align: 'right', format: 'n0'},
+                        // {key: 'OutputQty', header: '출고량', width: 80, align: 'right', format: 'n0'},
+                        {key: 'HouseStock', header: '창고재고', width: 80, align: 'right', format: 'n0', cellClass: r => (r.HouseStock < 0) ? 'et-red' : ''},
+                        {key: 'lot_count', header: '로트개수', width: 80, align: 'center'},
+                        {key: 'CurrentStock', header: '전체재고', width: 80, align: 'right', format: 'n0', cellClass: r => (r.CurrentStock < r.SafetyStock) ? 'et-red' : ''},
+                        {key: 'Description', header: '비고', width: 150, align: 'left'},
+                        {key: 'inout_state', header: '입고 상태', width: 100, align: 'center'},
+                        // {key: 'state_name', header: '입고검사 결재', width: 100, align: 'center'},
+                        {key: 'judge_code', header: '입고검사 판정', width: 100, align: 'center'},
+                        {key: 'lot_use', header: '로트관리유무', width: 100, align: 'center'},
+                        {key: 'inout_type', header: '구분', width: 100, align: 'center'},
+                        // {key: 'SafetyStock', header: '안전재고', width: 100, align: 'right', format: 'n0'}
+                    ]
                 });
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '자재 입출고 내역';
+                this.grid.opts.fileName = '자재 입출고 내역';
 
                 this.grid.hostElement.addEventListener('dblclick', function (e) {
                     let ht = _this.grid.hitTest(e); // 마우스 위치 기반 셀 hit test
-                    if (ht.cellType === wijmo.grid.CellType.Cell) {
-                        let row = _this.grid.rows[ht.row]; // 해당 행
-                        let item = _this.grid.rows[ht.row].dataItem; // 해당 row의 데이터
+                    if (ht.cellType === 'cell') {
+                        let item = _this.grid.getPageRows()[ht.row]; // 해당 row의 데이터
 
                         _this.modify([item]); // 배열로 넘기는 걸 유지하려면 이렇게
                     }
@@ -1254,7 +1214,7 @@
 
                 let result = AjaxUtil.getSyncData(this.url + "/read_receipt", data);
                 if (result.data != null) {
-                    _this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+                    _this.grid.setData(result.data);
                 }
             }
 
@@ -1626,66 +1586,40 @@
                     dicStoreHouse[item.value] = item.text;
                 });
 
-                let storeHouseMap = new wijmo.grid.DataMap(this.storeHouseOptions, 'value', 'text');
+                let storeHouseMap = (this.storeHouseOptions || []).map(o => ({v: o.value, n: o.text}));   // 위즈모 DataMap → EditTable 선택지
 
-                this.baljuReturnGrid = new wijmo.grid.FlexGrid('#balju-return-grid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.All,
-                    formatItem: (s, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                            e.cell.style.color = '';
-                            e.cell.style.textAlign = '';
-                        }
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-
-                            const binding = s.columns[e.col].binding;
-
-                            if (binding === 'StoreHouse_id' || binding === 'returnQty' || binding === 'Description2') {
-                                e.cell.style.color = '#5567ff'; // 글자 색 적용
-                            }
-                        }
+                this.baljuReturnGrid = new EditTable('#balju-return-grid', {
+                    // 반품 수량은 음수 : 양수를 넣으면 칸을 벗어날 때 음수로 (위즈모 InputNumber valueChanged 대신)
+                    onEditEnd: (row, key, v, grid) => {
+                        if (key === 'returnQty' && Number(v) > 0) grid.setValue(row, 'returnQty', -Number(v));
                     },
+                    rowCheck: true,
                     columns: [
-                        {binding: 'CompanyName', header: '구매처', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'Company_id', visible:false},
-                        {binding: 'JumunDate', header: '발주일', width: 110, align: 'center', isReadOnly: true},
-                        {binding: 'JumunNumber', header: '발주번호', width: 130, align: 'center', isReadOnly: true},
-                        {binding: 'product_code', header: '제품코드', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'product_name', header: '제품명', width: 150, align: 'left', isReadOnly: true},
-                        {binding: 'unit', header: '단위', width: 60, align: 'center', isReadOnly: true},
-                        {binding: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', isReadOnly: true},
-                        {binding: 'SujuQty2', header: '입고 수량', width: 90, align: 'right', isReadOnly: true},
-                        {binding: 'ReturnQty', header: '반품된 수량', width: 90, align: 'right', isReadOnly: true},
-                        {binding: 'StoreHouse_id', header: '반품 창고', width: 90, align: 'center',dataMap: storeHouseMap, isReadOnly: false},
+                        {key: 'CompanyName', header: '구매처', width: 100, align: 'left', readOnly: true},
+                        {key: 'Company_id', visible:false},
+                        {key: 'JumunDate', header: '발주일', width: 110, align: 'center', readOnly: true},
+                        {key: 'JumunNumber', header: '발주번호', width: 130, align: 'center', readOnly: true},
+                        {key: 'product_code', header: '제품코드', width: 100, align: 'left', readOnly: true},
+                        {key: 'product_name', header: '제품명', width: 150, align: 'left', readOnly: true},
+                        {key: 'unit', header: '단위', width: 60, align: 'center', readOnly: true},
+                        {key: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', readOnly: true},
+                        {key: 'SujuQty2', header: '입고 수량', width: 90, align: 'right', readOnly: true},
+                        {key: 'ReturnQty', header: '반품된 수량', width: 90, align: 'right', readOnly: true},
+                        {key: 'StoreHouse_id', header: '반품 창고', width: 90, align: 'center',type: 'select', options: storeHouseMap, readOnly: false},
                         {
-                            binding: 'returnQty',
+                            key: 'returnQty',
                             header: '반품 수량',
                             width: 100,
                             align: 'right',
-                            isReadOnly: false,
-                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
-                                format: 'n0',
-                                min: -99999,
-                                max: 0,
-                                step: 1,
-                                valueChanged: function (sender) {
-                                    let val = sender.value;
-                                    if (val > 0) {
-                                        sender.value = -val;  // 양수 입력 시 자동 음수 변환
-                                    }
-                                }
-                            })
+                            readOnly: false,
+                            type: 'number'
                         },
-                        {binding: 'Description2', header: '사유', align: 'left', width: 120, isReadOnly: false}
-                    ],
-                    itemsSource: new wijmo.collections.CollectionView([]),
+                        {key: 'Description2', header: '사유', align: 'left', width: 120, readOnly: false}
+                    ]
                 });
                 let selector = null;
 
-                new FlexGridContextMenu(this.baljuReturnGrid);
-                this.baljuReturnGrid.downloadFileName = '발주 내역';
+                this.baljuReturnGrid.opts.fileName = '발주 내역';
 
                 $content.find('#btnSearch').on('click', function () {
                     fnLoadBaljuInList();
@@ -1705,9 +1639,7 @@
                                     item.StoreHouse_id = _this.storeHouseOptions[0].value; // 첫 번째 옵션의 value
                                 }
                             });
-                            _this.baljuReturnGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
-                            selector = new wijmo.grid.selector.Selector(_this.baljuReturnGrid);
-
+                            _this.baljuReturnGrid.setData(result.data);
                         }
                     };
                     let baljuParam = {
@@ -1784,9 +1716,7 @@
                 $content.find('#btnBaljuReturnSave').on('click', function () {
 
                     let url = _this.url + '/save_balju_return';
-                    let items = _this.baljuReturnGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    let items = _this.baljuReturnGrid.getChecked();
 
                     console.log(items);
 
@@ -1846,79 +1776,55 @@
                     dicStoreHouse[item.value] = item.text;
                 });
 
-                let storeHouseMap = new wijmo.grid.DataMap(this.storeHouseOptions, 'value', 'text');
+                let storeHouseMap = (this.storeHouseOptions || []).map(o => ({v: o.value, n: o.text}));   // 위즈모 DataMap → EditTable 선택지
 
-                this.baljuInputGrid = new wijmo.grid.FlexGrid('#balju-input-grid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.All,
-                    formatItem: (s, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                            e.cell.style.color = '';
-                            e.cell.style.textAlign = '';
-                        }
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-
-                            const binding = s.columns[e.col].binding;
-
-                            if (binding === 'StoreHouse_id' || binding === 'inputQty' || binding === 'Description2') {
-                                e.cell.style.color = '#5567ff'; // 글자 색 적용
-                            }
-                        }
-                    },
+                this.baljuInputGrid = new EditTable('#balju-input-grid', {
+                    rowCheck: true,
                     columns: [
-                        {binding: 'CompanyName', header: '구매처', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'Company_id', visible:false, isReadOnly: true},
-                        {binding: 'JumunDate', header: '발주일', width: 120, align: 'center', isReadOnly: true},
-                        {binding: 'JumunNumber', header: '발주번호', width: 140, align: 'center', isReadOnly: true},
-                        {binding: 'product_code', header: '제품코드', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'product_name', header: '제품명', width: 150, align: 'left', isReadOnly: true},
-                        {binding: 'unit', header: '단위', width: 60, align: 'center', isReadOnly: true},
-                        {binding: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', isReadOnly: true},
-                        {binding: 'SujuQty2', header: '기입고 수량', width: 90, align: 'right', isReadOnly: true},
-                        {binding: 'DueDate', header: '납기예정일', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'StoreHouse_id', header: '납품 창고', width: 90, align: 'center',dataMap: storeHouseMap, isReadOnly: false},
-                        {binding: 'inputQty', header: '입고 수량', width: 100, align: 'right', isReadOnly: false,
-                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
-                                format: 'n0', // 정수 형식
-                                min: 0,       // 최소값 설정
-                                max: 99999,   // 최대값 설정
-                                step: 1       // 증가/감소 단위
-                            })
+                        {key: 'CompanyName', header: '구매처', width: 100, align: 'left', readOnly: true},
+                        {key: 'Company_id', visible:false, readOnly: true},
+                        {key: 'JumunDate', header: '발주일', width: 120, align: 'center', readOnly: true},
+                        {key: 'JumunNumber', header: '발주번호', width: 140, align: 'center', readOnly: true},
+                        {key: 'product_code', header: '제품코드', width: 100, align: 'left', readOnly: true},
+                        {key: 'product_name', header: '제품명', width: 150, align: 'left', readOnly: true},
+                        {key: 'unit', header: '단위', width: 60, align: 'center', readOnly: true},
+                        {key: 'SujuQty', header: '발주 수량', width: 80, align: 'right', format: 'n0', readOnly: true},
+                        {key: 'SujuQty2', header: '기입고 수량', width: 90, align: 'right', readOnly: true},
+                        {key: 'DueDate', header: '납기예정일', width: 100, align: 'center', readOnly: true},
+                        {key: 'StoreHouse_id', header: '납품 창고', width: 90, align: 'center',type: 'select', options: storeHouseMap, readOnly: false},
+                        {key: 'inputQty', header: '입고 수량', width: 100, align: 'right', readOnly: false,
+                            type: 'number'
                         },
-                        {binding: 'Description2', header: '사유', align: 'left', width: 120, isReadOnly: false},
-                        {binding: 'Description', header: '발주 메모', align: 'left', width: 120, isReadOnly: true}
-                    ],
-                    itemsSource: new wijmo.collections.CollectionView([]),
+                        {key: 'Description2', header: '사유', align: 'left', width: 120, readOnly: false},
+                        {key: 'Description', header: '발주 메모', align: 'left', width: 120, readOnly: true}
+                    ]
                 });
                 let selector = null;
-                this.baljuInputGrid.beginningEdit.addHandler((s, e) => {
+                this.baljuInputGrid.opts.onBeginEdit = (_item, _key, s) => {
+                    const e = {row: s.getPageRows().indexOf(_item), col: s.columns.findIndex(c => c.key === _key)};   // 위즈모 beginningEdit 의 e
                     let col = s.columns[e.col];
                     let row = e.row;
 
-                    if (col.binding === 'inputQty') {
-                        let currentValue = s.getCellData(row, col.index, false);
+                    if (col.key === 'inputQty') {
+                        let currentValue = s.getPageRows()[row][col.key];
 
                         // 현재 값이 null, undefined, 빈 문자열일 때만 수행
                         if (currentValue === null || currentValue === undefined || currentValue === '') {
-                            let sujuQty = s.getCellData(row, s.columns.getColumn('SujuQty').index, false);
-                            let sujuQty2 = s.getCellData(row, s.columns.getColumn('SujuQty2').index, false);
+                            let sujuQty = s.getPageRows()[row]['SujuQty'];
+                            let sujuQty2 = s.getPageRows()[row]['SujuQty2'];
 
                             sujuQty = parseFloat(sujuQty) || 0;
                             sujuQty2 = parseFloat(sujuQty2) || 0;
 
-                            s.setCellData(row, col.index, sujuQty - sujuQty2);
+                            s.setValue(s.getPageRows()[row], col.key, sujuQty - sujuQty2);
                         }
                     }
-                });
+                };
 
                 _this.baljuInputGrid.hostElement.addEventListener('click', function (e) {
                     if (e.target?.type === 'checkbox') {
                         setTimeout(() => {
-                            let items = _this.baljuInputGrid.rows
-                                .filter(row => row.isSelected)
-                                .map(row => row.dataItem);
+                            let items = _this.baljuInputGrid.getChecked();
 
                             items.forEach(item => {
                                 if ((!item.inputQty || item.inputQty === '') && item.SujuQty) {
@@ -1934,8 +1840,7 @@
                 });
 
 
-                new FlexGridContextMenu(this.baljuInputGrid);
-                this.baljuInputGrid.downloadFileName = '발주 입고';
+                this.baljuInputGrid.opts.fileName = '발주 입고';
 
                 $content.find('#btnSearch').on('click', function () {
                     fnLoadBaljuList();
@@ -1955,9 +1860,7 @@
                                     item.StoreHouse_id = _this.storeHouseOptions[0].value; // 첫 번째 옵션의 value
                                 }
                             });
-                            _this.baljuInputGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
-                            selector = new wijmo.grid.selector.Selector(_this.baljuInputGrid);
-
+                            _this.baljuInputGrid.setData(result.data);
                         }
                     };
                     let baljuParam = {
@@ -1974,9 +1877,7 @@
                 $content.find('#btnBaljuAction').on('click', function () {
 
                     let url = _this.url + '/save_balju';
-                    let items = _this.baljuInputGrid.rows
-                        .filter(row => row.isSelected)
-                        .map(row => row.dataItem);
+                    let items = _this.baljuInputGrid.getChecked();
 
                     console.log(items);
 
@@ -2033,7 +1934,7 @@
 
             showLotInputPopup() {
                 let _this = this;
-                let items = _this.grid.selectedItems;
+                let items = (_this.grid.getChecked().length ? _this.grid.getChecked() : _this.grid.selectedItems);
                 if (items.length === 0) {
                     Alert.alert('로트입고등록', '선택된 입고 데이터가 없습니다. ', function () {
                     });
@@ -2056,39 +1957,21 @@
                 let modalContainer = new PopupDraggable('로트입고등록');
                 modalContainer.open({width: 1000, height: 600, $content});
 
-                this.matLotGrid = new wijmo.grid.FlexGrid('#mat-lot-grid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.Row,
+                this.matLotGrid = new EditTable('#mat-lot-grid', {
                     frozenColumns: 0,
                     frozenRows: 0,
-                    headersVisibility: wijmo.grid.HeadersVisibility.All,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-                            // 헤더에 순번
-                            e.cell.textContent = (e.row + 1).toString();
-                        }
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-
-                            // Description 열에만 스타일 적용
-                            if (sender.columns[e.col].binding === 'Description') {
-                                e.cell.style.color = '#5567ff'; // 글자 색깔 변경
-                            }
-                        }
-                    },
+                    rowNumbers: true,
                     columns: [
-                        {binding: 'LotNumber', header: '로트번호', width: 120, align: 'center', isReadOnly: true},
-                        {binding: 'UnitName', header: '단위', width: 70, align: 'center', isReadOnly: true},
-                        {binding: 'InputDateTime', header: '입고일시', width: 120, align: 'center', isReadOnly: true},
-                        {binding: 'EffectiveDate', header: '유효일시', width: 120, align: 'center', isReadOnly: true},
-                        {binding: 'InputQty', header: '수량', width: 100, align: 'right', isReadOnly: true},
-                        {binding: 'Description', header: '비고', width: 200, align: 'left', isReadOnly: false}
-                    ],
-                    itemsSource: new wijmo.collections.CollectionView([])
+                        {key: 'LotNumber', header: '로트번호', width: 120, align: 'center', readOnly: true},
+                        {key: 'UnitName', header: '단위', width: 70, align: 'center', readOnly: true},
+                        {key: 'InputDateTime', header: '입고일시', width: 120, align: 'center', readOnly: true},
+                        {key: 'EffectiveDate', header: '유효일시', width: 120, align: 'center', readOnly: true},
+                        {key: 'InputQty', header: '수량', width: 100, align: 'right', readOnly: true},
+                        {key: 'Description', header: '비고', width: 200, align: 'left', readOnly: false}
+                    ]
                 });
 
-                new FlexGridContextMenu(this.matLotGrid);
-                this.matLotGrid.downloadFileName = '로트 입고 내역';
+                this.matLotGrid.opts.fileName = '로트 입고 내역';
 
                 let $EffectiveDate = $content.find('#EffectiveDate');
                 let $MaterialTypeName = $content.find('#MaterialTypeName');
@@ -2123,7 +2006,7 @@
                             //$btnLotSave.prop('disabled', 'disabled');
                             $btnLotCalc.prop('disabled', 'disabled');
                         }
-                        _this.matLotGrid.itemsSource = new wijmo.collections.CollectionView(result.data);
+                        _this.matLotGrid.setData(result.data);
                     };
                     let lotParam = {
                         mio_id: mio_pk,
@@ -2137,7 +2020,7 @@
 
                 // 로트계산버튼 클릭
                 $btnLotCalc.click(function (e) {
-                    _this.matLotGrid.itemsSource.sourceCollection = [];
+                    _this.matLotGrid.setData([]);
 
                     if ($EffectiveDate.val() === '' || $EffectiveDate.val() == null) {
                         Alert.alert('로트저장', '유효 일시를 입력해주세요.', function () {
@@ -2188,14 +2071,14 @@
                         updatedCollection.push(r);
                         remainQty = remainQty - qty;
                     }
-                    _this.matLotGrid.itemsSource.sourceCollection = updatedCollection;
+                    _this.matLotGrid.setData(updatedCollection);
                 });
 
                 let $btnBarcordPrint = $content.find('#btnBarcordPrint');
 
                 // 바코드출력
                 $btnBarcordPrint.click(function (e) {
-                    let lotItems = _this.matLotGrid.itemsSource.items;
+                    let lotItems = _this.matLotGrid.getData();
                     if (lotItems.length == 0) {
                         return;
                     }
@@ -2213,7 +2096,7 @@
 
                 // 로트저장
                 $btnLotSave.click(function (e) {
-                    let lotItems = _this.matLotGrid.itemsSource.items;
+                    let lotItems = _this.matLotGrid.getData();
                     if (lotItems.length === 0) {
                         Alert.alert('로트저장', '저장할 로트가 없습니다.', function () {
                         });
@@ -2256,7 +2139,7 @@
             //입고 검사
             showInputTestPopup() {
                 let _this = this;
-                let items = _this.grid.selectedItems;
+                let items = (_this.grid.getChecked().length ? _this.grid.getChecked() : _this.grid.selectedItems);
                 console.log('items',items);
                 if (items.length === 0) {
                     Alert.alert('입고검사', '선택된 입고 데이터가 없습니다. ', function () {
@@ -2273,49 +2156,33 @@
                 let modalContainer = new PopupDraggable('입고검사');
                 modalContainer.open({width: 1000, height: 670, $content});
 
-                this.matTestGrid = new wijmo.grid.FlexGrid('#mat-input-test-grid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.Row,
+                this.matTestGrid = new EditTable('#mat-input-test-grid', {
                     frozenColumns: 0,
                     frozenRows: 0,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                            // result1 열에만 스타일 적용
-                            if (sender.columns[e.col].binding === 'result1') {
-                                e.cell.style.color = '#5567ff'; // 글자 색깔 변경
-                            }
-                        }
-                    },
                     columns: [
-                        {binding: 'name', header: '검사항목', width: 200, align: 'left', isReadOnly: true},
+                        {key: 'name', header: '검사항목', width: 200, align: 'left', readOnly: true},
                         {
-                            binding: 'result1', header: '결과값(입력)', width: 400, align: 'center', isReadOnly: false
+                            key: 'result1', header: '결과값(입력)', width: 400, align: 'center', readOnly: r => r.resultType === 'S'
                         }
-                    ],
-                    itemsSource: new wijmo.collections.CollectionView([]),
+                    ]
                 });
 
-                this.matTestGrid.addEventListener(this.matTestGrid.hostElement, 'click', (e) => {
+                this.matTestGrid.hostElement.addEventListener('click', (e) => {
                     const ht = this.matTestGrid.hitTest(e);
-                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                    if (ht.cellType === 'cell') {
                         const col = this.matTestGrid.columns[ht.col];
-                        const item = this.matTestGrid.rows[ht.row]?.dataItem;
+                        const item = this.matTestGrid.getPageRows()[ht.row];
 
-                        if (col.binding === 'result1' && item.resultType === 'S') {
-                            col.isReadOnly = true;
+                        if (col.key === 'result1' && item.resultType === 'S') {
                             // 데이터 값을 토글
                             item.result1 = item.result1 === 'O' ? 'X' : 'O';
                             // 변경된 값을 반영
-                            this.matTestGrid.collectionView.refresh();
+                            this.matTestGrid.refresh();
                         } else {
-                            col.isReadOnly = false;
                         }
                     }
                 });
-                new FlexGridContextMenu(this.matTestGrid);
-                this.matTestGrid.downloadFileName = '입고 검사 내역';
+                this.matTestGrid.opts.fileName = '입고 검사 내역';
 
                 let $EffectiveDate = $content.find('#EffectiveDate');
                 let $MaterialTypeName = $content.find('#MaterialTypeName');
@@ -2361,7 +2228,7 @@
                 let fnLoadTestList = function (mio_pk) {
                     let fnsuccess = function (result) {
                         if (result.data !== null) {
-                            _this.matTestGrid.itemsSource.sourceCollection = result.data.mioList;
+                            _this.matTestGrid.setData(result.data.mioList);
 
                             if (result.data.testDate != null) {
                                 $TestDate.val(result.data.testDate);
@@ -2399,16 +2266,16 @@
                 fnLoadTestList(item.mio_pk);
 
                 $btnAllItem.click(function (e) {
-                    _this.matTestGrid.itemsSource.sourceCollection.forEach(function (item) {
+                    _this.matTestGrid.getData().forEach(function (item) {
                         if (item.resultType === 'S') {
                             item.result1 = 'O';
                         }
                     });
-                    _this.matTestGrid.collectionView.refresh();
+                    _this.matTestGrid.refresh();
                 })
                 // 입고검사 저장
                 $btnTestSave.click(function (e) {
-                    let testItems = _this.matTestGrid.itemsSource.sourceCollection;
+                    let testItems = _this.matTestGrid.getData();
 
                     if (testItems.length === 0) {
                         Alert.alert('검사저장', '저장할 입고내역이 없습니다.', function () {
@@ -2553,38 +2420,17 @@
                 let $content = this.$content;
 
                 // 다중입고 그리드 팝업
-                this.grid = new wijmo.grid.FlexGrid('#multi_input_grid', {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.None,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
+                this.grid = new EditTable('#multi_input_grid', {
                     frozenColumns: 0,
                     frozenRows: 0,
-                    isReadOnly: true,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                    readOnly: true,
                     columns: [
-                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
-                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
-                        {binding: 'input_qty', header: '수량', width: 100, align: 'right', format: 'n0'}
-                    ],
-                    itemsSource: new wijmo.collections.CollectionView([]),
-                    itemFormatter: (panel, row, col, cell) => {
-                        if (panel.cellType === wijmo.grid.CellType.Cell) {
-                            const item = panel.rows[row].dataItem; // 현재 행의 데이터 항목
-                            const column = panel.columns[col]; // 현재 열 정보
-
-                            // 품목명 조건부 스타일링
-                            if (column.binding === 'mat_name' && (!item.mat_name || item.mat_name.trim() === '')) {
-                                cell.classList.add('grid-cell-red'); // 'grid-cell-red' 클래스를 추가
-                            }
-                        }
-                    }
+                        {key: 'mat_code', header: '품목코드', width: 100, align: 'center'},
+                        {key: 'mat_name', header: '품목명', width: '1*', align: 'left', cellClass: r => ((!r.mat_name || r.mat_name.trim() === '')) ? 'et-bad' : ''},
+                        {key: 'input_qty', header: '수량', width: 100, align: 'right', format: 'n0'}
+                    ]
                 });
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '다중 입고 내역';
+                this.grid.opts.fileName = '다중 입고 내역';
 
                 AjaxUtil.fillSelectOptions($content.find('#StoreHouse_id'), 'store_house', 'choose', 3);    // 3:자재창고
                 $content.find('#dialog_title').innerHTML = '품목입고 등록';
@@ -2626,7 +2472,7 @@
             copyToGrid() {
                 let _this = this;
                 let $content = this.$content;
-                this.grid.itemsSource.sourceCollection = [];  // grid 초기화
+                this.grid.setData([]);  // grid 초기화
                 let copyText = $content.find("#txtCopyText").val();
                 let line = copyText.split('\n');
                 for (let i = 0; i < line.length; i++) {
@@ -2651,7 +2497,7 @@
                 };
                 let result = AjaxUtil.getSyncData(url + "/trans_multi_input_data", data);
                 if (result) {
-                    _this.grid.itemsSource.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                 }
             }
 
@@ -2660,7 +2506,7 @@
                 let url = '/api/inventory/material_inout/save_multi_data';
                 let data = FormUtil.extractForm($('#mat_multi_input_form'));
                 data['type'] = 'in';
-                let grid_data = this.grid.itemsSource.sourceCollection;
+                let grid_data = this.grid.getData();
                 let bad_count = 0;
                 grid_data.forEach(function (value, index) {
                     if (!value.mat_name)
@@ -2698,50 +2544,18 @@
             }
 
             initGrid(gridElement) {
-                this.grid = new wijmo.grid.FlexGrid(gridElement, {
-                    autoGenerateColumns: false,
-                    selectionMode: wijmo.grid.SelectionMode.ListBox,
-                    headersVisibility: wijmo.grid.HeadersVisibility.All,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                this.grid = new EditTable(gridElement, {
                     columns: [
-                        {binding: 'mat_type', header: '품목구분', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'material', header: '품목', width: 250, align: 'left', isReadOnly: true},
-                        {binding: 'unit_name', header: '단위', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'current_stock', header: '창고재고', width: 100, align: 'right', isReadOnly: true},
-                        {binding: 'move_qty', header: '이동량(입력수정)', width: 150, align: 'right', isReadOnly: false}
+                        {key: 'mat_type', header: '품목구분', width: 100, align: 'center', readOnly: true},
+                        {key: 'mat_code', header: '품목코드', width: 100, align: 'left', readOnly: true},
+                        {key: 'material', header: '품목', width: 250, align: 'left', readOnly: true},
+                        {key: 'unit_name', header: '단위', width: 100, align: 'center', readOnly: true},
+                        {key: 'current_stock', header: '창고재고', width: 100, align: 'right', readOnly: true},
+                        {key: 'move_qty', header: '이동량(입력수정)', width: 150, align: 'right', readOnly: false, cellClass: r => r.move_qty > 0 ? 'et-blue' : ''}
                     ],
-                    itemsSource: new wijmo.collections.CollectionView([]),
-                    itemFormatter: (panel, row, col, cell) => {
-                        if (panel.cellType === wijmo.grid.CellType.Cell) {
-                            const item = panel.rows[row].dataItem; // 현재 행의 데이터 항목
-                            const column = panel.columns[col]; // 현재 열 정보
-
-                            // 창고재고 조건부 스타일링
-                            if (column.binding === 'house_stock' && item.house_stock <= 0) {
-                                cell.classList.add('grid-cell-red'); // 'grid-cell-red' 클래스 추가
-                            }
-
-                            // 이동량 조건부 스타일링
-                            if (column.binding === 'move_qty') {
-                                if (item.move_qty > 0) {
-                                    cell.classList.add('grid-cell-blue'); // 'grid-cell-blue' 클래스 추가
-                                }
-                            }
-                        }
-                    }
+                    // (위즈모 itemFormatter : 이동량 > 0 파랑 → move_qty 칸 cellClass. 창고재고 칸은 이 표에 없음)
                 });
-                let selector = new wijmo.grid.selector.Selector(this.grid, {
-                    itemChecked: function () {
-
-                    }
-                })
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '품목 내역';
+                this.grid.opts.fileName = '품목 내역';
             }
 
             searchMaterial() {
@@ -2760,7 +2574,7 @@
 
                 let fnsuccess = function (result) {
                     if (result.data) {
-                        _this.grid.itemsSource.sourceCollection = result.data;
+                        _this.grid.setData(result.data);
                     }
                 };
 
@@ -2788,7 +2602,7 @@
 
                 }
 
-                let seletectedItems = _this.grid.selectedItems;
+                let seletectedItems = (_this.grid.getChecked().length ? _this.grid.getChecked() : _this.grid.selectedItems);
                 if (seletectedItems.length === 0) {
                     Alert.alert('', '선택된 데이터가 없습니다.');
                     return;
@@ -2821,7 +2635,7 @@
                 let to = this.$cboTo.val();
                 let items = [];
 
-                let seletectedItems = _this.grid.selectedItems;
+                let seletectedItems = (_this.grid.getChecked().length ? _this.grid.getChecked() : _this.grid.selectedItems);
                 if (seletectedItems.length === 0) {
                     Alert.alert('', '선택된 데이터가 없습니다.');
                     return;

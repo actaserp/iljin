@@ -47,9 +47,9 @@
                 'popupHeight': 500,
                 'selectBtnLabel': '선택',
                 'gridColumns': [
-                    { binding: 'id', header: 'ID', width: 0, visible: false },
-                    { binding: 'Code', header: '코드', width: '*', align: 'center', visible: false },
-                    { binding: 'Value', header: '코드명', width: '*', align: 'left' }
+                    { key: 'id', header: 'ID', width: 0, visible: false },
+                    { key: 'Code', header: '코드', width: '1*', align: 'center', visible: false },
+                    { key: 'Value', header: '코드명', width: '1*', align: 'left' }
                 ],
                 'gridShowCode': false,
                 'gridCodeLabel': '',
@@ -62,21 +62,21 @@
             let _this = this;
             if (this.option.gridShowCode) {
                 this.option.gridColumns.forEach(col => {
-                    if (col.binding === 'Code') {
+                    if (col.key === 'Code') {
                         col.visible = true;
                     }
                 });
             }
             if (this.option.gridCodeLabel) {
                 this.option.gridColumns.forEach(col => {
-                    if (col.binding === 'Code') {
+                    if (col.key === 'Code') {
                         col.header = this.option.gridCodeLabel;
                     }
                 });
             }
             if (this.option.gridValueLabel) {
                 this.option.gridColumns.forEach(col => {
-                    if (col.binding === 'Value') {
+                    if (col.key === 'Value') {
                         col.header = this.option.gridValueLabel;
                     }
                 });
@@ -150,20 +150,10 @@
                 _this.close();
             });
 
-            this.grid = new wijmo.grid.FlexGrid('#select-user-code-grid', {
-                autoGenerateColumns: false,
-                selectionMode: wijmo.grid.SelectionMode.Row,
+            this.grid = new EditTable('#select-user-code-grid', {
                 frozenColumns: 0,
                 frozenRows: 0,
-                allowSorting: true,
-                isReadOnly: true,
-                headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                itemsSource: new wijmo.collections.CollectionView([]),
-                formatItem: (s, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                    }
-                },
+                readOnly: true,
                 columns: this.option.gridColumns
             });
 
@@ -174,7 +164,7 @@
 
             let result = AjaxUtil.getSyncData(url, data);
             if (result != null) {
-                this.grid.itemsSource.sourceCollection = result;
+                this.grid.setData(result);
                 this.grid.refresh();
             }
             //setTimeout(function(){_this.grid.align();}, 1000);

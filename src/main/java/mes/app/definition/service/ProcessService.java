@@ -93,8 +93,9 @@ public class ProcessService {
 	        , dt."Name" as defect_type_name
 	        from proc_defect_type pd 
 	        inner join defect_type dt on dt.id = pd."DefectType_id"
+	        inner join process p on p.id = pd."Process_id"   -- 저장할 때 spjangcd 를 넣지 않으므로 공정의 사업장으로 거름
 	        where pd."Process_id" = :process_id
-	        AND pd.spjangcd = :spjangcd
+	        AND p.spjangcd = :spjangcd
 	        order by 2
 		    """;
         
@@ -115,8 +116,9 @@ public class ProcessService {
 	        , sc."StopCauseName" as stop_cause_name
 	        from proc_stop_cause ps
 	        inner join stop_cause sc on sc.id = ps."StopCause_id"
+	        inner join process p on p.id = ps."Process_id"   -- (예전 pd.spjangcd : 없는 별칭이라 늘 오류)
 	        where ps."Process_id" = :process_id
-	        AND pd.spjangcd = :spjangcd
+	        AND p.spjangcd = :spjangcd
 	        order by 2
 		    """;
         

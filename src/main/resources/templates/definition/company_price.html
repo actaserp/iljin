@@ -108,67 +108,50 @@
         var page = {
             grid: null,
             priceGrid: null,
-            viewData: new wijmo.collections.CollectionView(),
-            priceData: new wijmo.collections.CollectionView(),
+            viewData: [],
+            priceData: [],
 
             init: function () {
                 var _this = this;
 
-                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    autoGenerateColumns: false,
-                    isReadOnly: true,
-                    showMarquee: true,
+                this.grid = new EditTable('#theGrid', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'comp_code', header: '업체코드', width: 100, align: 'center'},
-                        {binding: 'name', header: '업체명', width: '*', align: 'left'},
-                        {binding: 'company_type_name', header: '업체구분', width: 90, align: 'center'}
-                    ],
-                    itemsSource: this.viewData
+                        {key: 'comp_code', header: '업체코드', width: 100, align: 'center'},
+                        {key: 'name', header: '업체명', width: '1*', align: 'left'},
+                        {key: 'company_type_name', header: '업체구분', width: 90, align: 'center'}
+                    ]
                 });
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '거래처 목록';
+                this.grid.setData(this.viewData);
+                this.grid.opts.fileName = '거래처 목록';
 
                 this.grid.selectionChanged.addHandler(function (s) {
-                    var item = s.collectionView.currentItem;
+                    var item = s.current();
                     if (item) _this.selectCompany(item);
                 });
 
-                this.priceGrid = new wijmo.grid.FlexGrid('#priceGrid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    autoGenerateColumns: false,
-                    isReadOnly: true,
-                    showMarquee: true,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                            var col = s.columns[e.col];
-                            var item = s.rows[e.row].dataItem;
-                            if (col.binding === 'type') {
-                                e.cell.textContent = (item.type === '01') ? '매입' : '매출';
-                            }
-                        }
-                    },
+                this.priceGrid = new EditTable('#priceGrid', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center'},
-                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center'},
-                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
-                        {binding: 'unit_name', header: '단위', width: 60, align: 'center'},
-                        {binding: 'type', header: '구분', width: 60, align: 'center'},
-                        {binding: 'unit_price', header: '단가', width: 100, align: 'right', format: 'n0'},
-                        {binding: 'former_unit_price', header: '이전단가', width: 100, align: 'right', format: 'n0'},
-                        {binding: 'apply_start_date', header: '적용시작일', width: 100, align: 'center'},
-                        {binding: 'apply_end_date', header: '적용종료일', width: 100, align: 'center'}
-                    ],
-                    itemsSource: this.priceData
+                        {key: 'mat_grp_name', header: '품목그룹', width: 100, align: 'center'},
+                        {key: 'mat_code', header: '품목코드', width: 100, align: 'center'},
+                        {key: 'mat_name', header: '품목명', width: '1*', align: 'left'},
+                        {key: 'unit_name', header: '단위', width: 60, align: 'center'},
+                        {key: 'type', header: '구분', width: 60, align: 'center', format: v => v === '01' ? '매입' : '매출'},
+                        {key: 'unit_price', header: '단가', width: 100, align: 'right', format: 'n0'},
+                        {key: 'former_unit_price', header: '이전단가', width: 100, align: 'right', format: 'n0'},
+                        {key: 'apply_start_date', header: '적용시작일', width: 100, align: 'center'},
+                        {key: 'apply_end_date', header: '적용종료일', width: 100, align: 'center'}
+                    ]
                 });
-                new FlexGridContextMenu(this.priceGrid);
-                this.priceGrid.downloadFileName = '거래처별 단가';
+                this.priceGrid.setData(this.priceData);
+                this.priceGrid.opts.fileName = '거래처별 단가';
 
                 // 단가 행 더블클릭 → 상세 로드(수정 모드)
                 this.priceGrid.hostElement.addEventListener('dblclick', function (e) {
                     var ht = _this.priceGrid.hitTest(e);
-                    if (ht.cellType === wijmo.grid.CellType.Cell) {
-                        var item = _this.priceGrid.rows[ht.row].dataItem;
+                    if (ht.cellType === 'cell') {
+                        var item = _this.priceGrid.getPageRows()[ht.row];
                         _this.loadPriceDetail(item.mcu_id);
                     }
                 });
@@ -195,18 +178,18 @@
                     spjangcd: sessionStorage.getItem('spjangcd')
                 };
                 var res = AjaxUtil.getSyncData('/api/definition/company/read', data);
-                if (res != null) _this.viewData.sourceCollection = res.data;
+                if (res != null) _this.grid.setData(res.data);
                 $('#selCompany').text('거래처를 선택하세요');
                 _this.selCompanyId = null;
-                _this.priceData.sourceCollection = [];
+                _this.priceGrid.setData([]);
                 _this.setButtonState();
             },
 
             loadPriceList: function () {
                 var _this = this;
-                if (!this.selCompanyId) { this.priceData.sourceCollection = []; return; }
+                if (!this.selCompanyId) { this.priceGrid.setData([]); return; }
                 var res = AjaxUtil.getSyncData('/api/definition/company/mat_price_list', {company_id: this.selCompanyId});
-                this.priceData.sourceCollection = (res != null && res.data) ? res.data : [];
+                this.priceGrid.setData((res != null && res.data) ? res.data : []);
             },
 
             setButtonState: function () {

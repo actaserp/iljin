@@ -1,9 +1,6 @@
 <html layout:decorate="~{layout_page}">
 <head>
     <style>
-        .wj-header {
-            text-align: center !important;
-        }
 
         #thumbnail div img:hover {
             opacity: 0.5
@@ -497,8 +494,8 @@
         class EquipmentPage {
             constructor() {
                 this.grid = null;
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
                 this.init();
                 this.url = '/api/definition/equipment';
             }
@@ -581,57 +578,45 @@
                 this.grid_config = config;*/
 
 
-                this.grid = new wijmo.grid.FlexGrid('#equipment-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
+                this.grid = new EditTable('#equipment-grid', {
+                    selectFirst: false,
+                    readOnly: true,
                     frozenColumns: 3,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
                     columns: [
                         //{ key: 'id', label: '번호', width: 80, align: 'right' },
-                        {binding: 'group_name', header: '설비그룹', width: 120, align: 'left'},
-                        {binding: 'Code', header: '설비코드', width: 150, align: 'left'},
-                        {binding: 'Usage', header: '용도', width: 120, align: 'left'},
-                        {binding: 'Name', header: '설비명', width: 200, align: 'left'},
-                        {binding: 'workcenter_name', header: '워크센터', width: 150, align: 'left'},
-                        {binding: 'ManageNumber', header: '관리번호', width: 180, align: 'left'},
-                        {binding: 'Model', header: '모델명', width: 150, align: 'left'},
-                        {binding: 'Maker', header: '제조사', width: 150, align: 'left'},
-                        {binding: 'Voltage', header: '사용전압', width: 150, align: 'left'},
-                        {binding: 'PowerWatt', header: '용량', width: 150, align: 'left'},
-                        {binding: 'InputDate', header: '입고일', width: 150, align: 'center'},
-                        {binding: 'DepartName', header: '사용부서', width: 150, align: 'left'},
-                        {binding: 'ASTelNumber', header: 'AS전화번호', width: 150, align: 'left'},
-                        {binding: 'SerialNumber', header: '시리얼번호', width: 150, align: 'left'},
-                        {binding: 'ProductionYear', header: '제작년도', width: 150, align: 'center'},
-                        {binding: 'PurchaseDate', header: '구매일', width: 150, align: 'center'},
-                        {binding: 'InstallDate', header: '설치일', width: 150, align: 'center'},
-                        {binding: 'SupplierName', header: '공급업체', width: 150, align: 'left'},
-                        {binding: 'PurchaseCost', header: '구매금액', width: 150, align: 'right'},
-                        {binding: 'OperationRateYN', header: '가동률표시', width: 100, align: 'center'},
-                        {binding: 'Manager', header: '관리책임자', width: 150, align: 'center'},
-                        {binding: 'SupplierName', header: '공급업체', width: 150, align: 'left'},
-                        {binding: 'DisposalDate', header: '폐기일', width: 150, align: 'left'},
-                        {binding: 'Description', header: '설명', width: 200, align: 'left'},
-                        {binding: 'AttentionRemark', header: '점검 및 사용상 주의점', width: 200, align: 'left'},
+                        {key: 'group_name', header: '설비그룹', width: 120, align: 'left'},
+                        {key: 'Code', header: '설비코드', width: 150, align: 'left'},
+                        {key: 'Usage', header: '용도', width: 120, align: 'left'},
+                        {key: 'Name', header: '설비명', width: 200, align: 'left'},
+                        {key: 'workcenter_name', header: '워크센터', width: 150, align: 'left'},
+                        {key: 'ManageNumber', header: '관리번호', width: 180, align: 'left'},
+                        {key: 'Model', header: '모델명', width: 150, align: 'left'},
+                        {key: 'Maker', header: '제조사', width: 150, align: 'left'},
+                        {key: 'Voltage', header: '사용전압', width: 150, align: 'left'},
+                        {key: 'PowerWatt', header: '용량', width: 150, align: 'left'},
+                        {key: 'InputDate', header: '입고일', width: 150, align: 'center'},
+                        {key: 'DepartName', header: '사용부서', width: 150, align: 'left'},
+                        {key: 'ASTelNumber', header: 'AS전화번호', width: 150, align: 'left'},
+                        {key: 'SerialNumber', header: '시리얼번호', width: 150, align: 'left'},
+                        {key: 'ProductionYear', header: '제작년도', width: 150, align: 'center'},
+                        {key: 'PurchaseDate', header: '구매일', width: 150, align: 'center'},
+                        {key: 'InstallDate', header: '설치일', width: 150, align: 'center'},
+                        {key: 'SupplierName', header: '공급업체', width: 150, align: 'left'},
+                        {key: 'PurchaseCost', header: '구매금액', width: 150, align: 'right'},
+                        {key: 'OperationRateYN', header: '가동률표시', width: 100, align: 'center'},
+                        {key: 'Manager', header: '관리책임자', width: 150, align: 'center'},
+                        {key: 'SupplierName', header: '공급업체', width: 150, align: 'left'},
+                        {key: 'DisposalDate', header: '폐기일', width: 150, align: 'left'},
+                        {key: 'Description', header: '설명', width: 200, align: 'left'},
+                        {key: 'AttentionRemark', header: '점검 및 사용상 주의점', width: 200, align: 'left'},
                     ],
-                    itemsSource: this.viewData, // 데이터를 설정할 배열
+                     // 데이터를 설정할 배열
 
                 });
+                this.grid.setData(this.viewData);
 
 
-                this.grid.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
-                let isInitialLoad = true; // 초기 상태 플래그
+                let isInitialLoad = false;   // EditTable 은 자료를 넣을 때 선택 이벤트가 없어서 첫 클릭을 버리지 않게 false // 초기 상태 플래그
 
                 this.grid.selectionChanged.addHandler((s, e) => {
                     if (isInitialLoad) {
@@ -639,9 +624,9 @@
                         return;
                     }
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
                         let id = selectedRowData.id; // 품목 ID 가져오기
                         /*console.log(selectedRowData);*/
 
@@ -652,39 +637,31 @@
                 });
 
 
-                this.grid2 = new wijmo.grid.FlexGrid('#add-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                this.grid2 = new EditTable('#add-grid', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'cname', header: '설비명', width: 170, align: 'left'},
-                        {binding: 'component', header: '구성품명', width: 150, align: 'left'},
-                        {binding: 'ctype', header: '부품유형', width: 120, align: 'left'},
-                        {binding: 'cmodel', header: '모델명/사양', width: 170, align: 'left'},
-                        {binding: 'cmake', header: '제조사', width: 150, align: 'left'},
-                        {binding: 'camaunt', header: '수량', width: 120, align: 'right'},
-                        {binding: 'cunit', header: '단가', width: 120, align: 'right'},
-                        {binding: 'cdate', header: '설비일자', width: 150, align: 'center'},
-                        {binding: 'cycle', header: '교체주기', width: 150, align: 'center'},
-                        {binding: 'state', header: '상태', width: 100, align: 'center'},
-                        {binding: 'description', header: '비고', width: 150, align: 'left'},
+                        {key: 'cname', header: '설비명', width: 170, align: 'left'},
+                        {key: 'component', header: '구성품명', width: 150, align: 'left'},
+                        {key: 'ctype', header: '부품유형', width: 120, align: 'left'},
+                        {key: 'cmodel', header: '모델명/사양', width: 170, align: 'left'},
+                        {key: 'cmake', header: '제조사', width: 150, align: 'left'},
+                        {key: 'camaunt', header: '수량', width: 120, align: 'right'},
+                        {key: 'cunit', header: '단가', width: 120, align: 'right'},
+                        {key: 'cdate', header: '설비일자', width: 150, align: 'center'},
+                        {key: 'cycle', header: '교체주기', width: 150, align: 'center'},
+                        {key: 'state', header: '상태', width: 100, align: 'center'},
+                        {key: 'description', header: '비고', width: 150, align: 'left'},
                     ],
-                    itemsSource: this.viewData2, // 데이터를 설정할 배열
+                     // 데이터를 설정할 배열
 
                 });
+                this.grid2.setData(this.viewData2);
 
                 this.grid2.hostElement.addEventListener('dblclick', (e) => {
                     let hitTest = this.grid2.hitTest(e);
-                    if (hitTest.cellType === wijmo.grid.CellType.Cell) {
+                    if (hitTest.cellType === 'cell') {
                         let row = hitTest.row;
-                        let selectedItem = this.grid2.rows[row].dataItem;
+                        let selectedItem = this.grid2.getPageRows()[row];
                         /*console.log(selectedItem);*/
 
                         /*_this.showPriceDetail(selectedItem.mcu_id);*/
@@ -749,8 +726,8 @@
                 let result = AjaxUtil.getSyncData(_this.url + "/read", data);
 
                 if (result != null) {
-                    _this.viewData.sourceCollection = result.data;
-                    /*_this.viewData2.sourceCollection = result.data;*/
+                    _this.grid.setData(result.data);
+                    /*_this.grid2.setData(result.data);*/
                     /*_this.showComponentList(result.data.id);*/
                 }
 
@@ -961,7 +938,7 @@
 
                 let result = AjaxUtil.getSyncData(_this.url + '/readComponent', data);
                 if (result != null) {
-                    _this.viewData2.sourceCollection = result.data;
+                    _this.grid2.setData(result.data);
                 }
             }
 

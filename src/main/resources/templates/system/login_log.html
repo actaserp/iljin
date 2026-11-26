@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -124,13 +119,13 @@
 
         /*로그인로그 컬럼*/
         var columns = [
-            {binding: 'row_number', header: 'No', width: 150, align: 'center'},
-            {binding: 'name', header: '이름', width: 160, align: 'center'},
-            {binding: 'created', header: '일시', width: 260, align: 'center'},
-            {binding: 'type', header: '구분', width: 160, align: 'center'},
-            {binding: 'login_id', header: '사번', width: 160, align: 'center'},
-            {binding: 'addr', header: 'IP Address', width: 200, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'},
+            {key: 'row_number', header: 'No', width: 150, align: 'center'},
+            {key: 'name', header: '이름', width: 160, align: 'center'},
+            {key: 'created', header: '일시', width: 260, align: 'center'},
+            {key: 'type', header: '구분', width: 160, align: 'center'},
+            {key: 'login_id', header: '사번', width: 160, align: 'center'},
+            {key: 'addr', header: 'IP Address', width: 200, align: 'center'},
+            
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -169,19 +164,15 @@
                 }
             });
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
             // 데이터 그리드에 바인딩
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
-            theGrid.rowHeaders.columns.splice(0, 1);  //맨 앞에 헤더부분 없애기
 
-            /*  new FlexGridContextMenu(theGrid);*/
         }
 
         // 검색
@@ -229,18 +220,11 @@
                 created: item.created,
             }));
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
-            columns.forEach(colDef => {
-                let col = new wijmo.grid.Column(colDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(formattedData);
+            viewdata = formattedData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
         $(document).ready(function (e) {

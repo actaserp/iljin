@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -115,13 +110,13 @@
         document.readyState === 'complete' ? init() : window.onload = init;
 
         let columns = [
-            {binding: 'id', header: 'id', width: '*', align: 'center', visible: false},
-            {binding: 'code', header: '코드', width: '*', align: 'center'},
-            {binding: 'name', header: '그룹명', width: '*', align: 'center'},
-            {binding: 'description', header: '설명', width: '*', align: 'center'},
-            {binding: 'gmenu', header: 'Dashboard', width: '*', align: 'center', visible: false},
-            {binding: 'gmenuname', header: 'Dashboard', width: '*', align: 'center'},
-            {binding: 'flag', header: 'flag', width: '*', align: 'center', visible: false},
+            {key: 'id', header: 'id', width: '1*', align: 'center', visible: false},
+            {key: 'code', header: '코드', width: '1*', align: 'center'},
+            {key: 'name', header: '그룹명', width: '1*', align: 'center'},
+            {key: 'description', header: '설명', width: '1*', align: 'center'},
+            {key: 'gmenu', header: 'Dashboard', width: '1*', align: 'center', visible: false},
+            {key: 'gmenuname', header: 'Dashboard', width: '1*', align: 'center'},
+            {key: 'flag', header: 'flag', width: '1*', align: 'center', visible: false},
         ]
 
         function init() {
@@ -149,92 +144,66 @@
             });
 
 
-            viewdata = new wijmo.collections.CollectionView(data2, {
-                groupDescriptions: [
-                    menuGroupName
-                ]
-            });
+            viewdata = data2;
 
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
+                groupBy: 'gpname',   // 메뉴명으로 묶기 (위즈모 PropertyGroupDescription 대신)
                 columns: [
                     {
-                        binding: 'name',
+                        key: 'name',
                         header: '코드명',
                         width: 250,
                         align: 'center',
+                        readOnly: true,
                     },
                     {
-                        binding: 'r',
+                        key: 'r',
                         header: '읽기',
                         width: 200,
                         align: 'center',
-                        dataType: wijmo.DataType.Boolean,
-                        isReadOnly: false,
+                        type: 'check', on: true, off: false,
+                        readOnly: false,
                     },
                     {
-                        binding: 'w',
+                        key: 'w',
                         header: '쓰기',
                         width: 200,
                         align: 'center',
-                        dataType: wijmo.DataType.Boolean,
-                        isReadOnly: false,
+                        type: 'check', on: true, off: false,
+                        readOnly: false,
                     },
                     {
-                        binding: 'a',
+                        key: 'a',
                         header: '알람',
                         width: 200,
                         align: 'center',
-                        dataType: wijmo.DataType.Boolean,
-                        isReadOnly: false,
+                        type: 'check', on: true, off: false,
+                        readOnly: false,
                     },
-                    {binding: '', header: '', width: "*", align: 'center'},
 
                 ],
-                itemsSource: viewdata,
-                formatItem: function (s, e) {
-                    // 특정 컬럼과 행에 대해 readonly 속성을 부여
-                    if (e.panel.cellType == wijmo.grid.CellType.Cell) {
-                        var col = s.columns[e.col];
-                        var item = s.rows[e.row].dataItem;
-
-                        // 예: 첫 번째 컬럼의 셀을 읽기 전용으로 설정
-                        if (col.binding == 'name') {
-                            e.cell.style.pointerEvents = 'none';  // 마우스 클릭 비활성화
-                            e.cell.style.userSelect = 'none';  // 텍스트 선택 비활성화
-                        }
-                    }
-                }
             });
+            theGrid.setData(viewdata);
 
-            theGrid.rowHeaders.columns.splice(0, 1);
 
-            /*new FlexGridContextMenu(theGrid);*/
         }
 
         // "읽기" 체크박스 클릭 이벤트 핸들러
         document.getElementById('AllcheckRead').addEventListener('change', function () {
             var checked = this.checked;
-            for (var i = 0; i < theGrid.rows.length; i++) {
-                theGrid.setCellData(i, 'r', checked);
-            }
+            theGrid.getView().forEach(row => theGrid.setValue(row, 'r', checked));   // 보이는 행 모두
         });
 
         // "쓰기" 체크박스 클릭 이벤트 핸들러
         document.getElementById('AllcheckWrite').addEventListener('change', function () {
             var checked = this.checked;
-            for (var i = 0; i < theGrid.rows.length; i++) {
-                theGrid.setCellData(i, 'w', checked);
-            }
+            theGrid.getView().forEach(row => theGrid.setValue(row, 'w', checked));   // 보이는 행 모두
         });
 
         document.getElementById('AllcheckAlarm').addEventListener('change', function () {
             var checked = this.checked;
-            for (var i = 0; i < theGrid.rows.length; i++) {
-                theGrid.setCellData(i, 'a', checked);
-            }
+            theGrid.getView().forEach(row => theGrid.setValue(row, 'a', checked));   // 보이는 행 모두
         });
 
 
@@ -277,9 +246,7 @@
 
         }
 
-        let menuGroupName = new wijmo.collections.PropertyGroupDescription('메뉴명', function (item) {
-            return item.gpname;
-        })
+        let menuGroupName = 'gpname';   // 메뉴명으로 묶기
 
 
         function grid_binding2(data) {
@@ -296,58 +263,43 @@
                     ugm_id: item.ugm_id // 추가: ugm_id 필드 포함
                 }));
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
             var columns = [
-                {binding: 'name', header: '코드명', width: 250, align: 'left'},
+                {key: 'name', header: '코드명', width: 250, align: 'left'},
                 {
-                    binding: 'r',
+                    key: 'r',
                     header: '읽기',
                     width: 200,
                     align: 'center',
-                    dataType: wijmo.DataType.Boolean,
-                    isReadOnly: false
+                    type: 'check', on: true, off: false,
+                    readOnly: false
                 },
                 {
-                    binding: 'w',
+                    key: 'w',
                     header: '쓰기',
                     width: 200,
                     align: 'center',
-                    dataType: wijmo.DataType.Boolean,
-                    isReadOnly: false
+                    type: 'check', on: true, off: false,
+                    readOnly: false
                 },
                 {
-                    binding: 'a',
+                    key: 'a',
                     header: '알람',
                     width: 200,
                     align: 'center',
-                    dataType: wijmo.DataType.Boolean,
-                    isReadOnly: false
+                    type: 'check', on: true, off: false,
+                    readOnly: false
                 },
-                {binding: '', header: '', width: "*", align: 'center'},
+                
             ];
 
-            columns.forEach(colDef => {
-                let col = new wijmo.grid.Column(colDef);
-                theGrid.columns.push(col);
-            });
 
             // **클릭 이벤트 처리**
-            theGrid.cellEditEnded.addHandler((s, e) => {
-                let item = s.itemsSource[e.row];
-                let column = theGrid.columns[e.col];
+            // 체크 칸은 누르면 값이 바로 바뀜 (위즈모 때의 cellEditEnded 토글은 s.itemsSource[e.row] 가 없어 늘 오류로 끝나 실제로는 안 돌았음)
 
-                if (column.binding === 'r' || column.binding === 'w'|| column.binding === 'a') {
-                    item[column.binding] = !item[column.binding]; // 상태 토글
-                    console.log(`Updated ${column.binding} for ${item.menu_code}: ${item[column.binding]}`);
-                }
-            });
-
-            viewdata = new wijmo.collections.CollectionView(UserMenuData);
-
-            viewdata.groupDescriptions.push(menuGroupName);
-            theGrid.itemsSource = viewdata;
+            viewdata = UserMenuData;
+            theGrid.setGroup(menuGroupName);
+            theGrid.setData(viewdata);
         }
 
         function saveUserGroupMenu() {
@@ -359,7 +311,7 @@
             let items = [];
 
             // itemsSource의 sourceCollection을 사용하여 데이터 순회
-            let sourceCollection = theGrid.itemsSource.sourceCollection || [];
+            let sourceCollection = theGrid.getData() || [];
             /*console.log("Source Collection Length:", sourceCollection.length);*/
 
             sourceCollection.forEach(item => {

@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 <th:block layout:fragment="content">
     <div class="layout-contents">
@@ -225,22 +220,22 @@
         var viewdata2;
 
         let columns = [
-            {binding: 'id', header: 'id', width: 150, align: 'left', visible: false},
-            {binding: 'factory_name', header: '공장', width: 150, align: 'left',},
-            {binding: 'area_name', header: '에어리어', width: 150, align: 'left',},
-            {binding: 'code', header: '워크센터코드', width: 150, align: 'left'},
-            {binding: 'name', header: '워크센터명', width: 200, align: 'left'},
-            {binding: 'ProcessName', header: '공정', width: 150, align: 'left',},
-            {binding: 'process_storehouse_id', header: '창고구분', width: 100, align: 'left'},
-            {binding: 'outsourcing_yn', header: '외주여부', width: 100, align: 'center',},
-            {binding: '', header: '', width: "*", align: 'center',},
+            {key: 'id', header: 'id', width: 150, align: 'left', visible: false},
+            {key: 'factory_name', header: '공장', width: 150, align: 'left',},
+            {key: 'area_name', header: '에어리어', width: 150, align: 'left',},
+            {key: 'code', header: '워크센터코드', width: 150, align: 'left'},
+            {key: 'name', header: '워크센터명', width: 200, align: 'left'},
+            {key: 'ProcessName', header: '공정', width: 150, align: 'left',},
+            {key: 'process_storehouse_id', header: '창고구분', width: 100, align: 'left'},
+            {key: 'outsourcing_yn', header: '외주여부', width: 100, align: 'center',},
+            
         ];
 
         let columns2 = [
-            {binding: 'EquipmentCode', header: '설비코드', width: 150, align: 'left'},
-            {binding: 'EquipmentName', header: '설비명', width: 200, align: 'left'},
-            {binding: '_created', header: '생성일', width: 200, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'},
+            {key: 'EquipmentCode', header: '설비코드', width: 150, align: 'left'},
+            {key: 'EquipmentName', header: '설비명', width: 200, align: 'left'},
+            {key: '_created', header: '생성일', width: 200, align: 'center'},
+            
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -265,15 +260,13 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
             theGrid.hostElement.addEventListener('dblclick', function (e) {
                 let selectedItem = theGrid.selectedItems[0];
@@ -304,8 +297,6 @@
                  setButtonState();
             });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
             showEquipmentList();
         }
 
@@ -364,8 +355,6 @@
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
@@ -373,15 +362,10 @@
                 return;
             }
 
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
 
@@ -469,7 +453,8 @@
         function showEquipmentList(workcenter_id) {
             let data2 = [];
 
-            $.ajax({
+            // 워크센터를 고르기 전(화면 처음 열 때)에는 빈 표만 (예전엔 id 없이 불러 500)
+            if (workcenter_id) $.ajax({
                 url: '/api/definition/workcenter/equipment_list',
                 type: 'GET',
                 data: {
@@ -486,21 +471,15 @@
             })
 
             // 기존 그리드 초기화
-            if (theGrid2) {
-                theGrid2.dispose();  // 기존 그리드를 제거합니다.
-            }
 
-            viewdata2 = new wijmo.collections.CollectionView(data2);
+            viewdata2 = data2;
 
-            theGrid2 = new wijmo.grid.FlexGrid('#workcenter-equip-grid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            if (!theGrid2) theGrid2 = new EditTable('#workcenter-equip-grid', {
                 columns: columns2,
-                isReadOnly: true,
-                itemsSource: viewdata2
+                readOnly: true
             });
+            theGrid2.setData(viewdata2);
 
-            theGrid2.rowHeaders.columns.splice(0, 1);
 
         }
 

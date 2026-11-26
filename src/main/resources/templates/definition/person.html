@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -283,19 +278,19 @@
         var viewdata;
 
         let columns = [
-            {binding: 'workcenter_name', header: '워크센터', width: 150, align: 'center',visible: false},
-            {binding: 'person_code', header: '코드', width: 100, align: 'center'},
-            {binding: 'person_name', header: '이름', width: 100, align: 'center',},
-            {binding: 'jik_id', header: '직위', width: 100, align: 'center',},
-            {binding: 'work_hour', header: '기본 근무시간', width: 120, align: 'center'},
-            {binding: 'shift_name', header: '현 근무조', width: 120, align: 'center'},
-            {binding: 'person_group_name', header: '근무구분', width: 120, align: 'center'},
-            {binding: 'dept_name', header: '부서', width: 120, align: 'center'},
-            {binding: 'factory_name', header: '공장', width: 120, align: 'center'},
-            {binding: 'rtdate', header: '입사일', width: 120, align: 'center'},
-            {binding: 'enddate', header: '퇴사일', width: 120, align: 'center'},
-            {binding: 'rtflag', header: '재직여부', width: 120, align: 'center'},
-            {binding: 'description', header: '비고', width: '*', align: 'center'},
+            {key: 'workcenter_name', header: '워크센터', width: 150, align: 'center',visible: false},
+            {key: 'person_code', header: '코드', width: 100, align: 'center'},
+            {key: 'person_name', header: '이름', width: 100, align: 'center',},
+            {key: 'jik_id', header: '직위', width: 100, align: 'center',},
+            {key: 'work_hour', header: '기본 근무시간', width: 120, align: 'center'},
+            {key: 'shift_name', header: '현 근무조', width: 120, align: 'center'},
+            {key: 'person_group_name', header: '근무구분', width: 120, align: 'center'},
+            {key: 'dept_name', header: '부서', width: 120, align: 'center'},
+            {key: 'factory_name', header: '공장', width: 120, align: 'center'},
+            {key: 'rtdate', header: '입사일', width: 120, align: 'center'},
+            {key: 'enddate', header: '퇴사일', width: 120, align: 'center'},
+            {key: 'rtflag', header: '재직여부', width: 120, align: 'center', cellClass: r => r.rtflag === '퇴직' ? 'et-bad' : ''},
+            {key: 'description', header: '비고', width: '1*', align: 'center'},
         ]
 
 
@@ -356,27 +351,14 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
             // 퇴직 색 부여
-            theGrid.formatItem.addHandler(function(s, e) {
-                if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                    let col = s.columns[e.col];
-                    let item = s.rows[e.row].dataItem;
-
-                    // 부서 컬럼 && 값이 '퇴직'이면
-                    if (col.binding === 'rtflag' && item.rtflag === '퇴직') {
-                        e.cell.style.backgroundColor = '#ffe5e5'; // 연한 빨강
-                    }
-                }
-            });
 
 
             theGrid.hostElement.addEventListener('dblclick', function (e) {
@@ -418,8 +400,6 @@ console.log(selectedItem);
 
             });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
 
         }
 
@@ -522,8 +502,6 @@ console.log(selectedItem);
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
@@ -531,15 +509,10 @@ console.log(selectedItem);
                 return;
             }
 
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
 

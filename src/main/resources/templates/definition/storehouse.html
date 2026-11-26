@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -188,13 +183,13 @@
         var viewdata;
 
         let columns = [
-            {binding: 'id', header: '번호', width: 100, align: 'left', visible: false},
-            {binding: 'storehouse_type', header: '창고구분', width: 120, align: 'center'},
-            {binding: 'storehouse_code', header: '창고코드', width: 100, align: 'center'},
-            {binding: 'storehouse_name', header: '창고명', width: 200, align: 'center'},
-            {binding: 'factory_name', header: '공장', width: 150, align: 'center'},
-            {binding: 'created', header: '생성일', width: 130, align: 'center'},
-            {binding: 'description', header: '비고', width: '*', align: 'center'},
+            {key: 'id', header: '번호', width: 100, align: 'left', visible: false},
+            {key: 'storehouse_type', header: '창고구분', width: 120, align: 'center'},
+            {key: 'storehouse_code', header: '창고코드', width: 100, align: 'center'},
+            {key: 'storehouse_name', header: '창고명', width: 200, align: 'center'},
+            {key: 'factory_name', header: '공장', width: 150, align: 'center'},
+            {key: 'created', header: '생성일', width: 130, align: 'center'},
+            {key: 'description', header: '비고', width: '1*', align: 'center'},
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -220,15 +215,13 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
             theGrid.hostElement.addEventListener('dblclick', function (e) {
                 let selectedItem = theGrid.selectedItems[0];
@@ -263,8 +256,6 @@
             });
 
 
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
         }
 
         // 버튼 활성화 설정
@@ -335,8 +326,6 @@
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
@@ -344,15 +333,10 @@
                 return;
             }
 
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
         // 창고 정보 저장

@@ -1,9 +1,6 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
     <style>
-        .wj-header {
-            text-align: center !important;
-        }
          #getPersonId {
              color: white !important;
          }
@@ -417,44 +414,38 @@
         let csrfToken = $("[name=_csrf]").val();
 
         let columns = [
-            {binding: 'id', header: 'id', width: 100, align: 'center', visible: false},
-            {binding: 'login_id', header: 'ID', width: 120, align: 'center'},
-            {binding: 'personid', header: '사번', width: 100, align: 'center'},
-            {binding: 'first_name', header: '이름', width: 140, align: 'center'},
-            {binding: 'tel', header: '전화번호', width: 180, align: 'center'},
-            {binding: 'email', header: '이메일', width: 200, align: 'center'},
-            {binding: 'group_name', header: '사용자그룹', width: 120, align: 'center'},
-            {binding: 'factory_name', header: '소속공장', width: 150, align: 'center'},
-            {binding: 'dept_name', header: '부서', width: 150, align: 'center'},
-            {binding: 'lang_code', header: '언어', width: 100, align: 'center'},
+            {key: 'id', header: 'id', width: 100, align: 'center', visible: false},
+            {key: 'login_id', header: 'ID', width: 120, align: 'center'},
+            {key: 'personid', header: '사번', width: 100, align: 'center'},
+            {key: 'first_name', header: '이름', width: 140, align: 'center'},
+            {key: 'tel', header: '전화번호', width: 180, align: 'center'},
+            {key: 'email', header: '이메일', width: 200, align: 'center'},
+            {key: 'group_name', header: '사용자그룹', width: 120, align: 'center'},
+            {key: 'factory_name', header: '소속공장', width: 150, align: 'center'},
+            {key: 'dept_name', header: '부서', width: 150, align: 'center'},
+            {key: 'lang_code', header: '언어', width: 100, align: 'center'},
             {
-                binding: 'is_active',
+                key: 'is_active',
                 header: '활성화',
                 width: 100,
                 align: 'center',
                 format: 'g', // 일반 문자열로 처리
-                dataMap: new wijmo.grid.DataMap([
-                    {key: true, value: 'true'},
-                    {key: false, value: 'false'}
-                ], 'key', 'value') // true/false 값을 매핑
+                type: 'select', options: [{v: true, n: 'true'}, {v: false, n: 'false'}] // true/false 값을 매핑
             },
-            {binding: 'date_joined', header: '생성일', width: '*', align: 'center'},
+            {key: 'date_joined', header: '생성일', width: '1*', align: 'center'},
         ];
         /*header: '<span class="editable_clr">소속 여부</span>',*/
 
         let columns2 = [
-            {binding: 'grp_name', header: '사용자 그룹명', width: 150, align: 'left'},
+            {key: 'grp_name', header: '사용자 그룹명', width: 150, align: 'left'},
             {
-                binding: 'grp_check',
+                key: 'grp_check',
                 header: '소속 여부',
                 width: 150,
                 align: 'center',
-                dataMap: new wijmo.grid.DataMap([
-                    {key: 'Y', value: 'Y'},
-                    {key: 'N', value: 'N'}
-                ], 'key', 'value'),
+                type: 'select', options: [{v: 'Y', n: 'Y'}, {v: 'N', n: 'N'}],
             },
-            {binding: '', header: '', width: "*", align: 'left'},
+            
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -488,15 +479,13 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
             theGrid.hostElement.addEventListener('dblclick', function (e) {
                 let selectedItem = theGrid.selectedItems[0];
@@ -549,7 +538,6 @@
                 user_group_grid(selectedItem.id);
             });
 
-            theGrid.rowHeaders.columns.splice(0, 1);
             user_group_grid();
             getspjangcd();
         }
@@ -634,6 +622,7 @@
             }
 
             let menulogData = data.map(item => ({
+                ...item,   // 서버가 준 칸 유지 (spjangcd 등이 빠져 더블클릭 때 사업장이 안 골라졌음)
                 id: item.id,
                 login_id: item.login_id,
                 personid: item.personid,
@@ -653,22 +642,15 @@
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
                 console.error('columns 배열이 정의되지 않았습니다.');
                 return;
             }
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
 
@@ -883,40 +865,21 @@
 
             })
 
-            if (theGrid2) {
-                theGrid2.dispose();  // 기존 그리드를 제거합니다.
-            }
 
-            viewdata2 = new wijmo.collections.CollectionView(data2);
+            viewdata2 = data2;
 
-            theGrid2 = new wijmo.grid.FlexGrid('#user_group_grid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            if (!theGrid2) theGrid2 = new EditTable('#user_group_grid', {
                 columns: columns2,
-                isReadOnly: false,
-                itemsSource: viewdata2
+                readOnly: false
             });
+            theGrid2.setData(viewdata2);
 
             // Grid 생성 후 formatItem 이벤트로 헤더에 HTML 적용
-            theGrid2.formatItem.addHandler((s, e) => {
-                if (e.panel === s.columnHeaders) {
-                    let col = s.columns[e.col];
-                    if (col.binding === 'grp_check') {
-                        e.cell.innerHTML = '<span class="editable_clr">소속 여부</span>';
-                    }
-                }
-            });
+            // (위즈모 formatItem : 소속 여부 머리글 표시 → EditTable 이 고칠 수 있는 칸 머리글을 따로 표시)
 
             // 체크박스 값을 'Y' 또는 'N'으로 저장
-            theGrid2.cellEditEnding.addHandler((s, e) => {
-                let col = s.columns[e.col];
-                if (col.binding === 'grp_check') {
-                    let item = s.rows[e.row].dataItem;
-                    item.grp_check = e.panel.getCellData(e.row, e.col) ? 'Y' : 'N';
-                }
-            });
+            // (위즈모 cellEditEnding : 소속 여부를 Y/N 으로 맞추던 것 → 선택 칸이 Y/N 값을 바로 넣음)
 
-            theGrid2.rowHeaders.columns.splice(0, 1);
         }
 
 
@@ -925,7 +888,7 @@
             let url = '/api/system/user/save_user_grp';
 
             let param = {
-                Q: JSON.stringify(theGrid2.itemsSource.items), // 현재 그리드 데이터 가져오기
+                Q: JSON.stringify(theGrid2.getPlain(theGrid2.getData())), // 현재 그리드 데이터 가져오기
                 id: user_id
             };
 
@@ -978,10 +941,10 @@
                     success: function (res) {
                         let data2 = res.data || [];
 
-                        viewdata4 = new wijmo.collections.CollectionView(data2);
+                        viewdata4 = data2;
 
                         if (theGrid4) {
-                            theGrid4.itemsSource = viewdata4;
+                            theGrid4.setData(viewdata4);
                         }
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
@@ -991,21 +954,16 @@
             }
 
             // 그리드 먼저 생성
-            theGrid4 = new wijmo.grid.FlexGrid('#person-grid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid4 = new EditTable('#person-grid', {
                 columns: [
-                    { binding: 'id', header: '사번', width: 100, align: 'center' },
-                    { binding: 'name', header: '이름', width: 150, align: 'center' },
-                    { binding: 'dept_name', header: '부서', width: 150, align: 'center' },
-                    { binding: 'dept_id', header: '부서id', width: 150, align: 'center', visible:false},
-                    { binding: '', header: '', width: '*', align: 'center' },
+                    { key: 'id', header: '사번', width: 100, align: 'center' },
+                    { key: 'name', header: '이름', width: 150, align: 'center' },
+                    { key: 'dept_name', header: '부서', width: 150, align: 'center' },
+                    { key: 'dept_id', header: '부서id', width: 150, align: 'center', visible:false},
                 ],
-                isReadOnly: true,
-                itemsSource: null
+                readOnly: true
             });
 
-            theGrid4.rowHeaders.columns.splice(0, 1);
 
 
             fetchPersonList();
@@ -1023,7 +981,7 @@
             });
 
             theGrid4.selectionChanged.addHandler((s, e) => {
-                selectedItem = s.collectionView.currentItem;
+                selectedItem = s.current();
             });
 
             $content.find('#btnAccountSave').click(() => {

@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-  <style>
-      .wj-header {
-          text-align: center !important;
-      }
-  </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -157,9 +152,9 @@
     var viewdata;
 
     let columns = [
-      {binding: 'form_group', header: '문서그룹', width: 250, align: 'center'},
-      {binding: 'form_name', header: '문서종류명', width: 200, align: 'center'},
-      {binding: 'description', header: '비고', width: '*', align: 'center'},
+      {key: 'form_group', header: '문서그룹', width: 250, align: 'center'},
+      {key: 'form_name', header: '문서종류명', width: 200, align: 'center'},
+      {key: 'description', header: '비고', width: '1*', align: 'center'},
     ];
 
 
@@ -184,20 +179,18 @@
         }
       })
 
-      viewdata = new wijmo.collections.CollectionView(data2);
+      viewdata = data2;
 
-      theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-        autoGenerateColumns: false,
-        showMarquee: true,
+      theGrid = new EditTable('#theGrid', {
         columns: columns,
-        isReadOnly: true,
-        itemsSource: viewdata
+        readOnly: true
       });
+      theGrid.setData(viewdata);
 
       theGrid.hostElement.addEventListener('dblclick', function (e) {
         let row = theGrid.hitTest(e).row;
         if (row >= 0) {
-          let selectedItem = viewdata.items[row];
+          let selectedItem = theGrid.getView()[row];
 
           document.getElementById('id').value = selectedItem.id;
           document.getElementById('form_group').value = selectedItem.form_group;
@@ -206,8 +199,6 @@
         }
       });
 
-      theGrid.rowHeaders.columns.splice(0, 1);
-      /*  new FlexGridContextMenu(theGrid);*/
 
     }
 
@@ -260,23 +251,15 @@
         description: item.description
       }));
 
-      theGrid.columns.clear();
-      theGrid.autoGenerateColumns = false;
 
-      columns.forEach(colDef => {
-        let col = new wijmo.grid.Column(colDef);
-        theGrid.columns.push(col);
-      });
 
-      viewdata = new wijmo.collections.CollectionView(formattedData);
-      theGrid.itemsSource = viewdata;
-      theGrid.refresh();
+      viewdata = formattedData;
+      theGrid.setData(viewdata);
 
       if (selectedId != null) {
-        let index = viewdata.items.findIndex(item => item.id === selectedId);
+        let index = theGrid.getView().findIndex(item => item.id === selectedId);
         if (index !== -1) {
-          theGrid.select(new wijmo.grid.CellRange(index, 0));
-          theGrid.rows[index].isSelected = true;
+          theGrid.select(theGrid.getView()[index]);
         }
       }
     }

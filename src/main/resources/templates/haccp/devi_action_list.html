@@ -98,7 +98,7 @@
                 this.grid = null;
                 this.url = '/api/haccp/devi_action_list';
 
-                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData = [];
                 this.init();
 
 
@@ -107,32 +107,21 @@
             init() {
                 let _this = this;
 
-                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
+                this.grid = new EditTable('#theGrid', {
+                    readOnly: true,
                     columns: [
 
-                        {binding: 'happen_date', header: '점검일', width: '*', align: 'left'},
-                        {binding: 'happen_place', header: '일지명', width: '*', align: 'left'},
-                        {binding: 'abnormal_detail', header: '이상발생내역', width: '*', align: 'left'},
-                        {binding: 'action_detail', header: '조치내역 및 결과', width: '*', align: 'left'},
-                        {binding: 'creater_name', header: '조치자', width: '*', align: 'left'},
-                        {binding: 'action_name', header: '작성자', width: '*', align: 'left'},
+                        {key: 'happen_date', header: '점검일', width: '1*', align: 'left'},
+                        {key: 'happen_place', header: '일지명', width: '1*', align: 'left'},
+                        {key: 'abnormal_detail', header: '이상발생내역', width: '1*', align: 'left'},
+                        {key: 'action_detail', header: '조치내역 및 결과', width: '1*', align: 'left'},
+                        {key: 'creater_name', header: '조치자', width: '1*', align: 'left'},
+                        {key: 'action_name', header: '작성자', width: '1*', align: 'left'},
 
-                    ],
-                    itemsSource: this.viewData,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-
-                        }
-                    },
+                    ]
                 });
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '선행요건이상발생내역';
+                this.grid.setData(this.viewData);
+                this.grid.opts.fileName = '선행요건이상발생내역';
 
             }
 
@@ -148,7 +137,7 @@
 
                 let result = AjaxUtil.getSyncData(_this.url + '/read', param);
                 if (result.data != null) {
-                    _this.viewData.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                 }
             }
 

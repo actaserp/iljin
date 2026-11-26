@@ -72,7 +72,7 @@
                 this.ClassMap = { };
                 this.test_class = AjaxUtil.getSelectData('system_code', 'test_class');
                 this.grid = null;
-                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData = [];
                 this.init();
             }
 
@@ -147,43 +147,23 @@
 
                 this.grid = new ax5.ui.grid(config);*/
 
-                this.grid = new wijmo.grid.FlexGrid('#test-grp-grid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: false, // 셀을 항상 수정 가능하도록 설정
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                            let headerText = e.cell.textContent.trim();
-
-                            if (headerText === '검사종류' || headerText === '그룹명') {
-                                e.cell.style.color = 'blue';
-                            }
-                        }
-                    },
+                this.grid = new EditTable('#test-grp-grid', {
+                    readOnly: false, // 셀을 항상 수정 가능하도록 설정
                     columns: [
                         {
-                            binding: 'test_class',
+                            key: 'test_class',
                             header: '검사종류',
                             width: 180,
                             cssClass: 'text-left',
-                            dataMap: new wijmo.grid.DataMap([], 'value', 'text'), // 옵션은 동적으로 설정
+                            type: 'select', options: [], // 옵션은 동적으로 설정
                         },
                         {
-                            binding: 'test_grp_name',
+                            key: 'test_grp_name',
                             header: '그룹명',
                             width: 180,
                             cssClass: 'text-left',
                         },
-                        {
-                            binding: '',
-                            header: '',
-                            width: '*',
-                        },
                     ],
-                    itemsSource: this.viewData,
 
                     cellEditEnding: (sender, e) => {
                         let grid = sender;
@@ -193,7 +173,7 @@
 
                         // editor가 존재하는지 확인
                         if (column.editor && column.editor.config) {
-                            if (column.binding === 'test_class') {
+                            if (column.key === 'test_class') {
                                 if (_this.test_class && Array.isArray(_this.test_class)) {
                                     column.editor.config.options = _this.test_class; // 동적 옵션 설정
                                 }
@@ -202,37 +182,41 @@
                     },
 
                     // onDataChanged 수정 (Wijmo에서는 `cellEditEnded`를 사용하여 변경된 데이터를 처리)
-                    cellEditEnded: (sender, e) => {
-                        let grid = sender;
-                        let item = grid.rows[e.row].dataItem; // 수정된 항목
+                    onEditEnd: (_item, _key, _v, s) => {
+                        const e = {row: s.getPageRows().indexOf(_item), col: s.columns.findIndex(c => c.key === _key)};   // 위즈모 cellEditEnded 의 e
+                        (() => {
+                        let grid = s;
+                        let item = grid.getPageRows()[e.row]; // 수정된 항목
 
                         // 수정된 항목에 isModified 설정
                         item.isModified = true;  // 수정된 항목으로 상태 변경
 
-                        if (e.col === grid.columns.getColumn('test_grp_name').index) {
+                        if (_key === 'test_grp_name') {
                             if (!item.test_class) {
                                 Alert.alert('', '검사종류를 선택해 주세요');
                                 return false;
                             }
                             _this.saveTestMaterGrp(); // 저장 함수 호출
-                        } else if (e.col === grid.columns.getColumn('test_class').index) {
+                        } else if (_key === 'test_class') {
                             if (!item.test_grp_name) {
                                 Alert.alert('', '그룹명을 선택해 주세요');
                                 return false;
                             }
                             _this.saveTestMaterGrp(); // 저장 함수 호출
                         }
+                        })();
+                        s.refreshRow(_item);   // 고친 뒤 계산한 값이 보이게 (위즈모는 편집 끝에 그 행을 다시 그렸음)
                     }
 
                 });
+                this.grid.setData(this.viewData);
 
 
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '검사마스터 그룹';
+                this.grid.opts.fileName = '검사마스터 그룹';
 
                 let options = AjaxUtil.fillSelectOptions($('#cboTestClass'), 'system_code', 'all', false, 'test_class');
                 if (Array.isArray(options)) {
-                    this.grid.columns[0].dataMap = new wijmo.grid.DataMap(options, 'value', 'text');
+                    this.grid.updateColumn('test_class', {options: options.map(o => ({v: o.value, n: o.text}))});   // 위즈모 DataMap 대신 선택지
                 }
 
 
@@ -262,13 +246,11 @@
 
                 let result = AjaxUtil.getSyncData(url, param);
                 if (result != null) {
-                    _this.viewData.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                 }
 
                 // FlexGrid에 새로운 행 추가 (올바른 방식)
-                let newRow = {}; // 빈 객체 생성 (필요하면 기본값 설정 가능)
-                _this.viewData.sourceCollection.push(newRow); // 데이터 소스 배열에 추가
-                _this.viewData.refresh(); // 변경된 데이터 적용
+                _this.grid.addRow({}, {focus: false});   // 맨 아래 빈 줄 (새로 입력할 자리)
             }
 
 
@@ -277,7 +259,7 @@
                 let _this = this;
 
                 // viewData가 배열인지 확인하고, 배열로 가져오기
-                let dataSource = Array.isArray(_this.viewData) ? _this.viewData : _this.viewData.sourceCollection;
+                let dataSource = _this.grid.getData();   // 표에 있는 자료 (위즈모 CollectionView.sourceCollection 대신)
 
                 // 'modified' 상태인 항목 필터링 (isModified가 true인 항목)
                 let modifiedItems = dataSource.filter(item => item.isModified === true);  // isModified가 true인 항목만 필터링
@@ -320,9 +302,9 @@
 
                 /*let id = this.grid.getList("selected")[0].id;*/
 
-                let test_item_grid = wijmo.Control.getControl('#test-grp-grid');
-                let selectedRow = test_item_grid.selection.row;
-                let selectedItem = test_item_grid.rows[selectedRow].dataItem;
+                let test_item_grid = EditTable.getControl('#test-grp-grid');
+                let selectedRow = test_item_grid.getPageRows().indexOf(test_item_grid.current());
+                let selectedItem = test_item_grid.getPageRows()[selectedRow];
 
                 /*console.log(selectedItem);*/
 

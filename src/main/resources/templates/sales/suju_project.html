@@ -1038,7 +1038,7 @@
     constructor() {
      this.url = '/api/sales/suju';
      this.grid = null;
-     this.viewData = new wijmo.collections.CollectionView();
+     this.viewData = [];
      this.itemIndex = 0;        // 품목 행 인덱스 채번
      this.dirty = false;        // 미저장 변경 여부
      this.suppressDirty = false;
@@ -1054,47 +1054,26 @@
     init() {
      const _this = this;
 
-     this.grid = new wijmo.grid.FlexGrid('#sujuGrid', {
-      autoGenerateColumns: false,
-      selectionMode: wijmo.grid.SelectionMode.Row,
-      headersVisibility: wijmo.grid.HeadersVisibility.Column,
-      isReadOnly: true,
-      showMarquee: true,
-      keyActionEnter: wijmo.grid.KeyAction.None,   // Enter 는 상세 폼으로 이동
-      formatItem: (s, e) => {
-       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-        e.cell.style.textAlign = 'center';
-        return;
-       }
-       // WBS 확정 여부는 '1'/'0' 원문 대신 뱃지로 그린다
-       if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-        const col = s.columns[e.col];
-        if (col && col.binding === 'wbs_fixed') {
-         const item = s.rows[e.row] ? s.rows[e.row].dataItem : null;
-         const fixed = item && String(item.wbs_fixed) === '1';
-         e.cell.innerHTML = fixed
-          ? '<span class="wbs-chip fixed">확정</span>'
-          : '<span class="wbs-chip">미확정</span>';
-        }
-       }
-      },
+     this.grid = new EditTable('#sujuGrid', {
+      readOnly: true,
+         // Enter 는 상세 폼으로 이동
       columns: [
-       {binding: 'projno', header: '프로젝트', width: 100, align: 'center'},
-       {binding: 'suju_name', header: '수주명', width: 110, align: 'center'},
-       {binding: 'CompanyName', header: '판매처', width: 150, align: 'left'},
-       {binding: 'JumunDate', header: '수주일', width: 100, align: 'center'},
-       {binding: 'product_name', header: '제품명', width: '*'},
-       {binding: 'TotalPrice', header: '총액', width: 110, align: 'right', format: 'n0'},
-       {binding: 'DueDate', header: '납기일', width: 100, align: 'center'},
-       {binding: 'StateName', header: '작업상태', width: 80, align: 'center'},
-       {binding: 'ShipmentStateName', header: '출하상태', width: 80, align: 'center'},
-       {binding: 'SujuTypeName', header: '수주구분', width: 80, align: 'center'},
-       {binding: 'wbs_fixed', header: 'WBS', width: 80, align: 'center'}
-      ],
-      itemsSource: this.viewData
+       {key: 'projno', header: '프로젝트', width: 100, align: 'center'},
+       {key: 'suju_name', header: '수주명', width: 110, align: 'center'},
+       {key: 'CompanyName', header: '판매처', width: 150, align: 'left'},
+       {key: 'JumunDate', header: '수주일', width: 100, align: 'center'},
+       {key: 'product_name', header: '제품명', width: '1*'},
+       {key: 'TotalPrice', header: '총액', width: 110, align: 'right', format: 'n0'},
+       {key: 'DueDate', header: '납기일', width: 100, align: 'center'},
+       {key: 'StateName', header: '작업상태', width: 80, align: 'center'},
+       {key: 'ShipmentStateName', header: '출하상태', width: 80, align: 'center'},
+       {key: 'SujuTypeName', header: '수주구분', width: 80, align: 'center'},
+       {key: 'wbs_fixed', header: 'WBS', width: 80, align: 'center', format: v => String(v) === '1' ? '확정' : '미확정',   // 내려받기 글자
+        render: v => String(v) === '1' ? '<span class="wbs-chip fixed">확정</span>' : '<span class="wbs-chip">미확정</span>'   /* WBS 확정 여부 뱃지 (위즈모 formatItem 대신) */}
+      ]
      });
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = '수주목록';
+     this.grid.setData(this.viewData);
+     this.grid.opts.fileName = '수주목록';
 
      // ★ 목록 클릭 → 상세 바인딩(수정 모드)
      this.grid.selectionChanged.addHandler((s) => {
@@ -1575,11 +1554,11 @@
 
     /** 확정 직후 그리드 뱃지도 같이 갱신 (재조회 없이) */
     markGridWbsFixed(sujuHeadId) {
-     const src = this.viewData.sourceCollection || [];
+     const src = this.grid ? this.grid.getData() : [];
      const row = src.find(r => String(r.id) === String(sujuHeadId));
      if (row) {
       row.wbs_fixed = '1';
-      if (this.grid) this.grid.invalidate();
+      if (this.grid) this.grid.refreshRow(row);
      }
     }
 
@@ -2130,7 +2109,7 @@
        try {
         if (result != null) {
          _this.suppressSelection = true;
-         _this.viewData.sourceCollection = result.data || [];
+         _this.grid.setData(result.data || []);
          _this.suppressSelection = false;
          if (window.selectedSujuId) {
           GridUtil.selectRowById(_this.grid, window.selectedSujuId);
@@ -2139,7 +2118,7 @@
          // 검색 직후 그리드로 포커스 → 방향키로 바로 행 이동
          if (focusGrid) {
           setTimeout(() => {
-           if (_this.grid && _this.grid.rows.length > 0) _this.grid.focus();
+           if (_this.grid && _this.grid.getPageRows().length > 0) _this.grid.el.focus();
           }, 0);
          }
         }
@@ -3002,7 +2981,7 @@
       if (e.key === 'Escape') {
        if ($(e.target).closest('#sujuForm').length && _this.grid) {
         e.preventDefault();
-        _this.grid.focus();
+        _this.grid.el.focus();
        }
       }
      });
@@ -3270,7 +3249,7 @@
 
     // 진입 시 첫 포커스는 목록 → 방향키로 바로 탐색 가능
     setTimeout(() => {
-     if (sujuPanel.grid) sujuPanel.grid.focus();
+     if (sujuPanel.grid) sujuPanel.grid.el.focus();
     }, 300);
    });
   </script>

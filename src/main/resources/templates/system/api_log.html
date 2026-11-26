@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -124,11 +119,11 @@
 
         /*로그인로그 컬럼*/
         var columns = [
-            {binding: 'endpoint', header: '호출주소(엔드포인트)', width: 300, align: 'center'},
-            {binding: 'avg_response_time_ms', header: '평균응답시간', width: 160, align: 'center'},
-            {binding: 'max_response_time_ms', header: '최대응답시간', width: 260, align: 'center'},
-            {binding: 'min_response_time_ms', header: '최소응답시간', width: 160, align: 'center'},
-            {binding: 'avg_call_cnt', header: '평균호출횟수', width: 160, align: 'center'},
+            {key: 'endpoint', header: '호출주소(엔드포인트)', width: 300, align: 'center'},
+            {key: 'avg_response_time_ms', header: '평균응답시간', width: 160, align: 'center'},
+            {key: 'max_response_time_ms', header: '최대응답시간', width: 260, align: 'center'},
+            {key: 'min_response_time_ms', header: '최소응답시간', width: 160, align: 'center'},
+            {key: 'avg_call_cnt', header: '평균호출횟수', width: 160, align: 'center'},
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -153,7 +148,7 @@
                 async: false,
                 success: function (data) {
                     /*console.log('wijmo', data);*/
-                    data2 = data.data;
+                    data2 = data.data || [];   // 서버가 data:null 을 줄 때도 빈 표 (2026-11-24)
                     // `addr` 필드를 변형하여 `value`만 추출
                     data2.forEach(item => {
                         if (item.addr && item.addr.value) {
@@ -167,19 +162,15 @@
                 }
             });
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
             // 데이터 그리드에 바인딩
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
-            theGrid.rowHeaders.columns.splice(0, 1);  //맨 앞에 헤더부분 없애기
 
-            /*  new FlexGridContextMenu(theGrid);*/
         }
 
         // 검색
@@ -218,27 +209,20 @@
 
         function grid_binding(data) {
 
-            let formattedData = data.map(item => ({
+            let formattedData = (data || []).map(item => ({
                 row_number: item.row_number,
                 type: item.type,
-                addr: item.addr.value,
+                addr: item.addr && item.addr.value,
                 login_id: item.login_id,
                 name: item.name,
                 created: item.created,
             }));
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
 
-            columns.forEach(colDef => {
-                let col = new wijmo.grid.Column(colDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(formattedData);
+            viewdata = formattedData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
         $(document).ready(function (e) {

@@ -245,10 +245,10 @@
                 this.shipmentHeaderGrid = null;
                 this.shipmentListGrid = null;
                 this.lotListGrid = null;
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
-                this.viewData3 = new wijmo.collections.CollectionView();
-                this.viewData4 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
+                this.viewData3 = [];
+                this.viewData4 = [];
                 this.lastSelectedShipmentId = null;
 
 
@@ -283,43 +283,29 @@
             initShipmentHeader() {
                 let _this = this;
 
-                this.shipmentHeaderGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: false,
+                this.shipmentHeaderGrid = new EditTable('#theGrid', {
+                    selectFirst: false,
+                     // 행 단위 선택
+                    readOnly: false,
                     columns: [
 
-                        {binding: 'id', header: '출하번호', width: 100, align: 'right'},
-                        {binding: 'company_id', header: '판매처id', width: 0, align: 'right', visible: false},
-                        {binding: 'company_name', header: '판매처', width: '*', align: 'left', isReadOnly: true},
-                        {binding: 'ship_date', header: '출고일', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'item_count', header: '품목건수', width: '*', align: 'right', isReadOnly: true},
-                        {binding: 'total_price', header: '총공급가', width: '*', align: 'right', isReadOnly: true},
-                        {binding: 'total_vat', header: '총부가세', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'state_id', header: 'State id', width: '*', align: 'left', isReadOnly: true},
-                        {binding: 'state_name', header: '상태', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'description', header: '비고', width: '*', align: 'left', isReadOnly: false},
+                        {key: 'id', header: '출하번호', width: 100, align: 'right'},
+                        {key: 'company_id', header: '판매처id', width: 0, align: 'right', visible: false},
+                        {key: 'company_name', header: '판매처', width: '1*', align: 'left', readOnly: true},
+                        {key: 'ship_date', header: '출고일', width: '1*', align: 'center', readOnly: true},
+                        {key: 'item_count', header: '품목건수', width: '1*', align: 'right', readOnly: true},
+                        {key: 'total_price', header: '총공급가', width: '1*', align: 'right', readOnly: true},
+                        {key: 'total_vat', header: '총부가세', width: '1*', align: 'center', readOnly: true},
+                        {key: 'state_id', header: 'State id', width: '1*', align: 'left', readOnly: true},
+                        {key: 'state_name', header: '상태', width: '1*', align: 'center', readOnly: true},
+                        {key: 'description', header: '비고', width: '1*', align: 'left', readOnly: false},
 
-                    ],
-                    itemsSource: this.viewData,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                    ]
 
                 });
+                this.shipmentHeaderGrid.setData(this.viewData);
                 //맨 앞에 헤더부분 없애기
-                this.shipmentHeaderGrid.rowHeaders.columns.splice(0, 1);
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.shipmentHeaderGrid.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.shipmentHeaderGrid.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
-                let isInitialLoad = true; // 초기 상태 플래그
+                let isInitialLoad = false;   // EditTable 은 자료를 넣을 때 선택 이벤트가 없어서 첫 클릭을 버리지 않게 false // 초기 상태 플래그
 
                 this.shipmentHeaderGrid.hostElement.addEventListener('click', (e) => {
                     const ht = this.shipmentHeaderGrid.hitTest(e);
@@ -327,7 +313,7 @@
                     // ✅ 셀을 더블클릭한 경우만 동작
                     if (ht.panel === this.shipmentHeaderGrid.cells) {
                         const selectedRowIndex = ht.row;
-                        const selectedRowData = this.shipmentHeaderGrid.rows[selectedRowIndex].dataItem;
+                        const selectedRowData = this.shipmentHeaderGrid.getPageRows()[selectedRowIndex];
 
                         if (selectedRowData) {
                             // 👉 클릭 시만 실행
@@ -364,129 +350,93 @@
                     });
                 });
 
-                new FlexGridContextMenu(this.shipmentHeaderGrid);
-                this.shipmentHeaderGrid.downloadFileName = '출고지시';
+                this.shipmentHeaderGrid.opts.fileName = '출고지시';
             }
 
             initShipmentList() {
                 let _this = this;
 
-                this.shipmentListGrid = new wijmo.grid.FlexGrid('#theGrid2', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: false,
+                this.shipmentListGrid = new EditTable('#theGrid2', {
+                    selectFirst: false,
+                    readOnly: false,
                     columns: [
-                        {binding: 'shipment_id', header: '출하상세번호', maxWidth: 170, align: 'left', isReadOnly: true},
-                        {binding: 'mat_grp_name', header: '제품그룹', maxWidth: 170, align: 'left', isReadOnly: true},
-                        {binding: 'mat_code', header: '제품코드', maxWidth: 140, align: 'center', isReadOnly: true},
-                        {binding: 'mat_name', header: '제품명', maxWidth: 200, align: 'left', isReadOnly: true},
-                        {binding: 'unit_name', header: '단위', maxWidth: 100, align: 'center', isReadOnly: true},
-                        {binding: 'standard', header: '규격', maxWidth: 100, align: 'center', isReadOnly: true},
-                        {binding: 'OrderQty', header: '지시수량', maxWidth: 100, align: 'right', isReadOnly: true},
-                        {binding: 'Qty', header: '처리량', maxWidth: 100, align: 'right', isReadOnly: true},
+                        {key: 'shipment_id', header: '출하상세번호', maxWidth: 170, align: 'left', readOnly: true},
+                        {key: 'mat_grp_name', header: '제품그룹', maxWidth: 170, align: 'left', readOnly: true},
+                        {key: 'mat_code', header: '제품코드', maxWidth: 140, align: 'center', readOnly: true},
+                        {key: 'mat_name', header: '제품명', maxWidth: 200, align: 'left', readOnly: true},
+                        {key: 'unit_name', header: '단위', maxWidth: 100, align: 'center', readOnly: true},
+                        {key: 'standard', header: '규격', maxWidth: 100, align: 'center', readOnly: true},
+                        {key: 'OrderQty', header: '지시수량', maxWidth: 100, align: 'right', readOnly: true},
+                        {key: 'Qty', header: '처리량', maxWidth: 100, align: 'right', readOnly: true},
                         {
-                            binding: 'unit_price',
+                            key: 'unit_price',
                             header: '단가',
                             maxWidth: 120,
                             align: 'right',
-                            isReadOnly: true, // 편집 가능
-                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
-                                format: 'n0', // 정수 형식
-                                min: 0,       // 최소값 설정
-                                max: 99999,   // 최대값 설정
-                                step: 1       // 증가/감소 단위
-                            })
+                            readOnly: true, // 편집 가능
+                            type: 'number'
                         },
-                        {binding: 'price', header: '공급가', maxWidth: 120, align: 'right', isReadOnly: true},
-                        {binding: 'vat', header: '부가세', maxWidth: 100, align: 'right', isReadOnly: true},
-                        {binding: 'invat_yn', header: '부가세포함', maxWidth: 100, align: 'center', isReadOnly: true},
-                        {binding: 'total_price', header: '합계', maxWidth: 120, align: 'right', isReadOnly: true},
+                        {key: 'price', header: '공급가', maxWidth: 120, align: 'right', readOnly: true},
+                        {key: 'vat', header: '부가세', maxWidth: 100, align: 'right', readOnly: true},
+                        {key: 'invat_yn', header: '부가세포함', maxWidth: 100, align: 'center', readOnly: true},
+                        {key: 'total_price', header: '합계', maxWidth: 120, align: 'right', readOnly: true},
 
-                    ],
-                    itemsSource: this.viewData2,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                    ]
 
                 });
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.shipmentListGrid.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.shipmentListGrid.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
+                this.shipmentListGrid.setData(this.viewData2);
 
                 this.shipmentListGrid.hostElement.addEventListener('click', (e) => {
                     const ht = this.shipmentListGrid.hitTest(e);
-                    if (ht.cellType === wijmo.grid.CellType.Cell) {
+                    if (ht.cellType === 'cell') {
                         const rowIndex = ht.row;
                         if (rowIndex >= 0) {
-                            const selectedRowData = this.shipmentListGrid.rows[rowIndex].dataItem;
+                            const selectedRowData = this.shipmentListGrid.getPageRows()[rowIndex];
                             this.lastSelectedShipmentId = selectedRowData.shipment_id; // ✅ this 사용
                             this.showMatLotConsumeList();
                             console.log('클릭된 행:', rowIndex, selectedRowData);
                         }
                     }
                 });
-                new FlexGridContextMenu(this.shipmentListGrid);
-                this.shipmentListGrid.downloadFileName = '출고';
+                this.shipmentListGrid.opts.fileName = '출고';
             }
 
             initLotList() {
                 let _this = this;
-                this.lotListGrid = new wijmo.grid.FlexGrid('#theGrid3', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: false,
+                this.lotListGrid = new EditTable('#theGrid3', {
+                    rowCheck: true,
+                    onCheck: (e, ctx) => {
+                        SelectItem = this.lotListGrid.getChecked().map(d => ({dataItem: d, _data: d, isSelected: true}));
+
+                    },
+                     // 행 단위 선택
+                    readOnly: false,
                     columns: [
-                        {binding: 'LotNumber', header: 'LOT', maxWidth: 170, align: 'center', isReadOnly: true},
-                        {binding: 'unit_name', header: '단위', maxWidth: 100, align: 'center', isReadOnly: true},
+                        {key: 'LotNumber', header: 'LOT', maxWidth: 170, align: 'center', readOnly: true},
+                        {key: 'unit_name', header: '단위', maxWidth: 100, align: 'center', readOnly: true},
                         {
-                            binding: 'OutputQty',
+                            key: 'OutputQty',
                             header: '수량',
                             maxWidth: 120,
                             align: 'right',
-                            isReadOnly: false, // 편집 가능
-                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
-                                format: 'n0', // 정수 형식
-                                min: 0,       // 최소값 설정
-                                max: 99999,   // 최대값 설정
-                                step: 1       // 증가/감소 단위
-                            })
+                            readOnly: false, // 편집 가능
+                            type: 'number'
                         },
-                        {binding: 'EffectiveDate', header: '유효기간', width: '*', align: 'center', isReadOnly: true},
+                        {key: 'EffectiveDate', header: '유효기간', width: '1*', align: 'center', readOnly: true},
 
-                    ],
-                    itemsSource: this.viewData2,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                    ]
 
                 });
+                this.lotListGrid.setData(this.viewData2);
                 // 데이터 로드 후 초기 선택 상태 해제
                 /* this.lotListGrid.loadedRows.addHandler(() => {
                      setTimeout(() => {
-                         this.lotListGrid.select(-1, -1); // 선택 상태 초기화
+                         this.lotListGrid.select(null); // 선택 상태 초기화
                      }, 0); // 비동기로 처리하여 초기 선택 해제
                  });*/
-                let selector = new wijmo.grid.selector.Selector(this.lotListGrid, {
-                    itemChecked: (e, ctx) => {
-                        SelectItem = this.lotListGrid.rows.filter(r => r.isSelected);
+                this.lotListGrid.opts.fileName = '출고';
 
-                    }
-                });
-                new FlexGridContextMenu(this.lotListGrid);
-                this.lotListGrid.downloadFileName = '출고';
-
-                this.lotListGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                this.lotListGrid.setData([]);
 
                 //LOT지정 클릭
                 this.$btnLOTSelect.click(function (e) {
@@ -494,7 +444,7 @@
                 });
 
                 this.$btnLOTSelectCancel.click(function (e) {
-                    let lotItems = _this.lotListGrid.selectedItems;
+                    let lotItems = (_this.lotListGrid.getChecked().length ? _this.lotListGrid.getChecked() : _this.lotListGrid.selectedItems);
                     if (lotItems.length === 0 || lotItems === undefined || lotItems === null) {
                         Alert.alert('LOT 지정 취소 오류', '선택된 데이터가 없습니다.');
                         return;
@@ -627,8 +577,8 @@
 
                 let _this = this;
 
-                this.shipmentListGrid.itemsSource = new wijmo.collections.CollectionView([]);
-                this.lotListGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                this.shipmentListGrid.setData([]);
+                this.lotListGrid.setData([]);
 
 
                 this.$LotNumber.attr('disabled', 'disabled');
@@ -640,7 +590,7 @@
 
                 let result = AjaxUtil.getSyncData(this.url + '/read', data);
                 if (result != null) {
-                    this.shipmentHeaderGrid.itemsSource = result.data;
+                    this.shipmentHeaderGrid.setData(result.data);
                 }
                 enterFlag = false;
             }
@@ -657,14 +607,14 @@
                     shipment_id = shipmentItems[0].shipment_id;
                 }
 
-                this.lotListGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                this.lotListGrid.setData([]);
                 let data = {
                     sh_id: sh_id,
                     shipment_id: shipment_id
                 };
                 let result = AjaxUtil.getSyncData(this.url + '/shipment_lot_list', data);
                 if (result != null) {
-                    this.lotListGrid.itemsSource = result.data;
+                    this.lotListGrid.setData(result.data);
                 }
             }
 
@@ -682,12 +632,12 @@
                     header_id: shipment_header.id
                 };
 
-                this.shipmentListGrid.itemsSource = new wijmo.collections.CollectionView([]);
-                this.lotListGrid.itemsSource = new wijmo.collections.CollectionView([]);
+                this.shipmentListGrid.setData([]);
+                this.lotListGrid.setData([]);
 
                 let result = AjaxUtil.getSyncData(this.url + '/shipment_list', data);
                 if (result != null) {
-                    this.shipmentListGrid.itemsSource = result.data;
+                    this.shipmentListGrid.setData(result.data);
                     setTimeout(() => {
                         if(typeof callback === 'function'){
                             callback();
@@ -733,40 +683,32 @@
                 let lotSearchGrid = null;
                 let selectedItem = null;
 
-                lotSearchGrid = new wijmo.grid.FlexGrid('#theGrid4', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
+                lotSearchGrid = new EditTable('#theGrid4', {
+                    selectFirst: false,
+                    readOnly: true,
                     columns: [
-                        {binding: 'LotNumber', header: 'LOT', width: 150, align: 'center'},
-                        {binding: 'unit_name', header: '단위', width: '*', align: 'center'},
-                        {binding: 'InputQty', header: '초기수량', width: '*', align: 'right'},
-                        {binding: 'CurrentStock', header: '현재고량', width: '*', align: 'right'},
-                        {binding: 'mat_grp_name', header: '품목그룹', width: '*', align: 'left'},
-                        {binding: 'mat_code', header: '품목코드', width: '*', align: 'center'},
-                        {binding: 'mat_name', header: '품목', width: '*', align: 'left'},
-                    ],
-                    itemsSource: _this.viewData4,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                        {key: 'LotNumber', header: 'LOT', width: 150, align: 'center'},
+                        {key: 'unit_name', header: '단위', width: '1*', align: 'center'},
+                        {key: 'InputQty', header: '초기수량', width: '1*', align: 'right'},
+                        {key: 'CurrentStock', header: '현재고량', width: '1*', align: 'right'},
+                        {key: 'mat_grp_name', header: '품목그룹', width: '1*', align: 'left'},
+                        {key: 'mat_code', header: '품목코드', width: '1*', align: 'center'},
+                        {key: 'mat_name', header: '품목', width: '1*', align: 'left'},
+                    ]
 
                 });
-                let isInitialLoad = true;
+                lotSearchGrid.setData(_this.viewData4);
+                let isInitialLoad = false;   // EditTable 은 자료를 넣을 때 선택 이벤트가 없어서 첫 클릭을 버리지 않게 false
                 lotSearchGrid.selectionChanged.addHandler((s, e) => {
                     if (isInitialLoad) {
                         isInitialLoad = false; // 초기 로드 이후 플래그 해제
-                        //this.lotSearchGrid.select(-1, -1); // 선택 상태 해제
+                        //this.lotSearchGrid.select(null); // 선택 상태 해제
                         return;
                     }
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
 
                         selectedRowData.lot_use_quantity = selectedRowData.CurrentStock;
                         FormUtil.BindDataForm(selectedRowData, $lotForm);
@@ -777,15 +719,8 @@
 
                     }
                 });
-                // 데이터 로드 후 초기 선택 상태 해제
-                lotSearchGrid.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        lotSearchGrid.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
 
-                new FlexGridContextMenu(lotSearchGrid);
-                lotSearchGrid.downloadFileName = '출고';
+                lotSearchGrid.opts.fileName = '출고';
 
                 let fnLotSearch = function () {
                     $lotForm[0].reset();
@@ -800,7 +735,7 @@
 
                     let result = AjaxUtil.getSyncData(_this.url + '/mat_lot_search', data);
                     if (result) {
-                        _this.viewData4.sourceCollection = result.data;
+                        lotSearchGrid.setData(result.data);
 
                     }
                 };
@@ -843,8 +778,8 @@
                         let url = _this.url + '/save_mat_lot_cons';
 
                         //현재 선택된 행
-                        const selectedRow = _this.shipmentListGrid.selection.row >= 0
-                            ? _this.shipmentListGrid.rows[_this.shipmentListGrid.selection.row].dataItem :
+                        const selectedRow = _this.shipmentListGrid.getPageRows().indexOf(_this.shipmentListGrid.current()) >= 0
+                            ? _this.shipmentListGrid.getPageRows()[_this.shipmentListGrid.getPageRows().indexOf(_this.shipmentListGrid.current())] :
                             null;
                         const selectedId = selectedRow ? selectedRow.shipment_id : null;
 
@@ -856,10 +791,10 @@
                                     const lastId = _this.lastSelectedShipmentId;
                                     if (!lastId) return;
 
-                                    const view = _this.shipmentListGrid.collectionView;
-                                    if (!view || !view.items || view.items.length === 0) return;
+                                    const view = _this.shipmentListGrid.getData();
+                                    if (!view || !view || view.length === 0) return;
 
-                                    const index = view.items.findIndex(item => String(item.shipment_id) === String(lastId));
+                                    const index = view.findIndex(item => String(item.shipment_id) === String(lastId));
                                     if (index < 0) return;
 
                                     console.log(`이전 선택 행 복원 시도: ${index}`);
@@ -867,11 +802,11 @@
                                     // ✅ 렌더 완료 후 DOM 탐색 (살짝 딜레이)
                                     setTimeout(() => {
                                         const grid = _this.shipmentListGrid;
-                                        const view = grid.collectionView;
+                                        const view = grid.getData();
 
-                                        if (!view || !view.items || view.items.length === 0) return;
+                                        if (!view || !view || view.length === 0) return;
 
-                                        const index = view.items.findIndex(
+                                        const index = view.findIndex(
                                             item => String(item.shipment_id) === String(_this.lastSelectedShipmentId)
                                         );
                                         if (index < 0) return;
@@ -882,22 +817,19 @@
                                         const clickHandlers = grid.hostElement.onclick;
                                         grid.hostElement.onclick = null;
 
-                                        const selHandlers = grid.selectionChanged._handlers ? [...grid.selectionChanged._handlers] : [];
-                                        grid.selectionChanged._handlers = [];
+                                        const selHandlers = grid._selH ? [...grid._selH] : [];
+                                        grid._selH = [];
 
                                         // 🔹 UI 업데이트 최소화
-                                        grid.deferUpdate(() => {
-                                            grid.select(index, 0);
-                                            grid.scrollIntoView(index, 0);
-                                        });
+                                        grid.select(view[index]);   // 그 행을 고르고 보이게 (위즈모 deferUpdate · select · scrollIntoView 대신)
 
                                         // 🔹 로직 직접 실행 (클릭 없이)
-                                        const selectedRowData = view.items[index];
+                                        const selectedRowData = view[index];
                                         _this.lastSelectedShipmentId = selectedRowData.shipment_id;
                                         _this.showMatLotConsumeList();
 
                                         // 🔹 이벤트 복구
-                                        grid.selectionChanged._handlers = selHandlers;
+                                        grid._selH = selHandlers;
                                         grid.hostElement.onclick = clickHandlers;
 
                                         console.log('이전 선택 행 완전 복원 완료:', selectedRowData);
@@ -947,8 +879,8 @@
                     shipment_id: shipment_id,
                     Q: strData
                 };
-                const selectedRow = _this.shipmentListGrid.selection.row >= 0
-                    ? _this.shipmentListGrid.rows[_this.shipmentListGrid.selection.row].dataItem :
+                const selectedRow = _this.shipmentListGrid.getPageRows().indexOf(_this.shipmentListGrid.current()) >= 0
+                    ? _this.shipmentListGrid.getPageRows()[_this.shipmentListGrid.getPageRows().indexOf(_this.shipmentListGrid.current())] :
                     null;
                 const selectedId = selectedRow ? selectedRow.shipment_id : null;
 
@@ -961,10 +893,10 @@
                             const lastId = _this.lastSelectedShipmentId;
                             if (!lastId) return;
 
-                            const view = _this.shipmentListGrid.collectionView;
-                            if (!view || !view.items || view.items.length === 0) return;
+                            const view = _this.shipmentListGrid.getData();
+                            if (!view || !view || view.length === 0) return;
 
-                            const index = view.items.findIndex(item => String(item.shipment_id) === String(lastId));
+                            const index = view.findIndex(item => String(item.shipment_id) === String(lastId));
                             if (index < 0) return;
 
                             console.log(`이전 선택 행 복원 시도: ${index}`);
@@ -972,11 +904,11 @@
                             // ✅ 렌더 완료 후 DOM 탐색 (살짝 딜레이)
                             setTimeout(() => {
                                 const grid = _this.shipmentListGrid;
-                                const view = grid.collectionView;
+                                const view = grid.getData();
 
-                                if (!view || !view.items || view.items.length === 0) return;
+                                if (!view || !view || view.length === 0) return;
 
-                                const index = view.items.findIndex(
+                                const index = view.findIndex(
                                     item => String(item.shipment_id) === String(_this.lastSelectedShipmentId)
                                 );
                                 if (index < 0) return;
@@ -987,22 +919,19 @@
                                 const clickHandlers = grid.hostElement.onclick;
                                 grid.hostElement.onclick = null;
 
-                                const selHandlers = grid.selectionChanged._handlers ? [...grid.selectionChanged._handlers] : [];
-                                grid.selectionChanged._handlers = [];
+                                const selHandlers = grid._selH ? [...grid._selH] : [];
+                                grid._selH = [];
 
                                 // 🔹 UI 업데이트 최소화
-                                grid.deferUpdate(() => {
-                                    grid.select(index, 0);
-                                    grid.scrollIntoView(index, 0);
-                                });
+                                grid.select(view[index]);   // 그 행을 고르고 보이게 (위즈모 deferUpdate · select · scrollIntoView 대신)
 
                                 // 🔹 로직 직접 실행 (클릭 없이)
-                                const selectedRowData = view.items[index];
+                                const selectedRowData = view[index];
                                 _this.lastSelectedShipmentId = selectedRowData.shipment_id;
                                 _this.showMatLotConsumeList();
 
                                 // 🔹 이벤트 복구
-                                grid.selectionChanged._handlers = selHandlers;
+                                grid._selH = selHandlers;
                                 grid.hostElement.onclick = clickHandlers;
 
                                 console.log('이전 선택 행 완전 복원 완료:', selectedRowData);

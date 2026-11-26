@@ -205,83 +205,33 @@
      this.grid = null;
      this.$btnEdit = $('#btnEdit');
      this.$btnAddNew = $('#btnAddNew');
-     this.viewData = new wijmo.collections.CollectionView();
+     this.viewData = [];
      this.init();
     }
 
     init() {
-     this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-      selectionMode: wijmo.grid.SelectionMode.Row,
-      headersVisibility: wijmo.grid.HeadersVisibility.Column,
-      allowSorting: wijmo.grid.AllowSorting.MultiColumn,
-      allowMerging: wijmo.grid.AllowMerging.Cells,  //셀 병합
-      autoGenerateColumns: false,
-      showMarquee: true,
-      isReadOnly: true,
-      formatItem: (sender, e) => {
-       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-        e.cell.style.textAlign = 'center';
-       }
-      },
+     this.grid = new EditTable('#theGrid', {
+            footerLabel: '총합',
+        //셀 병합
+      readOnly: true,
       columns: [
-       {binding: 'mat_grp_name', header: '제품그룹', width: 150, allowMerging: true},
-       {binding: 'mat_code', header: '제품코드', width: 90, allowMerging: true},
-       {binding: 'mat_name', header: '제품명', width: 250, align: 'left', allowMerging: true},
-       {binding: 'standard', header: '규격', width: 70, align: 'center', allowSorting: false},
-       {binding: 'unit_name', header: '단위', width: 70, allowSorting: false},
-       {binding: 'tot_price_sum', header: '총수주액', width: '*', minWidth: 150, align: 'right', format: 'n0'},
-       {binding: 'tot_suju_sum', header: '총 수주량', width: 100, align: 'right', format: 'n0'},
-       {binding: 'company_name', header: '업체', width: 250, allowSorting: false},
-       {binding: 'suju_sum', header: '수주량', width: 100, align: 'right', format: 'n0'},
-       {binding: 'price_sum', header: '수주액', width: 200, align: 'right', format: 'n0'},
-      ],
-      itemsSource: this.viewData,
+       {key: 'mat_grp_name', header: '제품그룹', width: 150, merge: true, align: 'center'},
+       {key: 'mat_code', header: '제품코드', width: 90, merge: true, align: 'center'},
+       {key: 'mat_name', header: '제품명', width: 250, align: 'left', merge: true},
+       {key: 'standard', header: '규격', width: 70, align: 'center', sortable: false},
+       {key: 'unit_name', header: '단위', width: 70, sortable: false, align: 'center'},
+       {key: 'tot_price_sum', header: '총수주액', width: '1*', minWidth: 150, align: 'right', format: 'n0', sum: true},
+       {key: 'tot_suju_sum', header: '총 수주량', width: 100, align: 'right', format: 'n0', sum: true},
+       {key: 'company_name', header: '업체', width: 250, sortable: false, align: 'center'},
+       {key: 'suju_sum', header: '수주량', width: 100, align: 'right', format: 'n0', sum: true},
+       {key: 'price_sum', header: '수주액', width: 200, align: 'right', format: 'n0', sum: true},
+      ]
      });
-     this.grid.itemFormatter = function (panel, row, col, cell) {
-      if (panel.cellType === wijmo.grid.CellType.Cell) {
-       let colName = panel.columns[col].binding;
-       if (['mat_grp_name', 'mat_code', 'unit_name', 'company_name', 'standard'].includes(colName)) {
-        cell.style.textAlign = 'center';          // 수평 가운데
-        cell.style.verticalAlign = 'middle';      // 수직 가운데
-        cell.style.display = 'flex';              // flex로 정렬
-        cell.style.alignItems = 'center';         // 수직 정렬
-        cell.style.justifyContent = 'center';     // 수평 정렬
-       } else if (['tot_price_sum', 'tot_suju_sum', 'suju_sum', 'price_sum'].includes(colName)) {
-        cell.style.textAlign = 'right';          // 수평 가운데
-        cell.style.verticalAlign = 'middle';      // 수직 가운데
-        cell.style.display = 'flex';              // flex로 정렬
-        cell.style.alignItems = 'right';         // 수직 정렬
-        cell.style.justifyContent = 'right';     // 수평 정렬
-       } else if (['mat_name'].includes(colName)) {
-        cell.style.textAlign = 'left';          // 수평 가운데
-        cell.style.verticalAlign = 'middle';      // 수직 가운데
-        cell.style.display = 'flex';              // flex로 정렬
-        cell.style.alignItems = 'center';         // 수직 정렬
-        cell.style.justifyContent = 'center';     // 수평 정렬
-       }
-      }
-     };
-     // ✅ Footer 패널 사용 설정
-     this.grid.columnFooters.rows.push(new wijmo.grid.Row());
-     this.grid.bottomLeftCells.setCellData(0, 0, '총합');
+     this.grid.setData(this.viewData);
+     // (위즈모 itemFormatter : 칸 정렬만 하던 것 → 칸 align)
 
-     // ✅ Footer 합계 값 설정 (수동)
-     this.grid.loadedRows.addHandler(() => {
-      const rows = this.grid.rows;
-      const footer = this.grid.columnFooters.rows[0];
 
-      const getSum = (field) => rows.map(r => +r.dataItem[field] || 0).reduce((a, b) => a + b, 0);
-
-      footer.dataItem = {
-       tot_price_sum: getSum('tot_price_sum'),
-       tot_suju_sum: getSum('tot_suju_sum'),
-       suju_sum: getSum('suju_sum'),
-       price_sum: getSum('price_sum'),
-      };
-     });
-
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = '수주량집계';
+     this.grid.opts.fileName = '수주량집계';
     }
 
 
@@ -297,17 +247,12 @@
      const result = AjaxUtil.getSyncData(url, data);
      console.log("result data : ", result.data);
      if (result) {
-      this.grid.itemsSource = result.data;
+      this.grid.setData(result.data);
      }
     }
 
     exportExcel() {
-     const book = wijmo.grid.xlsx.FlexGridXlsxConverter.saveAsync(this.grid, {
-      includeColumnHeaders: true,
-      includeCellStyles: false,
-     }, (blob) => {
-      wijmo.saveFile(blob, '수주량.xlsx');
-     });
+     this.grid.exportXlsx('수주량');
     }
    }
 

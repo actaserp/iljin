@@ -212,37 +212,23 @@
                 this.$btnAddNew = $('#btnAddNew');
                 this.$btnEdit = $('#btnSave');
                 //this.$btnDel = $('#btnDel');
-                this.viewData = new wijmo.collections.CollectionView();
+                this.viewData = [];
                 this.init();
             }
 
             init() {
                 let _this = this;
-                this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
+                this.grid = new EditTable('#theGrid', {
+                    selectFirst: false,   // 자료를 넣어도 첫 행을 고르지 않음 (위즈모 loadedRows → select(-1) 대신)
+                    readOnly: true,
                     columns: [
-                        {binding: 'stop_cause_name', header: '비가동유형', width: '*', align: 'left'},
-                        {binding: 'plan_yn', header: '계획/비계획구분', width: '*', align: 'center'},
-                        {binding: 'description', header: '비고', width: 300, align: 'left'},
-                    ],
-                    itemsSource: this.viewData,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                        {key: 'stop_cause_name', header: '비가동유형', width: '1*', align: 'left'},
+                        {key: 'plan_yn', header: '계획/비계획구분', width: '1*', align: 'center'},
+                        {key: 'description', header: '비고', width: 300, align: 'left'},
+                    ]
                 });
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.grid.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
-                let isInitialLoad = true; // 초기 상태 플래그
+                this.grid.setData(this.viewData);
+                let isInitialLoad = false; // EditTable 은 selectFirst:false 라 처음 자료를 넣을 때 선택 이벤트가 없음 → 첫 클릭을 버리지 않게 false
 
                 this.grid.selectionChanged.addHandler((s, e) => {
                     if (isInitialLoad) {
@@ -250,9 +236,9 @@
                         return;
                     }
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
                         _this.showDetailStopCause(selectedRowData.id);
 
                         console.log(`선택된 행 인덱스: ${selectedRowIndex}`);
@@ -261,8 +247,7 @@
                     }
                 });
 
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '비가동 유형';
+                this.grid.opts.fileName = '비가동 유형';
 
 
                 this.$btnEdit.click(function (e) {
@@ -350,7 +335,7 @@
                 let result = AjaxUtil.getSyncData(_this.baseUrl + '/read', param);
                 if (result.data != null) {
                     console.log(result.data);
-                    _this.viewData.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                 }
 
                 /*$('#stopCauseForm')[0].reset();

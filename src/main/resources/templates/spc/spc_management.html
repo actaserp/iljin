@@ -237,47 +237,38 @@
     class SpcManagementPage {
       constructor() {
         this.grid = null;
-        this.viewData = new wijmo.collections.CollectionView();
+        this.viewData = [];
         this.init();
       }
       init() {
         let _this = this;
 
-        this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-          selectionMode: wijmo.grid.SelectionMode.Row,
-          headersVisibility: wijmo.grid.HeadersVisibility.Column,
-          autoGenerateColumns: false,
-          showMarquee: true,
-          isReadOnly: true,
-          formatItem: (sender, e) => {
-            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-              e.cell.style.textAlign = 'center';
-            }
-          },
+        this.grid = new EditTable('#theGrid', {
+          readOnly: true,
           columns: [
             //{ key: 'id', label: '번호', width: 150, align: 'center' },
-            { binding: 'recipe', header: '레시피', width: '*', align: 'center' },
-            { binding: 'item_name', header: '품목명', width: 300, align: 'center' },
-            { binding: 'process_name', header: '공정명', width: '*', align: 'center' },
-            { binding: 'measure_name', header: '측정항목', width: '*', align: 'center' },
-            { binding: 'target_value', header: '타겟값', width: '*', align: 'center' },
-            { binding: 'usl', header: 'USL', width: '*', align: 'center' },
-            { binding: 'lsl', header: 'LSL', width: '*', align: 'center' },
-            { binding: 'ucl', header: 'UCL', width: '*', align: 'center' },
-            { binding: 'lcl', header: 'LCL', width: '*', align: 'center' },
-            { binding: 'sample_size', header: '샘플수', width: '*', align: 'center' },
-            { binding: 'measure_cycle_value', header: '측정주기값', width: '*', align: 'center' },
-            { binding: 'measure_cycle_unit_name', header: '측정주기단위', width: '*', align: 'center' },
-            { binding: 'use_yn', header: '사용여부', width: '*', align: 'center' }
+            { key: 'recipe', header: '레시피', width: '1*', align: 'center' },
+            { key: 'item_name', header: '품목명', width: 300, align: 'center' },
+            { key: 'process_name', header: '공정명', width: '1*', align: 'center' },
+            { key: 'measure_name', header: '측정항목', width: '1*', align: 'center' },
+            { key: 'target_value', header: '타겟값', width: '1*', align: 'center' },
+            { key: 'usl', header: 'USL', width: '1*', align: 'center' },
+            { key: 'lsl', header: 'LSL', width: '1*', align: 'center' },
+            { key: 'ucl', header: 'UCL', width: '1*', align: 'center' },
+            { key: 'lcl', header: 'LCL', width: '1*', align: 'center' },
+            { key: 'sample_size', header: '샘플수', width: '1*', align: 'center' },
+            { key: 'measure_cycle_value', header: '측정주기값', width: '1*', align: 'center' },
+            { key: 'measure_cycle_unit_name', header: '측정주기단위', width: '1*', align: 'center' },
+            { key: 'use_yn', header: '사용여부', width: '1*', align: 'center' }
           ],
-          itemsSource: this.viewData, // 데이터를 설정할 배열
+           // 데이터를 설정할 배열
         });
-        new FlexGridContextMenu(this.grid);
-        this.grid.downloadFileName = '검사마스터';
+        this.grid.setData(this.viewData);
+        this.grid.opts.fileName = '검사마스터';
         this.grid.selectionChanged.addHandler(() => {
-          const sel = this.grid.selection;
+          const sel = {row: this.grid.getPageRows().indexOf(this.grid.current())};
           if (sel.row >= 0) {
-            this.selectedItem = this.grid.rows[sel.row].dataItem;
+            this.selectedItem = this.grid.getPageRows()[sel.row];
             this.loadDetail(this.selectedItem);
           }
         });
@@ -295,9 +286,9 @@
         data['action'] = 'read';
         const result = AjaxUtil.getSyncData('/api/spc-management/list', data);
         if (result && result.data) {
-          this.viewData.sourceCollection = result.data;
+          this.grid.setData(result.data);
         } else {
-          this.viewData.sourceCollection = [];
+          this.grid.setData([]);
         }
       }
 

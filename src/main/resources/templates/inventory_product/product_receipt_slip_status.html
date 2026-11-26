@@ -77,46 +77,24 @@
       }
 
       init() {
-        this.grid = new wijmo.grid.FlexGrid('#receipt-status-grid', {
-          autoGenerateColumns: false,
-          selectionMode: wijmo.grid.SelectionMode.Row,
-          headersVisibility: wijmo.grid.HeadersVisibility.All,
-          isReadOnly: true,
-          showMarquee: true,
-          formatItem: (sender, e) => {
-            if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-              e.cell.textContent = (e.row + 1).toString();
-            }
-            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-              e.cell.style.textAlign = 'center';
-            }
-          },
+        this.grid = new EditTable('#receipt-status-grid', {
+          readOnly: true,
+          rowNumbers: true,
           columns: [
-            {binding: 'InoutDate',        header: '반입일',   width: 100, align: 'center'},
-            {binding: 'InoutTime',        header: '시간',     width: 65,  align: 'center'},
-            {binding: 'inout_type',       header: '반입유형', width: 90,  align: 'center'},
-            {binding: 'store_house_name', header: '창고',     width: 90,  align: 'center'},
-            {binding: 'material_type',    header: '품목유형', width: 80,  align: 'center'},
-            {binding: 'material_code',    header: '품목코드', width: 110, align: 'center'},
-            {binding: 'material_name',    header: '품목명',   width: '*', align: 'left'},
-            {binding: 'unit_name',        header: '단위',     width: 50,  align: 'center'},
-            {binding: 'InputQty',         header: '반입수량', width: 85,  align: 'right', format: 'n0'},
-            {binding: 'HouseStock',       header: '창고재고', width: 85,  align: 'right', format: 'n0'},
-            {binding: 'Description',      header: '비고',     width: 150, align: 'left'}
+            {key: 'InoutDate',        header: '반입일',   width: 100, align: 'center'},
+            {key: 'InoutTime',        header: '시간',     width: 65,  align: 'center'},
+            {key: 'inout_type',       header: '반입유형', width: 90,  align: 'center'},
+            {key: 'store_house_name', header: '창고',     width: 90,  align: 'center'},
+            {key: 'material_type',    header: '품목유형', width: 80,  align: 'center'},
+            {key: 'material_code',    header: '품목코드', width: 110, align: 'center'},
+            {key: 'material_name',    header: '품목명',   width: '1*', align: 'left'},
+            {key: 'unit_name',        header: '단위',     width: 50,  align: 'center'},
+            {key: 'InputQty',         header: '반입수량', width: 85,  align: 'right', format: 'n0'},
+            {key: 'HouseStock',       header: '창고재고', width: 85,  align: 'right', format: 'n0', cellClass: r => r.HouseStock < 0 ? 'et-red' : ''},
+            {key: 'Description',      header: '비고',     width: 150, align: 'left'}
           ],
-          itemsSource: new wijmo.collections.CollectionView([]),
-          itemFormatter: (panel, row, col, cell) => {
-            if (panel.cellType === wijmo.grid.CellType.Cell) {
-              const item = panel.rows[row].dataItem;
-              const column = panel.columns[col];
-              if (column.binding === 'HouseStock' && item.HouseStock < 0) {
-                cell.classList.add('redText');
-              }
-            }
-          }
         });
-        new FlexGridContextMenu(this.grid);
-        this.grid.downloadFileName = '제품반입전표현황';
+        this.grid.opts.fileName = '제품반입전표현황';
       }
 
       searchDataBind() {
@@ -131,7 +109,7 @@
         };
         let result = AjaxUtil.getSyncData(this.url + '/read_product_receipt_slip', data);
         if (result && result.data != null) {
-          this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+          this.grid.setData(result.data);
         }
       }
     }
@@ -145,12 +123,15 @@
       AjaxUtil.fillSelectOptions($('#cboHouse'), 'store_house', 'all');
       (function() {
         let opts = AjaxUtil.getSelectDataWithNull('system_code', 'all', 'mat_type');
-        let filtered = opts.filter(o => o.value === '' || ['product','semi'].includes(o.value));
+        // '전체' = 이 화면의 품목유형 전부 (서버가 쉼표로 나눠 거름). 예전엔 기본이 원재료라, 원재료 품목이 없어 저장해도 안 보였음
+        let allowed = ['product', 'semi'];
+        let filtered = opts.filter(o => allowed.includes(o.value));
         $('#cboMatType').empty();
+        $('#cboMatType').append($('<option>').val(allowed.join(',')).text('전체'));
         filtered.forEach(o => $('#cboMatType').append($('<option>').val(o.value).text(o.text)));
-        $('#cboMatType').val('product');
+        $('#cboMatType').val(allowed.join(','));
       })();
-      AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false);
+      AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $('#cboMatType').val());
 
       $('#cboMatType').on('change', function () {
         AjaxUtil.fillSelectOptions($('#cboMatGroup'), 'material_group', 'all', false, $(this).val());

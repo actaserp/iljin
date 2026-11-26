@@ -153,8 +153,8 @@
                 this.address = "";
                 this.loading = true;
 
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
 
 
                 this.init();
@@ -163,40 +163,26 @@
 
             init() {
                 let _this = this;
-                this.grid1 = new wijmo.grid.FlexGrid('#theGrid', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: true,
-                    columns: [
-                        {binding: 'id', header: '출고지시번호', width: 100, align: 'center'},  // width: 40
-                        {binding: 'company_name', header: '판매처', width: 180, align: 'left'},
-                        //{ key: 'address', label: '<span style="color:orange">주소</span>', width: 0, align: 'left' },  // width: 400
-                        {binding: 'ship_date', header: '출고일', width: 150, align: 'center'},
-                        {binding: 'total_qty', header: '총수량', width: 80, align: 'right'},
-                        //{ key: 'product_cnt', label: '제품수', width: 80, align: 'right'},
-                        {binding: 'description', header: '비고', width: '*', align: 'left'},
-                    ],
-                    itemsSource: this.viewData,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
+                this.grid1 = new EditTable('#theGrid', {
+                    selectFirst: false,
+                    rowCheck: true,
+                    onCheck: (e, ctx) => {
+                        SelectItem = this.grid1.getChecked().map(d => ({dataItem: d, _data: d, isSelected: true}));
                     },
+                     // 행 단위 선택
+                    readOnly: true,
+                    columns: [
+                        {key: 'id', header: '출고지시번호', width: 100, align: 'center'},  // width: 40
+                        {key: 'company_name', header: '판매처', width: 180, align: 'left'},
+                        //{ key: 'address', label: '<span style="color:orange">주소</span>', width: 0, align: 'left' },  // width: 400
+                        {key: 'ship_date', header: '출고일', width: 150, align: 'center'},
+                        {key: 'total_qty', header: '총수량', width: 80, align: 'right'},
+                        //{ key: 'product_cnt', label: '제품수', width: 80, align: 'right'},
+                        {key: 'description', header: '비고', width: '1*', align: 'left'},
+                    ]
 
                 });
-                let selector = new wijmo.grid.selector.Selector(this.grid1, {
-                    itemChecked: (e, ctx) => {
-                        SelectItem = this.grid1.rows.filter(r => r.isSelected);
-                    }
-                })
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.grid1.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid1.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
+                this.grid1.setData(this.viewData);
                 // 선택 변경 이벤트
                 this.grid1.selectionChanged.addHandler((s, e) => {
                     // 첫 로드 시 선택 동작 방지
@@ -207,9 +193,9 @@
                     }
 
                     // 유효한 행이 선택되었는지 확인
-                    let selectedRowIndex = this.grid1.selection.row;
+                    let selectedRowIndex = this.grid1.getPageRows().indexOf(this.grid1.current());
                     if (selectedRowIndex >= 0) {
-                        let selectedRowData = this.grid1.rows[selectedRowIndex].dataItem;
+                        let selectedRowData = this.grid1.getPageRows()[selectedRowIndex];
 
                         // TODO: 비즈니스 로직
                         _this.stmt_pk = selectedRowData.id;
@@ -224,44 +210,34 @@
                     }
                 });
                 //this.loading = false;
-                new FlexGridContextMenu(this.grid1);
-                this.grid1.downloadFileName = '출고 내역';
+                this.grid1.opts.fileName = '출고 내역';
 
 
                 ////////////////////////////////////////////////////
 
-                this.grid2 = new wijmo.grid.FlexGrid('#theGrid2', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: true,
+                this.grid2 = new EditTable('#theGrid2', {
+                     // 행 단위 선택
+                    readOnly: true,
                     columns: [
-                        {binding: 'mat_grp_name', header: '제품그룹', width: 100, align: 'left'},
-                        {binding: 'mat_code', header: '제품코드', width: 100, align: 'center'},
-                        {binding: 'mat_name', header: '제품명', width: 160, align: 'left'},
-                        {binding: 'order_qty', header: '지시량', width: 80, align: 'right'},
-                        {binding: 'ship_qty', header: '출고량', width: 80, align: 'right'},  //, editor: { type: 'money' }
-                        {binding: 'unit_name', header: '단위', width: 80, align: 'center'},
-                        {binding: 'description', header: '비고', width: 200, align: 'left'},
-                    ],
-                    itemsSource: this.viewData2,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                        {key: 'mat_grp_name', header: '제품그룹', width: 100, align: 'left'},
+                        {key: 'mat_code', header: '제품코드', width: 100, align: 'center'},
+                        {key: 'mat_name', header: '제품명', width: 160, align: 'left'},
+                        {key: 'order_qty', header: '지시량', width: 80, align: 'right'},
+                        {key: 'ship_qty', header: '출고량', width: 80, align: 'right'},  //, editor: { type: 'money' }
+                        {key: 'unit_name', header: '단위', width: 80, align: 'center'},
+                        {key: 'description', header: '비고', width: 200, align: 'left'},
+                    ]
 
                 });
+                this.grid2.setData(this.viewData2);
                 //맨 앞에 헤더부분 없애기
-                this.grid2.rowHeaders.columns.splice(0, 1);
                 // 데이터 로드 후 초기 선택 상태 해제
 
                 this.grid2.selectionChanged.addHandler((s, e) => {
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
 
 
                         //TODO: 비지니스 로직
@@ -276,18 +252,17 @@
 
                     }
                 });
-                new FlexGridContextMenu(this.grid2);
-                this.grid2.downloadFileName = '출고 내역';
+                this.grid2.opts.fileName = '출고 내역';
             }
 
             searchDetail() {
-                this.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+                this.grid2.setData([]);
                 let _this = this;
 
                 let data = {};
                 data['action'] = 'shipment_item_list';
 
-                $.each(this.grid1.selectedItems, function (index, item1) {
+                $.each((this.grid1.getChecked().length ? this.grid1.getChecked() : this.grid1.selectedItems), function (index, item1) {
                     data['head_id'] = item1.id
                     data['company_id'] = item1.company_id
                 });
@@ -300,8 +275,7 @@
             }
 
             addNewRow(data) {
-                let cv = this.grid2.collectionView;
-                console.log(data);
+                let rows = [];
                 data.forEach(item => {
                     let newRow = {
                         mat_grp_name: item['mat_grp_name'],
@@ -312,8 +286,9 @@
                         ship_qty: item['ship_qty'],
                         description: item['description'],
                     };
-                    cv.addNew(newRow);
+                    rows.push(newRow);
                 });
+                this.grid2.setData(rows);   // 조회 자료는 setData 로 한 번에 (addRow 는 "새 행" 표시 · 기울임 + 이전 자료에 이어 붙음)
 
 
             }
@@ -322,8 +297,8 @@
 
                 this.loading = true;
 
-                this.grid1.itemsSource = new wijmo.collections.CollectionView([]);
-                this.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+                this.grid1.setData([]);
+                this.grid2.setData([]);
 
                 let data = FormUtil.extractForm($('#searchForm'));
                 data['action'] = 'shipment_head_list';
@@ -331,7 +306,7 @@
                 let result = AjaxUtil.getSyncData(gUrl + "/shipment_head_list", data);
                 console.log('result', result.data);
                 if (result != null) {
-                    this.grid1.itemsSource = result.data;
+                    this.grid1.setData(result.data);
                 }
 
                 setTimeout(() => {
@@ -404,7 +379,7 @@
             let _this = page; // ✅ page는 ShipmentPage 인스턴스 (grid1 접근 가능)
 
             // Get selected shipment IDs
-            let selectedRows = _this.grid1.rows.filter(r => r.isSelected);
+            let selectedRows = _this.grid1.getChecked().map(d => ({dataItem: d, _data: d, isSelected: true}));
             if (selectedRows.length === 0) {
                 Alert.alert('', '선택된 출고가 없습니다.');
                 return;

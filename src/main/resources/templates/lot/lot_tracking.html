@@ -1,9 +1,6 @@
 <html layout:decorate="~{layout_page}">
 <head>
     <style>
-        .wj-header {
-            text-align: center !important;
-        }
         .lot-info-table th {
             width: 110px;
             white-space: nowrap;
@@ -268,80 +265,68 @@
             // 재료추적, 원재료 입고정보
             initMatTracking() {
                 // 재료추적 (트리)
-                this.matTrackingGrid = new wijmo.grid.FlexGrid('#mat-tracking-grid', {
-                    autoGenerateColumns: false,
-                    isReadOnly: true,
-                    showMarquee: true,
+                this.matTrackingGrid = new EditTable('#mat-tracking-grid', {
+                    readOnly: true,
                     childItemsPath: 'items',
                     columns: [
-                        { binding: 'mat_name', header: '품목(재료)', width: 250, align: 'left' },
-                        { binding: 'p_mat_name', header: '생산품', width: 250, align: 'left' },
-                        { binding: 'lot_number', header: '품목LOT(재료)', width: 250, align: 'left' },
-                        { binding: 'p_lot_number', header: '생산품LOT', width: 150, align: 'center' },
-                        { binding: 'unit_name', header: '단위', width: 80, align: 'center' },
-                        { binding: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
-                        { binding: 'WorkOrderNumber', header: '작업지시번호', width: 130, align: 'center' }
+                        { key: 'mat_name', header: '품목(재료)', width: 250, align: 'left' },
+                        { key: 'p_mat_name', header: '생산품', width: 250, align: 'left' },
+                        { key: 'lot_number', header: '품목LOT(재료)', width: 250, align: 'left' },
+                        { key: 'p_lot_number', header: '생산품LOT', width: 150, align: 'center' },
+                        { key: 'unit_name', header: '단위', width: 80, align: 'center' },
+                        { key: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
+                        { key: 'WorkOrderNumber', header: '작업지시번호', width: 130, align: 'center' }
                     ]
                 });
-                this.matTrackingGrid.rowHeaders.columns.splice(0, 1);
 
                 // 원재료 입고정보
-                this.inoutGrid = new wijmo.grid.FlexGrid('#mat-inout-grid', {
-                    autoGenerateColumns: false,
-                    isReadOnly: true,
-                    showMarquee: true,
+                this.inoutGrid = new EditTable('#mat-inout-grid', {
+                    readOnly: true,
                     columns: [
-                        { binding: 'lot_number', header: '품목LOT', width: 150, align: 'center' },
-                        { binding: 'mat_name', header: '품목', width: 250, align: 'left' },
-                        { binding: 'InoutDate', header: '입고일', width: 150, align: 'center' },
-                        { binding: 'InputQty', header: '입고량', width: 150, align: 'right', format: 'n0' },
-                        { binding: 'company_name', header: '매입처', width: 150, align: 'center' },
-                        { binding: 'EffectiveDate', header: '유효일자', width: 150, align: 'center' },
-                        { binding: 'input_type_name', header: '입고구분', width: 150, align: 'center' }
+                        { key: 'lot_number', header: '품목LOT', width: 150, align: 'center' },
+                        { key: 'mat_name', header: '품목', width: 250, align: 'left' },
+                        { key: 'InoutDate', header: '입고일', width: 150, align: 'center' },
+                        { key: 'InputQty', header: '입고량', width: 150, align: 'right', format: 'n0' },
+                        { key: 'company_name', header: '매입처', width: 150, align: 'center' },
+                        { key: 'EffectiveDate', header: '유효일자', width: 150, align: 'center' },
+                        { key: 'input_type_name', header: '입고구분', width: 150, align: 'center' }
                     ]
                 });
-                this.inoutGrid.rowHeaders.columns.splice(0, 1);
             }
 
             // 제품추적, 제품출하정보
             initProductTracking() {
                 // 제품추적 (트리)
-                this.productTrackingGrid = new wijmo.grid.FlexGrid('#product-tracking-grid', {
-                    autoGenerateColumns: false,
-                    isReadOnly: true,
-                    showMarquee: true,
+                this.productTrackingGrid = new EditTable('#product-tracking-grid', {
+                    readOnly: true,
                     childItemsPath: 'items',
                     columns: [
-                        { binding: 'mat_name', header: '생산품', width: 250, align: 'left' },
-                        { binding: 'p_mat_name', header: '품목(재료)', width: 250, align: 'left' },
-                        { binding: 'lot_number', header: '생산품LOT', width: 250, align: 'left' },
-                        { binding: 'p_lot_number', header: '재료LOT', width: 150, align: 'center' },
-                        { binding: 'unit_name', header: '단위', width: 80, align: 'center' },
-                        { binding: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
-                        { binding: 'wo', header: '작업지시번호', width: 130, align: 'center' }
+                        { key: 'mat_name', header: '생산품', width: 250, align: 'left' },
+                        { key: 'p_mat_name', header: '품목(재료)', width: 250, align: 'left' },
+                        { key: 'lot_number', header: '생산품LOT', width: 250, align: 'left' },
+                        { key: 'p_lot_number', header: '재료LOT', width: 150, align: 'center' },
+                        { key: 'unit_name', header: '단위', width: 80, align: 'center' },
+                        { key: 'lot_consume_qty', header: 'LOT투입수량', width: 110, align: 'right', format: 'n0' },
+                        { key: 'wo', header: '작업지시번호', width: 130, align: 'center' }
                     ]
                 });
-                this.productTrackingGrid.rowHeaders.columns.splice(0, 1);
 
                 // 제품출하정보
-                this.shipmentGrid = new wijmo.grid.FlexGrid('#product-shipment-grid', {
-                    autoGenerateColumns: false,
-                    isReadOnly: true,
-                    showMarquee: true,
+                this.shipmentGrid = new EditTable('#product-shipment-grid', {
+                    readOnly: true,
                     columns: [
-                        { binding: 'lot_number', header: '품목LOT', width: 150, align: 'center' },
-                        { binding: 'mat_name', header: '품목', width: 250, align: 'left' },
-                        { binding: 'ShipDate', header: '출하일', width: 150, align: 'center' },
-                        { binding: 'company_name', header: '고객사', width: 150, align: 'left' },
-                        { binding: 'Qty', header: '출하량', width: 100, align: 'right', format: 'n0' },
-                        { binding: 'shipment_state', header: '출하상태', width: 150, align: 'center' }
+                        { key: 'lot_number', header: '품목LOT', width: 150, align: 'center' },
+                        { key: 'mat_name', header: '품목', width: 250, align: 'left' },
+                        { key: 'ShipDate', header: '출하일', width: 150, align: 'center' },
+                        { key: 'company_name', header: '고객사', width: 150, align: 'left' },
+                        { key: 'Qty', header: '출하량', width: 100, align: 'right', format: 'n0' },
+                        { key: 'shipment_state', header: '출하상태', width: 150, align: 'center' }
                     ]
                 });
-                this.shipmentGrid.rowHeaders.columns.splice(0, 1);
             }
 
             setGridData(grid, data) {
-                grid.itemsSource = new wijmo.collections.CollectionView(data || []);
+                grid.setData(data || []);
             }
 
             loadLotDetail() {
@@ -397,8 +382,8 @@
                         _this.setGridData(_this.shipmentGrid, result.data.shipment_list);
 
                         // 트리 전체 펼치기
-                        _this.matTrackingGrid.collapseGroupsToLevel(99);
-                        _this.productTrackingGrid.collapseGroupsToLevel(99);
+                        _this.matTrackingGrid.expandAll();       // 위즈모 collapseGroupsToLevel(99) 대신 (그대로 두면 오류)
+                        _this.productTrackingGrid.expandAll();
                     }
                 };
 

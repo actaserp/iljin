@@ -73,7 +73,7 @@
 				this.checkVal = false
 			}
             this.grid = null;
-            this.viewData = new wijmo.collections.CollectionView();
+            this.viewData = [];
             this.selectedItem = null;
             this.callback = null;
             this.modalContainer = new PopupDraggable('품목 선택');
@@ -95,7 +95,7 @@
 
             let result = AjaxUtil.getSyncData(url, data);
             if (result.data != null) {
-                _this.viewData.sourceCollection = result.data;
+                _this.grid.setData(result.data);
             }
 
             //검색버튼을 누르고 초기화한다
@@ -118,28 +118,18 @@
             let $content = $(content);
             this.modalContainer.open({ width: 800, height: 510, $content });
 
-            this.grid = new wijmo.grid.FlexGrid('#material-search-grid', {
-                selectionMode: wijmo.grid.SelectionMode.Row,
-                autoGenerateColumns: false,
-                showMarquee: true,
-                isReadOnly: true,
-                formatItem: (sender, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                    }
-                },
+            this.grid = new EditTable('#material-search-grid', {
+                readOnly: true,
                 columns: [
-                    {binding: 'group_name', header: '품목그룹', width: 120, align: 'left'},
-                    {binding: 'Code', header: '품목코드', width: 150, align: 'center'},
-                    {binding: 'Name', header: '품목명', width: 250, align: 'left'},
-                    {binding: 'unit_name', header: '단위', width: 60, align: 'center'},
-                    {binding: 'Spec', header: '규격', width: '*', align: 'left'}
-                ],
-                itemsSource: this.viewData,
+                    {key: 'group_name', header: '품목그룹', width: 120, align: 'left'},
+                    {key: 'Code', header: '품목코드', width: 150, align: 'center'},
+                    {key: 'Name', header: '품목명', width: 250, align: 'left'},
+                    {key: 'unit_name', header: '단위', width: 60, align: 'center'},
+                    {key: 'Spec', header: '규격', width: '1*', align: 'left'}
+                ]
             });
-            this.grid.rowHeaders.columns.splice(0, 1);
-            new FlexGridContextMenu(this.grid);
-            this.grid.downloadFileName = '품목 내역';
+            this.grid.setData(this.viewData);
+            this.grid.opts.fileName = '품목 내역';
 
             this.$btnMaterialSearch = $content.find('#btnMaterialSearch');
             this.$cboMaterialType = $content.find('#cboMaterialType');
@@ -199,7 +189,7 @@
             let $btnTest = $('#btnTest');
 
             $btnTest.click(function (e) {
-                _this.grid.collectionView.refresh();
+                _this.grid.refresh();
             });
         }
 

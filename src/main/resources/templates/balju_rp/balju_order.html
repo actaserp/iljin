@@ -1193,49 +1193,40 @@
      this.$btnNeedStock = $('#btnNeedStock');
      this.$btnMail = $('#btnMail');
      this.spjangcd = $('#spjangcdHidden');
-     this.viewData = new wijmo.collections.CollectionView();
+     this.viewData = [];
      this.init();
     }
 
     init() {
      let _this = this;
-     this.grid = new wijmo.grid.FlexGrid('#theGrid', {
-      selectionMode: wijmo.grid.SelectionMode.Row,
-      headersVisibility: wijmo.grid.HeadersVisibility.Column,
-      autoGenerateColumns: false,
-      showMarquee: true,
-      isReadOnly: true,
-      formatItem: (sender, e) => {
-       if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-        e.cell.style.textAlign = 'center';
-       }
-      },
+     this.grid = new EditTable('#theGrid', {
+      readOnly: true,
       columns: [
-       {binding: 'bh_id', header: 'bh_id', width: 150, visible: false},
-       {binding: 'CompanyName', header: '구매처', width: 200},
-       {binding: 'BaljuTypeName', header: '구분', width: 70, align: 'center'},
-       {binding: 'JumunDate', header: '발주일', width: 120, align: 'center'},
-       {binding: 'MaterialGroupName', header: '제품그룹', width: 120},
-       {binding: 'product_code', header: '제품코드', width: 90, visible: false},
-       {binding: 'product_name', header: '제품명', width: 210},
-       {binding: 'unit', header: '단위', width: 65, align: 'center'},
-       {binding: 'SujuQty', header: '수량', width: 100, align: 'right', format: 'n0'},
-       {binding: 'BaljuUnitPrice', header: '단가', width: 100, align: 'right'},
-       {binding: 'BaljuPrice', header: '공급가', width: 100, align: 'right'},
-       {binding: 'BaljuVat', header: '부과세', width: 100, align: 'right'},
-       {binding: 'BaljuTotalPrice', header: '발주액', width: 100, align: 'right'},
-       {binding: 'bh_StateName', header: '상태', width: 80, align: 'center'},
-       {binding: 'SujuQty2', header: '기입고수량', width: 100, align: 'right'},
-       {binding: 'SujuQty3', header: '미입고수량', width: 100, align: 'right'},
-       {binding: 'ShipmentStateName', header: '납품장소', width: 100, align: 'center'},
-       {binding: 'DueDate', header: '납기예정일', width: 120, align: 'center'},
-       {binding: 'Description', header: '비고', width: 200}
+       {key: 'bh_id', header: 'bh_id', width: 150, visible: false},
+       {key: 'CompanyName', header: '구매처', width: 200},
+       {key: 'BaljuTypeName', header: '구분', width: 70, align: 'center'},
+       {key: 'JumunDate', header: '발주일', width: 120, align: 'center'},
+       {key: 'MaterialGroupName', header: '제품그룹', width: 120},
+       {key: 'product_code', header: '제품코드', width: 90, visible: false},
+       {key: 'product_name', header: '제품명', width: 210},
+       {key: 'unit', header: '단위', width: 65, align: 'center'},
+       {key: 'SujuQty', header: '수량', width: 100, align: 'right', format: 'n0'},
+       {key: 'BaljuUnitPrice', header: '단가', width: 100, align: 'right'},
+       {key: 'BaljuPrice', header: '공급가', width: 100, align: 'right'},
+       {key: 'BaljuVat', header: '부과세', width: 100, align: 'right'},
+       {key: 'BaljuTotalPrice', header: '발주액', width: 100, align: 'right'},
+       {key: 'bh_StateName', header: '상태', width: 80, align: 'center'},
+       {key: 'SujuQty2', header: '기입고수량', width: 100, align: 'right'},
+       {key: 'SujuQty3', header: '미입고수량', width: 100, align: 'right'},
+       {key: 'ShipmentStateName', header: '납품장소', width: 100, align: 'center'},
+       {key: 'DueDate', header: '납기예정일', width: 120, align: 'center'},
+       {key: 'Description', header: '비고', width: 200}
       ],
-      itemsSource: this.viewData, // 데이터를 설정할 배열
+       // 데이터를 설정할 배열
      });
+     this.grid.setData(this.viewData);
 
-     new FlexGridContextMenu(this.grid);
-     this.grid.downloadFileName = '발주 등록';
+     this.grid.opts.fileName = '발주 등록';
 
      this.grid.hostElement.addEventListener('dblclick', function (e) {
       let items = _this.grid.selectedItems;
@@ -2286,7 +2277,7 @@
 
      let fnsuccess = function (result) {
       if (result != null) {
-       _this.viewData.sourceCollection = result.data;
+       _this.grid.setData(result.data);
       }
      };
      AjaxUtil.getAsyncData(url, data, fnsuccess);

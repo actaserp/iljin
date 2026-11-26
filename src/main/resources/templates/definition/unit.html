@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -162,14 +157,12 @@
     <script type="text/javascript">
 
         var theGrid;
-        var viewdata;
 
+        // 공통 표 EditTable (위즈모 FlexGrid 대체, 2026-11-24)
         let columns = [
-            {binding: 'id', header: 'id', width: 200, align: 'center', visible: false},
-            {binding: 'name', header: '단위명', width: 200, align: 'center'},
-            {binding: 'description', header: '설명', width: 250, align: 'center'},
-            {binding: 'piece_yn', header: '낱개단위YN', width: 200, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'}
+            {key: 'name', header: '단위명', width: 200, align: 'center'},
+            {key: 'description', header: '설명', width: 250, align: 'center'},
+            {key: 'piece_yn', header: '낱개단위YN', width: 200, align: 'center'}
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -195,30 +188,20 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
-
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true,
+                fileName: '단위정보',
+                onDblClick: function (selectedItem) {
+                    document.getElementById('id').value = selectedItem.id;
+                    document.getElementById('name').value = selectedItem.name;
+                    document.getElementById('description').value = selectedItem.description;
+                    document.getElementById('piece_yn').value = selectedItem.piece_yn;
+
+                    setButtonState();
+                }
             });
-
-            theGrid.hostElement.addEventListener('dblclick', function (e) {
-                let selectedItem = theGrid.selectedItems[0];
-
-                document.getElementById('id').value = selectedItem.id;
-                document.getElementById('name').value = selectedItem.name;
-                document.getElementById('description').value = selectedItem.description;
-                document.getElementById('piece_yn').value = selectedItem.piece_yn;
-
-                setButtonState();
-
-            });
-
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
+            theGrid.setData(data2);
 
         }
 
@@ -229,7 +212,7 @@
             if (pk) {
                 $('#btnDel').prop('disabled', false);
 
-                $('#unitForm input input').each(function () {
+                $('#unitForm input, #unitForm select').each(function () {   // 예전 선택자 'input input' 오타로 수정 칸이 안 풀렸음 (2026-11-24)
                     $(this).prop('disabled', false);
                 });
 
@@ -281,25 +264,7 @@
 
         function grid_binding(data) {
 
-            let formattedData = data.map(item => ({
-                name: item.name,
-                description: item.description,
-                piece_yn: item.piece_yn,
-
-            }));
-
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
-
-            columns.forEach(colDef => {
-                let col = new wijmo.grid.Column(colDef);
-                theGrid.columns.push(col);
-            });
-
-            viewdata = new wijmo.collections.CollectionView(formattedData);
-
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(data || []);   // 예전에는 id 를 빼고 다시 넣어서, 검색 뒤 더블클릭하면 id 가 비었음
 
         }
 

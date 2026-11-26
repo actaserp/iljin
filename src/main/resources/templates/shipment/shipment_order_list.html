@@ -150,7 +150,7 @@
     <script type="text/javascript">
 
         let $content;
-        let isInitialLoad = true; // 초기 상태 플래그
+        let isInitialLoad = false;   // EditTable 은 자료를 넣을 때 선택 이벤트가 없어서 첫 클릭을 버리지 않게 false // 초기 상태 플래그
 
         class ShipmentOrderPage {
             constructor() {
@@ -159,8 +159,8 @@
                 this.head_pk = 0;
                 this.ship_state = '';
                 this.gUrl = '/api/shipment/shipment_order';
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
 
 
                 this.init();
@@ -168,56 +168,41 @@
 
             init() {
                 let _this = this;
-                this.grid1 = new wijmo.grid.FlexGrid('#theGrid', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: false,
+                this.grid1 = new EditTable('#theGrid', {
+                    selectFirst: false,
+                    readOnly: false,
                     columns: [
-                        {binding: 'company_name', header: '판매처', width: '*', align: 'center', isReadOnly: true},
-                        {binding: 'order_date', header: '지시일', width: '*', align: 'center', isReadOnly: true},
+                        {key: 'company_name', header: '판매처', width: '1*', align: 'center', readOnly: true},
+                        {key: 'order_date', header: '지시일', width: '1*', align: 'center', readOnly: true},
                         {
-                            binding: 'ship_date',
+                            key: 'ship_date',
                             header: '출하일',
-                            width: '*',
+                            width: '1*',
                             align: 'center',
-                            isReadOnly: false, // 수정 가능
-                            editor: new wijmo.input.InputDate(document.createElement('div'), {
-                                format: 'yyyy-MM-dd', // 날짜 형식 설정
-                                placeholder: '날짜 선택',
-                                isRequired: true // 필수 입력
-                            }),
-                            format: 'yyyy-MM-dd' // FlexGrid의 셀 표시 형식
+                            readOnly: false, // 수정 가능
+                            type: 'date'   // 위즈모 InputDate 대신 날짜 칸 (YYYY-MM-DD)
                         },
-                        {binding: 'total_qty', header: '총수량', width: 80, align: 'right', isReadOnly: true},
-                        {binding: 'state_name', header: '상태', width: 80, align: 'center', isReadOnly: true},
-                        {binding: 'DeliveryName', header: '납품처', width: '*', align: 'center', isReadOnly: true},
-                    ],
-                    itemsSource: this.viewData,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    },
+                        {key: 'total_qty', header: '총수량', width: 80, align: 'right', readOnly: true},
+                        {key: 'state_name', header: '상태', width: 80, align: 'center', readOnly: true},
+                        {key: 'DeliveryName', header: '납품처', width: '1*', align: 'center', readOnly: true},
+                    ]
 
                 });
-                this.grid1.cellEditEnded.addHandler((s, e) => {
+                this.grid1.setData(this.viewData);
+                this.grid1.opts.onEditEnd = (_item, _key, _v, s) => {
+                    const e = {row: s.getPageRows().indexOf(_item), col: s.columns.findIndex(c => c.key === _key)};   // 위즈모 cellEditEnded 의 e
+                    (() => {
                     let col = s.columns[e.col]; // 현재 편집된 컬럼
-                    let editedRow = s.rows[e.row].dataItem; // 현재 편집된 행 데이터
+                    let editedRow = s.getPageRows()[e.row]; // 현재 편집된 행 데이터
 
-                    if (col.binding === 'ship_date') {
+                    if (col.key === 'ship_date') {
                         _this.ship_date = editedRow.ship_date;
                         // 변경된 데이터를 기반으로 추가 작업 수행
                     }
-                });
+                    })();
+                    s.refreshRow(_item);   // 고친 뒤 계산한 값이 보이게 (위즈모는 편집 끝에 그 행을 다시 그렸음)
+                };
 
-                // 데이터 로드 후 초기 선택 상태 해제
-                this.grid1.loadedRows.addHandler(() => {
-                    setTimeout(() => {
-                        this.grid1.select(-1, -1); // 선택 상태 초기화
-                    }, 0); // 비동기로 처리하여 초기 선택 해제
-                });
 
                 this.grid1.selectionChanged.addHandler((s, e) => {
                     if (isInitialLoad) {
@@ -225,9 +210,9 @@
                         return;
                     }
 
-                    let selectedRowIndex = s.selection.row; // 선택된 행의 인덱스
+                    let selectedRowIndex = s.getPageRows().indexOf(s.current()); // 선택된 행의 인덱스
                     if (selectedRowIndex >= 0) { // 유효한 행이 선택되었는지 확인
-                        let selectedRowData = s.rows[selectedRowIndex].dataItem; // 선택된 행의 데이터
+                        let selectedRowData = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
 
                         _this.head_pk = selectedRowData.id;
                         _this.ship_state = selectedRowData.state;
@@ -239,39 +224,28 @@
 
                     }
                 });
-                new FlexGridContextMenu(this.grid1);
-                this.grid1.downloadFileName = '출하지시 목록';
+                this.grid1.opts.fileName = '출하지시 목록';
 
-                this.grid2 = new wijmo.grid.FlexGrid('#theGrid2', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    isReadOnly: true,
+                this.grid2 = new EditTable('#theGrid2', {
+                    readOnly: true,
                     columns: [
-                        {binding: 'mat_grp_name', header: '제품그룹', width: '*', align: 'left'},
-                        {binding: 'mat_code', header: '제품코드', width: '*', align: 'center'},
-                        {binding: 'mat_name', header: '제품명', width: '*', align: 'left'},
-                        {binding: 'unit_name', header: '단위', width: '*', align: 'center'},
-                        {binding: 'order_qty', header: '지시량', width: '*', align: 'right'},
-                        {binding: 'ship_qty', header: '출하량', width: '*', align: 'right'},  //, editor: { type: 'money' }
-                        {binding: 'description', header: '비고', width: '*', align: 'left'},
-                    ],
-                    itemsSource: this.viewData2,
-                    formatItem: function (s, e) {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center'; // 헤더 텍스트 가운데 정렬
-                        }
-                    }
+                        {key: 'mat_grp_name', header: '제품그룹', width: '1*', align: 'left'},
+                        {key: 'mat_code', header: '제품코드', width: '1*', align: 'center'},
+                        {key: 'mat_name', header: '제품명', width: '1*', align: 'left'},
+                        {key: 'unit_name', header: '단위', width: '1*', align: 'center'},
+                        {key: 'order_qty', header: '지시량', width: '1*', align: 'right'},
+                        {key: 'ship_qty', header: '출하량', width: '1*', align: 'right'},  //, editor: { type: 'money' }
+                        {key: 'description', header: '비고', width: '1*', align: 'left'},
+                    ]
                 });
-                new FlexGridContextMenu(this.grid2);
-                this.grid2.downloadFileName = '출하품목';
+                this.grid2.setData(this.viewData2);
+                this.grid2.opts.fileName = '출하품목';
 
             }
 
             searchDetail() {
 
-                this.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+                this.grid2.setData([]);
 
                 let data = {};
                 data['head_id'] = page.head_pk;
@@ -285,10 +259,7 @@
             }
 
             addNewRow(data) {
-                let cv = this.grid2.collectionView;
-                console.log('ds', data);
-                console.log('ds4', data.mat_grp_name);
-
+                let rows = [];
                 for (let i = 0; i < data.length; i++) {
                     let newRow = {
                         mat_grp_name: data[i].mat_grp_name,
@@ -299,8 +270,9 @@
                         ship_qty: data[i].ship_qty,
                         description: data[i].description
                     };
-                    cv.addNew(newRow);
+                    rows.push(newRow);
                 }
+                this.grid2.setData(rows);   // 조회 자료는 setData 로 한 번에 (addRow 는 "새 행" 표시 · 기울임 + 이전 자료에 이어 붙음)
 
             }
 
@@ -309,13 +281,13 @@
                 let data = FormUtil.extractForm($('#searchForm'));
 
                 let result = AjaxUtil.getSyncData(this.gUrl + '/order_list', data);
-                this.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+                this.grid2.setData([]);
 
 
                 if (result != null) {
-                    isInitialLoad = true; // 초기 상태 플래그
+                    // isInitialLoad = true;   EditTable 은 자료를 넣을 때 선택 이벤트가 없음 (켜 두면 첫 클릭이 버려짐) // 초기 상태 플래그
 
-                    this.viewData.sourceCollection = result.data;
+                    this.grid1.setData(result.data);
                 }
 
                 return;
@@ -348,7 +320,7 @@
                         Alert.alert('', '출하 지시 취소 완료');
 
                         this.searchMain();
-                        this.grid2.itemsSource = new wijmo.collections.CollectionView([]);
+                        this.grid2.setData([]);
 
 
                     } else {

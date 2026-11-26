@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -194,20 +189,20 @@
 
         /*메뉴로그 컬럼들*/
         var columns1 = [
-            {binding: 'folder_name', header: '메뉴폴더', width: 200, align: 'left'},
-            {binding: 'menu_name', header: '메뉴', width: 200, align: 'left'},
-            {binding: 'use_count', header: '사용횟수', width: 200, align: 'right'},
-            {binding: '', header: '', width: "*" },
+            {key: 'folder_name', header: '메뉴폴더', width: 200, align: 'left'},
+            {key: 'menu_name', header: '메뉴', width: 200, align: 'left'},
+            {key: 'use_count', header: '사용횟수', width: 200, align: 'right'},
+            
         ];
 
         var columns2 = [
-            /*{binding: 'row_number', header: 'No', width: 160, align: 'center'},*/
-            {binding: 'folder_name', header: '메뉴폴더', width: 200, align: 'left'},
-            {binding: 'menu_name', header: '메뉴', width: 260, align: 'left'},
-            {binding: 'username', header: '아이디', width: 160, align: 'center'},
-            {binding: 'user_name', header: '이름', width: 160, align: 'center'},
-            {binding: 'click_date', header: '일시', width: 260, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'},
+            /*{key: 'row_number', header: 'No', width: 160, align: 'center'},*/
+            {key: 'folder_name', header: '메뉴폴더', width: 200, align: 'left'},
+            {key: 'menu_name', header: '메뉴', width: 260, align: 'left'},
+            {key: 'username', header: '아이디', width: 160, align: 'center'},
+            {key: 'user_name', header: '이름', width: 160, align: 'center'},
+            {key: 'click_date', header: '일시', width: 260, align: 'center'},
+            
         ];
 
 
@@ -247,18 +242,14 @@
                 }
             })
 
-            viewdata1 = new wijmo.collections.CollectionView(data2);
+            viewdata1 = data2;
 
-            theGrid1 = new wijmo.grid.FlexGrid('#theGrid1', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid1 = new EditTable('#theGrid1', {
                 columns: columns1,
-                isReadOnly: true,
-                itemsSource: viewdata1
+                readOnly: true
             });
+            theGrid1.setData(viewdata1);
 
-            theGrid1.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
 
         }
 
@@ -314,8 +305,6 @@
                 return;
             }
 
-            theGrid1.columns.clear();
-            theGrid1.autoGenerateColumns = false;
 
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns1 === 'undefined' || !Array.isArray(columns1)) {
@@ -323,15 +312,10 @@
                 return;
             }
 
-            columns1.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid1.columns.push(col);
-            });
 
-            viewdata1 = new wijmo.collections.CollectionView(menulogData);
+            viewdata1 = menulogData;
 
-            theGrid1.itemsSource = viewdata1;
-            theGrid1.refresh();
+            theGrid1.setData(viewdata1);
         }
 
 
@@ -362,20 +346,17 @@
             })
 
 
-            viewdata2 = new wijmo.collections.CollectionView(data2);
+            viewdata2 = data2;
 
-            theGrid2 = new wijmo.grid.FlexGrid('#theGrid2', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid2 = new EditTable('#theGrid2', {
                 columns: columns2,
-                isReadOnly: true,
-                itemsSource: viewdata2
+                readOnly: true
             });
+            theGrid2.setData(viewdata2);
 
 
-            theGrid2.rowHeaders.columns.splice(0, 1);
 
-            /*     new FlexGridContextMenu(theGrid2);
+            /*
                  window.downloadFileName = '메뉴로그';*/
         }
 
@@ -432,18 +413,11 @@
                 return;
             }
 
-            theGrid2.columns.clear();
-            theGrid2.autoGenerateColumns = false;
 
-            columns2.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid2.columns.push(col);
-            });
 
-            viewdata2 = new wijmo.collections.CollectionView(menulogData);
+            viewdata2 = menulogData;
 
-            theGrid2.itemsSource = viewdata2;
-            theGrid2.refresh();
+            theGrid2.setData(viewdata2);
         }
 
 

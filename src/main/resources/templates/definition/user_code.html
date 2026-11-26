@@ -6,9 +6,6 @@
 <head>
   <style>
 
-    .wj-header {
-      text-align: center !important;
-    }
 
     input[type="checkbox"] {
       margin: 0 auto; /* 마진을 통해 가운데 정렬을 보완 */
@@ -238,22 +235,22 @@
 
     // wijmo grid에서 hidden 사용할려면 visible 사용해야함
     var columns = [
-      { binding: 'aid', header: 'AID', align: 'left', width: "*", visible: false},
-      { binding: 'agropcd', header: '상위코드', align: 'left', width: "*", isReadOnly: true },
-      { binding: 'agroupnm', header: '상위분류명', align: 'left', width: "*" },
-      { binding: 'Astatus', header: 'A 사용여부', align: 'left', width: "*", visible: false },
-      /*   { binding: 'ADescription', header: 'A설명', align: 'left', width: 100, visible: false },*/
-      { binding: 'bid', header: 'BID', align: 'left', width: "*", visible: false, isReadOnly: true },
-      { binding: 'bgropcd', header: '중위코드', align: 'left', width: "*", isReadOnly: true  },
-      { binding: 'bgroupnm', header: '중분류명', align: 'left', width: "*" },
-      { binding: 'Bstatus', header: 'B 사용여부', align: 'left', width: "*", visible: false },
-      { binding: 'bdescription', header: '중분류 설명', align: 'left', width: 185},
-      { binding: 'cid', header: 'CID', align: 'left', width: "*", visible: false, isReadOnly: true },
-      { binding: 'cgropcd', header: '하위코드', align: 'left', width: "*", isReadOnly: true  },
-      { binding: 'cgroupnm', header: '하위분류명', align: 'left', width: "*" },
-      { binding: 'Cstatus', header: 'C 사용여부', align: 'left', width: "*", visible: false },
-      { binding: 'cdescription', header: '하위분류 설명', align: 'left', width: "*" },
-      /*   { binding: 'adescription', header: '설명', align: 'left', width: '*' }*/
+      { key: 'aid', header: 'AID', align: 'left', width: '1*', visible: false},
+      { key: 'agropcd', header: '상위코드', align: 'left', width: '1*', readOnly: true },
+      { key: 'agroupnm', header: '상위분류명', align: 'left', width: '1*' },
+      { key: 'Astatus', header: 'A 사용여부', align: 'left', width: '1*', visible: false },
+      /*   { key: 'ADescription', header: 'A설명', align: 'left', width: 100, visible: false },*/
+      { key: 'bid', header: 'BID', align: 'left', width: '1*', visible: false, readOnly: true },
+      { key: 'bgropcd', header: '중위코드', align: 'left', width: '1*', readOnly: true  },
+      { key: 'bgroupnm', header: '중분류명', align: 'left', width: '1*' },
+      { key: 'Bstatus', header: 'B 사용여부', align: 'left', width: '1*', visible: false },
+      { key: 'bdescription', header: '중분류 설명', align: 'left', width: 185},
+      { key: 'cid', header: 'CID', align: 'left', width: '1*', visible: false, readOnly: true },
+      { key: 'cgropcd', header: '하위코드', align: 'left', width: '1*', readOnly: true  },
+      { key: 'cgroupnm', header: '하위분류명', align: 'left', width: '1*' },
+      { key: 'Cstatus', header: 'C 사용여부', align: 'left', width: '1*', visible: false },
+      { key: 'cdescription', header: '하위분류 설명', align: 'left', width: '1*' },
+      /*   { key: 'adescription', header: '설명', align: 'left', width: '1*' }*/
     ];
 
 
@@ -281,9 +278,7 @@
         }
       })
 
-      menuGroupName = new wijmo.collections.PropertyGroupDescription('코드명', function (item, proName) {
-        return item.agroupnm;
-      });
+      menuGroupName = 'agroupnm';   // 대분류(코드명)로 묶기 — 위즈모 PropertyGroupDescription 대신 EditTable groupBy
 
 
       // 데이터 배열이 비어있을 경우 여러 개의 빈 객체 추가
@@ -295,43 +290,44 @@
         /*   console.log('Grid initialized with empty data.');*/
       }
 
-      viewdata = new wijmo.collections.CollectionView(data2);
-      viewdata.groupDescriptions.push(menuGroupName);
+      viewdata = data2;
 
 
-      // viewdata = new wijmo.collections.CollectionView(data2);
+      // viewdata = data2;
 
       // 데이터 그리드에 바인딩
-      theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-        autoGenerateColumns: false,
-        showMarquee: true,
+      theGrid = new EditTable('#theGrid', {
+        groupBy: menuGroupName,
         columns: columns,
-        itemsSource: viewdata,
-        isReadOnly: true,
+        readOnly: true
       });
+      theGrid.setData(viewdata);
 
-      theGrid.selectionChanged.addHandler(function (s, e) {
-        selectedRowIndex = s.selection.row; // 선택된 행 인덱스
-        selectedColumnIndex = s.selection.col; // 선택된 열 인덱스
+      // 위즈모는 칸(셀)을 고를 때마다 selectionChanged 가 났음. EditTable 은 행 단위라 누른 칸을 hitTest 로 알아냄
+      theGrid.hostElement.addEventListener('click', function (e) {
+        const s = theGrid, ht = theGrid.hitTest(e);
+        if (ht.cellType !== 'cell') return;
+        selectedRowIndex = ht.row; // 선택된 행 인덱스
+        selectedColumnIndex = ht.col; // 선택된 열 인덱스
 
         // 선택된 행 인덱스가 유효한지 확인
         if (
                 selectedRowIndex < 0 ||
-                selectedRowIndex >= s.rows.length ||
+                selectedRowIndex >= s.getPageRows().length ||
                 selectedColumnIndex < 0 ||
                 selectedColumnIndex >= theGrid.columns.length
         ) {
           return; // 선택된 행이나 열이 유효하지 않은 경우 함수를 종료
         }
 
-        let selectedItem = s.rows[selectedRowIndex]?.dataItem; // 선택된 행의 데이터
+        let selectedItem = s.getPageRows()[selectedRowIndex]; // 선택된 행의 데이터
 
         /*  console.log(JSON.stringify(selectedItem, null, 2) + " 선택된 셀 정보확인");*/
 
         // 선택된 항목과 선택된 셀의 바인딩을 확인
         if (selectedItem) {
 
-          var binding = theGrid.columns[selectedColumnIndex].binding;
+          var binding = theGrid.columns[selectedColumnIndex].key;
 
           // 바인딩에 따라 값을 필드에 설정
           if (binding === 'agroupnm') {
@@ -380,10 +376,8 @@
         }
       });
 
-      theGrid.rowHeaders.columns.splice(0, 1);  //맨 앞에 헤더부분 없애기
 
-      new FlexGridContextMenu(theGrid);
-      theGrid.downloadFileName = '공통코드';
+      theGrid.opts.fileName = '공통코드';
 
     }
 
@@ -450,8 +444,7 @@
           searchDataBind();
 
           // 그리드의 선택 상태를 초기화
-          theGrid.collectionView.moveCurrentToPosition(-1);
-          theGrid.selection = new wijmo.grid.CellRange(-1, -1, -1, -1); // 모든 셀의 선택을 해제
+          theGrid.select(null);   // 선택 풀기
           // 입력 필드 초기화
           clearTableInputs();
 
@@ -514,39 +507,31 @@
       /* console.log("Formatted data:", formattedData);*/
 
       // Clear existing columns
-      theGrid.columns.clear();
-      theGrid.autoGenerateColumns = false;
 
       // Add new columns
-      columns.forEach(colDef => {
-        let col = new wijmo.grid.Column(colDef);
-        theGrid.columns.push(col);
-      });
 
       // Create CollectionView and bind data
-      viewdata = new wijmo.collections.CollectionView(formattedData);
+      viewdata = formattedData;
 
       // Set up grouping
       if (typeof menuGroupName !== 'undefined') {
-        viewdata.groupDescriptions.clear();
-        viewdata.groupDescriptions.push(menuGroupName);
+        theGrid.setGroup(menuGroupName);
       } else {
         console.error("menuGroupName is not defined.");
       }
 
       // Bind CollectionView to grid
-      theGrid.itemsSource = viewdata;
-      theGrid.refresh();
+      theGrid.setData(viewdata);
 
     }
 
     function deleteCode() {
       // 그리드에서 선택된 항목과 열 정보를 가져옵니다
-      var selectedRow = theGrid.selection.row;
-      var selectedColumn = theGrid.selection.col; // .column 대신 .col로 변경
+      var selectedRow = theGrid.getPageRows().indexOf(theGrid.current());
+      var selectedColumn = selectedColumnIndex;   // 마지막으로 누른 칸 (EditTable 은 행 단위 선택이라 click 에서 기억)
 
       // 선택된 항목의 데이터 아이템을 가져옵니다
-      var selectedItem = theGrid.rows[selectedRow]?.dataItem;
+      var selectedItem = theGrid.getPageRows()[selectedRow];
 
       if (!selectedItem) {
         Alert.alert('','선택된 항목이 없습니다.');
@@ -567,7 +552,7 @@
         return;
       }
 
-      var cellBinding = column.binding;
+      var cellBinding = column.key;
 
       // 바인딩 이름을 확인합니다
       /*         console.log('Selected Column Object:', column);
@@ -625,8 +610,7 @@
               clearTableInputs();
 
               // 그리드의 선택 상태를 초기화
-              theGrid.collectionView.moveCurrentToPosition(-1);
-              theGrid.selection = new wijmo.grid.CellRange(-1, -1, -1, -1); // 모든 셀의 선택을 해제
+              theGrid.select(null);   // 선택 풀기
 
             } else {
               Alert.alert('',res.message);  // 오류 발생 시 사용자에게 알림 표시

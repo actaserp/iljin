@@ -114,121 +114,99 @@
 
             init() {
                 let _this = this;
-                this.grid = new wijmo.grid.FlexGrid('#material-stock-grid', {
-                    autoGenerateColumns: false,
+                this.grid = new EditTable('#material-stock-grid', {
                     frozenColumns: 0, // 열 고정
-                    headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                    selectionMode: wijmo.grid.SelectionMode.Cell, // 위치 칸 편집을 위해 셀 선택 (다중 선택 불가)
-                    allowSorting: true, // 정렬 가능
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                            e.cell.style.textAlign = 'center';
-                        }
-                    },
+                     // 위치 칸 편집을 위해 셀 선택 (다중 선택 불가)
+                     // 정렬 가능
                     columns: [
-                        {binding: 'mat_type_name', header: '품목유형', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'mat_grp_name', header: '품목그룹', width: 120, align: 'left', isReadOnly: true},
-                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'mat_name', header: '품목명', width: 250, align: 'left', isReadOnly: true},
+                        {key: 'mat_type_name', header: '품목유형', width: 100, align: 'left', readOnly: true},
+                        {key: 'mat_grp_name', header: '품목그룹', width: 120, align: 'left', readOnly: true},
+                        {key: 'mat_code', header: '품목코드', width: 100, align: 'center', readOnly: true},
+                        {key: 'mat_name', header: '품목명', width: 250, align: 'left', readOnly: true},
                         {
-                            binding: 'stock_price',
+                            key: 'stock_price',
                             header: '재고금액',
                             width: 120,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true
+                            readOnly: true
                         },
-                        {binding: 'unit_name', header: '단위', width: 70, align: 'center', isReadOnly: true},
+                        {key: 'unit_name', header: '단위', width: 70, align: 'center', readOnly: true},
                         {
-                            binding: 'avail_stock',
+                            key: 'avail_stock',
                             header: '가용재고',
                             width: 100,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true,
+                            readOnly: true,
                             visible: false
                         },
                         {
-                            binding: 'reserve_stock',
+                            key: 'reserve_stock',
                             header: '예약재고',
                             width: 100,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true,
+                            readOnly: true,
                             visible: false
                         },
                         {
-                            binding: 'cur_stock',
+                            key: 'cur_stock',
                             header: '총재고',
                             width: 100,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true
-                        },
-                        {binding: 'house_name', header: '창고', width: 120, align: 'center', isReadOnly: true},
+                            readOnly: true, cellClass: r => r.cur_stock < r.safety_stock ? 'et-bad' : ''},
+                        {key: 'house_name', header: '창고', width: 120, align: 'center', readOnly: true},
                         // 자재 위치(랙·칸). 칸을 눌러 바로 고친다 — 품목정보의 '창고 내 위치'와 같은 값
-                        {binding: 'house_loc', header: '위치', width: 110, align: 'center', isReadOnly: false},
+                        {key: 'house_loc', header: '위치', width: 110, align: 'center', readOnly: false},
                         {
-                            binding: 'house_stock',
+                            key: 'house_stock',
                             header: '창고재고',
                             width: 100,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true,
-                        },
-                        {binding: 'lot_use_yn', header: '로트관리유무', width: 120, align: 'center', isReadOnly: true},
+                            readOnly: true, cellClass: r => r.house_stock < 0 ? 'et-red' : ''},
+                        {key: 'lot_use_yn', header: '로트관리유무', width: 120, align: 'center', readOnly: true},
                         {
-                            binding: 'lot_count',
+                            key: 'lot_count',
                             header: '로트 개수',
                             width: 100,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true
+                            readOnly: true
                         },
                         {
-                            binding: 'safety_stock',
+                            key: 'safety_stock',
                             header: '안전재고',
                             width: 100,
                             align: 'right',
                             format: 'n0',
-                            isReadOnly: true
+                            readOnly: true
                         }
                     ],
-                    itemsSource: new wijmo.collections.CollectionView([]), // 빈 데이터로 초기화
-                    itemFormatter: (panel, row, col, cell) => {
-                        if (panel.cellType === wijmo.grid.CellType.Cell) {
-                            const item = panel.rows[row].dataItem; // 현재 행 데이터
-                            const column = panel.columns[col]; // 현재 열
-
-                            // 'cur_stock' 열에 대해 조건에 따른 클래스 추가
-                            if (column.binding === 'cur_stock' && item.cur_stock < item.safety_stock) {
-                                cell.classList.add('grid-cell-red');
-                            }
-
-                            // 'house_stock' 열에 대해 조건에 따른 클래스 추가
-                            if (column.binding === 'house_stock' && item.house_stock < 0) {
-                                cell.classList.add('redText');
-                            }
-                        }
-                    }
+                     // 빈 데이터로 초기화
                 });
                 // 위치 칸을 고치면 바로 저장. 같은 품목의 다른 창고 행에도 같은 값을 보여준다
-                this.grid.cellEditEnded.addHandler((s, e) => {
-                    if (s.columns[e.col].binding !== 'house_loc') return;
-                    const item = s.rows[e.row].dataItem;
+                this.grid.opts.onEditEnd = (_item, _key, _v, s) => {
+                    const e = {row: s.getPageRows().indexOf(_item), col: s.columns.findIndex(c => c.key === _key)};   // 위즈모 cellEditEnded 의 e
+                    (() => {
+                    if (s.columns[e.col].key !== 'house_loc') return;
+                    const item = s.getPageRows()[e.row];
                     if (!item) return;
                     AjaxUtil.postJsonData(this.url + '/save_loc', {id: item.id, loc: item.house_loc || ''},
                         res => {
                             if (res && res.success) {
-                                s.itemsSource.items.forEach(r => { if (r.id === item.id) r.house_loc = item.house_loc; });
-                                s.invalidate();
+                                s.getData().forEach(r => { if (r.id === item.id) r.house_loc = item.house_loc; });
+                                s.refresh();
                             } else {
                                 Alert.alert('', (res && res.message) || '위치를 저장하지 못했습니다.');
                             }
                         });
-                });
-                new FlexGridContextMenu(this.grid);
-                this.grid.downloadFileName = '재고 현황 내역';
+                    })();
+                    s.refreshRow(_item);   // 고친 뒤 계산한 값이 보이게 (위즈모는 편집 끝에 그 행을 다시 그렸음)
+                };
+                this.grid.opts.fileName = '재고 현황 내역';
             }
 
             searchDataBind() {
@@ -247,7 +225,7 @@
 
                 let result = AjaxUtil.getSyncData(this.url + '/read', param);
                 if (result != null) {
-                    _this.grid.itemsSource.sourceCollection = result.data;
+                    _this.grid.setData(result.data);
                 }
             }
 

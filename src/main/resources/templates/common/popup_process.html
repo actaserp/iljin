@@ -81,7 +81,7 @@
             this.grid = null;
             this.selectedItem = null;
             this.callback = null;
-            this.viewData = new wijmo.collections.CollectionView();
+            this.viewData = [];
             this.modalContainer = new PopupDraggable('공정 선택');
             this.$keyword = null;
 
@@ -98,24 +98,16 @@
             let $content = $(content);
             this.modalContainer.open({ width: 1115, height: 470, $content });
 
-            this.grid = new wijmo.grid.FlexGrid('#process-search-grid', {
-                selectionMode: wijmo.grid.SelectionMode.Row,
-                headersVisibility: wijmo.grid.HeadersVisibility.Column,
-                autoGenerateColumns: false,
-                showMarquee: true,
-                isReadOnly: true,
-                formatItem: (sender, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-                        e.cell.style.textAlign = 'center';
-                    }
-                },
+            this.grid = new EditTable('#process-search-grid', {
+                readOnly: true,
                 columns: [
-                    { binding: 'Code', header: 'Code', width: '*', align: 'left'},
-                    { binding: 'Name', header: '공정명', width: '*', align: 'left'},
-                    { binding: 'ProcessType', header: '타입', width: '*', align: 'left'},
+                    { key: 'Code', header: 'Code', width: '1*', align: 'left'},
+                    { key: 'Name', header: '공정명', width: '1*', align: 'left'},
+                    { key: 'ProcessType', header: '타입', width: '1*', align: 'left'},
                 ],
-                itemsSource: this.viewData, // 데이터를 설정할 배열
+                 // 데이터를 설정할 배열
             });
+            this.grid.setData(this.viewData);
 
             /*this.grid = new ax5.ui.grid(config);*/
             this.$btnProcessSearch = $content.find('#btnProcessSearch');
@@ -128,12 +120,12 @@
             });
 
             this.$btnProcessSelect.click(function (e) {
-                let sel = _this.grid.selection;
+                let sel = {row: _this.grid.getPageRows().indexOf(_this.grid.current()), col: -1};
                 if (!sel || sel.row < 0) {
                     return false;
                 }
 
-                let item = _this.grid.rows[sel.row].dataItem;
+                let item = _this.grid.getPageRows()[sel.row];
                 _this.selectData(item);
             });
 
@@ -167,7 +159,7 @@
 
             let result = AjaxUtil.getSyncData(url, data);
             if (result != null) {
-                _this.viewData.sourceCollection = result.data;
+                _this.grid.setData(result.data);
             }
 
             //검색버튼을 누르고 초기화한다

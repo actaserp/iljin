@@ -1,10 +1,5 @@
 <html layout:decorate="~{layout_page}" xmlns:layout="http://www.w3.org/1999/xhtml">
 <head>
-    <style>
-        .wj-header {
-            text-align: center !important;
-        }
-    </style>
 </head>
 
 <th:block layout:fragment="content">
@@ -257,13 +252,13 @@
         var viewdata;
 
         let columns = [
-            {binding: 'id', header: 'id', width: 120, align: 'center', visible: false},
-            {binding: 'BoardTypeName', header: '항목구분', width: 120, align: 'center'},
-            {binding: 'name', header: '항목명', width: 200, align: 'center'},
-            {binding: 'Duration', header: '지속시간(초)', width: 150, align: 'center'},
-            {binding: 'writer', header: '작성자', width: 150, align: 'center'},
-            {binding: 'created', header: '작성일', width: 200, align: 'center'},
-            {binding: '', header: '', width: "*", align: 'center'},
+            {key: 'id', header: 'id', width: 120, align: 'center', visible: false},
+            {key: 'BoardTypeName', header: '항목구분', width: 120, align: 'center'},
+            {key: 'name', header: '항목명', width: 200, align: 'center'},
+            {key: 'Duration', header: '지속시간(초)', width: 150, align: 'center'},
+            {key: 'writer', header: '작성자', width: 150, align: 'center'},
+            {key: 'created', header: '작성일', width: 200, align: 'center'},
+            
         ];
 
         document.readyState === 'complete' ? init() : window.onload = init;
@@ -284,18 +279,14 @@
                 }
             })
 
-            viewdata = new wijmo.collections.CollectionView(data2);
+            viewdata = data2;
 
-            theGrid = new wijmo.grid.FlexGrid('#theGrid', {
-                autoGenerateColumns: false,
-                showMarquee: true,
+            theGrid = new EditTable('#theGrid', {
                 columns: columns,
-                isReadOnly: true,
-                itemsSource: viewdata
+                readOnly: true
             });
+            theGrid.setData(viewdata);
 
-            theGrid.rowHeaders.columns.splice(0, 1);
-            /*  new FlexGridContextMenu(theGrid);*/
         }
 
 
@@ -346,22 +337,15 @@
                 return;
             }
 
-            theGrid.columns.clear();
-            theGrid.autoGenerateColumns = false;
             // columns 배열이 정의되어 있는지 확인
             if (typeof columns === 'undefined' || !Array.isArray(columns)) {
                 console.error('columns 배열이 정의되지 않았습니다.');
                 return;
             }
-            columns.forEach(columnDef => {
-                var col = new wijmo.grid.Column(columnDef);
-                theGrid.columns.push(col);
-            });
 
-            viewdata = new wijmo.collections.CollectionView(menulogData);
+            viewdata = menulogData;
 
-            theGrid.itemsSource = viewdata;
-            theGrid.refresh();
+            theGrid.setData(viewdata);
         }
 
 
@@ -483,13 +467,13 @@
             $('#btnDel').click(function (e) {
                 /*let ids = [];*/
                 /*// 그리드에서 선택된 항목의 ID 수집
-                theGrid.itemsSource.items.forEach(function (item) {
+                theGrid.getData().forEach(function (item) {
                     if (item.__selected__) {
                         ids.push(item.id); // 각 항목의 ID를 수집
                     }
                 });*/
 
-                let selectedRow = theGrid.selection.row;
+                let selectedRow = theGrid.getPageRows().indexOf(theGrid.current());
               /*  console.log("선택된 행:", selectedRow);*/
 
                 if (selectedRow == null || selectedRow < 0) {
@@ -499,7 +483,7 @@
 
                 if (selectedRow >= 0) {
                     // 선택된 행의 데이터 가져오기
-                    let selectedItem = theGrid.rows[selectedRow].dataItem;
+                    let selectedItem = theGrid.getPageRows()[selectedRow];
                    /* console.log("선택된 데이터:", selectedItem);*/
 
                     if (selectedItem && selectedItem.id) {

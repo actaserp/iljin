@@ -163,7 +163,7 @@ public class QualityDefectSlipService {
             delete from quality_defect
             where id = :id and "State" = 'draft'
             """;
-        this.sqlRunner.getRow(sql, param);
+        this.sqlRunner.execute(sql, param);   // 예전 getRow : 지워지긴 하지만 '결과 없음' 예외로 '삭제 실패' 가 떴음
         return true;
     }
 }

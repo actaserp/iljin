@@ -250,9 +250,9 @@
                 this.grid_suju = null;
                 this.grid_product = null;
                 this.grid_shipment = null;
-                this.viewData = new wijmo.collections.CollectionView();
-                this.viewData2 = new wijmo.collections.CollectionView();
-                this.viewData3 = new wijmo.collections.CollectionView();
+                this.viewData = [];
+                this.viewData2 = [];
+                this.viewData3 = [];
 
 
                 //기존
@@ -265,199 +265,135 @@
 
             init() {
                 let _this = this;
-                this.grid_suju = new wijmo.grid.FlexGrid('#theGrid', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: false,
+                this.grid_suju = new EditTable('#theGrid', {
+                    rowCheck: true,
+                    onCheck: (e, ctx) => {
+                        SelectItem = this.grid_suju.getChecked().map(d => ({dataItem: d, _data: d, isSelected: true}));
+                    },
+                     // 행 단위 선택
+                    readOnly: false,
                     columns: [
                         {
-                            binding: 'suju_pk',
+                            key: 'suju_pk',
                             header: '수주번호',
-                            width: '*',
+                            width: '1*',
                             align: 'center',
-                            isReadOnly: true,
+                            readOnly: true,
                             visible: false
                         },
-                        {binding: 'JumunNumber', header: '수주번호', width: 130, align: 'center', isReadOnly: true},
-                        {binding: 'DueDate', header: '납기일', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'CompanyName', header: '판매처', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'mat_code', header: '제품코드', width: 90, align: 'center', isReadOnly: true},
-                        {binding: 'mat_name', header: '제품명', width: 120, align: 'left', isReadOnly: true},
-                        {binding: 'suju_qty', header: '수주량', width: 80, align: 'right', isReadOnly: true},
+                        {key: 'JumunNumber', header: '수주번호', width: 130, align: 'center', readOnly: true},
+                        {key: 'DueDate', header: '납기일', width: 100, align: 'center', readOnly: true},
+                        {key: 'CompanyName', header: '판매처', width: 100, align: 'left', readOnly: true},
+                        {key: 'mat_code', header: '제품코드', width: 90, align: 'center', readOnly: true},
+                        {key: 'mat_name', header: '제품명', width: 120, align: 'left', readOnly: true},
+                        {key: 'suju_qty', header: '수주량', width: 80, align: 'right', readOnly: true},
                         {
-                            binding: 'order_input_qty',
+                            key: 'order_input_qty',
                             header: '지시량',
                             width: 100,
                             align: 'right',
-                            isReadOnly: false, // 편집 가능
-                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
-                                format: 'n2', // 정수 형식
-                                min: 0,       // 최소값 설정
-                                max: 99999,   // 최대값 설정
-                                step: 0.1       // 증가/감소 단위
-                            })
-                        },
-                        {binding: 'cur_stock', header: '현재고', width: 80, align: 'right', isReadOnly: true},
-                        {binding: 'Standard', header: '규격', width: 80, align: 'right', isReadOnly: true},
-                        //{ binding: 'order_input_qty', header: '추가지시량', width: '*', align: 'right', isReadOnly: false },
+                            readOnly: false, // 편집 가능
+                            type: 'number', cellClass: 'et-hl'},
+                        {key: 'cur_stock', header: '현재고', width: 80, align: 'right', readOnly: true},
+                        {key: 'Standard', header: '규격', width: 80, align: 'right', readOnly: true},
+                        //{ key: 'order_input_qty', header: '추가지시량', width: '1*', align: 'right', readOnly: false },
 
-                        {binding: 'order_qty', header: '기지시량', width: 80, align: 'right', isReadOnly: true},
-                        {binding: 'shipment_qty', header: '출하량', width: 80, align: 'right', isReadOnly: true},
-                        {binding: 'CompanyName', header: '판매처', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'JumunDate', header: '수주일', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'mat_grp', header: '제품그룹', width: 100, align: 'left', isReadOnly: true},
-                        {binding: 'unit_name', header: '단위', width: 80, align: 'center', isReadOnly: true},
+                        {key: 'order_qty', header: '기지시량', width: 80, align: 'right', readOnly: true},
+                        {key: 'shipment_qty', header: '출하량', width: 80, align: 'right', readOnly: true},
+                        {key: 'CompanyName', header: '판매처', width: 100, align: 'left', readOnly: true},
+                        {key: 'JumunDate', header: '수주일', width: 100, align: 'center', readOnly: true},
+                        {key: 'mat_grp', header: '제품그룹', width: 100, align: 'left', readOnly: true},
+                        {key: 'unit_name', header: '단위', width: 80, align: 'center', readOnly: true},
                     ],
-                    itemsSource: this.viewData,
-                    formatItem: (s, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.Cell) {
-                            let col = s.columns[e.col];
-                            e.cell.style.backgroundColor = '';
-                            e.cell.style.color = '';
-                            e.cell.style.border = '';
-
-                            if (col.binding === 'order_input_qty') {
-                                e.cell.style.backgroundColor = '#ffd800'; // 배경색 노란색으로 설정
-                                e.cell.style.color = 'black';           // 글자색 설정 (가독성 고려)
-                            }
-                        }
-                    },
 
                 });
-                this.grid_suju.beginningEdit.addHandler((s, e) => {
+                this.grid_suju.setData(this.viewData);
+                this.grid_suju.opts.onBeginEdit = (_item, _key, s) => {
+                    const e = {row: s.getPageRows().indexOf(_item), col: s.columns.findIndex(c => c.key === _key)};   // 위즈모 beginningEdit 의 e
                     let col = s.columns[e.col]; // 현재 편집 중인 컬럼
                     let row = e.row;            // 현재 편집 중인 행
 
                     // 편집 중인 컬럼이 'order_input_qty'인 경우
-                    if (col.binding === 'order_input_qty') {
+                    if (col.key === 'order_input_qty') {
                         // suju_qty 열의 값을 가져옴
-                        let sujuQtyValue = s.getCellData(row, s.columns.getColumn('suju_qty').index, false);
+                        let sujuQtyValue = s.getPageRows()[row]['suju_qty'];
 
                         // 현재 편집 중인 셀에 suju_qty 값을 설정
-                        s.setCellData(row, col.index, sujuQtyValue);
+                        s.setValue(s.getPageRows()[row], col.key, sujuQtyValue);
                     }
-                });
-                new FlexGridContextMenu(this.grid_suju);
-                this.grid_suju.downloadFileName = '수주내역';
-                let selector = new wijmo.grid.selector.Selector(this.grid_suju, {
-                    itemChecked: (e, ctx) => {
-                        SelectItem = this.grid_suju.rows.filter(r => r.isSelected);
-                    }
-                })
+                };
+                this.grid_suju.opts.fileName = '수주내역';
 
-                this.grid_shipment = new wijmo.grid.FlexGrid('#theGrid4', {
-                    selectionMode: wijmo.grid.SelectionMode.Row,
-                    headersVisibility: wijmo.grid.HeadersVisibility.All,
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowDelete: true,
-                    isReadOnly: false,
-                    formatItem: (sender, e) => {
-                        if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-                            e.cell.textContent = (e.row + 1).toString();
-                        }
-                        if(e.panel.cellType === wijmo.grid.CellType.Cell){
-                            let col = sender.columns[e.col];
-
-                            if(col.binding === 'order_qty'){
-                                e.cell.style.backgroundColor = '#ffd800';
-                                e.cell.style.color = 'black';
-                            }
-                        }
-                    },
+                this.grid_shipment = new EditTable('#theGrid4', {
+                    readOnly: false,
+                    rowNumbers: true,
                     columns: [
                         {
-                            binding: 'suju_pk',
+                            key: 'suju_pk',
                             header: '순번(지워야됨)',
                             width: 70,
                             align: 'right',
-                            isReadOnly: true,
+                            readOnly: true,
                             visible: false
                         },
                         {
-                            binding: 'mat_id',
+                            key: 'mat_id',
                             header: '순번(지워야됨)',
                             width: 70,
                             align: 'right',
-                            isReadOnly: true,
+                            readOnly: true,
                             visible: false
                         },
-                        {binding: 'mat_code', header: '제품코드', width: 100, align: 'center', isReadOnly: true},
-                        {binding: 'mat_name', header: '제품명', width: 140, align: 'left', isReadOnly: true},
-                        {binding: 'unit_name', header: '단위', width: 100, align: 'center', isReadOnly: true},
+                        {key: 'mat_code', header: '제품코드', width: 100, align: 'center', readOnly: true},
+                        {key: 'mat_name', header: '제품명', width: 140, align: 'left', readOnly: true},
+                        {key: 'unit_name', header: '단위', width: 100, align: 'center', readOnly: true},
                         {
-                            binding: 'order_qty',
+                            key: 'order_qty',
                             header: '수량',
                             width: 100,
                             align: 'right',
-                            isReadOnly: false, // 편집 가능
-                            editor: new wijmo.input.InputNumber(document.createElement('div'), {
-                                format: 'n2', // 정수 형식
-                                min: 0,       // 최소값 설정
-                                max: 99999,   // 최대값 설정
-                                step: 0.1       // 증가/감소 단위
-                            })
-                        },
-                        {binding: 'mat_grp', header: '제품그룹', width: 100, align: 'left', isReadOnly: true},
+                            readOnly: false, // 편집 가능
+                            type: 'number', cellClass: 'et-hl'},
+                        {key: 'mat_grp', header: '제품그룹', width: 100, align: 'left', readOnly: true},
                         {
-                            binding: 'description',
+                            key: 'description',
                             header: '비고',
                             width: 100,
                             align: 'center',
-                            isReadOnly: false, // 편집 가능
-                            editor: new wijmo.input.InputMask(document.createElement('div'), {
-                                // mask: '>AAAAAA', // 대문자 영문자 최대 6자 입력 허용
-                                //promptChar: '_', // 입력하지 않은 자리를 '_'로 표시
-                                placeholder: '입력해주세요', // 기본 힌트 텍스트
-                                isRequired: false // 필수 입력 여부
-                            })
+                            readOnly: false, // 편집 가능
+                            placeholder: '입력해주세요'
                         },
 
-                    ],
-                    itemsSource: this.viewData2,
+                    ]
 
                 });
+                this.grid_shipment.setData(this.viewData2);
                 // 행 헤더에 인덱스 추가
-                this.grid_shipment.formatItem.addHandler((s, e) => {
-                    if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-                        e.cell.textContent = (e.row + 1).toString(); // 행 번호 (1부터 시작)
-                    }
-                });
 
-                // 행 헤더 크기 조정
-                this.grid_shipment.rowHeaders.columns[0].width = 50;
-                new FlexGridContextMenu(this.grid_shipment);
-                this.grid_shipment.downloadFileName = '출하지시';
+                this.grid_shipment.opts.fileName = '출하지시';
 
 
-                this.grid_product = new wijmo.grid.FlexGrid('#theGrid3', {
-                    autoGenerateColumns: false,
-                    showMarquee: true,
-                    allowSorting: 'MultiColumn',
-                    selectionMode: wijmo.grid.SelectionMode.Row, // 행 단위 선택
-                    isReadOnly: true,
+                this.grid_product = new EditTable('#theGrid3', {
+                    rowCheck: true,
+                    onCheck: (e, ctx) => {
+                        SelectItem2 = this.grid_product.getChecked().map(d => ({dataItem: d, _data: d, isSelected: true}));
+                    },
+                     // 행 단위 선택
+                    readOnly: true,
                     columns: [
-                        // {binding: 'mat_id', header: '품목번호', width: 100, align: 'right'},  // width: 40
-                        {binding: 'mat_type', header: '품목유형', width: 100, align: 'left'},
-                        {binding: 'mat_grp', header: '품목그룹', width: 100, align: 'left'},
-                        {binding: 'mat_code', header: '품목코드', width: 100, align: 'left'},
-                        {binding: 'mat_name', header: '품목명', width: '*', align: 'left'},
-                        {binding: 'unit_name', header: '단위', width: 80, align: 'center'},
-                        {binding: 'standard1', header: '규격', width: 80, align: 'center'},
-                        {binding: 'cur_stock', header: '현재고', width: 80, align: 'right'}
-                    ],
-                    itemsSource: this.viewData3,
+                        // {key: 'mat_id', header: '품목번호', width: 100, align: 'right'},  // width: 40
+                        {key: 'mat_type', header: '품목유형', width: 100, align: 'left'},
+                        {key: 'mat_grp', header: '품목그룹', width: 100, align: 'left'},
+                        {key: 'mat_code', header: '품목코드', width: 100, align: 'left'},
+                        {key: 'mat_name', header: '품목명', width: '1*', align: 'left'},
+                        {key: 'unit_name', header: '단위', width: 80, align: 'center'},
+                        {key: 'standard1', header: '규격', width: 80, align: 'center'},
+                        {key: 'cur_stock', header: '현재고', width: 80, align: 'right'}
+                    ]
                 });
-                new FlexGridContextMenu(this.grid_product);
-                this.grid_product.downloadFileName = '제품';
+                this.grid_product.setData(this.viewData3);
+                this.grid_product.opts.fileName = '제품';
 
-                let selector2 = new wijmo.grid.selector.Selector(this.grid_product, {
-                    itemChecked: (e, ctx) => {
-                        SelectItem2 = this.grid_product.rows.filter(r => r.isSelected);
-                    }
-                })
 
 
                 $('#div_product').hide();
@@ -475,7 +411,7 @@
                     let result = AjaxUtil.getSyncData(gUrl + "/suju_list", data);
 
                     if (result.data != null) {
-                        this.viewData.sourceCollection = result.data;
+                        this.grid_suju.setData(result.data);
                         _this.grid_shipment_clear();
                     }
                 } else if (source == 'product') {
@@ -483,7 +419,7 @@
 
                     let result = AjaxUtil.getSyncData(gUrl + "/product_list", data);
                     if (result.data != null) {
-                        this.viewData3.sourceCollection = result.data;
+                        this.grid_product.setData(result.data);
                         _this.grid_shipment_clear();
                     }
                 }
@@ -491,7 +427,7 @@
             }
 
             grid_shipment_clear() {
-                this.grid_shipment.itemsSource = new wijmo.collections.CollectionView([]);
+                this.grid_shipment.setData([]);
                 document.getElementById('company_id').value = '';
                 document.getElementById('company_name').value = '';
                 document.getElementById('DeliveryName').value = '';
@@ -555,7 +491,7 @@
                             //page.grid_shipment.addRow($.extend({}, new_data), 'last');
                             //result.push(new_data);
                         } else {
-                            _this.grid_shipment.collectionView.items.forEach(function (row, index) {
+                            _this.grid_shipment.getView().forEach(function (row, index) {
                                 console.log('row', row['mat_id'])
                                 if (row['mat_id'] == item._data.mat_id) {
                                     let suju_pk = 'S' + String(item._data.suju_pk);
@@ -594,7 +530,7 @@
 
                     });
 
-                    /*_this.grid_shipment.collectionView.items.forEach(function (row, index) {
+                    /*_this.grid_shipment.getView().forEach(function (row, index) {
                         let myArray = row['suju_pk'].split(',');
                         let order_sum = 0;
                         myArray.forEach(function (suju_data, index, thisArray) {
@@ -634,13 +570,11 @@
 
             deleteShipMat() {
 
-                let cv = this.grid_shipment.collectionView;
-                let selectedIndex = this.grid_shipment.selection.row;
-                let selectedItem = cv.items[selectedIndex]; // 선택된 행의 데이터
-                cv.remove(selectedItem);
-                cv.refresh();
+                let g = this.grid_shipment;
+                let selectedItem = g.current(); // 선택된 행의 데이터
+                if (selectedItem) g.removeRow(selectedItem);
 
-                if (cv.items.length === 0) {
+                if (g.getData().length === 0) {
                     document.getElementById('company_id').value = '';
                 }
 
@@ -658,8 +592,8 @@
                     return false;
                 }
 
-                for (let i = 0; i < this.grid_shipment.collectionView.items.length; i++) {
-                    let item = this.grid_shipment.collectionView.items[i];
+                for (let i = 0; i < this.grid_shipment.getView().length; i++) {
+                    let item = this.grid_shipment.getView()[i];
                     let qty = item.order_qty;
                     if (qty == null || qty == '') {
                         Alert.alert('', '수량을 입력하세요.');
@@ -674,7 +608,7 @@
                 let bucket = [];
 
 
-                let list_data = this.grid_shipment.collectionView.items;
+                let list_data = this.grid_shipment.getView();
                 for (let i = 0; i < list_data.length; i++) {
                     bucket.push(list_data[i])
                 }
@@ -717,8 +651,8 @@
             }
 
             checkShipMatUnique(mat_pk) {
-                for (let i = 0; i < this.grid_shipment.collectionView.items.length; i++) {
-                    if (mat_pk == this.grid_shipment.collectionView.items[i].mat_id)
+                for (let i = 0; i < this.grid_shipment.getView().length; i++) {
+                    if (mat_pk == this.grid_shipment.getView()[i].mat_id)
                         return false;
                 }
                 return true;
@@ -726,22 +660,21 @@
 
             getShipMatRow(mat_pk) {
 
-                for (let i = 0; i < this.grid_shipment.collectionView.items.length; i++) {
+                for (let i = 0; i < this.grid_shipment.getView().length; i++) {
 
-                    if (mat_pk == this.grid_shipment.collectionView.items[i].mat_id)
+                    if (mat_pk == this.grid_shipment.getView()[i].mat_id)
                         return i;
                 }
                 return -1;
             }
 
             addNewRow(new_data) {
-                let cv = this.grid_shipment.collectionView;
+                let g = this.grid_shipment;   // 위즈모 CollectionView 대신 EditTable
 
-                let existingItem = cv.items.find(item =>
+                let existingItem = g.getData().find(item =>
                     item.suju_pk && item.suju_pk === new_data['suju_pk']);
                 if (existingItem) {
-                    cv.remove(existingItem);
-                    cv.commitEdit();
+                    g.removeRow(existingItem);
                 }
 
                 let newRow = {
@@ -754,8 +687,7 @@
                     order_qty: new_data['order_qty'],       // 수량 초기값
                     description: ''
                 };
-                cv.addNew(newRow);
-                //cv.commit();
+                g.addRow(newRow, {focus: false});
 
             }
 
@@ -923,7 +855,7 @@
             $('#shipdate').val(CommonUtil.getYYYYMMDD());
 
             $('#btnSaveShipOrder').click(function (e) {
-                if (page.grid_shipment.collectionView.items == 0) {
+                if (page.grid_shipment.getView() == 0) {
                     Alert.alert('', '출하 지시할 내용이 없습니다.');
                     return;
                 }

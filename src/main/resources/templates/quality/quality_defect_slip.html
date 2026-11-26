@@ -153,56 +153,34 @@
 
       init() {
         const _this = this;
-        this.grid = new wijmo.grid.FlexGrid('#defect-grid', {
-          autoGenerateColumns: false,
-          selectionMode: wijmo.grid.SelectionMode.Row,
-          headersVisibility: wijmo.grid.HeadersVisibility.All,
-          isReadOnly: true,
-          showMarquee: true,
-          formatItem: (sender, e) => {
-            if (e.panel.cellType === wijmo.grid.CellType.RowHeader) {
-              e.cell.textContent = (e.row + 1).toString();
-            }
-            if (e.panel.cellType === wijmo.grid.CellType.ColumnHeader) {
-              e.cell.style.textAlign = 'center';
-            }
-          },
+        this.grid = new EditTable('#defect-grid', {
+          readOnly: true,
+          rowNumbers: true,
           columns: [
-            {binding: 'id',            header: 'ID',       width: 60,  align: 'center', visible: false},
-            {binding: 'defect_no',     header: '전표번호',  width: 160, align: 'center'},
-            {binding: 'defect_date',   header: '불량일자',  width: 100, align: 'center'},
-            {binding: 'house_name',    header: '창고',      width: 100, align: 'center'},
-            {binding: 'process',       header: '발생공정',  width: 100, align: 'center'},
-            {binding: 'material_type', header: '품목유형',  width: 80,  align: 'center'},
-            {binding: 'material_code', header: '품목코드',  width: 110, align: 'center'},
-            {binding: 'material_name', header: '품목명',    width: '*', align: 'left'},
-            {binding: 'unit_name',     header: '단위',      width: 50,  align: 'center'},
-            {binding: 'bad_qty',       header: '불량수량',  width: 85,  align: 'right', format: 'n0'},
-            {binding: 'bad_type_name', header: '불량유형',  width: 100, align: 'center'},
-            {binding: 'bad_reason',    header: '불량사유',  width: 150, align: 'left'},
-            {binding: 'disposal_name', header: '처리방법',  width: 100, align: 'center'},
-            {binding: 'manager',       header: '담당자',    width: 90,  align: 'center'},
-            {binding: 'state_name',    header: '상태',      width: 80,  align: 'center'},
-            {binding: 'description',   header: '비고',      width: 150, align: 'left'}
+            {key: 'id',            header: 'ID',       width: 60,  align: 'center', visible: false},
+            {key: 'defect_no',     header: '전표번호',  width: 160, align: 'center'},
+            {key: 'defect_date',   header: '불량일자',  width: 100, align: 'center'},
+            {key: 'house_name',    header: '창고',      width: 100, align: 'center'},
+            {key: 'process',       header: '발생공정',  width: 100, align: 'center'},
+            {key: 'material_type', header: '품목유형',  width: 80,  align: 'center'},
+            {key: 'material_code', header: '품목코드',  width: 110, align: 'center'},
+            {key: 'material_name', header: '품목명',    width: '1*', align: 'left'},
+            {key: 'unit_name',     header: '단위',      width: 50,  align: 'center'},
+            {key: 'bad_qty',       header: '불량수량',  width: 85,  align: 'right', format: 'n0'},
+            {key: 'bad_type_name', header: '불량유형',  width: 100, align: 'center'},
+            {key: 'bad_reason',    header: '불량사유',  width: 150, align: 'left'},
+            {key: 'disposal_name', header: '처리방법',  width: 100, align: 'center'},
+            {key: 'manager',       header: '담당자',    width: 90,  align: 'center'},
+            {key: 'state_name',    header: '상태',      width: 80,  align: 'center', cellClass: r => r.state === 'confirmed' ? 'et-green' : ''},
+            {key: 'description',   header: '비고',      width: 150, align: 'left'}
           ],
-          itemsSource: new wijmo.collections.CollectionView([]),
-          itemFormatter: (panel, row, col, cell) => {
-            if (panel.cellType === wijmo.grid.CellType.Cell) {
-              const item = panel.rows[row].dataItem;
-              const column = panel.columns[col];
-              if (column.binding === 'state_name') {
-                if (item.state === 'confirmed') cell.style.color = '#1f8f53';
-              }
-            }
-          }
         });
-        new FlexGridContextMenu(this.grid);
-        this.grid.downloadFileName = '불량전표';
+        this.grid.opts.fileName = '불량전표';
 
         this.grid.hostElement.addEventListener('dblclick', (e) => {
           const ht = _this.grid.hitTest(e);
-          if (ht.cellType === wijmo.grid.CellType.Cell) {
-            const item = _this.grid.rows[ht.row].dataItem;
+          if (ht.cellType === 'cell') {
+            const item = _this.grid.getPageRows()[ht.row];
             window.selectedGridId = item.id;
             _this.showPopup(item);
           }
@@ -220,9 +198,9 @@
         };
         let result = AjaxUtil.getSyncData(this.url + '/read', data);
         if (result && result.data != null) {
-          this.grid.itemsSource = new wijmo.collections.CollectionView(result.data);
+          this.grid.setData(result.data);
           if (window.selectedGridId) {
-            GridUtil.selectRowById(this.grid, window.selectedGridId, {idField: 'id'});
+            this.grid.selectById(window.selectedGridId, 'id');
             window.selectedGridId = null;
           }
         }
